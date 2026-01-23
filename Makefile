@@ -18,11 +18,14 @@ TARGET := $(BIN_DIR)/app
 
 MAIN_SRC := src/main.cpp
 DISK_MGR_SRC := src/storage/disk_manager.cpp
+COMPRESSION_SRC := src/storage/compressions/dictionary_encoding.cpp
 
 MAIN_OBJ := $(OBJ_DIR)/main.o
 DISK_MGR_OBJ := $(OBJ_DIR)/storage/disk_manager.o
+COMPRESSION_OBJ := $(OBJ_DIR)/storage/compressions/compression.o
 
-OBJS := $(MAIN_OBJ) $(DISK_MGR_OBJ)
+
+OBJS := $(MAIN_OBJ) $(DISK_MGR_OBJ) $(COMPRESSION_OBJ)
 
 all: $(TARGET)
 
@@ -42,6 +45,11 @@ $(DISK_MGR_OBJ): $(DISK_MGR_SRC) | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+# Compile dictionary_encoding.cpp
+$(COMPRESSION_OBJ): $(COMPRESSION_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 # Link the target
 $(TARGET): $(OBJS) | $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
@@ -50,8 +58,6 @@ run: $(TARGET)
 	./$(TARGET)
 
 clean:
-#	$(MAKE) -C $(UTILS_DIR) clean
-#	$(MAKE) -C $(COHMAP_DIR) clean
 	rm -rf $(OBJ_DIR) $(BIN_DIR)
 
 .PHONY: all clean run

@@ -5,7 +5,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-int read(const char *file_name, char *buffer, size_t size, size_t offset)
+int readCF(const char *file_name, char *buffer, size_t size, size_t offset)
 {
     int fd = open(file_name, O_RDONLY | O_DIRECT);
     if (fd == -1)
@@ -39,7 +39,7 @@ int read(const char *file_name, char *buffer, size_t size, size_t offset)
     return 0;
 }
 
-int write(const char *file_name, const char *buffer, size_t size)
+int writeCF(const char *file_name, const char *buffer, size_t size)
 {
     int fd = open(file_name, O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT, 0644);
     if (fd == -1)
