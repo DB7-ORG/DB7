@@ -24,7 +24,8 @@ struct RowGroupHeader
 
 struct Footer
 {
-    // TODO some random data
+    uint32_t version;
+    char *schema_name;
 };
 
 int counter = 0;
@@ -129,6 +130,7 @@ int main()
     }
 
     // TODO write footer (Footer)
+    // TODO write footer len
 
     close(fd);
     free(data);

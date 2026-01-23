@@ -4,8 +4,6 @@
 #include <iostream>
 #include <fcntl.h>
 #include <unistd.h>
-#include <sys/stat.h>
-#include <cstdlib>
 
 int read(const char *file_name, char *buffer, size_t size, size_t offset)
 {
