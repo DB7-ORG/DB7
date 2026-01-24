@@ -1,17 +1,17 @@
 #ifndef COMPRESSION_H
 #define COMPRESSION_H
 
-#include <unistd.h>
-#include <unordered_map>
-#include <iostream>
+#include <cstdint> // uint32_t, uint16_t, int32_t, etc.
+#include <cstddef>
 
-struct DictionaryEncoded
+struct DictEncodedRes
 {
-    int *encoded;
-    size_t num_items;
-    std::unordered_map<std::string_view, int> encoding_map;
+    uint32_t *encoded;
+    char *strings;
+    size_t string_size;
+    size_t count;
 };
 
-DictionaryEncoded dictionaryEncode(char *buffer, size_t size, size_t item_size);
+DictEncodedRes dictionaryEncodeString(char *buffer, size_t byte_size, size_t count);
 
 #endif

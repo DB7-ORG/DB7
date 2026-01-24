@@ -11,7 +11,7 @@ int readCF(const char *file_name, char *buffer, size_t size, size_t offset)
     if (fd == -1)
     {
         perror("Error opening file");
-        return 1;
+        return 0;
     }
 
     size_t total = 0;
@@ -24,7 +24,7 @@ int readCF(const char *file_name, char *buffer, size_t size, size_t offset)
         {
             close(fd);
             perror("Error pread failed");
-            return 2;
+            return 0;
         }
 
         if (n == 0) // EOF
@@ -36,7 +36,7 @@ int readCF(const char *file_name, char *buffer, size_t size, size_t offset)
     }
 
     close(fd);
-    return 0;
+    return total;
 }
 
 int writeCF(const char *file_name, const char *buffer, size_t size)
@@ -45,7 +45,7 @@ int writeCF(const char *file_name, const char *buffer, size_t size)
     if (fd == -1)
     {
         perror("Error opening file");
-        return 1;
+        return 0;
     }
 
     size_t total = 0;
@@ -56,7 +56,7 @@ int writeCF(const char *file_name, const char *buffer, size_t size)
         {
             close(fd);
             perror("Error read failed");
-            return 2;
+            return 0;
         }
         total += n;
     }
@@ -65,9 +65,9 @@ int writeCF(const char *file_name, const char *buffer, size_t size)
     {
         close(fd);
         perror("Error ftruncate failed");
-        return 3;
+        return 0;
     }
 
     close(fd);
-    return 0;
+    return total;
 }
