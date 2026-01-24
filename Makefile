@@ -3,7 +3,7 @@ BASE_CXXFLAGS = -Wall -Wextra -std=c++17 -pedantic -Iinclude
 LDFLAGS = -lxxhash
 
 # Build mode: debug or release (default: release)
-BUILD ?= debug
+BUILD ?= release
 
 ifeq ($(BUILD),debug)
     CXXFLAGS = $(BASE_CXXFLAGS) -g -O0 -DDEBUG

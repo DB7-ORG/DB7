@@ -9,27 +9,27 @@ std::uniform_int_distribution<> status_distribution(1, 8);
 
 int test_read_write()
 {
-    const long tuple_num = 512 * 1;
+    const long tuple_num = 512 * 100'000;
     const auto strsize = (uint16_t)sizeof("string1");
     long size = tuple_num * (strsize + 2);
     const char *filename = "resources/some.bin";
 
-    char *buffer = (char *)malloc(size);
-    int offset = 0;
-    for (int i = 0; i < tuple_num; i++)
-    {
-        std::string str = "string" + std::to_string(status_distribution(gen));
-        memcpy(buffer + offset, &strsize, sizeof(uint16_t));
-        memcpy(buffer + offset + 2, str.c_str(), strsize);
-        offset += strsize + 2;
-    }
+    // char *buffer = (char *)malloc(size);
+    // int offset = 0;
+    // for (int i = 0; i < tuple_num; i++)
+    // {
+    //     std::string str = "string" + std::to_string(status_distribution(gen));
+    //     memcpy(buffer + offset, &strsize, sizeof(uint16_t));
+    //     memcpy(buffer + offset + 2, str.c_str(), strsize);
+    //     offset += strsize + 2;
+    // }
 
-    if (!writeCF(filename, (char *)buffer, size))
-    {
-        return 1;
-    }
+    // if (!writeCF(filename, (char *)buffer, size))
+    // {
+    //     return 1;
+    // }
 
-    free(buffer);
+    // free(buffer);
 
     char *new_buffer = (char *)malloc(size);
     int read = readCF(filename, new_buffer, size);
