@@ -7,8 +7,9 @@
 struct DictEncodedRes
 {
     uint32_t *encoded;
+    uint32_t *indexes;
     char *strings;
-    size_t string_size;
+    size_t unique_str;
     size_t count;
 };
 

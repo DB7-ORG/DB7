@@ -56,6 +56,12 @@ int test_read_write()
     {
         std::cout << val.encoded[i] << " - ";
     }
+    std::cout << std::endl;
+
+    for (int i = 0; i < 20; i++)
+    {
+        std::cout << val.indexes[i] << " - ";
+    }
 
     free(new_buffer);
     return 0;
