@@ -76,10 +76,10 @@ inline uint32_t HMap::put(char *key, uint16_t len, uint32_t value)
     }
 }
 
-DictEncodedRes dictionaryEncodeString(char *buffer, size_t byte_size, size_t count)
+DictEncodedRes DictionaryEncoder::encode(char *buffer, size_t byte_size, size_t count)
 {
     uint32_t *encoded = (uint32_t *)malloc(count * sizeof(uint32_t));
-
+    // TODO store indexes of each string as middle lookup so we know where each string starts nd ends
     char *strings = (char *)malloc(byte_size); // TODO OK but may over-allocate
     uint32_t s_off = 0;
 
@@ -98,6 +98,7 @@ DictEncodedRes dictionaryEncodeString(char *buffer, size_t byte_size, size_t cou
         if (data == s_off)
         {
             memcpy(strings + s_off, key, len);
+            //*(uint64_t *)(strings + offset) = *(uint64_t *)key;
             s_off += len;
         }
     }

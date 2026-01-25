@@ -44,3 +44,4 @@ bin
 *.cf
 some.bin
 perf.*
+*.deb

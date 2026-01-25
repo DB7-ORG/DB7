@@ -38,7 +38,19 @@ int test_read_write()
         return 2;
     }
 
-    auto val = dictionaryEncodeString((char *)new_buffer, read, tuple_num);
+    // std::vector<std::string> data;
+    // uint32_t offset = 0;
+    // for (size_t i = 0; i < tuple_num; i++)
+    // {
+    //     uint16_t len = *(uint16_t *)(new_buffer + offset);
+    //     offset += 2;
+    //     char *key = new_buffer + offset;
+    //     offset += len;
+
+    //     data.push_back(std::string(key, len));
+    // }
+
+    auto val = DictionaryEncoder::encode((char *)new_buffer, read, tuple_num);
 
     for (int i = 0; i < 20; i++)
     {

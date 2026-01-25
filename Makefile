@@ -1,6 +1,6 @@
 CXX = g++
 BASE_CXXFLAGS = -Wall -Wextra -std=c++17 -pedantic -Iinclude
-LDFLAGS = -lxxhash
+LDFLAGS = -lxxhash #-larrow
 
 # Build mode: debug or release (default: release)
 BUILD ?= release
@@ -18,11 +18,11 @@ TARGET := $(BIN_DIR)/app
 
 MAIN_SRC := src/main.cpp
 DISK_MGR_SRC := src/storage/disk_manager.cpp
-COMPRESSION_SRC := src/storage/compressions/dictionary_encoding.cpp
+COMPRESSION_SRC := src/storage/compressions/dictionary.cpp
 
 MAIN_OBJ := $(OBJ_DIR)/main.o
 DISK_MGR_OBJ := $(OBJ_DIR)/storage/disk_manager.o
-COMPRESSION_OBJ := $(OBJ_DIR)/storage/compressions/dictionary_encoding.o
+COMPRESSION_OBJ := $(OBJ_DIR)/storage/compressions/dictionary.o
 
 
 OBJS := $(MAIN_OBJ) $(DISK_MGR_OBJ) $(COMPRESSION_OBJ)

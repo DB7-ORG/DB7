@@ -12,6 +12,9 @@ struct DictEncodedRes
     size_t count;
 };
 
-DictEncodedRes dictionaryEncodeString(char *buffer, size_t byte_size, size_t count);
-
+struct DictionaryEncoder
+{
+    static DictEncodedRes encode(char *buffer, size_t byte_size, size_t count);
+    // static void decode();
+};
 #endif
