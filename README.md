@@ -25,4 +25,4 @@ implement compression schemes ❌
 // memset(entries, 0, hash_capacity * sizeof(MapEntry));
 
 - read paper for fsst https://raw.githubusercontent.com/cwida/fsst/master/fsstcompression.pdf
-
+- read implementation https://github.com/cwida/fsst/blob/master/fsst.h

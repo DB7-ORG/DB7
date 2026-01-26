@@ -7,48 +7,14 @@
 std::mt19937 gen(42);
 std::uniform_int_distribution<> status_distribution(1, 8);
 
-int test_read_write()
+int test_read_buffer_enc(const char *filename, long size, const long tuple_num)
 {
-    const long tuple_num = 512 * 100'000;
-    const auto strsize = (uint16_t)sizeof("string1");
-    long size = tuple_num * (strsize + 2);
-    const char *filename = "resources/some.bin";
-
-    // char *buffer = (char *)malloc(size);
-    // int offset = 0;
-    // for (int i = 0; i < tuple_num; i++)
-    // {
-    //     std::string str = "string" + std::to_string(status_distribution(gen));
-    //     memcpy(buffer + offset, &strsize, sizeof(uint16_t));
-    //     memcpy(buffer + offset + 2, str.c_str(), strsize);
-    //     offset += strsize + 2;
-    // }
-
-    // if (!writeCF(filename, (char *)buffer, size))
-    // {
-    //     return 1;
-    // }
-
-    // free(buffer);
-
     char *new_buffer = (char *)malloc(size);
     int read = readCF(filename, new_buffer, size);
     if (!read)
     {
         return 2;
     }
-
-    // std::vector<std::string> data;
-    // uint32_t offset = 0;
-    // for (size_t i = 0; i < tuple_num; i++)
-    // {
-    //     uint16_t len = *(uint16_t *)(new_buffer + offset);
-    //     offset += 2;
-    //     char *key = new_buffer + offset;
-    //     offset += len;
-
-    //     data.push_back(std::string(key, len));
-    // }
 
     auto val = DictionaryEncoder::encode((char *)new_buffer, read, tuple_num);
 
@@ -64,6 +30,41 @@ int test_read_write()
     }
 
     free(new_buffer);
+    return 0;
+}
+
+int test_write_data(const char *filename, long size, const long tuple_num, const uint16_t strsize)
+{
+    char *buffer = (char *)malloc(size);
+    int offset = 0;
+    for (int i = 0; i < tuple_num; i++)
+    {
+        std::string str = "string" + std::to_string(status_distribution(gen));
+        memcpy(buffer + offset, &strsize, sizeof(uint16_t));
+        memcpy(buffer + offset + 2, str.c_str(), strsize);
+        offset += strsize + 2;
+    }
+
+    if (!writeCF(filename, (char *)buffer, size))
+    {
+        return 1;
+    }
+
+    free(buffer);
+    return 0;
+}
+
+int test_read_write()
+{
+    const long tuple_num = 512 * 100'000;
+    const uint16_t strsize = (uint16_t)sizeof("string1");
+    long size = tuple_num * (strsize + 2);
+    const char *filename = "resources/some.bin";
+    std::cout << filename << size << strsize << tuple_num << std::endl;
+
+    std::string str = "tumcwitumvldb";
+    SymbolTable st = buildSymbolTable(str);
+
     return 0;
 }
 

@@ -18,14 +18,15 @@ TARGET := $(BIN_DIR)/app
 
 MAIN_SRC := src/main.cpp
 DISK_MGR_SRC := src/storage/disk_manager.cpp
-COMPRESSION_SRC := src/storage/compressions/dictionary.cpp
+COMPRESSION_DICT_SRC := src/storage/compressions/dictionary.cpp
+COMPRESSION_FSST_SRC := src/storage/compressions/fsst.cpp
 
 MAIN_OBJ := $(OBJ_DIR)/main.o
 DISK_MGR_OBJ := $(OBJ_DIR)/storage/disk_manager.o
-COMPRESSION_OBJ := $(OBJ_DIR)/storage/compressions/dictionary.o
+COMPRESSION_DICT_OBJ := $(OBJ_DIR)/storage/compressions/dictionary.o
+COMPRESSION_FSST_OBJ := $(OBJ_DIR)/storage/compressions/fsst.o
 
-
-OBJS := $(MAIN_OBJ) $(DISK_MGR_OBJ) $(COMPRESSION_OBJ)
+OBJS := $(MAIN_OBJ) $(DISK_MGR_OBJ) $(COMPRESSION_DICT_OBJ) $(COMPRESSION_FSST_OBJ)
 
 all: $(TARGET)
 
@@ -46,7 +47,12 @@ $(DISK_MGR_OBJ): $(DISK_MGR_SRC) | $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Compile dictionary_encoding.cpp
-$(COMPRESSION_OBJ): $(COMPRESSION_SRC) | $(OBJ_DIR)
+$(COMPRESSION_DICT_OBJ): $(COMPRESSION_DICT_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile fsst.cpp
+$(COMPRESSION_FSST_OBJ): $(COMPRESSION_FSST_SRC) | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
