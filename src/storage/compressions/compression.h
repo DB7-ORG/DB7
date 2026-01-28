@@ -17,7 +17,7 @@ struct DictEncodedRes
 
 struct DictionaryEncoder
 {
-    static DictEncodedRes encode(char *buffer, size_t byte_size, size_t count);
+    static DictEncodedRes encode(size_t count, uint8_t **in, size_t *lenIn, uint32_t *out);
     // static void decode();
 };
 

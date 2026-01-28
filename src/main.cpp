@@ -9,31 +9,31 @@
 std::mt19937 gen(42);
 std::uniform_int_distribution<> status_distribution(1, 8);
 
-int test_read_buffer_enc(const char *filename, long size, const long tuple_num)
-{
-    char *new_buffer = (char *)malloc(size);
-    int read = readCF(filename, new_buffer, size);
-    if (!read)
-    {
-        return 2;
-    }
+// int test_read_buffer_enc(const char *filename, long size, const long tuple_num)
+// {
+//     char *new_buffer = (char *)malloc(size);
+//     int read = readCF(filename, new_buffer, size);
+//     if (!read)
+//     {
+//         return 2;
+//     }
 
-    auto val = DictionaryEncoder::encode((char *)new_buffer, read, tuple_num);
+//     auto val = DictionaryEncoder::encode((char *)new_buffer, read, tuple_num);
 
-    for (int i = 0; i < 20; i++)
-    {
-        std::cout << val.encoded[i] << " - ";
-    }
-    std::cout << std::endl;
+//     for (int i = 0; i < 20; i++)
+//     {
+//         std::cout << val.encoded[i] << " - ";
+//     }
+//     std::cout << std::endl;
 
-    for (int i = 0; i < 20; i++)
-    {
-        std::cout << val.indexes[i] << " - ";
-    }
+//     for (int i = 0; i < 20; i++)
+//     {
+//         std::cout << val.indexes[i] << " - ";
+//     }
 
-    free(new_buffer);
-    return 0;
-}
+//     free(new_buffer);
+//     return 0;
+// }
 
 int test_write_data(const char *filename, long size, const long tuple_num, const uint16_t strsize)
 {
@@ -56,7 +56,7 @@ int test_write_data(const char *filename, long size, const long tuple_num, const
     return 0;
 }
 
-void test_print_fsst_compression_results(size_t compressed_total, const size_t lenIn[], const unsigned char **strings, const size_t lenOut[], size_t count)
+void test_print_fsst_compression_results(size_t compressed_total, const size_t lenIn[], const unsigned char **strings, const size_t lenOut[])
 {
     printf("\n=== COMPRESSION RESULTS ===\n");
     printf("Total compressed size: %zu bytes\n\n", compressed_total);
@@ -136,7 +136,7 @@ int fill_data(size_t size, long tuple_num, const uint16_t strsize, const char *f
     {
         std::string str = "string" + std::to_string(status_distribution(gen));
         memcpy(buffer + offset, &strsize, sizeof(uint16_t));
-        memcpy(buffer + offset + 2, str.c_str(), strsize);
+        memcpy(buffer + offset + 2, (str + str + str + str).c_str(), strsize);
         offset += strsize + 2;
     }
 
@@ -201,16 +201,14 @@ int test_fsst()
     // const unsigned char *strings[] = {str1, str2, str3}; // Array of pointers
     // const size_t lenIn[] = {strlen((const char *)str1), strlen((const char *)str2), strlen((const char *)str3)};
 
-    constexpr long tuple_num = 51'200'000;
+    constexpr long tuple_num = 1'000'000;
     constexpr size_t count = tuple_num;
-    const uint16_t strsize = (uint16_t)sizeof("string1") - 1;
+    const uint16_t strsize = (uint16_t)sizeof("string1") * 4 - 1;
     long size = align_up(tuple_num * (strsize + 2), IO_ALIGN);
     const char *filename = "resources/some.bin";
     std::cout << filename << size << strsize << tuple_num << std::endl;
 
-    // fill_data(size, tuple_num, strsize, filename);
-
-    read_data(count, size, filename);
+    fill_data(size, tuple_num, strsize, filename);
 
     auto strings = read_data(count, size, filename);
 
@@ -232,7 +230,7 @@ int test_fsst()
     uint64_t t1 = now_ns();
 
     // Compress all strings in batch
-    size_t compressed_total = fsst_compress(
+    fsst_compress(
         encoder,    // encoder
         count,      // nlines (number of strings)
         lenIn,      // input lengths array
@@ -255,9 +253,41 @@ int test_fsst()
     return 0;
 }
 
+void test_dict()
+{
+
+    constexpr long tuple_num = 1'000'000;
+    constexpr size_t count = tuple_num;
+    const uint16_t strsize = (uint16_t)sizeof("string1") * 4 - 1;
+    long size = align_up(tuple_num * (strsize + 2), IO_ALIGN);
+    const char *filename = "resources/some.bin";
+    std::cout << filename << size << strsize << tuple_num << std::endl;
+
+    fill_data(size, tuple_num, strsize, filename);
+
+    read_data(count, size, filename);
+
+    auto strings = read_data(count, size, filename);
+
+    printf("Number of items %zu\n: ", count);
+
+    size_t *lenIn = new size_t[count];
+    std::fill(lenIn, lenIn + tuple_num, strsize);
+
+    uint32_t *encoded = (uint32_t *)malloc(count * sizeof(uint32_t));
+
+    uint64_t t0 = now_ns();
+
+    DictionaryEncoder::encode(count, (unsigned char **)strings, lenIn, encoded);
+
+    uint64_t t1 = now_ns();
+
+    printf("dict_encode:   %.3f ms\n", (t1 - t0) / 1e6);
+}
+
 int main()
 {
 
-    test_fsst();
+    test_dict();
     return 0;
 }

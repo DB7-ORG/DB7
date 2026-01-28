@@ -9,7 +9,7 @@ struct MapEntry
 {
     uint32_t hash;
     uint32_t value;
-    char *key;
+    uint8_t *key;
     uint16_t key_len;
 };
 
@@ -20,7 +20,7 @@ struct HMap
 
     HMap(size_t count);
     ~HMap();
-    uint32_t get_insert(char *key, uint16_t len, uint32_t value);
+    uint32_t get_insert(uint8_t *key, uint16_t len, uint32_t value);
 };
 
 #include <sys/mman.h>
@@ -45,7 +45,7 @@ HMap::~HMap()
     free(entries);
 }
 
-inline uint32_t HMap::get_insert(char *key, uint16_t len, uint32_t value)
+inline uint32_t HMap::get_insert(uint8_t *key, uint16_t len, uint32_t value)
 {
     uint32_t hash = XXH32(key, len, 0);
     uint32_t bucket = hash & (hash_capacity - 1);
@@ -76,28 +76,23 @@ inline uint32_t HMap::get_insert(char *key, uint16_t len, uint32_t value)
     }
 }
 
-DictEncodedRes DictionaryEncoder::encode(char *buffer, size_t byte_size, size_t count)
+DictEncodedRes DictionaryEncoder::encode(size_t count, uint8_t **in, size_t *lenIn, uint32_t *out)
 {
-    uint32_t *encoded = (uint32_t *)malloc(count * sizeof(uint32_t));
+    // uint32_t *encoded = (uint32_t *)malloc(count * sizeof(uint32_t));
 
-    uint32_t *indexes = (uint32_t *)malloc(count * sizeof(uint32_t)); // TODO OK but may over-allocate
+    char *strings = (char *)malloc(count * sizeof(char *));
+    uint32_t *indexes = (uint32_t *)malloc(count * sizeof(uint32_t));
     indexes[0] = 0;
     uint32_t idx = 1;
 
-    char *strings = (char *)malloc(byte_size); // TODO OK but may over-allocate
-
     HMap map(count);
 
-    uint32_t offset = 0;
     for (size_t i = 0; i < count; i++)
     {
-        uint16_t len = *(uint16_t *)(buffer + offset);
-        offset += 2;
-        char *key = buffer + offset;
-        offset += len;
-
+        uint16_t len = lenIn[i];
+        uint8_t *key = in[i];
         uint32_t data = map.get_insert(key, len, idx);
-        encoded[i] = data;
+        out[i] = data;
         if (data == idx)
         {
             indexes[idx] = indexes[idx - 1] + len;
@@ -108,7 +103,7 @@ DictEncodedRes DictionaryEncoder::encode(char *buffer, size_t byte_size, size_t 
     }
 
     return DictEncodedRes{
-        encoded,
+        out,
         indexes,
         strings,
         idx,
