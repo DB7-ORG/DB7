@@ -1,5 +1,5 @@
 CXX = g++
-BASE_CXXFLAGS = -Wall -Wextra -std=c++17 -pedantic -Iinclude
+BASE_CXXFLAGS = -Wall -Wextra -std=c++17 -pedantic -Iinclude -DNONOPT_FSST -march=native
 LDFLAGS = -lxxhash #-larrow
 
 # Build mode: debug or release (default: release)
@@ -7,8 +7,10 @@ BUILD ?= release
 
 ifeq ($(BUILD),debug)
     CXXFLAGS = $(BASE_CXXFLAGS) -g -O0 -DDEBUG
+	CXXFSSTFLAGS =  $(BASE_CXXFLAGS) -g -O0 -DDEBUG
 else
     CXXFLAGS = $(BASE_CXXFLAGS) -O2 -DNDEBUG
+	CXXFSSTFLAGS =  $(BASE_CXXFLAGS) -O3 -DNDEBUG
 endif
 
 BIN_DIR := bin
@@ -19,12 +21,12 @@ TARGET := $(BIN_DIR)/app
 MAIN_SRC := src/main.cpp
 DISK_MGR_SRC := src/storage/disk_manager.cpp
 COMPRESSION_DICT_SRC := src/storage/compressions/dictionary.cpp
-COMPRESSION_FSST_SRC := src/storage/compressions/fsst.cpp
+COMPRESSION_FSST_SRC := src/storage/compressions/libfsst.cpp
 
 MAIN_OBJ := $(OBJ_DIR)/main.o
 DISK_MGR_OBJ := $(OBJ_DIR)/storage/disk_manager.o
 COMPRESSION_DICT_OBJ := $(OBJ_DIR)/storage/compressions/dictionary.o
-COMPRESSION_FSST_OBJ := $(OBJ_DIR)/storage/compressions/fsst.o
+COMPRESSION_FSST_OBJ := $(OBJ_DIR)/storage/compressions/libfsst.o
 
 OBJS := $(MAIN_OBJ) $(DISK_MGR_OBJ) $(COMPRESSION_DICT_OBJ) $(COMPRESSION_FSST_OBJ)
 
@@ -54,7 +56,7 @@ $(COMPRESSION_DICT_OBJ): $(COMPRESSION_DICT_SRC) | $(OBJ_DIR)
 # Compile fsst.cpp
 $(COMPRESSION_FSST_OBJ): $(COMPRESSION_FSST_SRC) | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFSSTFLAGS) -c $< -o $@
 
 # Link the target
 $(TARGET): $(OBJS) | $(BIN_DIR)

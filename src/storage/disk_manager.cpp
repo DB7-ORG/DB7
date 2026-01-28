@@ -51,7 +51,8 @@ int writeCF(const char *file_name, const char *buffer, size_t size)
     size_t total = 0;
     while (total < size)
     {
-        ssize_t n = write(fd, (char *)buffer + total, BLOCK_SIZE);
+        size_t bytes_to_write = min((size_t)BLOCK_SIZE, align_up(size - total, IO_ALIGN));
+        ssize_t n = write(fd, (char *)buffer + total, bytes_to_write);
         if (n <= 0)
         {
             close(fd);
