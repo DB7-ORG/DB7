@@ -21,20 +21,26 @@ struct DictionaryEncoder
     // static void decode();
 };
 
-struct SymbolTable
+struct BitPackEncoder
 {
-    uint16_t nSymbols;
-    uint16_t sIndex[257];
-    std::string symbols[512];
-
-    SymbolTable();
-    void compressCount(uint16_t count1[512], uint16_t count2[512][512], std::string &text);
-    uint16_t findLongestSymbol(std::string &text, uint32_t pos);
-    SymbolTable makeTables(uint16_t count1[512], uint16_t count2[512][512]);
-    void insert(std::string &s);
-    void makeIndex();
+    static int encode(uint64_t *out, uint32_t *in, uint32_t nitems, uint32_t ndistinct);
+    static int decode(uint32_t *out, uint64_t *in, uint32_t nitems, uint32_t ndistinct);
 };
 
-SymbolTable buildSymbolTable(std::string &text);
+// struct SymbolTable
+// {
+//     uint16_t nSymbols;
+//     uint16_t sIndex[257];
+//     std::string symbols[512];
+
+//     SymbolTable();
+//     void compressCount(uint16_t count1[512], uint16_t count2[512][512], std::string &text);
+//     uint16_t findLongestSymbol(std::string &text, uint32_t pos);
+//     SymbolTable makeTables(uint16_t count1[512], uint16_t count2[512][512]);
+//     void insert(std::string &s);
+//     void makeIndex();
+// };
+
+// SymbolTable buildSymbolTable(std::string &text);
 
 #endif

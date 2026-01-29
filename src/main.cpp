@@ -255,7 +255,6 @@ int test_fsst()
 
 void test_dict()
 {
-
     constexpr long tuple_num = 1'000'000;
     constexpr size_t count = tuple_num;
     const uint16_t strsize = (uint16_t)sizeof("string1") * 4 - 1;
@@ -285,9 +284,34 @@ void test_dict()
     printf("dict_encode:   %.3f ms\n", (t1 - t0) / 1e6);
 }
 
+void test_bitpack()
+{
+    constexpr long tuple_num = 550'000'000;
+    auto data = (uint32_t *)malloc(tuple_num * sizeof(uint32_t));
+    for (int i = 0; i < tuple_num; i++)
+    {
+        data[i] = i % 8;
+    }
+    auto out = (uint32_t *)malloc(tuple_num * sizeof(uint32_t));
+    uint64_t t0 = now_ns();
+    BitPackEncoder::encode((uint64_t *)data, data, tuple_num, 8);
+    uint64_t t1 = now_ns();
+    BitPackEncoder::decode(out, (uint64_t *)data, tuple_num, 8);
+    uint64_t t2 = now_ns();
+
+    for (int i = 0; i < 40; i++)
+    {
+        std::cout << out[i] << " - ";
+    }
+    std::cout << std::endl;
+
+    printf("bitpack_encode:   %.3f ms\n", (t1 - t0) / 1e6);
+    printf("bitpack_decode:   %.3f ms\n", (t2 - t1) / 1e6);
+    printf("bitpack_total:   %.3f ms\n", (t2 - t0) / 1e6);
+}
+
 int main()
 {
-
-    test_dict();
+    test_bitpack();
     return 0;
 }
