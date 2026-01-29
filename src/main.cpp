@@ -292,7 +292,7 @@ void test_bitpack()
     {
         data[i] = i % 8;
     }
-    auto out = (uint32_t *)malloc(tuple_num * sizeof(uint32_t));
+    auto out = (uint32_t *)malloc(align_up(tuple_num, 256) * sizeof(uint32_t));
     uint64_t t0 = now_ns();
     BitPackEncoder::encode((uint64_t *)data, data, tuple_num, 8);
     uint64_t t1 = now_ns();

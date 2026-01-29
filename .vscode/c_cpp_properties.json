@@ -5,7 +5,9 @@
             "includePath": [
                 "${workspaceFolder}/include"
             ],
-            "defines": [],
+            "defines": [
+                "__AVX2__"
+            ],
             "compilerPath": "/usr/bin/g++",
             "cStandard": "c17",
             "cppStandard": "c++17",
