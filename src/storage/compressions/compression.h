@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <string.h>
 #include <string>
+#include <x86intrin.h>
 
 struct DictEncodedRes
 {
@@ -25,6 +26,7 @@ struct BitPackEncoder
 {
     static int encode(uint64_t *out, uint32_t *in, uint32_t nitems, uint32_t ndistinct);
     static int decode(uint32_t *out, uint64_t *in, uint32_t nitems, uint32_t ndistinct);
+    static uint32_t decode_single(const __m256i *compressed, uint32_t idx, uint32_t usedBits);
 };
 
 // struct SymbolTable

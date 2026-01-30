@@ -146,3 +146,73 @@ int BitPackEncoder::decode(uint32_t *out, uint64_t *in, uint32_t nitems,
     return scalar_decode(out, in, nitems, ndistinct);
 #endif
 }
+
+uint32_t decode_single_1(const __m256i *compressed, uint32_t idx)
+{
+    auto mask = (1U << 1) - 1;
+    auto bucket = idx / 256;
+    auto in = (uint32_t *)(compressed + bucket);
+
+    auto bucketOffset = idx % 256;
+    auto pos = bucketOffset & 7;
+    auto lane = bucketOffset / 8;
+
+    auto pack = in[pos];
+    return (pack >> lane) & mask;
+}
+
+uint32_t decode_single_2(const __m256i *compressed, uint32_t idx)
+{
+    const auto bucketNum = 256 / 2;
+    auto mask = (1U << 2) - 1;
+    auto bucket = idx / bucketNum;
+    auto in = (uint32_t *)(compressed + bucket);
+
+    auto bucketOffset = idx % bucketNum;
+    auto pos = bucketOffset & 7;
+    auto lane = bucketOffset / 8;
+
+    auto pack = in[pos];
+    return (pack >> lane) & mask;
+}
+
+uint32_t decode_single_3(const __m256i *compressed, uint32_t idx)
+{
+    const auto bucketNum = 256 / 3;
+    auto mask = (1U << 3) - 1;
+    auto bucket = idx / bucketNum;
+    auto in = (uint32_t *)(compressed + bucket);
+
+    auto bucketOffset = idx % bucketNum;
+    auto pos = bucketOffset & 7;
+    auto lane = bucketOffset / 8;
+
+    auto pack = in[pos];
+    return (pack >> lane) & mask;
+}
+
+uint32_t BitPackEncoder::decode_single(
+    const __m256i *compressed,
+    uint32_t idx,
+    uint32_t usedBits)
+{
+    return decode_single_3(compressed, idx);
+}
+
+// auto mask = (1U << 3) - 1;
+// auto bucket = idx / 256;
+// auto in = (uint64_t *)(compressed + bucket);
+// auto bucketIdx = idx & 255; //%256
+// auto lane = bucketIdx & 7;  //%8
+// auto pack = in[lane];
+// auto pos = (bucketIdx / 8) & (64 / usedBits);
+// auto extra = (lane + 1) / usedBits;
+// auto shift = pos * usedBits + extra;
+// auto lo = (pack >> (shift)) & mask;
+// if (shift > 64 - usedBits)
+// {
+//     auto pack2 = in[lane + 1];
+//     auto newShift = shift - 64 + usedBits;
+//     auto newMask = (1U << (usedBits - newShift)) - 1;
+//     lo |= pack2 & newMask;
+// }

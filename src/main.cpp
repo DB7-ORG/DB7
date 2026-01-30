@@ -283,31 +283,42 @@ void test_dict()
 
     printf("dict_encode:   %.3f ms\n", (t1 - t0) / 1e6);
 }
-
+#include <bitset>
 void test_bitpack()
 {
-    constexpr long tuple_num = 550'000'000;
+    constexpr long tuple_num = align_up(2048, 256);
     auto data = (uint32_t *)malloc(tuple_num * sizeof(uint32_t));
+    auto n = 4;
     for (int i = 0; i < tuple_num; i++)
     {
-        data[i] = i % 8;
+        data[i] = i % n;
     }
-    auto out = (uint32_t *)malloc(align_up(tuple_num, 256) * sizeof(uint32_t));
+    auto out = (uint32_t *)malloc(tuple_num * sizeof(uint32_t));
     uint64_t t0 = now_ns();
-    BitPackEncoder::encode((uint64_t *)data, data, tuple_num, 8);
-    uint64_t t1 = now_ns();
-    BitPackEncoder::decode(out, (uint64_t *)data, tuple_num, 8);
-    uint64_t t2 = now_ns();
+    BitPackEncoder::encode((uint64_t *)out, data, tuple_num, n - 1);
 
-    for (int i = 0; i < 40; i++)
+    std::cout << "value is " << BitPackEncoder::decode_single((__m256i *)out, 0, 3) << std::endl;
+    std::cout << "value is " << BitPackEncoder::decode_single((__m256i *)out, 1, 3) << std::endl;
+    std::cout << "value is " << BitPackEncoder::decode_single((__m256i *)out, 2, 3) << std::endl;
+    std::cout << "value is " << BitPackEncoder::decode_single((__m256i *)out, 3, 3) << std::endl;
+    std::cout << "value is " << BitPackEncoder::decode_single((__m256i *)out, 4, 3) << std::endl;
+    std::cout << "value is " << BitPackEncoder::decode_single((__m256i *)out, 252, 3) << std::endl;
+    std::cout << "value is " << BitPackEncoder::decode_single((__m256i *)out, 253, 3) << std::endl;
+    std::cout << "value is " << BitPackEncoder::decode_single((__m256i *)out, 254, 3) << std::endl;
+    std::cout << "value is " << BitPackEncoder::decode_single((__m256i *)out, 255, 3) << std::endl;
+    uint64_t t1 = now_ns();
+    // BitPackEncoder::decode(out, (uint64_t *)data, tuple_num, 8);
+    // uint64_t t2 = now_ns();
+
+    for (int i = 0; i < 64; i++)
     {
-        std::cout << out[i] << " - ";
+        std::cout << std::bitset<32>(out[i]) << std::endl;
     }
     std::cout << std::endl;
 
-    printf("bitpack_encode:   %.3f ms\n", (t1 - t0) / 1e6);
-    printf("bitpack_decode:   %.3f ms\n", (t2 - t1) / 1e6);
-    printf("bitpack_total:   %.3f ms\n", (t2 - t0) / 1e6);
+    // printf("bitpack_encode:   %.3f ms\n", (t1 - t0) / 1e6);
+    // printf("bitpack_decode:   %.3f ms\n", (t2 - t1) / 1e6);
+    // printf("bitpack_total:   %.3f ms\n", (t2 - t0) / 1e6);
 }
 
 int main()
