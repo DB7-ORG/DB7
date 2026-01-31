@@ -7,10 +7,14 @@ implement compression schemes ❌
 - optimize dictionary encoding more ❌
 - run len encoding / one value ❌
 - frequency encoding ❌
+- bitpacking ✅
+- fsst ✅
+
+check out todo template for decode single in bitpacking ❌
 
 # RESEARCH
 
-- better understand performance difference between these approaches
+- better understand performance difference between these approaches ❌
 
 //  entries = (MapEntry *)calloc(hash_capacity, sizeof(MapEntry));
 
@@ -24,5 +28,9 @@ implement compression schemes ❌
 // entries = (MapEntry *)malloc(hash_capacity * sizeof(MapEntry));
 // memset(entries, 0, hash_capacity * sizeof(MapEntry));
 
-- read paper for fsst https://raw.githubusercontent.com/cwida/fsst/master/fsstcompression.pdf
-- read implementation https://github.com/cwida/fsst/blob/master/fsst.h
+- read paper for fsst https://raw.githubusercontent.com/cwida/fsst/master/fsstcompression.pdf ✅
+- read implementation https://github.com/cwida/fsst/blob/master/fsst.h ✅
+
+# BENCHMARK
+
+- decode single in bitpacking ❌
