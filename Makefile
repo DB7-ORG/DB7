@@ -75,4 +75,6 @@ run: $(TARGET)
 clean:
 	rm -rf $(OBJ_DIR) $(BIN_DIR)
 
+include test.mk
+
 .PHONY: all clean run
