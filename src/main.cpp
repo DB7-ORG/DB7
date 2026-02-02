@@ -342,18 +342,18 @@ void test_bitpack()
     std::cout << "value is " << BitPackEncoder::decode_single(out, 198, n) << std::endl;
 
     u64 t1 = now_ns();
-    // BitPackEncoder::decode(out, (u64 *)data, tuple_num, 8);
-    // u64 t2 = now_ns();
+    BitPackEncoder::decode(out, (u64 *)data, tuple_num, 8);
+    u64 t2 = now_ns();
 
-    // for (int i = 0; i < 64; i++)
-    // {
-    //     std::cout << std::bitset<32>(out[i]) << std::endl;
-    // }
-    // std::cout << std::endl;
+    for (int i = 0; i < 64; i++)
+    {
+        std::cout << std::bitset<32>(out[i]) << std::endl;
+    }
+    std::cout << std::endl;
 
-    // printf("bitpack_encode:   %.3f ms\n", (t1 - t0) / 1e6);
-    // printf("bitpack_decode:   %.3f ms\n", (t2 - t1) / 1e6);
-    // printf("bitpack_total:   %.3f ms\n", (t2 - t0) / 1e6);
+    printf("bitpack_encode:   %.3f ms\n", (t1 - t0) / 1e6);
+    printf("bitpack_decode:   %.3f ms\n", (t2 - t1) / 1e6);
+    printf("bitpack_total:   %.3f ms\n", (t2 - t0) / 1e6);
 }
 
 int main()

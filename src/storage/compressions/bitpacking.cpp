@@ -2,7 +2,7 @@
 #include "../../shared/helper_utils.h"
 #include "avxbpacking.h"
 
-#include <immintrin.h>
+// #include <immintrin.h>
 #include <iostream>
 #include <string.h>
 #include <unistd.h>
@@ -64,7 +64,7 @@ static inline int scalar_decode(u32 *out, u64 *in, u32 nitems, u32 usedBits)
     return offset;
 }
 
-int BitPackEncoder::encode(void *out, void *in, u32 nitems, u32 usedBits)
+int BitPackEncoder::encode(void *out, void *in, u32 nitems, u32 usedBits) // TODO make values const
 {
 #ifdef __AVX2__
     // u32 notUsedBits = __builtin_clz(ndistinct); // TODO add this to dict encoding
@@ -76,7 +76,7 @@ int BitPackEncoder::encode(void *out, void *in, u32 nitems, u32 usedBits)
 #endif
 }
 
-int BitPackEncoder::decode(void *out, void *in, u32 nitems, u32 usedBits)
+int BitPackEncoder::decode(void *out, void *in, u32 nitems, u32 usedBits) // TODO make values const
 {
 #ifdef __AVX2__
     // u32 notUsedBits = __builtin_clz(ndistinct - 1);
