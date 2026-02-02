@@ -79,7 +79,34 @@ int FastPForEncoder::encode(u32 *out, const u32 *in, const size_t length, size_t
             }
         }
         bitpackEncoder.encode(out, (u32 *)in, BlockSize, bestb);
+        out += BlockSize * 8 / 256;
     }
+
+    headerout[0] = static_cast<u32>(out - headerout);
+    const u32 bytescontainersize = static_cast<u32>(bc - &bytescontainer[0]);
+    *(out++) = bytescontainersize;
+    memcpy(out, &bytescontainer[0], bytescontainersize);
+
+    u8 *pad8 = (u8 *)out + bytescontainersize;
+    out += (bytescontainersize + sizeof(u32) - 1) / sizeof(u32);
+    while (pad8 < (u8 *)out)
+        *pad8++ = 0;
+
+    u32 bitmap = 0;
+    for (u32 k = 2; k <= 32; ++k)
+    {
+        if (datatobepacked[k].size() != 0)
+            bitmap |= (1U << (k - 1));
+    }
+    *(out++) = bitmap;
+
+    for (u32 k = 2; k <= 32; ++k)
+    {
+        // if (datatobepacked[k].size() > 0)
+        //     out = packmeup_blocks(datatobepacked[k], out, k);
+    }
+
+    // nvalue = out - initout;
 }
 
 int FastPForEncoder::decode(void *out, void *in, const size_t length, size_t nitems)
