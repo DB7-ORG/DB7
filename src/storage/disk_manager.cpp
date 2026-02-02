@@ -1,6 +1,5 @@
 #include "storage/disk_manager.h"
 #include "../shared/helper_utils.h"
-#include "storage_constants.h"
 #include <iostream>
 #include <fcntl.h>
 #include <unistd.h>

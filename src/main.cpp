@@ -35,14 +35,14 @@ std::uniform_int_distribution<> status_distribution(1, 8);
 //     return 0;
 // }
 
-int test_write_data(const char *filename, long size, const long tuple_num, const uint16_t strsize)
+int test_write_data(const char *filename, long size, const long tuple_num, const u16 strsize)
 {
     char *buffer = (char *)malloc(size);
     int offset = 0;
     for (int i = 0; i < tuple_num; i++)
     {
         std::string str = "string" + std::to_string(status_distribution(gen));
-        memcpy(buffer + offset, &strsize, sizeof(uint16_t));
+        memcpy(buffer + offset, &strsize, sizeof(u16));
         memcpy(buffer + offset + 2, str.c_str(), strsize);
         offset += strsize + 2;
     }
@@ -121,7 +121,7 @@ void test_print_fsst_decompression_results(fsst_encoder_t *encoder, unsigned cha
     }
 }
 
-int fill_data(size_t size, long tuple_num, const uint16_t strsize, const char *filename)
+int fill_data(size_t size, long tuple_num, const u16 strsize, const char *filename)
 {
     void *buf = nullptr;
     if (posix_memalign(&buf, IO_ALIGN, size) != 0)
@@ -135,7 +135,7 @@ int fill_data(size_t size, long tuple_num, const uint16_t strsize, const char *f
     for (int i = 0; i < tuple_num; i++)
     {
         std::string str = "string" + std::to_string(status_distribution(gen));
-        memcpy(buffer + offset, &strsize, sizeof(uint16_t));
+        memcpy(buffer + offset, &strsize, sizeof(u16));
         memcpy(buffer + offset + 2, (str + str + str + str).c_str(), strsize);
         offset += strsize + 2;
     }
@@ -170,7 +170,7 @@ const unsigned char **read_data(size_t count, long size, const char *filename)
     auto offset = 0;
     for (size_t i = 0; i < count; i++)
     {
-        uint16_t len = *(uint16_t *)(new_buffer + offset);
+        u16 len = *(u16 *)(new_buffer + offset);
         offset += 2;
         char *key = new_buffer + offset;
         offset += len;
@@ -185,11 +185,11 @@ const unsigned char **read_data(size_t count, long size, const char *filename)
     return strings;
 }
 
-static inline uint64_t now_ns()
+static inline u64 now_ns()
 {
     timespec ts;
     clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-    return uint64_t(ts.tv_sec) * 1000000000ull + ts.tv_nsec;
+    return u64(ts.tv_sec) * 1000000000ull + ts.tv_nsec;
 }
 
 int test_fsst()
@@ -203,7 +203,7 @@ int test_fsst()
 
     constexpr long tuple_num = 1'000'000;
     constexpr size_t count = tuple_num;
-    const uint16_t strsize = (uint16_t)sizeof("string1") * 4 - 1;
+    const u16 strsize = (u16)sizeof("string1") * 4 - 1;
     long size = align_up(tuple_num * (strsize + 2), IO_ALIGN);
     const char *filename = "resources/some.bin";
     std::cout << filename << size << strsize << tuple_num << std::endl;
@@ -223,11 +223,11 @@ int test_fsst()
     size_t *lenOut = new size_t[count];                  // Will store compressed lengths for each string
     unsigned char **strOut = new unsigned char *[count]; // Will store pointers to compressed strings
 
-    uint64_t t0 = now_ns();
+    u64 t0 = now_ns();
 
     fsst_encoder_t *encoder = fsst_create(count, lenIn, strings, 0);
 
-    uint64_t t1 = now_ns();
+    u64 t1 = now_ns();
 
     // Compress all strings in batch
     fsst_compress(
@@ -241,7 +241,7 @@ int test_fsst()
         strOut      // output: pointers to each compressed string in output buffer
     );
 
-    uint64_t t2 = now_ns();
+    u64 t2 = now_ns();
 
     printf("fsst_create:   %.3f ms\n", (t1 - t0) / 1e6);
     printf("fsst_compress: %.3f ms\n", (t2 - t1) / 1e6);
@@ -257,7 +257,7 @@ void test_dict()
 {
     constexpr long tuple_num = 1'000'000;
     constexpr size_t count = tuple_num;
-    const uint16_t strsize = (uint16_t)sizeof("string1") * 4 - 1;
+    const u16 strsize = (u16)sizeof("string1") * 4 - 1;
     long size = align_up(tuple_num * (strsize + 2), IO_ALIGN);
     const char *filename = "resources/some.bin";
     std::cout << filename << size << strsize << tuple_num << std::endl;
@@ -273,13 +273,13 @@ void test_dict()
     size_t *lenIn = new size_t[count];
     std::fill(lenIn, lenIn + tuple_num, strsize);
 
-    uint32_t *encoded = (uint32_t *)malloc(count * sizeof(uint32_t));
+    u32 *encoded = (u32 *)malloc(count * sizeof(u32));
 
-    uint64_t t0 = now_ns();
+    u64 t0 = now_ns();
 
     DictionaryEncoder::encode(count, (unsigned char **)strings, lenIn, encoded);
 
-    uint64_t t1 = now_ns();
+    u64 t1 = now_ns();
 
     printf("dict_encode:   %.3f ms\n", (t1 - t0) / 1e6);
 }
@@ -287,15 +287,15 @@ void test_dict()
 void test_bitpack()
 {
     constexpr long tuple_num = align_up(2048, 256);
-    auto data = (uint32_t *)malloc(tuple_num * sizeof(uint32_t));
+    auto data = (u32 *)malloc(tuple_num * sizeof(u32));
     auto n = 12;
     for (int i = 0; i < tuple_num; i++)
     {
         data[i] = i % (3);
     }
-    auto out = (uint32_t *)malloc(tuple_num * sizeof(uint32_t));
-    uint64_t t0 = now_ns();
-    BitPackEncoder::encode((uint64_t *)out, data, tuple_num, n);
+    auto out = (u32 *)malloc(tuple_num * sizeof(u32));
+    u64 t0 = now_ns();
+    BitPackEncoder::encode((u64 *)out, data, tuple_num, n);
 
     std::cout << "----------class 1--------------" << std::endl;
     std::cout << "value is " << BitPackEncoder::decode_single(out, 0, n) << std::endl;
@@ -341,9 +341,9 @@ void test_bitpack()
     std::cout << "value is " << BitPackEncoder::decode_single(out, 197, n) << std::endl;
     std::cout << "value is " << BitPackEncoder::decode_single(out, 198, n) << std::endl;
 
-    uint64_t t1 = now_ns();
-    // BitPackEncoder::decode(out, (uint64_t *)data, tuple_num, 8);
-    // uint64_t t2 = now_ns();
+    u64 t1 = now_ns();
+    // BitPackEncoder::decode(out, (u64 *)data, tuple_num, 8);
+    // u64 t2 = now_ns();
 
     // for (int i = 0; i < 64; i++)
     // {

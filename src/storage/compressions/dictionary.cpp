@@ -7,10 +7,10 @@
 
 struct MapEntry
 {
-    uint32_t hash;
-    uint32_t value;
-    uint8_t *key;
-    uint16_t key_len;
+    u32 hash;
+    u32 value;
+    u8 *key;
+    u16 key_len;
 };
 
 struct HMap
@@ -20,7 +20,7 @@ struct HMap
 
     HMap(size_t count);
     ~HMap();
-    uint32_t get_insert(uint8_t *key, uint16_t len, uint32_t value);
+    u32 get_insert(u8 *key, u16 len, u32 value);
 };
 
 #include <sys/mman.h>
@@ -45,10 +45,10 @@ HMap::~HMap()
     free(entries);
 }
 
-inline uint32_t HMap::get_insert(uint8_t *key, uint16_t len, uint32_t value)
+inline u32 HMap::get_insert(u8 *key, u16 len, u32 value)
 {
-    uint32_t hash = XXH32(key, len, 0);
-    uint32_t bucket = hash & (hash_capacity - 1);
+    u32 hash = XXH32(key, len, 0);
+    u32 bucket = hash & (hash_capacity - 1);
 
     while (true)
     {
@@ -76,28 +76,28 @@ inline uint32_t HMap::get_insert(uint8_t *key, uint16_t len, uint32_t value)
     }
 }
 
-DictEncodedRes DictionaryEncoder::encode(size_t count, uint8_t **in, size_t *lenIn, uint32_t *out)
+DictEncodedRes DictionaryEncoder::encode(size_t count, u8 **in, size_t *lenIn, u32 *out)
 {
-    // uint32_t *encoded = (uint32_t *)malloc(count * sizeof(uint32_t));
+    // u32 *encoded = (u32 *)malloc(count * sizeof(u32));
 
     char *strings = (char *)malloc(count * sizeof(char *));
-    uint32_t *indexes = (uint32_t *)malloc(count * sizeof(uint32_t));
+    u32 *indexes = (u32 *)malloc(count * sizeof(u32));
     indexes[0] = 0;
-    uint32_t idx = 1;
+    u32 idx = 1;
 
     HMap map(count);
 
     for (size_t i = 0; i < count; i++)
     {
-        uint16_t len = lenIn[i];
-        uint8_t *key = in[i];
-        uint32_t data = map.get_insert(key, len, idx);
+        u16 len = lenIn[i];
+        u8 *key = in[i];
+        u32 data = map.get_insert(key, len, idx);
         out[i] = data;
         if (data == idx)
         {
             indexes[idx] = indexes[idx - 1] + len;
             memcpy(strings + indexes[idx - 1], key, len);
-            //*(uint64_t *)(strings + offset) = *(uint64_t *)key;
+            //*(u64 *)(strings + offset) = *(u64 *)key;
             idx++;
         }
     }

@@ -1,4 +1,0 @@
-#ifndef STORAGE_CONSTANTS_H
-#define STORAGE_CONSTANTS_H
-
-#endif

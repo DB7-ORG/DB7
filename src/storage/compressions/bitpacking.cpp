@@ -1,7 +1,6 @@
 #include "compression.h"
 #include "../../shared/helper_utils.h"
 #include "avxbpacking.h"
-#include "common.h"
 
 #include <immintrin.h>
 #include <iostream>
