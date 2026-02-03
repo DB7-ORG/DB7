@@ -5,15 +5,15 @@
 #include "../src/storage/compressions/compression.h"
 
 // The generalized decoder
-uint32_t decode_single(const uint32_t *compressed, uint32_t idx, uint32_t bits)
+uint32_t simd_decode_single(const uint32_t *compressed, uint32_t idx, uint32_t bits)
 {
-    return BitPackEncoder::decode_single(compressed, idx, bits);
+    return BitPackEncoder::simd_decode_single(compressed, idx, bits);
 }
 
 // Simple scalar encoder for testing (matches the SIMD layout)
 void encode_scalar(uint32_t *compressed, uint32_t *values, uint32_t nitems, uint32_t bits)
 {
-    BitPackEncoder::encode(compressed, values, nitems, bits);
+    BitPackEncoder::simd_encode(compressed, values, nitems, bits);
 }
 
 // Test sequential values
@@ -33,7 +33,7 @@ void test_sequential(uint32_t bits)
 
     for (uint32_t i = 0; i < nitems; i++)
     {
-        uint32_t decoded = decode_single(compressed, i, bits);
+        uint32_t decoded = simd_decode_single(compressed, i, bits);
         uint32_t expected = i & mask;
         if (decoded != expected)
         {
@@ -63,7 +63,7 @@ void test_max_values(uint32_t bits)
 
     for (uint32_t i = 0; i < nitems; i++)
     {
-        uint32_t decoded = decode_single(compressed, i, bits);
+        uint32_t decoded = simd_decode_single(compressed, i, bits);
         if (decoded != mask)
         {
             std::cout << "FAIL test_max_values bits=" << bits << " idx=" << i
@@ -93,7 +93,7 @@ void test_alternating(uint32_t bits)
     for (uint32_t i = 0; i < nitems; i++)
     {
         uint32_t expected = (i % 2 == 0) ? 0 : mask;
-        uint32_t decoded = decode_single(compressed, i, bits);
+        uint32_t decoded = simd_decode_single(compressed, i, bits);
         if (decoded != expected)
         {
             std::cout << "FAIL test_alternating bits=" << bits << " idx=" << i
@@ -133,7 +133,7 @@ void test_spanning(uint32_t bits)
             for (uint32_t pos = 0; pos < 8; pos++)
             {
                 uint32_t idx = lane * 8 + pos;
-                uint32_t decoded = decode_single(compressed, idx, bits);
+                uint32_t decoded = simd_decode_single(compressed, idx, bits);
                 uint32_t expected = values[idx];
                 if (decoded != expected)
                 {
@@ -167,7 +167,7 @@ void test_multiple_blocks(uint32_t bits)
 
     for (uint32_t i = 0; i < nitems; i++)
     {
-        uint32_t decoded = decode_single(compressed, i, bits);
+        uint32_t decoded = simd_decode_single(compressed, i, bits);
         uint32_t expected = i & mask;
         if (decoded != expected)
         {
@@ -182,7 +182,7 @@ void test_multiple_blocks(uint32_t bits)
 
 int main()
 {
-    std::cout << "Testing decode_single for bits 1-31" << std::endl;
+    std::cout << "Testing simd_decode_single for bits 1-31" << std::endl;
     std::cout << "===================================" << std::endl;
 
     for (uint32_t bits = 1; bits <= 31; bits++)

@@ -26,9 +26,11 @@ struct DictionaryEncoder
 
 struct BitPackEncoder
 {
-    static int encode(void *out, void *in, u32 nitems, u32 usedBits);
-    static int decode(void *out, void *in, u32 nitems, u32 usedBits);
-    static u32 decode_single(const void *compressed, u32 idx, u32 usedBits);
+    static int simd_encode(void *out, const void *in, u32 nitems, u32 usedBits);
+    static int simd_decode(void *out, const void *in, u32 nitems, u32 usedBits);
+    static u32 simd_decode_single(const void *compressed, u32 idx, u32 usedBits);
+    static int scalar_encode(void *out, const void *in, u32 nitems, u32 usedBits);
+    static int scalar_decode(void *out, const void *in, u32 nitems, u32 usedBits);
 };
 
 // typical cache line
@@ -45,11 +47,13 @@ enum
 
 struct FastPForEncoder
 {
-    static BitPackEncoder bitpackEncoder;
-    static std::vector<std::vector<u32>> datatobepacked; // TODO cache line allocator or build my own vector
-    static std::vector<u8> bytescontainer;
-    static int encode(u32 *out, const u32 *in, const size_t length, size_t nitems);
-    static int decode(void *out, void *in, const size_t length, size_t nitems);
+    BitPackEncoder bitpackEncoder;
+    std::vector<std::vector<u32>> datatobepacked; // TODO cache line allocator or build my own vector
+    std::vector<u8> bytescontainer;
+    FastPForEncoder();
+    u32 encode(u32 *out, const u32 *in, size_t nitems);
+    u32 decode(u32 *out, const u32 *in, size_t nitems);
+    void resetTable();
 };
 
 #endif

@@ -17,7 +17,7 @@ void print_binary(u64 bytes)
     printf("\n");
 }
 
-static inline int scalar_encode(u64 *out, u32 *in, u32 nitems, u32 usedBits)
+static inline int scalar_encode_pr(u64 *out, u32 *in, u32 nitems, u32 usedBits)
 {
     u32 offset = 0;
     u32 shift = 0;
@@ -42,7 +42,7 @@ static inline int scalar_encode(u64 *out, u32 *in, u32 nitems, u32 usedBits)
     return offset;
 }
 
-static inline int scalar_decode(u32 *out, u64 *in, u32 nitems, u32 usedBits)
+static inline int scalar_decode_pr(u32 *out, u64 *in, u32 nitems, u32 usedBits)
 {
     u32 notUsedBits = 32 - usedBits;
 
@@ -64,33 +64,31 @@ static inline int scalar_decode(u32 *out, u64 *in, u32 nitems, u32 usedBits)
     return offset;
 }
 
-int BitPackEncoder::encode(void *out, void *in, u32 nitems, u32 usedBits) // TODO make values const
+int BitPackEncoder::simd_encode(void *out, const void *in, u32 nitems, u32 usedBits) // TODO make values const
 {
-#ifdef __AVX2__
-    // u32 notUsedBits = __builtin_clz(ndistinct); // TODO add this to dict encoding
-    // u32 usedBits = 32 - notUsedBits;
     avxpackwithoutmask((u32 *)in, (__m256i *)out, nitems, usedBits);
     return 0;
-#else
-    return scalar_encode(out, in, nitems, usedBits);
-#endif
 }
 
-int BitPackEncoder::decode(void *out, void *in, u32 nitems, u32 usedBits) // TODO make values const
+int BitPackEncoder::simd_decode(void *out, const void *in, u32 nitems, u32 usedBits) // TODO make values const
 {
-#ifdef __AVX2__
-    // u32 notUsedBits = __builtin_clz(ndistinct - 1);
-    // u32 usedBits = 32 - notUsedBits;
     avxunpack((__m256i *)in, (u32 *)out, nitems, usedBits);
     return 0;
-#else
-    return scalar_decode(out, in, nitems, usedBits);
-#endif
 }
 
-u32 BitPackEncoder::decode_single(const void *compressed, u32 idx, u32 usedBits)
+u32 BitPackEncoder::simd_decode_single(const void *compressed, u32 idx, u32 usedBits)
 {
     auto func = decodeSingleFuncArr[usedBits];
     return func(compressed, idx); // TODO if this is called in a loop (which it will be)
     //                               there should be separate method to avoid pointer chasing in arr
+}
+
+int BitPackEncoder::scalar_encode(void *out, const void *in, u32 nitems, u32 usedBits) // TODO make values const
+{
+    return scalar_encode_pr((u64 *)in, (u32 *)out, nitems, usedBits);
+}
+
+int BitPackEncoder::scalar_decode(void *out, const void *in, u32 nitems, u32 usedBits) // TODO make values const
+{
+    return scalar_decode_pr((u32 *)in, (u64 *)out, nitems, usedBits);
 }

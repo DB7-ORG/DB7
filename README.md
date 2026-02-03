@@ -11,6 +11,7 @@ implement compression schemes ❌
 - fsst ✅
 
 check out todo template for decode single in bitpacking ❌
+check out todos and fix them before there is too many ❌
 
 # RESEARCH
 
@@ -33,4 +34,4 @@ check out todo template for decode single in bitpacking ❌
 
 # BENCHMARK
 
-- decode single in bitpacking ❌
+- decode single in bitpacking ✅

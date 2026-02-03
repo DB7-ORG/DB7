@@ -295,59 +295,97 @@ void test_bitpack()
     }
     auto out = (u32 *)malloc(tuple_num * sizeof(u32));
     u64 t0 = now_ns();
-    BitPackEncoder::encode((u64 *)out, data, tuple_num, n);
+    BitPackEncoder::simd_encode((u64 *)out, data, tuple_num, n);
 
     std::cout << "----------class 1--------------" << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 0, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 1, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 2, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 3, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 4, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 0, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 1, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 2, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 3, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 4, n) << std::endl;
 
     std::cout << "----------class 2--------------" << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 252, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 253, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 254, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 255, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 252, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 253, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 254, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 255, n) << std::endl;
 
     std::cout << "----------class 3--------------" << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 256 + 0, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 256 + 1, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 256 + 2, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 256 + 3, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 256 + 4, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 256 + 0, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 256 + 1, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 256 + 2, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 256 + 3, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 256 + 4, n) << std::endl;
 
     std::cout << "----------class 4--------------" << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 256 + 252, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 256 + 253, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 256 + 254, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 256 + 255, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 256 + 252, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 256 + 253, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 256 + 254, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 256 + 255, n) << std::endl;
 
     std::cout << "----------class 5--------------" << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 80, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 81, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 82, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 83, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 80, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 81, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 82, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 83, n) << std::endl;
 
     std::cout << "----------class 5--------------" << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 95, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 96, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 97, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 98, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 95, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 96, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 97, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 98, n) << std::endl;
 
     std::cout << "----------class 6--------------" << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 195, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 196, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 197, n) << std::endl;
-    std::cout << "value is " << BitPackEncoder::decode_single(out, 198, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 195, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 196, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 197, n) << std::endl;
+    std::cout << "value is " << BitPackEncoder::simd_decode_single(out, 198, n) << std::endl;
 
     u64 t1 = now_ns();
-    BitPackEncoder::decode(out, (u64 *)data, tuple_num, 8);
+    BitPackEncoder::simd_decode(out, (u64 *)data, tuple_num, 8);
     u64 t2 = now_ns();
 
-    for (int i = 0; i < 64; i++)
+    // for (int i = 0; i < 64; i++)
+    // {
+    //     std::cout << std::bitset<32>(out[i]) << std::endl;
+    // }
+    // std::cout << std::endl;
+
+    printf("bitpack_encode:   %.3f ms\n", (t1 - t0) / 1e6);
+    printf("bitpack_decode:   %.3f ms\n", (t2 - t1) / 1e6);
+    printf("bitpack_total:   %.3f ms\n", (t2 - t0) / 1e6);
+}
+
+void test_fastpfor()
+{
+    constexpr long tuple_num = align_up(2048, 256);
+    auto data = (u32 *)malloc(tuple_num * sizeof(u32));
+
+    for (int i = 0; i < tuple_num; i++)
     {
-        std::cout << std::bitset<32>(out[i]) << std::endl;
+        data[i] = i % (4);
+    }
+    auto coded = (u32 *)malloc(tuple_num * sizeof(u32));
+
+    auto encoder = FastPForEncoder();
+
+    auto decocded = (u32 *)malloc(tuple_num * sizeof(u32));
+
+    u64 t0 = now_ns();
+    encoder.encode(coded, data, tuple_num);
+    u64 t1 = now_ns();
+    encoder.decode(decocded, coded, tuple_num);
+    u64 t2 = now_ns();
+
+    for (int i = 0; i < 20; i++)
+    {
+        std::cout << decocded[i] << "-";
+    }
+    std::cout << std::endl;
+
+    for (int i = 0; i < 20; i++)
+    {
+        std::cout << decocded[tuple_num - i - 1] << "-";
     }
     std::cout << std::endl;
 
@@ -358,6 +396,6 @@ void test_bitpack()
 
 int main()
 {
-    test_bitpack();
+    test_fastpfor();
     return 0;
 }
