@@ -7846,24 +7846,42 @@ decodesinglefunc decodeSingleFuncArr[] = {
     &decode_single<31>};
 
 /* reads 256 values from "in", writes  "bit" 256-bit vectors to "out" */
-void avxpack(const uint32_t *in, __m256i *out, const uint32_t number, const uint32_t bit) // TODO out of the loop
+/* must be contain atleast 256 items */
+uint32_t *avxpack(const uint32_t *in, __m256i *out, const uint32_t number, const uint32_t bit) // TODO out of the loop
 {
+    auto func = avxfuncPackMaskArr[bit];
     for (uint32_t i = 0; i < number / 256; ++i)
-        avxfuncPackMaskArr[bit](in + i * 256, out + i * bit);
+    {
+        func(in + i * 256, out);
+        out += bit;
+    }
+    return (uint32_t *)out;
 }
 
 /* reads 256 values from "in", writes  "bit" 256-bit vectors to "out" */
-void avxpackwithoutmask(const uint32_t *in, __m256i *out, const uint32_t number, const uint32_t bit) // TODO out of the loop
+/* must be contain atleast 256 items */
+uint32_t *avxpackwithoutmask(const uint32_t *in, __m256i *out, const uint32_t number, const uint32_t bit) // TODO out of the loop
 {
+    auto func = avxfuncPackArr[bit];
     for (uint32_t i = 0; i < number / 256; ++i)
-        avxfuncPackArr[bit](in + i * 256, out + i * bit);
+    {
+        func(in + i * 256, out);
+        out += bit;
+    }
+    return (uint32_t *)out;
 }
 
 /* reads  "bit" 256-bit vectors from "in", writes  256 values to "out" */
-void avxunpack(const __m256i *in, uint32_t *out, const uint32_t number, const uint32_t bit) // TODO out of the loop
+/* must be contain atleast 256 items */
+uint32_t *avxunpack(const __m256i *in, uint32_t *out, const uint32_t number, const uint32_t bit) // TODO out of the loop
 {
+    auto func = avxfuncUnpackArr[bit];
     for (uint32_t i = 0; i < number / 256; ++i)
-        avxfuncUnpackArr[bit](in + i * bit, out + i * 256);
+    {
+        func(in + i * bit, out);
+        out += 256;
+    }
+    return (uint32_t *)out;
 }
 
 #endif

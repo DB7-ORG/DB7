@@ -8,6 +8,7 @@
 #include <x86intrin.h>
 #include "common.h"
 #include <vector>
+#include <stdexcept>
 
 struct DictEncodedRes
 {
@@ -26,11 +27,11 @@ struct DictionaryEncoder
 
 struct BitPackEncoder
 {
-    static int simd_encode(void *out, const void *in, u32 nitems, u32 usedBits);
-    static int simd_decode(void *out, const void *in, u32 nitems, u32 usedBits);
+    static u32 *simd_encode(void *out, const void *in, u32 nitems, u32 usedBits);
+    static u32 *simd_decode(void *out, const void *in, u32 nitems, u32 usedBits);
     static u32 simd_decode_single(const void *compressed, u32 idx, u32 usedBits);
-    static int scalar_encode(void *out, const void *in, u32 nitems, u32 usedBits);
-    static int scalar_decode(void *out, const void *in, u32 nitems, u32 usedBits);
+    static u64 *scalar_encode(void *out, const void *in, u32 nitems, u32 usedBits);
+    static u32 *scalar_decode(void *out, const void *in, u32 nitems, u32 usedBits);
 };
 
 // typical cache line
@@ -55,5 +56,13 @@ struct FastPForEncoder
     u32 decode(u32 *out, const u32 *in, size_t nitems);
     void resetTable();
 };
+
+inline void check_is_divisible_by(size_t a, u32 x)
+{
+    if (a % x != 0)
+    {
+        throw std::runtime_error("its not divisible");
+    }
+}
 
 #endif

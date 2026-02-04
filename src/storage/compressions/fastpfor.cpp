@@ -5,14 +5,6 @@
 #include <iostream>
 #include <unistd.h>
 
-inline void check_is_divisible_by(size_t a, u32 x)
-{
-    if (a % x != 0)
-    {
-        throw std::runtime_error("its not divisible");
-    }
-}
-
 void get_best_b(const u32 *in, u8 &bestb, u8 &bestcexcept, u8 &maxb)
 {
     u32 freqs[33];
@@ -48,14 +40,13 @@ void get_best_b(const u32 *in, u8 &bestb, u8 &bestcexcept, u8 &maxb)
 
 u32 *pack_exception_blocks(BitPackEncoder &bitpackEncoder, u32 *out, std::vector<u32> &in, u8 bit)
 {
-    const uint32_t size = static_cast<uint32_t>(in.size());
+    const u32 size = static_cast<u32>(in.size());
     *out = size;
     out++;
-    if (in.size() == 0)
-        return out;
 
-    out += bitpackEncoder.scalar_encode(out, in.data(), in.size(), bit);
+    out = (u32 *)bitpackEncoder.scalar_encode(out, in.data(), in.size(), bit);
 
+    // Convert back to u32*
     return out;
 }
 
@@ -96,8 +87,7 @@ u32 FastPForEncoder::encode(u32 *out, const u32 *in, size_t nitems)
                 }
             }
         }
-        bitpackEncoder.simd_encode(out, (u32 *)in, BlockSize, bestb); // TODO executed once per loop
-        out += BlockSize * 8 / 256;
+        out = bitpackEncoder.simd_encode(out, in, BlockSize, bestb); // TODO executed once per loop
     }
 
     headerout[0] = static_cast<u32>(out - headerout);
@@ -121,7 +111,7 @@ u32 FastPForEncoder::encode(u32 *out, const u32 *in, size_t nitems)
     for (u32 k = 2; k <= 32; ++k)
     {
         if (datatobepacked[k].size() > 0)
-            pack_exception_blocks(bitpackEncoder, out, datatobepacked[k], k);
+            out = pack_exception_blocks(bitpackEncoder, out, datatobepacked[k], k);
     }
 
     return out - initout;
@@ -131,6 +121,13 @@ void FastPForEncoder::resetTable()
 {
     for (u32 k = 0; k < 32 + 1; ++k)
         datatobepacked[k].clear();
+}
+
+static inline u32 words_used(u32 nitems, u32 usedBits)
+{
+    u32 total_bits = nitems * usedBits;
+    u32 n_u64 = (total_bits + 63) / 64;
+    return n_u64 * 2; // TODO
 }
 
 u32 FastPForEncoder::decode(u32 *out, const u32 *in, size_t nitems)
@@ -152,17 +149,25 @@ u32 FastPForEncoder::decode(u32 *out, const u32 *in, size_t nitems)
         if ((bitmap & (1U << (k - 1))) != 0)
         {
             u32 size = *(inexcept++);
-            inexcept += bitpackEncoder.scalar_decode(datatobepacked[k].data(), inexcept, size, k);
+            datatobepacked[k].resize(size);
+            bitpackEncoder.scalar_decode(datatobepacked[k].data(), inexcept, size, k);
+            inexcept += words_used(size, k);
         }
     }
 
-    for (uint32_t run = 0; run < nitems / BlockSize; ++run, out += BlockSize)
+    std::vector<uint32_t>::const_iterator unpackpointers[32 + 1];
+    for (uint32_t k = 2; k <= 32; ++k)
+    {
+        unpackpointers[k] = datatobepacked[k].begin();
+    }
+
+    for (uint32_t run = 0; run < nitems / BlockSize; ++run)
     {
         const uint8_t b = *bytep++;
         const uint8_t cexcept = *bytep++;
-        bitpackEncoder.simd_decode(out, in, BlockSize, b);
-        in += 8 * b;
-        std::vector<uint32_t>::const_iterator unpackpointers[32 + 1];
+        auto newOut = bitpackEncoder.simd_decode(out, in, BlockSize, b);
+        in += 8 * b; // TODO calculate based on blocksize
+
         if (cexcept > 0)
         {
             const uint8_t maxbits = *bytep++;
@@ -184,6 +189,7 @@ u32 FastPForEncoder::decode(u32 *out, const u32 *in, size_t nitems)
                 }
             }
         }
+        out = newOut;
     }
 
     return out - initout;

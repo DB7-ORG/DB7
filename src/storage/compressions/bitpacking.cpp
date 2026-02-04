@@ -17,9 +17,8 @@ void print_binary(u64 bytes)
     printf("\n");
 }
 
-static inline int scalar_encode_pr(u64 *out, u32 *in, u32 nitems, u32 usedBits)
+static inline u64 *scalar_encode_pr(u64 *out, u32 *in, u32 nitems, u32 usedBits)
 {
-    u32 offset = 0;
     u32 shift = 0;
     u64 pack = 0;
     for (u32 i = 0; i < nitems; i++)
@@ -28,7 +27,7 @@ static inline int scalar_encode_pr(u64 *out, u32 *in, u32 nitems, u32 usedBits)
         shift += usedBits;
         if (shift > 64 - usedBits)
         {
-            out[offset++] = pack;
+            *(out++) = pack;
             shift = 0;
             pack = 0;
         }
@@ -36,13 +35,13 @@ static inline int scalar_encode_pr(u64 *out, u32 *in, u32 nitems, u32 usedBits)
 
     if (shift != 0)
     {
-        out[offset++] = pack;
+        *(out++) = pack;
     }
 
-    return offset;
+    return out;
 }
 
-static inline int scalar_decode_pr(u32 *out, u64 *in, u32 nitems, u32 usedBits)
+static inline u32 *scalar_decode_pr(u32 *out, u64 *in, u32 nitems, u32 usedBits)
 {
     u32 notUsedBits = 32 - usedBits;
 
@@ -61,19 +60,19 @@ static inline int scalar_decode_pr(u32 *out, u64 *in, u32 nitems, u32 usedBits)
         }
     }
 
-    return offset;
+    return out + nitems;
 }
 
-int BitPackEncoder::simd_encode(void *out, const void *in, u32 nitems, u32 usedBits) // TODO make values const
+u32 *BitPackEncoder::simd_encode(void *out, const void *in, u32 nitems, u32 usedBits) // TODO make values const
 {
-    avxpackwithoutmask((u32 *)in, (__m256i *)out, nitems, usedBits);
-    return 0;
+    check_is_divisible_by(nitems, 256);
+    return avxpack((u32 *)in, (__m256i *)out, nitems, usedBits);
 }
 
-int BitPackEncoder::simd_decode(void *out, const void *in, u32 nitems, u32 usedBits) // TODO make values const
+u32 *BitPackEncoder::simd_decode(void *out, const void *in, u32 nitems, u32 usedBits) // TODO make values const
 {
-    avxunpack((__m256i *)in, (u32 *)out, nitems, usedBits);
-    return 0;
+    check_is_divisible_by(nitems, 256);
+    return avxunpack((__m256i *)in, (u32 *)out, nitems, usedBits);
 }
 
 u32 BitPackEncoder::simd_decode_single(const void *compressed, u32 idx, u32 usedBits)
@@ -83,12 +82,12 @@ u32 BitPackEncoder::simd_decode_single(const void *compressed, u32 idx, u32 used
     //                               there should be separate method to avoid pointer chasing in arr
 }
 
-int BitPackEncoder::scalar_encode(void *out, const void *in, u32 nitems, u32 usedBits) // TODO make values const
+u64 *BitPackEncoder::scalar_encode(void *out, const void *in, u32 nitems, u32 usedBits) // TODO make values const
 {
-    return scalar_encode_pr((u64 *)in, (u32 *)out, nitems, usedBits);
+    return scalar_encode_pr((u64 *)out, (u32 *)in, nitems, usedBits);
 }
 
-int BitPackEncoder::scalar_decode(void *out, const void *in, u32 nitems, u32 usedBits) // TODO make values const
+u32 *BitPackEncoder::scalar_decode(void *out, const void *in, u32 nitems, u32 usedBits) // TODO make values const
 {
-    return scalar_decode_pr((u32 *)in, (u64 *)out, nitems, usedBits);
+    return scalar_decode_pr((u32 *)out, (u64 *)in, nitems, usedBits);
 }

@@ -356,7 +356,93 @@ void test_bitpack()
     printf("bitpack_total:   %.3f ms\n", (t2 - t0) / 1e6);
 }
 
+std::mt19937 rng(123456);
+std::uniform_int_distribution<u32> disti(5, 1'000'000'000);
+
 void test_fastpfor()
+{
+    constexpr long tuple_num = align_up(2048, 256);
+    auto data = (u32 *)malloc(tuple_num * sizeof(u32));
+
+    for (int i = 0; i < tuple_num; i++)
+    {
+        if (i % 150 == 0)
+            data[i] = disti(rng);
+        else
+            data[i] = i % (4);
+    }
+    auto coded = (u32 *)malloc(tuple_num * sizeof(u32));
+
+    auto encoder = FastPForEncoder();
+
+    auto decoded = (u32 *)malloc(tuple_num * sizeof(u32));
+
+    u64 t0 = now_ns();
+    encoder.encode(coded, data, tuple_num);
+    u64 t1 = now_ns();
+    encoder.decode(decoded, coded, tuple_num);
+    u64 t2 = now_ns();
+
+    for (int i = 0; i < 20; i++)
+    {
+        std::cout << decoded[i] << "-";
+    }
+    std::cout << std::endl;
+
+    for (int i = 150; i < 150 + 20; i++)
+    {
+        std::cout << decoded[i] << "-";
+    }
+    std::cout << std::endl;
+
+    for (int i = 0; i < 20; i++)
+    {
+        std::cout << decoded[tuple_num - i - 1] << "-";
+    }
+    std::cout << std::endl;
+
+    printf("bitpack_encode:   %.3f ms\n", (t1 - t0) / 1e6);
+    printf("bitpack_decode:   %.3f ms\n", (t2 - t1) / 1e6);
+    printf("bitpack_total:   %.3f ms\n", (t2 - t0) / 1e6);
+}
+
+void test_scalarbitpack()
+{
+    constexpr long tuple_num = align_up(2048, 256);
+    auto data = (u32 *)malloc(tuple_num * sizeof(u32));
+
+    for (int i = 0; i < tuple_num; i++)
+    {
+        data[i] = i % (4);
+    }
+    auto coded = (u64 *)malloc(tuple_num * sizeof(u64));
+
+    auto decoded = (u32 *)malloc(tuple_num * sizeof(u32));
+
+    u64 t0 = now_ns();
+    BitPackEncoder::scalar_encode(coded, data, tuple_num, 2);
+    u64 t1 = now_ns();
+    BitPackEncoder::scalar_decode(decoded, coded, tuple_num, 2);
+    u64 t2 = now_ns();
+
+    for (int i = 0; i < 20; i++)
+    {
+        std::cout << decoded[i] << "-";
+    }
+    std::cout << std::endl;
+
+    for (int i = 0; i < 20; i++)
+    {
+        std::cout << decoded[tuple_num - i - 1] << "-";
+    }
+    std::cout << std::endl;
+
+    printf("bitpack_encode:   %.3f ms\n", (t1 - t0) / 1e6);
+    printf("bitpack_decode:   %.3f ms\n", (t2 - t1) / 1e6);
+    printf("bitpack_total:   %.3f ms\n", (t2 - t0) / 1e6);
+}
+
+void test_simdencode()
 {
     constexpr long tuple_num = align_up(2048, 256);
     auto data = (u32 *)malloc(tuple_num * sizeof(u32));
@@ -367,25 +453,23 @@ void test_fastpfor()
     }
     auto coded = (u32 *)malloc(tuple_num * sizeof(u32));
 
-    auto encoder = FastPForEncoder();
-
-    auto decocded = (u32 *)malloc(tuple_num * sizeof(u32));
+    auto decoded = (u32 *)malloc(tuple_num * sizeof(u32));
 
     u64 t0 = now_ns();
-    encoder.encode(coded, data, tuple_num);
+    BitPackEncoder::simd_encode(coded, data, tuple_num, 2);
     u64 t1 = now_ns();
-    encoder.decode(decocded, coded, tuple_num);
+    BitPackEncoder::simd_decode(decoded, coded, tuple_num, 2);
     u64 t2 = now_ns();
 
     for (int i = 0; i < 20; i++)
     {
-        std::cout << decocded[i] << "-";
+        std::cout << decoded[i] << "-";
     }
     std::cout << std::endl;
 
     for (int i = 0; i < 20; i++)
     {
-        std::cout << decocded[tuple_num - i - 1] << "-";
+        std::cout << decoded[tuple_num - i - 1] << "-";
     }
     std::cout << std::endl;
 
