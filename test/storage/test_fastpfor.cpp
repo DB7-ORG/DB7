@@ -22,8 +22,8 @@ protected:
     void EncodeAndDecode(const std::vector<u32> &data)
     {
         input = data;
-        u32 encoded_size = encoder.encode(encoded.data(), input.data(), input.size());
-        u32 decoded_size = encoder.decode(decoded.data(), encoded.data(), input.size());
+        encoder.encode(encoded.data(), input.data(), input.size());
+        encoder.decode(decoded.data(), encoded.data(), input.size());
         decoded.resize(input.size());
     }
 };

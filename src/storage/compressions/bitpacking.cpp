@@ -101,5 +101,6 @@ u32 *BitPackEncoder::scalar_decode(void *out, const void *in, u32 nitems, u32 us
 u32 BitPackEncoder::scalar_decode_single(const void *compressed, u32 idx, u32 usedBits)
 {
     // TODO scalar decode single
+    std::cout << compressed << idx << usedBits;
     return 0;
 }

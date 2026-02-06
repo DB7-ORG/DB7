@@ -34,9 +34,4 @@ test: $(TEST_BINS)
 	@echo ""
 	@echo "All tests passed!"
 
-# Run a single test: make test-storage/compressions/test_bitpacking
-test-%: $(TEST_BIN_DIR)/%
-	@echo "Running $<..."
-	@$
-
 .PHONY: test

@@ -276,44 +276,6 @@ unsigned char **generate_str(size_t count, u32 *lens)
     return strings;
 }
 
-void test_dict()
-{
-    constexpr long tuple_num = 1'000'000;
-    constexpr size_t count = tuple_num;
-    const u16 strsize = (u16)(sizeof("string1") - 1) * 4;
-    long size = align_up(tuple_num * (strsize + 2), IO_ALIGN);
-    const char *filename = "resources/some.bin";
-    std::cout << filename << size << strsize << tuple_num << std::endl;
-
-    // fill_data(size, tuple_num, strsize, filename);
-
-    // auto strings = read_data(count, size, filename);
-
-    u32 *lenIn = new u32[count];
-    auto strings = generate_str(count, lenIn);
-
-    printf("Number of items %zu: \n", count);
-
-    u32 *encoded = (u32 *)malloc(count * sizeof(u32));
-
-    u64 t0 = now_ns();
-
-    DictionaryEncoder::encode(encoded, (unsigned char **)strings, lenIn, count);
-
-    u64 t1 = now_ns();
-
-    DictionaryEncoder::decode((unsigned char **)strings, lenIn, encoded, count);
-
-    u64 t2 = now_ns();
-
-    for (u32 i = 0; i < 20; i++)
-    {
-        std::cout << strings[i] << std::endl;
-    }
-
-    printf("dict_encode:   %.3f ms\n", (t1 - t0) / 1e6);
-    printf("dict_decode:   %.3f ms\n", (t2 - t1) / 1e6);
-}
 #include <bitset>
 void test_bitpack()
 {
@@ -595,9 +557,67 @@ void generate_strings(const u8 **&strings, u64 *&lens)
 
 //     printf("time:   %.3f ms\n", (t1 - t0) / 1e6);
 // }
+std::string generateRandomString(size_t length)
+{
+    const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    std::uniform_int_distribution<> dist(0, sizeof(charset) - 2);
 
+    std::string result;
+    result.reserve(length);
+    for (size_t i = 0; i < length; i++)
+    {
+        result += charset[dist(rng)];
+    }
+    return result;
+}
+
+u8 *makeString(const char *str)
+{
+    u32 len = strlen(str);
+    u8 *result = new u8[len + 1];
+    memcpy(result, str, len + 1);
+    // allocatedStrings.push_back(result);
+    return result;
+}
+
+u8 *makeString(const std::string &str)
+{
+    return makeString(str.c_str());
+}
+#include <cassert>
 int main()
 {
-    test_dict();
+    const int COUNT = 10;
+    const size_t STRING_LENGTH = 100000;             // 100KB strings
+    std::vector<u32> encoded(COUNT * STRING_LENGTH); // Very large buffer
+    std::vector<u8 *> inStrings(COUNT);
+    std::vector<u32> inLengths(COUNT);
+
+    for (int i = 0; i < COUNT; i++)
+    {
+        std::string str = generateRandomString(STRING_LENGTH);
+        inStrings[i] = makeString(str);
+        inLengths[i] = str.length();
+    }
+
+    u32 totalStrLen = 0;
+    for (int i = 0; i < COUNT; i++)
+    {
+        totalStrLen += inLengths[i];
+    }
+
+    u32 *encodeEnd = DictionaryEncoder::encode(encoded.data(), inStrings.data(), inLengths.data(), COUNT, totalStrLen);
+    assert(encodeEnd != nullptr);
+
+    std::vector<u8 *> outStrings(COUNT);
+    std::vector<u32> outLengths(COUNT);
+    u32 *decodeEnd = DictionaryEncoder::decode(outStrings.data(), outLengths.data(), encoded.data(), COUNT);
+
+    assert(decodeEnd != nullptr);
+    for (int i = 0; i < COUNT; i++)
+    {
+        assert(outLengths[i] == inLengths[i]);
+        assert(memcmp(outStrings[i], inStrings[i], inLengths[i]) == 0);
+    }
     return 0;
 }

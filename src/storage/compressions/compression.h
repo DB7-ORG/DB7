@@ -22,7 +22,7 @@ struct DictEncodedRes
 
 struct DictionaryEncoder
 {
-    static u32 *encode(u32 *out, u8 **in, u32 *lenIn, u32 count);
+    static u32 *encode(u32 *out, u8 **in, u32 *lenIn, u32 count, u32 strLen);
     static u32 *decode(u8 **out, u32 *lenOut, const u32 *in, u32 count);
 
     // test

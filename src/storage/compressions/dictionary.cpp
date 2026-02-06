@@ -26,7 +26,21 @@ struct HMap
 #include <sys/mman.h>
 HMap::HMap(size_t count)
 {
-    hash_capacity = count * 2; // Use 2x for good performance
+    size_t target = count * 2;
+    if (target == 0)
+    {
+        hash_capacity = 1;
+    }
+    else if (target == 1)
+    {
+        hash_capacity = 1;
+    }
+    else
+    {
+        int leading_zeros = __builtin_clzll(target - 1);
+        hash_capacity = 1ULL << (64 - leading_zeros);
+    }
+
     entries = (MapEntry *)calloc(hash_capacity, sizeof(MapEntry));
 
     // (MapEntry *)mmap(
@@ -76,10 +90,10 @@ inline u32 HMap::get_insert(u8 *key, u16 len, u32 value)
     }
 }
 
-u32 *DictionaryEncoder::encode(u32 *out, u8 **in, u32 *lenIn, u32 count)
+u32 *DictionaryEncoder::encode(u32 *out, u8 **in, u32 *lenIn, u32 count, u32 strLen)
 {
-    u8 *strings = (u8 *)malloc(count * sizeof(u8 *));  // TODO this is not len i want, should use vec w allocators
-    u32 *indexes = (u32 *)malloc(count * sizeof(u32)); // TODO this is not len i want, should use vec w allocators
+    u8 *strings = (u8 *)malloc(strLen);                      // TODO this is not len i want, should use vec w allocators
+    u32 *indexes = (u32 *)malloc((count + 1) * sizeof(u32)); // TODO this is not len i want, should use vec w allocators
     indexes[0] = 0;
     u32 idx = 1;
 
@@ -87,7 +101,7 @@ u32 *DictionaryEncoder::encode(u32 *out, u8 **in, u32 *lenIn, u32 count)
 
     for (size_t i = 0; i < count; i++)
     {
-        u16 len = lenIn[i];
+        u32 len = lenIn[i];
         u8 *key = in[i];
         u32 data = map.get_insert(key, len, idx);
         out[i] = data;
@@ -127,7 +141,41 @@ u32 *DictionaryEncoder::decode(u8 **out, u32 *lenOut, const u32 *in, u32 count)
         lenOut[i] = end - start;
     }
 
-    return nullptr; // TODO not sure what is good return val
+    u32 total_string_size = initidx[idxcount - 1];
+    return (u32 *)(initstr + total_string_size);
+
+    // u32 blocks = count / 8;
+    // const u32 *initdata = in;
+    // const u32 *initidx = initdata + count;
+    // u32 idxcount = *(initidx++);
+    // u8 *initstr = (u8 *)(initidx + idxcount);
+
+    // const __m256i *siminitdata = (const __m256i *)initdata;
+    // // const __m256i *siminitidx = (const __m256i *)initidx;
+    // //  auto siminitdata = (__m256i *)initdata;
+
+    // for (u32 i = 0; i < blocks; i++)
+    // {
+    //     __m256i idx = _mm256_loadu_si256(siminitdata + i);
+    //     __m256i idx_minus_1 = _mm256_sub_epi32(idx, _mm256_set1_epi32(1));
+
+    //     __m256i starts = _mm256_i32gather_epi32((int *)initidx, idx_minus_1, 4);
+    //     __m256i ends = _mm256_i32gather_epi32((int *)initidx, idx, 4);
+    //     __m256i lengths = _mm256_sub_epi32(ends, starts);
+
+    //     _mm256_storeu_si256((__m256i *)&lenOut[i * 8], lengths);
+
+    //     u32 start_vals[8];
+    //     _mm256_storeu_si256((__m256i *)start_vals, starts);
+
+    //     for (int j = 0; j < 8; j++)
+    //     {
+    //         out[i * 8 + j] = initstr + start_vals[j];
+    //         // std::cout << std::string_view((const char *)(out[i * 8 + j]), lenOut[i * 8 + j]) << std::endl;
+    //     }
+    // }
+
+    // return nullptr;
 }
 
 // constexpr u64 HASH_NUM_1 = 14695981039346656037ULL;
