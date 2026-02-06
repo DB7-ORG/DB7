@@ -1,6 +1,7 @@
 CXX = g++
 BASE_CXXFLAGS = -Wall -Wextra -std=c++17 -pedantic -Iinclude -DNONOPT_FSST -march=native
 LDFLAGS = -lxxhash #-larrow
+TEST_LDFLAGS = $(LDFLAGS) -lgtest -lgtest_main -pthread
 
 # Build mode: debug or release (default: release)
 BUILD ?= release

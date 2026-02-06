@@ -2,7 +2,7 @@
 # ---------------------- TESTS -------------------------------------
 # ------------------------------------------------------------------
 
-TEST_LIB_OBJS := $(DISK_MGR_OBJ) $(COMPRESSION_DICT_OBJ) $(COMPRESSION_FSST_OBJ) $(COMPRESSION_BITPACK_OBJ)
+TEST_LIB_OBJS := $(DISK_MGR_OBJ) $(COMPRESSION_DICT_OBJ) $(COMPRESSION_FSST_OBJ) $(COMPRESSION_BITPACK_OBJ) $(COMPRESSION_FASTPFOR_OBJ)
 
 TEST_DIR := test
 TEST_BIN_DIR := $(BIN_DIR)/test
@@ -21,7 +21,7 @@ $(TEST_OBJ_DIR)/%.o: $(TEST_DIR)/%.cpp
 # Link test binaries
 $(TEST_BIN_DIR)/%: $(TEST_OBJ_DIR)/%.o $(TEST_LIB_OBJS)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(TEST_LDFLAGS)
 
 # Run all tests
 test: $(TEST_BINS)

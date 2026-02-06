@@ -136,7 +136,7 @@ int fill_data(size_t size, long tuple_num, const u16 strsize, const char *filena
     {
         std::string str = "string" + std::to_string(status_distribution(gen));
         memcpy(buffer + offset, &strsize, sizeof(u16));
-        memcpy(buffer + offset + 2, (str + str + str + str).c_str(), strsize);
+        memcpy(buffer + offset + 2, (str + str + str + str).data(), strsize);
         offset += strsize + 2;
     }
 
@@ -162,6 +162,7 @@ const unsigned char **read_data(size_t count, long size, const char *filename)
     int read = readCF(filename, new_buffer, size);
     if (!read)
     {
+        throw std::runtime_error("failed to read file");
         return nullptr;
     }
 
@@ -253,35 +254,65 @@ int test_fsst()
     return 0;
 }
 
+unsigned char **generate_str(size_t count, u32 *lens)
+{
+    const char *items[] = {"string1", "string2", "string3", "string4"};
+    unsigned char **strings = (unsigned char **)malloc(count * sizeof(unsigned char *));
+
+    for (size_t i = 0; i < count; i++)
+    {
+        int idx = rand() % 4;
+        size_t len = strlen(items[idx]);
+        strings[i] = (unsigned char *)malloc(len + 1);
+        memcpy(strings[i], items[idx], len + 1);
+        lens[i] = len;
+    }
+
+    for (size_t i = 0; i < 5; i++)
+    {
+        std::cout << strings[i] << std::endl;
+    }
+
+    return strings;
+}
+
 void test_dict()
 {
     constexpr long tuple_num = 1'000'000;
     constexpr size_t count = tuple_num;
-    const u16 strsize = (u16)sizeof("string1") * 4 - 1;
+    const u16 strsize = (u16)(sizeof("string1") - 1) * 4;
     long size = align_up(tuple_num * (strsize + 2), IO_ALIGN);
     const char *filename = "resources/some.bin";
     std::cout << filename << size << strsize << tuple_num << std::endl;
 
-    fill_data(size, tuple_num, strsize, filename);
+    // fill_data(size, tuple_num, strsize, filename);
 
-    read_data(count, size, filename);
+    // auto strings = read_data(count, size, filename);
 
-    auto strings = read_data(count, size, filename);
+    u32 *lenIn = new u32[count];
+    auto strings = generate_str(count, lenIn);
 
-    printf("Number of items %zu\n: ", count);
-
-    size_t *lenIn = new size_t[count];
-    std::fill(lenIn, lenIn + tuple_num, strsize);
+    printf("Number of items %zu: \n", count);
 
     u32 *encoded = (u32 *)malloc(count * sizeof(u32));
 
     u64 t0 = now_ns();
 
-    DictionaryEncoder::encode(count, (unsigned char **)strings, lenIn, encoded);
+    DictionaryEncoder::encode(encoded, (unsigned char **)strings, lenIn, count);
 
     u64 t1 = now_ns();
 
+    DictionaryEncoder::decode((unsigned char **)strings, lenIn, encoded, count);
+
+    u64 t2 = now_ns();
+
+    for (u32 i = 0; i < 20; i++)
+    {
+        std::cout << strings[i] << std::endl;
+    }
+
     printf("dict_encode:   %.3f ms\n", (t1 - t0) / 1e6);
+    printf("dict_decode:   %.3f ms\n", (t2 - t1) / 1e6);
 }
 #include <bitset>
 void test_bitpack()
@@ -478,8 +509,95 @@ void test_simdencode()
     printf("bitpack_total:   %.3f ms\n", (t2 - t0) / 1e6);
 }
 
+void generate_strings(const u8 **&strings, u64 *&lens)
+{
+    // Allocate arrays for 4 strings (SIMD processes 4 at a time)
+    static std::vector<std::vector<u8>> string_data;
+    static const u8 *string_ptrs[4];
+    static u64 string_lens[4];
+
+    // Generate test strings
+    string_data = {
+        {'h', 'e', 'l', 'l', 'o'},
+        {'w', 'o', 'r', 'l', 'd'},
+        {'t', 'e', 's', 't'},
+        {'d', 'a', 't', 'a'}};
+
+    // Set up pointers and lengths
+    for (int i = 0; i < 4; i++)
+    {
+        string_ptrs[i] = string_data[i].data();
+        string_lens[i] = string_data[i].size();
+    }
+
+    strings = string_ptrs;
+    lens = string_lens;
+}
+
+// #include <iomanip>
+
+// void test_dict_hash()
+// {
+//     auto out = (__m256i *)malloc(sizeof(__m256i));
+//     std::vector<u64> lens(8, 24);
+
+//     const char *filename = "resources/some.bin";
+//     // generate_strings(strings, lens);
+//     fill_data(2048, 20, 24, filename);
+
+//     auto strings = read_data(8, 2048, filename);
+
+//     DictionaryEncoder::hash_fnv1a_simd(strings, lens.data(), out);
+
+//     auto results = (u64 *)out;
+
+//     std::cout << "Hash results:" << std::endl;
+//     for (int i = 0; i < 4; i++)
+//     {
+//         std::cout << "String " << i << " (len=" << lens[i] << "): 0x"
+//                   << std::dec << std::setw(16) << std::setfill('0')
+//                   << results[i] << std::dec << std::endl;
+
+//         std::cout << "Other string " << DictionaryEncoder::hash_fnv1a(strings[i], lens[i]) << std::endl;
+//     }
+// }
+
+// void benchmark_simd_hash()
+// {
+//     const char *filename = "resources/some.bin";
+//     // generate_strings(strings, lens);
+//     auto tuple_num = 10'000;
+//     auto str_size = 24;
+//     auto size = align_up(tuple_num * (str_size + 2), IO_ALIGN);
+
+//     fill_data(size, tuple_num, str_size, filename);
+
+//     std::vector<u64> lens(tuple_num, str_size);
+//     auto strings = read_data(tuple_num, size, filename);
+
+//     u64 t0 = now_ns();
+//     auto out = (__m256i *)malloc(sizeof(__m256i) * (tuple_num / 4));
+//     for (int i = 0; i < tuple_num / 4; i++)
+//     {
+//         DictionaryEncoder::hash_fnv1a_simd(strings + 4 * i, lens.data() + 4 * i, out);
+//         out++;
+//     }
+
+//     // auto out = (u64 *)malloc(sizeof(u64) * 200 * 4);
+//     // for (int i = 0; i < tuple_num / 4; i++)
+//     // {
+//     //     auto val = DictionaryEncoder::hash_fnv1a(strings[i], lens.data()[i]);
+//     //     out[i] = val;
+//     //     out++;
+//     // }
+
+//     u64 t1 = now_ns();
+
+//     printf("time:   %.3f ms\n", (t1 - t0) / 1e6);
+// }
+
 int main()
 {
-    test_fastpfor();
+    test_dict();
     return 0;
 }

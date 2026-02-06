@@ -76,12 +76,10 @@ inline u32 HMap::get_insert(u8 *key, u16 len, u32 value)
     }
 }
 
-DictEncodedRes DictionaryEncoder::encode(size_t count, u8 **in, size_t *lenIn, u32 *out)
+u32 *DictionaryEncoder::encode(u32 *out, u8 **in, u32 *lenIn, u32 count)
 {
-    // u32 *encoded = (u32 *)malloc(count * sizeof(u32));
-
-    char *strings = (char *)malloc(count * sizeof(char *));
-    u32 *indexes = (u32 *)malloc(count * sizeof(u32));
+    u8 *strings = (u8 *)malloc(count * sizeof(u8 *));  // TODO this is not len i want, should use vec w allocators
+    u32 *indexes = (u32 *)malloc(count * sizeof(u32)); // TODO this is not len i want, should use vec w allocators
     indexes[0] = 0;
     u32 idx = 1;
 
@@ -97,15 +95,76 @@ DictEncodedRes DictionaryEncoder::encode(size_t count, u8 **in, size_t *lenIn, u
         {
             indexes[idx] = indexes[idx - 1] + len;
             memcpy(strings + indexes[idx - 1], key, len);
-            //*(u64 *)(strings + offset) = *(u64 *)key;
             idx++;
         }
     }
 
-    return DictEncodedRes{
-        out,
-        indexes,
-        strings,
-        idx,
-        count};
+    // serialization
+    u32 *initidx = out + count;
+    initidx[0] = idx;
+    initidx++;
+    memcpy(initidx, indexes, idx * sizeof(u32));
+    u32 *initstr = initidx + idx;
+    u32 strsize = indexes[idx - 1];
+    memcpy(initstr, strings, strsize);
+
+    return initstr + strsize;
 }
+
+u32 *DictionaryEncoder::decode(u8 **out, u32 *lenOut, const u32 *in, u32 count)
+{
+    const u32 *initdata = in;
+    const u32 *initidx = initdata + count;
+    u32 idxcount = *(initidx++);
+    u8 *initstr = (u8 *)(initidx + idxcount);
+
+    for (u32 i = 0; i < count; i++)
+    {
+        u32 idx = initdata[i];
+        u32 start = initidx[idx - 1];
+        u32 end = initidx[idx];
+        out[i] = initstr + start;
+        lenOut[i] = end - start;
+    }
+
+    return nullptr; // TODO not sure what is good return val
+}
+
+// constexpr u64 HASH_NUM_1 = 14695981039346656037ULL;
+// constexpr u64 HASH_NUM_2 = 1099511627776ULL;
+
+// u64 DictionaryEncoder::hash_fnv1a(const u8 *val, size_t size)
+// {
+//     u64 hash = HASH_NUM_1;
+//     u64 val64 = *((u64 *)val);
+//     u64 shift_amt = ((8 - size) & 7) * 8;
+//     val64 = (val64 << shift_amt) >> shift_amt;
+//     hash ^= val64;
+//     hash *= HASH_NUM_2;
+//     return hash;
+// }
+
+// void DictionaryEncoder::hash_fnv1a_simd(const u8 **val, u64 *size, __m256i *out)
+// {
+
+//     auto hash = _mm256_set1_epi64x(HASH_NUM_1);
+//     auto data = _mm256_set_epi64x(
+//         *((u64 *)val[3]),
+//         *((u64 *)val[2]),
+//         *((u64 *)val[1]),
+//         *((u64 *)val[0]));
+
+//     auto size_vec = _mm256_lddqu_si256((__m256i *)size);
+//     auto init_vec = _mm256_set1_epi64x(8);
+//     auto shift_amt = _mm256_sub_epi64(init_vec, size_vec);
+//     auto mod_vec = _mm256_set1_epi64x(7);
+//     shift_amt = _mm256_and_si256(shift_amt, mod_vec);
+//     auto sh_vec = _mm256_set1_epi64x(3);
+//     shift_amt = _mm256_sllv_epi64(shift_amt, sh_vec);
+
+//     __m256i result = _mm256_sllv_epi64(data, shift_amt);
+//     result = _mm256_srlv_epi64(result, shift_amt);
+//     result = _mm256_xor_si256(result, hash);
+//     result = _mm256_slli_epi64(result, 40);
+//     _mm256_storeu_si256(out, result);
+// }

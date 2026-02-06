@@ -7,6 +7,7 @@
 #include <string>
 #include <x86intrin.h>
 #include "common.h"
+#include "../../shared/align_utils.h"
 #include <vector>
 #include <stdexcept>
 
@@ -21,21 +22,24 @@ struct DictEncodedRes
 
 struct DictionaryEncoder
 {
-    static DictEncodedRes encode(size_t count, u8 **in, size_t *lenIn, u32 *out);
-    // static void decode();
+    static u32 *encode(u32 *out, u8 **in, u32 *lenIn, u32 count);
+    static u32 *decode(u8 **out, u32 *lenOut, const u32 *in, u32 count);
+
+    // test
+    // static u64 hash_fnv1a(const u8 *val, size_t size);
+    // static void hash_fnv1a_simd(const u8 **val, u64 *size, __m256i *out);
 };
 
 struct BitPackEncoder
 {
     static u32 *simd_encode(void *out, const void *in, u32 nitems, u32 usedBits);
+    static u32 *simd_encode_withoutmask(void *out, const void *in, u32 nitems, u32 usedBits);
     static u32 *simd_decode(void *out, const void *in, u32 nitems, u32 usedBits);
     static u32 simd_decode_single(const void *compressed, u32 idx, u32 usedBits);
     static u64 *scalar_encode(void *out, const void *in, u32 nitems, u32 usedBits);
     static u32 *scalar_decode(void *out, const void *in, u32 nitems, u32 usedBits);
+    static u32 scalar_decode_single(const void *compressed, u32 idx, u32 usedBits);
 };
-
-// typical cache line
-// typedef AlignedSTLAllocator<uint32_t, 64> cacheallocator;
 
 enum
 {
@@ -46,11 +50,16 @@ enum
     BlockSize = 8 * PACKSIZE
 };
 
+static_assert(BlockSize % 256 == 0, "BlockSize is not divisible");
+
+typedef std::vector<u32, AlignedSTLAllocator<u32, 32>> cachealignedvector;
+
 struct FastPForEncoder
 {
     BitPackEncoder bitpackEncoder;
-    std::vector<std::vector<u32>> datatobepacked; // TODO cache line allocator or build my own vector
+    std::vector<cachealignedvector> datatobepacked;
     std::vector<u8> bytescontainer;
+
     FastPForEncoder();
     u32 encode(u32 *out, const u32 *in, size_t nitems);
     u32 decode(u32 *out, const u32 *in, size_t nitems);

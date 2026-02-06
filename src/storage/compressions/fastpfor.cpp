@@ -38,7 +38,7 @@ void get_best_b(const u32 *in, u8 &bestb, u8 &bestcexcept, u8 &maxb)
     }
 }
 
-u32 *pack_exception_blocks(BitPackEncoder &bitpackEncoder, u32 *out, std::vector<u32> &in, u8 bit)
+u32 *pack_exception_blocks(BitPackEncoder &bitpackEncoder, u32 *out, cachealignedvector &in, u8 bit)
 {
     const u32 size = static_cast<u32>(in.size());
     *out = size;
@@ -46,14 +46,13 @@ u32 *pack_exception_blocks(BitPackEncoder &bitpackEncoder, u32 *out, std::vector
 
     out = (u32 *)bitpackEncoder.scalar_encode(out, in.data(), in.size(), bit);
 
-    // Convert back to u32*
     return out;
 }
 
 FastPForEncoder::FastPForEncoder()
 {
     datatobepacked.resize(33);
-    bytescontainer.resize(256);
+    bytescontainer.resize(1024);
 }
 
 u32 FastPForEncoder::encode(u32 *out, const u32 *in, size_t nitems)
@@ -86,8 +85,12 @@ u32 FastPForEncoder::encode(u32 *out, const u32 *in, size_t nitems)
                     *bc++ = static_cast<u8>(k);
                 }
             }
+            out = bitpackEncoder.simd_encode(out, in, BlockSize, bestb); // TODO executed once per loop
         }
-        out = bitpackEncoder.simd_encode(out, in, BlockSize, bestb); // TODO executed once per loop
+        else
+        {
+            out = bitpackEncoder.simd_encode_withoutmask(out, in, BlockSize, bestb); // TODO executed once per loop
+        }
     }
 
     headerout[0] = static_cast<u32>(out - headerout);
@@ -127,7 +130,7 @@ static inline u32 words_used(u32 nitems, u32 usedBits)
 {
     u32 total_bits = nitems * usedBits;
     u32 n_u64 = (total_bits + 63) / 64;
-    return n_u64 * 2; // TODO
+    return n_u64 * 2; // TODO after changing scalar encode / decode implementation
 }
 
 u32 FastPForEncoder::decode(u32 *out, const u32 *in, size_t nitems)
@@ -136,15 +139,14 @@ u32 FastPForEncoder::decode(u32 *out, const u32 *in, size_t nitems)
 
     resetTable();
 
-    // const uint32_t *const initin = in;
-    const uint32_t *const headerin = in++;
-    const uint32_t wheremeta = headerin[0];
-    const uint32_t *inexcept = headerin + wheremeta;
-    const uint32_t bytesize = *inexcept++;
-    const uint8_t *bytep = reinterpret_cast<const uint8_t *>(inexcept);
-    inexcept += (bytesize + sizeof(uint32_t) - 1) / sizeof(uint32_t);
-    const uint32_t bitmap = *(inexcept++);
-    for (uint32_t k = 2; k <= 32; ++k)
+    const u32 *const headerin = in++;
+    const u32 wheremeta = headerin[0];
+    const u32 *inexcept = headerin + wheremeta;
+    const u32 bytesize = *inexcept++;
+    const u8 *bytep = reinterpret_cast<const u8 *>(inexcept);
+    inexcept += (bytesize + sizeof(u32) - 1) / sizeof(u32);
+    const u32 bitmap = *(inexcept++);
+    for (u32 k = 2; k <= 32; ++k)
     {
         if ((bitmap & (1U << (k - 1))) != 0)
         {
@@ -155,36 +157,36 @@ u32 FastPForEncoder::decode(u32 *out, const u32 *in, size_t nitems)
         }
     }
 
-    std::vector<uint32_t>::const_iterator unpackpointers[32 + 1];
-    for (uint32_t k = 2; k <= 32; ++k)
+    cachealignedvector::const_iterator unpackpointers[32 + 1];
+    for (u32 k = 2; k <= 32; ++k)
     {
         unpackpointers[k] = datatobepacked[k].begin();
     }
 
-    for (uint32_t run = 0; run < nitems / BlockSize; ++run)
+    for (u32 run = 0; run < nitems / BlockSize; ++run)
     {
-        const uint8_t b = *bytep++;
-        const uint8_t cexcept = *bytep++;
+        const u8 b = *bytep++;
+        const u8 cexcept = *bytep++;
         auto newOut = bitpackEncoder.simd_decode(out, in, BlockSize, b);
-        in += 8 * b; // TODO calculate based on blocksize
+        in += 8 * b * BlockSize / 256;
 
         if (cexcept > 0)
         {
-            const uint8_t maxbits = *bytep++;
+            const u8 maxbits = *bytep++;
             if (maxbits - b == 1)
             {
-                for (uint32_t k = 0; k < cexcept; ++k)
+                for (u32 k = 0; k < cexcept; ++k)
                 {
-                    const uint8_t pos = *(bytep++);
-                    out[pos] |= static_cast<uint32_t>(1) << b;
+                    const u8 pos = *(bytep++);
+                    out[pos] |= static_cast<u32>(1) << b;
                 }
             }
             else
             {
-                std::vector<uint32_t>::const_iterator &exceptionsptr = unpackpointers[maxbits - b];
-                for (uint32_t k = 0; k < cexcept; ++k)
+                cachealignedvector::const_iterator &exceptionsptr = unpackpointers[maxbits - b];
+                for (u32 k = 0; k < cexcept; ++k)
                 {
-                    const uint8_t pos = *(bytep++);
+                    const u8 pos = *(bytep++);
                     out[pos] |= (*(exceptionsptr++)) << b;
                 }
             }

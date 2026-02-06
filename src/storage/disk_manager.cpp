@@ -10,6 +10,7 @@ int readCF(const char *file_name, char *buffer, size_t size, size_t offset)
     if (fd == -1)
     {
         perror("Error opening file");
+        throw std::runtime_error("error opening file");
         return 0;
     }
 
@@ -23,6 +24,7 @@ int readCF(const char *file_name, char *buffer, size_t size, size_t offset)
         {
             close(fd);
             perror("Error pread failed");
+            throw std::runtime_error("error pread file");
             return 0;
         }
 
@@ -44,6 +46,7 @@ int writeCF(const char *file_name, const char *buffer, size_t size)
     if (fd == -1)
     {
         perror("Error opening file");
+        throw std::runtime_error("error opening file");
         return 0;
     }
 
@@ -56,6 +59,7 @@ int writeCF(const char *file_name, const char *buffer, size_t size)
         {
             close(fd);
             perror("Error read failed");
+            throw std::runtime_error("error read file");
             return 0;
         }
         total += n;
@@ -65,6 +69,7 @@ int writeCF(const char *file_name, const char *buffer, size_t size)
     {
         close(fd);
         perror("Error ftruncate failed");
+        throw std::runtime_error("error truncate file");
         return 0;
     }
 
