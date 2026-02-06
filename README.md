@@ -3,8 +3,8 @@ sudo apt-get install libabsl-dev
 # DB7 ✅ ❌
 
 implement compression schemes ❌
-- dictionary encoding ✅ ❌
-- optimize dictionary encoding more ❌
+- dictionary encoding ✅
+- optimize dictionary encoding more ✅
 - run len encoding / one value ❌
 - frequency encoding ❌
 - bitpacking ✅
@@ -12,6 +12,9 @@ implement compression schemes ❌
 
 check out todo template for decode single in bitpacking ❌
 check out todos and fix them before there is too many ❌
+
+- refactor code for compression so function caller does the allocations and alignment ❌
+- single value compression probably sucks try block decompression ❌
 
 # RESEARCH
 

@@ -566,35 +566,40 @@ void test_bitpacking_scalar()
     std::vector<u64> encoded;
     std::vector<u32> decoded;
 
-    const std::vector<u32> &values = {100, 200, 300, 400, 500, 600, 700, 800};
-    for (u32 bits = 1; bits <= 32; bits++)
+    std::vector<u32> values;
+    u32 nu = 100'000;
+    for (u32 i = 0; i < nu; i++)
     {
-        u32 usedBits = 16;
-
-        input = values;
-
-        // Calculate maximum encoded size
-        size_t encodedSize = ((values.size() * usedBits + 63) / 64) + 1;
-        encoded.resize(encodedSize, 0);
-        decoded.resize(values.size(), 0);
-
-        // Encode
-        u64 *encEnd = encoder.scalar_encode(encoded.data(), input.data(),
-                                            input.size(), usedBits);
-
-        // Decode
-        u32 *decEnd = encoder.scalar_decode(decoded.data(), encoded.data(),
-                                            input.size(), usedBits);
-
-        // Verify
-        u32 mask = (1ULL << usedBits) - 1;
-        for (size_t i = 0; i < values.size(); i++)
-        {
-            assert(decoded[i] == values[i] & mask);
-        }
-
-        assert(decEnd == decoded.data() + values.size());
+        values.push_back(i);
     }
+
+    u32 usedBits = 16;
+
+    input = values;
+
+    // Calculate maximum encoded size
+    size_t encodedSize = ((values.size() * usedBits + 63) / 64) + 1;
+    encoded.resize(encodedSize, 0);
+    decoded.resize(values.size(), 0);
+
+    u64 t0 = now_ns();
+    encoder.scalar_encode(encoded.data(), input.data(), input.size(), usedBits);
+    u64 t1 = now_ns();
+    u32 *decEnd = encoder.scalar_decode(decoded.data(), encoded.data(), input.size(), usedBits);
+    u64 t2 = now_ns();
+
+    printf("encode:   %.3f ms\n", (t1 - t0) / 1e6);
+    printf("decode:   %.3f ms\n", (t2 - t1) / 1e6);
+    printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
+
+    // Verify
+    u32 mask = (1ULL << usedBits) - 1;
+    for (size_t i = 0; i < values.size(); i++)
+    {
+        assert(decoded[i] == values[i] & mask);
+    }
+
+    assert(decEnd == decoded.data() + values.size());
 }
 
 std::string generateRandomString(size_t length)
@@ -625,7 +630,7 @@ u8 *makeString(const std::string &str)
     return makeString(str.c_str());
 }
 
-int main()
+void test_huge_dict()
 {
     const int COUNT = 5000;
     std::vector<u32> encoded(COUNT * 100); // Large buffer for unique strings
@@ -658,6 +663,10 @@ int main()
         assert(outLengths[i] == inLengths[i]);
         assert(memcmp(outStrings[i], inStrings[i], inLengths[i]) == 0);
     }
+}
 
+int main()
+{
+    test_bitpacking_scalar();
     return 0;
 }

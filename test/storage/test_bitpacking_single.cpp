@@ -4,7 +4,7 @@
 #include "../src/storage/compressions/compression.h"
 
 // Test fixture for BitPack tests
-class BitPackTest : public ::testing::TestWithParam<uint32_t>
+class BitPackSingleTest : public ::testing::TestWithParam<uint32_t>
 {
 protected:
     uint32_t bits;
@@ -35,7 +35,7 @@ protected:
 };
 
 // Test sequential values (0, 1, 2, 3, ...)
-TEST_P(BitPackTest, SequentialValues)
+TEST_P(BitPackSingleTest, SequentialValues)
 {
     constexpr uint32_t nitems = 256;
 
@@ -56,7 +56,7 @@ TEST_P(BitPackTest, SequentialValues)
 }
 
 // Test all maximum values
-TEST_P(BitPackTest, MaxValues)
+TEST_P(BitPackSingleTest, MaxValues)
 {
     constexpr uint32_t nitems = 256;
 
@@ -76,7 +76,7 @@ TEST_P(BitPackTest, MaxValues)
 }
 
 // Test alternating pattern (0, max, 0, max, ...)
-TEST_P(BitPackTest, AlternatingPattern)
+TEST_P(BitPackSingleTest, AlternatingPattern)
 {
     constexpr uint32_t nitems = 256;
 
@@ -97,7 +97,7 @@ TEST_P(BitPackTest, AlternatingPattern)
 }
 
 // Test values spanning word boundaries
-TEST_P(BitPackTest, SpanningBoundaries)
+TEST_P(BitPackSingleTest, SpanningBoundaries)
 {
     constexpr uint32_t nitems = 256;
 
@@ -133,7 +133,7 @@ TEST_P(BitPackTest, SpanningBoundaries)
 }
 
 // Test encoding/decoding multiple blocks
-TEST_P(BitPackTest, MultipleBlocks)
+TEST_P(BitPackSingleTest, MultipleBlocks)
 {
     constexpr uint32_t nitems = 512;
 
@@ -155,8 +155,8 @@ TEST_P(BitPackTest, MultipleBlocks)
 
 // Instantiate tests for bits 1-31
 INSTANTIATE_TEST_SUITE_P(
-    BitPackTests,
-    BitPackTest,
+    BitPackSingleTests,
+    BitPackSingleTest,
     ::testing::Range(1u, 32u),
     [](const ::testing::TestParamInfo<uint32_t> &info)
     {

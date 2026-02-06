@@ -34,4 +34,31 @@ test: $(TEST_BINS)
 	@echo ""
 	@echo "All tests passed!"
 
+# Run a single test
+# Usage: make test-one TEST=storage/test_bitpacking_scalar
+#    or: make test-one TEST=test_bitpacking_scalar (searches for match)
+test-one:
+	@if [ -z "$(TEST)" ]; then \
+		echo "Error: TEST variable not set"; \
+		echo "Usage: make test-one TEST=storage/test_bitpacking_scalar"; \
+		echo "   or: make test-one TEST=test_bitpacking_scalar"; \
+		exit 1; \
+	fi
+	@TEST_BIN=$$(echo "$(TEST_BINS)" | tr ' ' '\n' | grep "$(TEST)" | head -1); \
+	if [ -z "$$TEST_BIN" ]; then \
+		echo "Error: No test found matching '$(TEST)'"; \
+		echo "Available tests:"; \
+		echo "$(TEST_BINS)" | tr ' ' '\n' | sed 's|$(TEST_BIN_DIR)/||g'; \
+		exit 1; \
+	fi; \
+	echo "Building $$TEST_BIN..."; \
+	$(MAKE) $$TEST_BIN; \
+	echo ""; \
+	echo "=== Running $$TEST_BIN ==="; \
+	$$TEST_BIN
+
+list-tests:
+	@echo "Available tests:"
+	@echo "$(TEST_BINS)" | tr ' ' '\n' | sed 's|$(TEST_BIN_DIR)/||g'
+
 .PHONY: test
