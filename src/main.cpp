@@ -5,6 +5,7 @@
 #include <string.h>
 #include "storage/compressions/fsst.h"
 #include <time.h>
+#include <cassert>
 
 std::mt19937 gen(42);
 std::uniform_int_distribution<> status_distribution(1, 8);
@@ -557,6 +558,45 @@ void generate_strings(const u8 **&strings, u64 *&lens)
 
 //     printf("time:   %.3f ms\n", (t1 - t0) / 1e6);
 // }
+
+void test_bitpacking_scalar()
+{
+    BitPackEncoder encoder;
+    std::vector<u32> input;
+    std::vector<u64> encoded;
+    std::vector<u32> decoded;
+
+    const std::vector<u32> &values = {100, 200, 300, 400, 500, 600, 700, 800};
+    for (u32 bits = 1; bits <= 32; bits++)
+    {
+        u32 usedBits = 16;
+
+        input = values;
+
+        // Calculate maximum encoded size
+        size_t encodedSize = ((values.size() * usedBits + 63) / 64) + 1;
+        encoded.resize(encodedSize, 0);
+        decoded.resize(values.size(), 0);
+
+        // Encode
+        u64 *encEnd = encoder.scalar_encode(encoded.data(), input.data(),
+                                            input.size(), usedBits);
+
+        // Decode
+        u32 *decEnd = encoder.scalar_decode(decoded.data(), encoded.data(),
+                                            input.size(), usedBits);
+
+        // Verify
+        u32 mask = (1ULL << usedBits) - 1;
+        for (size_t i = 0; i < values.size(); i++)
+        {
+            assert(decoded[i] == values[i] & mask);
+        }
+
+        assert(decEnd == decoded.data() + values.size());
+    }
+}
+
 std::string generateRandomString(size_t length)
 {
     const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -584,18 +624,17 @@ u8 *makeString(const std::string &str)
 {
     return makeString(str.c_str());
 }
-#include <cassert>
+
 int main()
 {
-    const int COUNT = 10;
-    const size_t STRING_LENGTH = 100000;             // 100KB strings
-    std::vector<u32> encoded(COUNT * STRING_LENGTH); // Very large buffer
+    const int COUNT = 5000;
+    std::vector<u32> encoded(COUNT * 100); // Large buffer for unique strings
     std::vector<u8 *> inStrings(COUNT);
     std::vector<u32> inLengths(COUNT);
 
     for (int i = 0; i < COUNT; i++)
     {
-        std::string str = generateRandomString(STRING_LENGTH);
+        std::string str = "unique_string_" + std::to_string(i) + "_" + generateRandomString(20);
         inStrings[i] = makeString(str);
         inLengths[i] = str.length();
     }
@@ -619,5 +658,6 @@ int main()
         assert(outLengths[i] == inLengths[i]);
         assert(memcmp(outStrings[i], inStrings[i], inLengths[i]) == 0);
     }
+
     return 0;
 }

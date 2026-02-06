@@ -11,15 +11,6 @@
 #include <vector>
 #include <stdexcept>
 
-struct DictEncodedRes
-{
-    u32 *encoded;
-    u32 *indexes;
-    char *strings;
-    size_t unique_str;
-    size_t count;
-};
-
 struct DictionaryEncoder
 {
     static u32 *encode(u32 *out, u8 **in, u32 *lenIn, u32 count, u32 strLen);
@@ -72,6 +63,13 @@ inline void check_is_divisible_by(size_t a, u32 x)
     {
         throw std::runtime_error("its not divisible");
     }
+}
+
+static inline u32 words_used(u32 nitems, u32 usedBits)
+{
+    u32 total_bits = nitems * usedBits;
+    u32 n_u64 = (total_bits + 63) / 64;
+    return n_u64 * 2; // TODO after changing scalar encode / decode implementation
 }
 
 #endif

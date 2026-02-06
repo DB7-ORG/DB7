@@ -11,7 +11,7 @@ class DictionaryEncoderHugeTest : public ::testing::Test
 protected:
     void SetUp() override
     {
-        rng.seed(42); // Deterministic tests
+        rng.seed(42);
     }
 
     void TearDown() override

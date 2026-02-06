@@ -90,10 +90,19 @@ inline u32 HMap::get_insert(u8 *key, u16 len, u32 value)
     }
 }
 
+inline int get_bits_used(u32 value)
+{
+    if (value == 0)
+        return 0;
+    return 32 - __builtin_clz(value);
+}
+
 u32 *DictionaryEncoder::encode(u32 *out, u8 **in, u32 *lenIn, u32 count, u32 strLen)
 {
     u8 *strings = (u8 *)malloc(strLen);                      // TODO this is not len i want, should use vec w allocators
     u32 *indexes = (u32 *)malloc((count + 1) * sizeof(u32)); // TODO this is not len i want, should use vec w allocators
+    u32 *data = (u32 *)malloc(count * sizeof(u32));
+
     indexes[0] = 0;
     u32 idx = 1;
 
@@ -103,9 +112,9 @@ u32 *DictionaryEncoder::encode(u32 *out, u8 **in, u32 *lenIn, u32 count, u32 str
     {
         u32 len = lenIn[i];
         u8 *key = in[i];
-        u32 data = map.get_insert(key, len, idx);
-        out[i] = data;
-        if (data == idx)
+        u32 item = map.get_insert(key, len, idx);
+        data[i] = item;
+        if (item == idx)
         {
             indexes[idx] = indexes[idx - 1] + len;
             memcpy(strings + indexes[idx - 1], key, len);
@@ -114,11 +123,19 @@ u32 *DictionaryEncoder::encode(u32 *out, u8 **in, u32 *lenIn, u32 count, u32 str
     }
 
     // serialization
-    u32 *initidx = out + count;
+    u32 usedBits = get_bits_used(idx);
+    out[0] = usedBits;
+    out++;
+    u32 *initidx = (u32 *)BitPackEncoder::scalar_encode(out, data, count, usedBits);
+
     initidx[0] = idx;
     initidx++;
-    memcpy(initidx, indexes, idx * sizeof(u32));
-    u32 *initstr = initidx + idx;
+
+    u32 usedBitsIdx = get_bits_used(indexes[idx - 1]); // TODO add usedBits
+    initidx[0] = usedBitsIdx;
+    initidx++;
+    u32 *initstr = (u32 *)BitPackEncoder::scalar_encode(initidx, indexes, idx, usedBitsIdx);
+
     u32 strsize = indexes[idx - 1];
     memcpy(initstr, strings, strsize);
 
@@ -127,55 +144,29 @@ u32 *DictionaryEncoder::encode(u32 *out, u8 **in, u32 *lenIn, u32 count, u32 str
 
 u32 *DictionaryEncoder::decode(u8 **out, u32 *lenOut, const u32 *in, u32 count)
 {
-    const u32 *initdata = in;
-    const u32 *initidx = initdata + count;
+    u32 *indexes = (u32 *)malloc((count + 1) * sizeof(u32)); // TODO this is not len i want, should use vec w allocators
+    u32 *data = (u32 *)malloc(count * sizeof(u32));
+
+    u32 usedBits = *(in++);
+    BitPackEncoder::scalar_decode(data, in, count, usedBits);
+    const u32 *initidx = in + words_used(count, usedBits);
+
     u32 idxcount = *(initidx++);
-    u8 *initstr = (u8 *)(initidx + idxcount);
+    u32 usedBitsIdx = *(initidx++);
+    BitPackEncoder::scalar_decode(indexes, initidx, idxcount, usedBitsIdx);
+    u8 *initstr = (u8 *)(initidx + words_used(idxcount, usedBitsIdx));
 
     for (u32 i = 0; i < count; i++)
     {
-        u32 idx = initdata[i];
-        u32 start = initidx[idx - 1];
-        u32 end = initidx[idx];
+        u32 idx = data[i];
+        u32 start = indexes[idx - 1];
+        u32 end = indexes[idx];
         out[i] = initstr + start;
         lenOut[i] = end - start;
     }
 
-    u32 total_string_size = initidx[idxcount - 1];
+    u32 total_string_size = indexes[idxcount - 1];
     return (u32 *)(initstr + total_string_size);
-
-    // u32 blocks = count / 8;
-    // const u32 *initdata = in;
-    // const u32 *initidx = initdata + count;
-    // u32 idxcount = *(initidx++);
-    // u8 *initstr = (u8 *)(initidx + idxcount);
-
-    // const __m256i *siminitdata = (const __m256i *)initdata;
-    // // const __m256i *siminitidx = (const __m256i *)initidx;
-    // //  auto siminitdata = (__m256i *)initdata;
-
-    // for (u32 i = 0; i < blocks; i++)
-    // {
-    //     __m256i idx = _mm256_loadu_si256(siminitdata + i);
-    //     __m256i idx_minus_1 = _mm256_sub_epi32(idx, _mm256_set1_epi32(1));
-
-    //     __m256i starts = _mm256_i32gather_epi32((int *)initidx, idx_minus_1, 4);
-    //     __m256i ends = _mm256_i32gather_epi32((int *)initidx, idx, 4);
-    //     __m256i lengths = _mm256_sub_epi32(ends, starts);
-
-    //     _mm256_storeu_si256((__m256i *)&lenOut[i * 8], lengths);
-
-    //     u32 start_vals[8];
-    //     _mm256_storeu_si256((__m256i *)start_vals, starts);
-
-    //     for (int j = 0; j < 8; j++)
-    //     {
-    //         out[i * 8 + j] = initstr + start_vals[j];
-    //         // std::cout << std::string_view((const char *)(out[i * 8 + j]), lenOut[i * 8 + j]) << std::endl;
-    //     }
-    // }
-
-    // return nullptr;
 }
 
 // constexpr u64 HASH_NUM_1 = 14695981039346656037ULL;

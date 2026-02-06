@@ -126,13 +126,6 @@ void FastPForEncoder::resetTable()
         datatobepacked[k].clear();
 }
 
-static inline u32 words_used(u32 nitems, u32 usedBits)
-{
-    u32 total_bits = nitems * usedBits;
-    u32 n_u64 = (total_bits + 63) / 64;
-    return n_u64 * 2; // TODO after changing scalar encode / decode implementation
-}
-
 u32 FastPForEncoder::decode(u32 *out, const u32 *in, size_t nitems)
 {
     u32 *const initout = out;

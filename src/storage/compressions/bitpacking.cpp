@@ -23,13 +23,14 @@ static inline u64 *scalar_encode_pr(u64 *out, u32 *in, u32 nitems, u32 usedBits)
     u64 pack = 0;
     for (u32 i = 0; i < nitems; i++)
     {
-        pack |= ((u64)in[i]) << (shift);
+        u64 item = (u64)in[i];
+        pack |= (item) << (shift);
         shift += usedBits;
-        if (shift > 64 - usedBits)
+        if (shift >= 64)
         {
             *(out++) = pack;
-            shift = 0;
-            pack = 0;
+            shift -= 64;
+            pack = item >> (usedBits - shift);
         }
     }
 
@@ -51,12 +52,26 @@ static inline u32 *scalar_decode_pr(u32 *out, u64 *in, u32 nitems, u32 usedBits)
 
     for (u32 i = 0; i < nitems; i++)
     {
-        out[i] = (in[offset] >> shift) & mask;
-        shift += usedBits;
-        if (shift > 64 - usedBits)
+
+        if (shift + usedBits <= 64)
         {
-            shift = 0;
+            out[i] = (in[offset] >> shift) & mask;
+            shift += usedBits;
+            if (shift == 64)
+            {
+                shift = 0;
+                offset++;
+            }
+        }
+        else
+        {
+            u32 bitsFromFirst = 64 - shift;
+            u64 lowBits = in[offset] >> shift;
+            u64 highBits = in[offset + 1] & ((1ULL << (usedBits - bitsFromFirst)) - 1);
+            out[i] = lowBits | (highBits << bitsFromFirst);
+
             offset++;
+            shift = usedBits - bitsFromFirst;
         }
     }
 
