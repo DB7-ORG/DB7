@@ -667,7 +667,7 @@ void test_huge_dict()
 
 void test_rle_encoder()
 {
-    RleEncoder encoder;
+    RleEncoder<u32> encoder;
 
     // Test 5: Large runs
     {
@@ -693,7 +693,7 @@ void test_rle_encoder()
         }
 
         std::vector<u32> encoded(input.size());
-        std::vector<u32> encodedLen(input.size());
+        std::vector<u16> encodedLen(input.size());
         std::vector<u32> decoded(input.size());
         u32 capacity = 0;
         u32 nitems = 0;

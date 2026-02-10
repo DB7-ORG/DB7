@@ -119,7 +119,7 @@ u32 *serialize(u32 *out, u32 *indexes, u8 *strings, u32 *data, u32 idx, u32 coun
     return initstr + strsize;
 }
 
-u32 *DictionaryEncoder::encode(u32 *out, u8 **in, u32 *lenIn, u32 count, u32 strLen)
+u32 *DictionaryStringEncoder::encode(u32 *out, u8 **in, u32 *lenIn, u32 count, u32 strLen)
 {
     // TODO should be passed as parameter to function
     u8 *strings = (u8 *)malloc(strLen);                      // TODO this is not len i want, should use vec w allocators
@@ -131,7 +131,7 @@ u32 *DictionaryEncoder::encode(u32 *out, u8 **in, u32 *lenIn, u32 count, u32 str
 
     HMap map(count);
 
-    for (size_t i = 0; i < count; i++)
+    for (u32 i = 0; i < count; i++)
     {
         u32 len = lenIn[i];
         u8 *key = in[i];
@@ -148,7 +148,7 @@ u32 *DictionaryEncoder::encode(u32 *out, u8 **in, u32 *lenIn, u32 count, u32 str
     return serialize(out, indexes, strings, data, idx, count);
 }
 
-u32 *DictionaryEncoder::decode(u8 **out, u32 *lenOut, const u32 *in, u32 count)
+u32 *DictionaryStringEncoder::decode(u8 **out, u32 *lenOut, const u32 *in, u32 count)
 {
     u32 *indexes = (u32 *)malloc((count + 1) * sizeof(u32)); // TODO this is not len i want, should use vec w allocators
     u32 *data = (u32 *)malloc(count * sizeof(u32));
@@ -177,41 +177,32 @@ u32 *DictionaryEncoder::decode(u8 **out, u32 *lenOut, const u32 *in, u32 count)
     return (u32 *)(initstr + total_string_size);
 }
 
-// constexpr u64 HASH_NUM_1 = 14695981039346656037ULL;
-// constexpr u64 HASH_NUM_2 = 1099511627776ULL;
+template <typename ValueType>
+void DictionaryValueEncoder<ValueType>::encode(ValueType *out, ValueType *in, u32 count)
+{
+    u16 size = sizeof(ValueType);
+    ValueType *data = (ValueType *)malloc(count * size);
+    ValueType *values = (ValueType *)malloc(count * size);
 
-// u64 DictionaryEncoder::hash_fnv1a(const u8 *val, size_t size)
-// {
-//     u64 hash = HASH_NUM_1;
-//     u64 val64 = *((u64 *)val);
-//     u64 shift_amt = ((8 - size) & 7) * 8;
-//     val64 = (val64 << shift_amt) >> shift_amt;
-//     hash ^= val64;
-//     hash *= HASH_NUM_2;
-//     return hash;
-// }
+    HMap map(count);
+    u32 idx = 1;
 
-// void DictionaryEncoder::hash_fnv1a_simd(const u8 **val, u64 *size, __m256i *out)
-// {
+    for (u32 i = 0; i < count; i++)
+    {
+        ValueType key = in[i];
+        u32 item = map.get_insert(key, size, idx);
+        data[i] = item;
+        if (item == idx)
+        {
+            values[idx - 1] = item;
+            idx++;
+        }
+    }
 
-//     auto hash = _mm256_set1_epi64x(HASH_NUM_1);
-//     auto data = _mm256_set_epi64x(
-//         *((u64 *)val[3]),
-//         *((u64 *)val[2]),
-//         *((u64 *)val[1]),
-//         *((u64 *)val[0]));
+    // TODO serialize
+}
 
-//     auto size_vec = _mm256_lddqu_si256((__m256i *)size);
-//     auto init_vec = _mm256_set1_epi64x(8);
-//     auto shift_amt = _mm256_sub_epi64(init_vec, size_vec);
-//     auto mod_vec = _mm256_set1_epi64x(7);
-//     shift_amt = _mm256_and_si256(shift_amt, mod_vec);
-//     auto sh_vec = _mm256_set1_epi64x(3);
-//     shift_amt = _mm256_sllv_epi64(shift_amt, sh_vec);
-
-//     __m256i result = _mm256_sllv_epi64(data, shift_amt);
-//     result = _mm256_srlv_epi64(result, shift_amt);
-//     result = _mm256_xor_si256(result, hash);
-//     result = _mm256_slli_epi64(result, 40);
-//     _mm256_storeu_si256(out, result);
-// }
+template <typename ValueType>
+void DictionaryValueEncoder<ValueType>::decode(ValueType *out, const ValueType *in, u32 count)
+{
+}

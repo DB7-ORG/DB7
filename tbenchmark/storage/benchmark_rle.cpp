@@ -108,13 +108,13 @@ static void BM_Encode_BestCase(benchmark::State &state)
 
     // Need TWO arrays: one for values, one for run lengths
     std::vector<u32> output_values(n);
-    std::vector<u32> output_lengths(n);
+    std::vector<u16> output_lengths(n);
 
     for (auto _ : state)
     {
         u32 capacity = n; // Max number of runs
-        RleEncoder::encode(output_values.data(), output_lengths.data(),
-                           capacity, input.data(), n);
+        RleEncoder<u32>::encode(output_values.data(), output_lengths.data(),
+                                capacity, input.data(), n);
         benchmark::DoNotOptimize(output_values.data());
         benchmark::DoNotOptimize(output_lengths.data());
         benchmark::DoNotOptimize(capacity);
@@ -129,12 +129,12 @@ static void BM_Encode_WorstCase(benchmark::State &state)
     const size_t n = state.range(0);
     auto input = generateWorstCase(n);
     std::vector<u32> output_values(2 * n);
-    std::vector<u32> output_lengths(n);
+    std::vector<u16> output_lengths(n);
 
     for (auto _ : state)
     {
         u32 capacity = output_values.size();
-        RleEncoder::encode(output_values.data(), output_lengths.data(), capacity, input.data(), n);
+        RleEncoder<u32>::encode(output_values.data(), output_lengths.data(), capacity, input.data(), n);
         benchmark::DoNotOptimize(output_values.data());
         benchmark::DoNotOptimize(output_lengths.data());
     }
@@ -155,7 +155,7 @@ static void BM_Encode_WorstCase(benchmark::State &state)
 //     {
 //         u32 outLen = 0;
 //         u32 capacity = output.size();
-//         RleEncoder::encode(output.data(), &outLen, capacity, input.data(), n);
+//         RleEncoder<u32>::encode(output.data(), &outLen, capacity, input.data(), n);
 //         finalOutLen = outLen;
 //         benchmark::DoNotOptimize(output.data());
 //         benchmark::DoNotOptimize(outLen);
@@ -178,7 +178,7 @@ static void BM_Encode_WorstCase(benchmark::State &state)
 //     {
 //         u32 outLen = 0;
 //         u32 capacity = output.size();
-//         RleEncoder::encode(output.data(), &outLen, capacity, input.data(), n);
+//         RleEncoder<u32>::encode(output.data(), &outLen, capacity, input.data(), n);
 //         finalOutLen = outLen;
 //         benchmark::DoNotOptimize(output.data());
 //         benchmark::DoNotOptimize(outLen);
@@ -194,13 +194,13 @@ static void BM_Encode_MixedRuns(benchmark::State &state)
     const size_t n = state.range(0);
     auto input = generateMixedRuns(n);
     std::vector<u32> output(n * 2);
-    std::vector<u32> output_lengths(n);
+    std::vector<u16> output_lengths(n);
     u32 finalOutLen = 0;
 
     for (auto _ : state)
     {
         u32 capacity = output.size();
-        RleEncoder::encode(output.data(), output_lengths.data(), capacity, input.data(), n);
+        RleEncoder<u32>::encode(output.data(), output_lengths.data(), capacity, input.data(), n);
         finalOutLen = capacity;
         benchmark::DoNotOptimize(output.data());
         benchmark::DoNotOptimize(output_lengths.data());
@@ -223,7 +223,7 @@ static void BM_Encode_MixedRuns(benchmark::State &state)
 //     {
 //         u32 outLen = 0;
 //         u32 capacity = output.size();
-//         RleEncoder::encode(output.data(), &outLen, capacity, input.data(), n);
+//         RleEncoder<u32>::encode(output.data(), &outLen, capacity, input.data(), n);
 //         finalOutLen = outLen;
 //         benchmark::DoNotOptimize(output.data());
 //         benchmark::DoNotOptimize(outLen);
@@ -245,10 +245,10 @@ static void BM_Decode_BestCase(benchmark::State &state)
 
     // Encode first
     std::vector<u32> encoded(n * 2);
-    std::vector<u32> encoded_lengths(n);
+    std::vector<u16> encoded_lengths(n);
 
     u32 capacity = encoded.size();
-    RleEncoder::encode(encoded.data(), encoded_lengths.data(), capacity, input.data(), n);
+    RleEncoder<u32>::encode(encoded.data(), encoded_lengths.data(), capacity, input.data(), n);
 
     // Benchmark decode
     std::vector<u32> decoded(n);
@@ -256,7 +256,7 @@ static void BM_Decode_BestCase(benchmark::State &state)
     {
         u32 decodedItems = 0;
         u32 decodeCapacity = decoded.size();
-        RleEncoder::decode(decoded.data(), encoded.data(), encoded_lengths.data(), decodedItems, decodeCapacity);
+        RleEncoder<u32>::decode(decoded.data(), encoded.data(), encoded_lengths.data(), decodedItems, decodeCapacity);
         benchmark::DoNotOptimize(decoded.data());
         benchmark::DoNotOptimize(decodedItems);
     }
@@ -271,17 +271,17 @@ static void BM_Decode_WorstCase(benchmark::State &state)
     auto input = generateWorstCase(n);
 
     std::vector<u32> encoded(n * 2);
-    std::vector<u32> encoded_lengths(n);
+    std::vector<u16> encoded_lengths(n);
 
     u32 capacity = encoded.size();
-    RleEncoder::encode(encoded.data(), encoded_lengths.data(), capacity, input.data(), n);
+    RleEncoder<u32>::encode(encoded.data(), encoded_lengths.data(), capacity, input.data(), n);
 
     std::vector<u32> decoded(n);
     for (auto _ : state)
     {
         u32 decodedItems = 0;
         u32 decodeCapacity = decoded.size();
-        RleEncoder::decode(decoded.data(), encoded.data(), encoded_lengths.data(), decodedItems, decodeCapacity);
+        RleEncoder<u32>::decode(decoded.data(), encoded.data(), encoded_lengths.data(), decodedItems, decodeCapacity);
         benchmark::DoNotOptimize(decoded.data());
         benchmark::DoNotOptimize(decodedItems);
     }
@@ -299,14 +299,14 @@ static void BM_Decode_WorstCase(benchmark::State &state)
 //     std::vector<u32> encoded(n * 2);
 //     u32 encodedLen = 0;
 //     u32 capacity = encoded.size();
-//     RleEncoder::encode(encoded.data(), &encodedLen, capacity, input.data(), n);
+//     RleEncoder<u32>::encode(encoded.data(), &encodedLen, capacity, input.data(), n);
 
 //     std::vector<u32> decoded(n);
 //     for (auto _ : state)
 //     {
 //         u32 decodedItems = 0;
 //         u32 decodeCapacity = decoded.size();
-//         RleEncoder::decode(decoded.data(), encoded.data(), &encodedLen, decodedItems, decodeCapacity);
+//         RleEncoder<u32>::decode(decoded.data(), encoded.data(), &encodedLen, decodedItems, decodeCapacity);
 //         benchmark::DoNotOptimize(decoded.data());
 //         benchmark::DoNotOptimize(decodedItems);
 //     }
@@ -321,16 +321,16 @@ static void BM_Decode_MixedRuns(benchmark::State &state)
     auto input = generateMixedRuns(n);
 
     std::vector<u32> encoded(n * 2);
-    std::vector<u32> encoded_lengths(n);
+    std::vector<u16> encoded_lengths(n);
     u32 capacity = encoded.size();
-    RleEncoder::encode(encoded.data(), encoded_lengths.data(), capacity, input.data(), n);
+    RleEncoder<u32>::encode(encoded.data(), encoded_lengths.data(), capacity, input.data(), n);
 
     std::vector<u32> decoded(n);
     for (auto _ : state)
     {
         u32 decodedItems = 0;
         u32 decodeCapacity = decoded.size();
-        RleEncoder::decode(decoded.data(), encoded.data(), encoded_lengths.data(), decodedItems, decodeCapacity);
+        RleEncoder<u32>::decode(decoded.data(), encoded.data(), encoded_lengths.data(), decodedItems, decodeCapacity);
         benchmark::DoNotOptimize(decoded.data());
         benchmark::DoNotOptimize(decodedItems);
     }
@@ -357,12 +357,12 @@ static void BM_Decode_MixedRuns(benchmark::State &state)
 //         // Encode
 //         u32 encodedLen = 0;
 //         u32 capacity = encoded.size();
-//         RleEncoder::encode(encoded.data(), &encodedLen, capacity, input.data(), n);
+//         RleEncoder<u32>::encode(encoded.data(), &encodedLen, capacity, input.data(), n);
 
 //         // Decode
 //         u32 decodedItems = 0;
 //         u32 decodeCapacity = decoded.size();
-//         RleEncoder::decode(decoded.data(), encoded.data(), &encodedLen, decodedItems, decodeCapacity);
+//         RleEncoder<u32>::decode(decoded.data(), encoded.data(), &encodedLen, decodedItems, decodeCapacity);
 
 //         benchmark::DoNotOptimize(decoded.data());
 //         benchmark::DoNotOptimize(decodedItems);
@@ -377,10 +377,10 @@ static void BM_Decode_MixedRuns(benchmark::State &state)
 // ============================================================================
 
 // Best/Worst case - single size parameter
-// BENCHMARK(BM_Encode_BestCase)->Range(1 << 18, 1 << 20);
-// BENCHMARK(BM_Encode_WorstCase)->Range(1 << 18, 1 << 20);
-// BENCHMARK(BM_Decode_BestCase)->Range(1 << 18, 1 << 20);
-// BENCHMARK(BM_Decode_WorstCase)->Range(1 << 18, 1 << 20);
+BENCHMARK(BM_Encode_BestCase)->Range(1 << 18, 1 << 20);
+BENCHMARK(BM_Encode_WorstCase)->Range(1 << 18, 1 << 20);
+BENCHMARK(BM_Decode_BestCase)->Range(1 << 18, 1 << 20);
+BENCHMARK(BM_Decode_WorstCase)->Range(1 << 18, 1 << 20);
 
 // // Mixed runs - single size parameter
 BENCHMARK(BM_Encode_MixedRuns)->Range(1 << 18, 1 << 20);

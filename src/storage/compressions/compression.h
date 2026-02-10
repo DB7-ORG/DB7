@@ -12,14 +12,17 @@
 #include <stdexcept>
 #include <cassert>
 
-struct DictionaryEncoder
+struct DictionaryStringEncoder
 {
     static u32 *encode(u32 *out, u8 **in, u32 *lenIn, u32 count, u32 strLen);
     static u32 *decode(u8 **out, u32 *lenOut, const u32 *in, u32 count);
+};
 
-    // test
-    // static u64 hash_fnv1a(const u8 *val, size_t size);
-    // static void hash_fnv1a_simd(const u8 **val, u64 *size, __m256i *out);
+template <typename ValueType>
+struct DictionaryValueEncoder
+{
+    static void encode(ValueType *out, ValueType *in, u32 count);
+    static void decode(ValueType *out, const ValueType *in, u32 count);
 };
 
 struct BitPackEncoder
@@ -33,11 +36,85 @@ struct BitPackEncoder
     static u32 scalar_decode_single(const void *compressed, u32 idx, u32 usedBits);
 };
 
+template <typename ValueType>
 struct RleEncoder
 {
-    static void encode(u32 *out, u32 *outLen, u32 &capacity, const u32 *in, u32 nitems);
-    static void decode(u32 *out, const u32 *in, const u32 *inLen, u32 &nitems, u32 capacity);
+    static void encode(ValueType *out, u16 *outLen, u32 &compressedSize, const ValueType *in, u32 nitems);
+    static void decode(ValueType *out, const ValueType *in, const u16 *inLen, u32 &nitems, u32 compressedSize);
 };
+
+template <typename ValueType>
+void RleEncoder<ValueType>::encode(ValueType *out, u16 *outLen, u32 &compressedSize, const ValueType *in, u32 nitems)
+{
+    assert(nitems >= 1);
+
+    ValueType state = in[0];
+    u16 count = 1;
+    u32 offset = 0;
+
+    for (u32 i = 1; i < nitems; i++)
+    {
+        if (state == in[i] && __builtin_expect(count != UINT16_MAX, 1))
+        {
+            count++;
+        }
+        else
+        {
+            out[offset] = state;
+            outLen[offset] = count;
+            offset++;
+            state = in[i];
+            count = 1;
+        }
+    }
+
+    out[offset] = state;
+    outLen[offset] = count;
+    compressedSize = ++offset;
+}
+
+template <typename ValueType>
+void RleEncoder<ValueType>::decode(ValueType *out, const ValueType *in, const u16 *inLen, u32 &nitems, u32 compressedSize)
+{
+    u32 offset = 0;
+
+    for (u32 i = 0; i < compressedSize; i++)
+    {
+        const u16 count = inLen[i];
+        const ValueType value = in[i];
+
+        std::fill_n(out + offset, count, value);
+        offset += count;
+    }
+
+    nitems = offset;
+
+    // u32 offset = 0;
+
+    // for (u32 i = 0; i < compressedSize; i++)
+    // {
+    //     const u16 count = inLen[i];
+    //     const ValueType value = in[i];
+
+    //     const __m256i vec_value = _mm256_set1_epi32(value);
+
+    //     u16 j = 0;
+    //     // SIMD - 8 elements per iteration
+    //     for (; j + 8 <= count; j += 8)
+    //     {
+    //         _mm256_storeu_si256((__m256i *)(out + offset), vec_value);
+    //         offset += 8;
+    //     }
+
+    //     // Scalar remainder
+    //     for (; j < count; j++)
+    //     {
+    //         out[offset++] = value;
+    //     }
+    // }
+
+    // nitems = offset;
+}
 
 enum
 {

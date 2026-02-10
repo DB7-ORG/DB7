@@ -38,3 +38,13 @@ check out todos and fix them before there is too many ❌
 # BENCHMARK
 
 - decode single in bitpacking ✅
+
+git clone https://github.com/google/benchmark.git
+cd benchmark
+cmake -E make_directory build
+cmake -DCMAKE_BUILD_TYPE=Release \
+      -DBENCHMARK_DOWNLOAD_DEPENDENCIES=ON \
+      -DBENCHMARK_ENABLE_TESTING=OFF \
+      -S . -B build
+cmake --build build --config Release -j$(nproc)
+sudo cmake --build build --config Release --target install
