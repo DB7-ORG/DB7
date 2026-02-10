@@ -1,7 +1,6 @@
 CXX = g++
 BASE_CXXFLAGS = -Wall -Wextra -std=c++17 -pedantic -Iinclude -DNONOPT_FSST -march=native
 LDFLAGS = -lxxhash #-larrow
-TEST_LDFLAGS = $(LDFLAGS) -lgtest -lgtest_main -pthread
 
 # Build mode: debug or release (default: release)
 BUILD ?= release
@@ -92,5 +91,6 @@ clean:
 	rm -rf $(OBJ_DIR) $(BIN_DIR)
 
 include test/mtest.mk
+include tbenchmark/mbenchmark.mk
 
 .PHONY: all clean run

@@ -2,6 +2,8 @@
 # ---------------------- TESTS -------------------------------------
 # ------------------------------------------------------------------
 
+TEST_LDFLAGS = $(LDFLAGS) -lgtest -lgtest_main -pthread
+
 TEST_LIB_OBJS := $(DISK_MGR_OBJ) $(COMPRESSION_DICT_OBJ) $(COMPRESSION_FSST_OBJ) $(COMPRESSION_BITPACK_OBJ) $(COMPRESSION_FASTPFOR_OBJ)
 
 TEST_DIR := test
