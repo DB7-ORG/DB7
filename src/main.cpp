@@ -650,12 +650,12 @@ void test_huge_dict()
         totalStrLen += inLengths[i];
     }
 
-    u32 *encodeEnd = DictionaryEncoder::encode(encoded.data(), inStrings.data(), inLengths.data(), COUNT, totalStrLen);
+    u32 *encodeEnd = DictionaryStringEncoder::encode(encoded.data(), inStrings.data(), inLengths.data(), COUNT, totalStrLen);
     assert(encodeEnd != nullptr);
 
     std::vector<u8 *> outStrings(COUNT);
     std::vector<u32> outLengths(COUNT);
-    u32 *decodeEnd = DictionaryEncoder::decode(outStrings.data(), outLengths.data(), encoded.data(), COUNT);
+    u32 *decodeEnd = DictionaryStringEncoder::decode(outStrings.data(), outLengths.data(), encoded.data(), COUNT);
 
     assert(decodeEnd != nullptr);
     for (int i = 0; i < COUNT; i++)
@@ -743,9 +743,33 @@ int reserveCpuCore()
     return 0;
 }
 
+void test_huge_dict_values()
+{
+    const int COUNT = 5000;
+    std::vector<u16> encoded(COUNT * 100); // Large buffer for unique strings
+    std::vector<u16> in(COUNT);
+
+    for (int i = 0; i < COUNT; i++)
+    {
+        in[i] = status_distribution(gen) * 100;
+    }
+
+    DictionaryValueEncoder<u16>::encode(encoded.data(), in.data(), COUNT);
+
+    std::vector<u16> out(COUNT);
+    DictionaryValueEncoder<u16>::decode(out.data(), encoded.data(), COUNT);
+
+    for (int i = 0; i < COUNT; i++)
+    {
+        assert(out[i] == in[i]);
+    }
+
+    std::cout << "works" << std::endl;
+}
+
 int main()
 {
     // reserveCpuCore();
-    test_rle_encoder();
+    test_huge_dict_values();
     return 0;
 }

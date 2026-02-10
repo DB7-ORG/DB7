@@ -2,100 +2,8 @@
 
 #include <unistd.h>
 #include <iostream>
-#include <xxhash.h>
 #include <string.h>
-
-struct MapEntry
-{
-    u32 hash;
-    u32 value;
-    u8 *key;
-    u16 key_len;
-};
-
-struct HMap
-{
-    MapEntry *entries;
-    size_t hash_capacity;
-
-    HMap(size_t count);
-    ~HMap();
-    u32 get_insert(u8 *key, u16 len, u32 value);
-};
-
 #include <sys/mman.h>
-HMap::HMap(size_t count)
-{
-    size_t target = count * 2;
-    if (target == 0)
-    {
-        hash_capacity = 1;
-    }
-    else if (target == 1)
-    {
-        hash_capacity = 1;
-    }
-    else
-    {
-        int leading_zeros = __builtin_clzll(target - 1);
-        hash_capacity = 1ULL << (64 - leading_zeros);
-    }
-
-    entries = (MapEntry *)calloc(hash_capacity, sizeof(MapEntry));
-
-    // (MapEntry *)mmap(
-    //     NULL,
-    //     hash_capacity * sizeof(MapEntry),
-    //     PROT_READ | PROT_WRITE,
-    //     MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, // Pre-fault pages
-    //     -1, 0);
-
-    // entries = (MapEntry *)malloc(hash_capacity * sizeof(MapEntry));
-    // memset(entries, 0, hash_capacity * sizeof(MapEntry));
-}
-
-HMap::~HMap()
-{
-    free(entries);
-}
-
-inline u32 HMap::get_insert(u8 *key, u16 len, u32 value)
-{
-    u32 hash = XXH32(key, len, 0);
-    u32 bucket = hash & (hash_capacity - 1);
-
-    while (true)
-    {
-        MapEntry &data = entries[bucket]; // TODO TEST FIX 4: Use pointer for efficiency
-
-        if (data.key == NULL)
-        { // empty slot
-            data = MapEntry{
-                hash,
-                value,
-                key,
-                len};
-
-            return value;
-        }
-        else if (data.key != NULL &&
-                 data.hash == hash &&
-                 data.key_len == len &&
-                 memcmp(data.key, key, len) == 0)
-        { // match
-            return data.value;
-        }
-
-        bucket = (bucket + 1) & (hash_capacity - 1);
-    }
-}
-
-inline int get_bits_used(u32 value)
-{
-    if (value == 0)
-        return 0;
-    return 32 - __builtin_clz(value);
-}
 
 u32 *serialize(u32 *out, u32 *indexes, u8 *strings, u32 *data, u32 idx, u32 count)
 {
@@ -129,7 +37,7 @@ u32 *DictionaryStringEncoder::encode(u32 *out, u8 **in, u32 *lenIn, u32 count, u
     indexes[0] = 0;
     u32 idx = 1;
 
-    HMap map(count);
+    HMap<u8 *> map(count);
 
     for (u32 i = 0; i < count; i++)
     {
@@ -175,34 +83,4 @@ u32 *DictionaryStringEncoder::decode(u8 **out, u32 *lenOut, const u32 *in, u32 c
 
     u32 total_string_size = indexes[idxcount - 1];
     return (u32 *)(initstr + total_string_size);
-}
-
-template <typename ValueType>
-void DictionaryValueEncoder<ValueType>::encode(ValueType *out, ValueType *in, u32 count)
-{
-    u16 size = sizeof(ValueType);
-    ValueType *data = (ValueType *)malloc(count * size);
-    ValueType *values = (ValueType *)malloc(count * size);
-
-    HMap map(count);
-    u32 idx = 1;
-
-    for (u32 i = 0; i < count; i++)
-    {
-        ValueType key = in[i];
-        u32 item = map.get_insert(key, size, idx);
-        data[i] = item;
-        if (item == idx)
-        {
-            values[idx - 1] = item;
-            idx++;
-        }
-    }
-
-    // TODO serialize
-}
-
-template <typename ValueType>
-void DictionaryValueEncoder<ValueType>::decode(ValueType *out, const ValueType *in, u32 count)
-{
 }
