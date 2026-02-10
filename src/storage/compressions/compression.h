@@ -33,6 +33,12 @@ struct BitPackEncoder
     static u32 scalar_decode_single(const void *compressed, u32 idx, u32 usedBits);
 };
 
+struct RleEncoder
+{
+    static void encode(u32 *out, u32 *outLen, u32 &capacity, const u32 *in, u32 nitems);
+    static void decode(u32 *out, const u32 *in, const u32 *inLen, u32 &nitems, u32 capacity);
+};
+
 enum
 {
     PACKSIZE = 32,

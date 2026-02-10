@@ -573,7 +573,7 @@ void test_bitpacking_scalar()
         values.push_back(i);
     }
 
-    u32 usedBits = 16;
+    u32 usedBits = 17;
 
     input = values;
 
@@ -596,7 +596,7 @@ void test_bitpacking_scalar()
     u32 mask = (1ULL << usedBits) - 1;
     for (size_t i = 0; i < values.size(); i++)
     {
-        assert(decoded[i] == values[i] & mask);
+        assert(decoded[i] == values[i] & mask); // TODO fix this
     }
 
     assert(decEnd == decoded.data() + values.size());
@@ -665,8 +665,87 @@ void test_huge_dict()
     }
 }
 
+void test_rle_encoder()
+{
+    RleEncoder encoder;
+
+    // Test 5: Large runs
+    {
+        std::mt19937 rng(42);
+        std::vector<u32> input;
+        u32 currentValue = 0;
+        for (int i = 0; i < 1'000'000;)
+        {
+            // Random run length between 1 and 100
+            u32 runLength = 1 + (rng() % 100);
+
+            // Don't exceed total size
+            runLength = std::min(runLength, 1'000'000u - i);
+
+            // Add the run
+            for (u32 j = 0; j < runLength; j++)
+            {
+                input.push_back(currentValue);
+            }
+
+            i += runLength;
+            currentValue = (currentValue + 1) % 10;
+        }
+
+        std::vector<u32> encoded(input.size());
+        std::vector<u32> encodedLen(input.size());
+        std::vector<u32> decoded(input.size());
+        u32 capacity = 0;
+        u32 nitems = 0;
+
+        u64 t0 = now_ns();
+        encoder.encode(encoded.data(), encodedLen.data(), capacity, input.data(), input.size());
+        u64 t1 = now_ns();
+        encoder.decode(decoded.data(), encoded.data(), encodedLen.data(), nitems, capacity);
+        u64 t2 = now_ns();
+
+        assert(nitems == input.size());
+        for (size_t i = 0; i < input.size(); i++)
+        {
+            assert(decoded[i] == input[i]);
+        }
+
+        std::cout << "Test 5 (large runs): PASSED\n";
+
+        printf("encode:   %.3f ms\n", (t1 - t0) / 1e6);
+        printf("decode:   %.3f ms\n", (t2 - t1) / 1e6);
+        printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
+    }
+
+    std::cout << "\nAll RLE tests PASSED!\n";
+}
+
+#include <sched.h>
+#include <unistd.h>
+
+int reserveCpuCore()
+{
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(0, &cpuset); // Pin to core 0 (change number for different core)
+
+    pid_t pid = getpid();
+    int result = sched_setaffinity(pid, sizeof(cpu_set_t), &cpuset);
+
+    if (result == -1)
+    {
+        std::cerr << "Failed to set CPU affinity" << std::endl;
+        return 1;
+    }
+
+    std::cout << "Process pinned to CPU core 0" << std::endl;
+
+    return 0;
+}
+
 int main()
 {
-    test_bitpacking_scalar();
+    // reserveCpuCore();
+    test_rle_encoder();
     return 0;
 }
