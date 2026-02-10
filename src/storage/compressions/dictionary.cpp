@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/mman.h>
 
-u32 *serialize(u32 *out, u32 *indexes, u8 *strings, u32 *data, u32 idx, u32 count)
+u32 *serialize(u32 *out, u32 *indexes, u8 *strings, u32 *data, u32 idx, u32 count) // TODO remove bitpacking to be done in btr blocks component
 {
     // serialization
     u32 usedBits = get_bits_used(idx);
@@ -37,18 +37,20 @@ u32 *DictionaryStringEncoder::encode(u32 *out, u8 **in, u32 *lenIn, u32 count, u
     indexes[0] = 0;
     u32 idx = 1;
 
-    HMap<u8 *> map(count);
+    HMap<StringKey> map(count);
 
     for (u32 i = 0; i < count; i++)
     {
-        u32 len = lenIn[i];
-        u8 *key = in[i];
-        u32 item = map.get_insert(key, len, idx);
+        auto key = StringKey{
+            in[i],
+            (u16)lenIn[i], // TODO
+        };
+        u32 item = map.get_insert(key, idx);
         data[i] = item;
         if (item == idx)
         {
-            indexes[idx] = indexes[idx - 1] + len;
-            memcpy(strings + indexes[idx - 1], key, len);
+            indexes[idx] = indexes[idx - 1] + key.len;
+            memcpy(strings + indexes[idx - 1], key.ptr, key.len);
             idx++;
         }
     }

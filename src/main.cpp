@@ -588,18 +588,23 @@ void test_bitpacking_scalar()
     u32 *decEnd = encoder.scalar_decode(decoded.data(), encoded.data(), input.size(), usedBits);
     u64 t2 = now_ns();
 
+    (void)decEnd; // To remove warnings in release mode
+
     printf("encode:   %.3f ms\n", (t1 - t0) / 1e6);
     printf("decode:   %.3f ms\n", (t2 - t1) / 1e6);
     printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
 
     // Verify
     u32 mask = (1ULL << usedBits) - 1;
+
     for (size_t i = 0; i < values.size(); i++)
     {
         assert(decoded[i] == values[i] & mask); // TODO fix this
     }
 
     assert(decEnd == decoded.data() + values.size());
+
+    (void)mask; // To remove warnings in release mode
 }
 
 std::string generateRandomString(size_t length)
@@ -632,14 +637,14 @@ u8 *makeString(const std::string &str)
 
 void test_huge_dict()
 {
-    const int COUNT = 5000;
+    const int COUNT = 5'000'000;
     std::vector<u32> encoded(COUNT * 100); // Large buffer for unique strings
     std::vector<u8 *> inStrings(COUNT);
     std::vector<u32> inLengths(COUNT);
 
     for (int i = 0; i < COUNT; i++)
     {
-        std::string str = "unique_string_" + std::to_string(i) + "_" + generateRandomString(20);
+        std::string str = "str_" + status_distribution(gen); // std::to_string(i) + "_" + generateRandomString(20);
         inStrings[i] = makeString(str);
         inLengths[i] = str.length();
     }
@@ -650,12 +655,18 @@ void test_huge_dict()
         totalStrLen += inLengths[i];
     }
 
-    u32 *encodeEnd = DictionaryStringEncoder::encode(encoded.data(), inStrings.data(), inLengths.data(), COUNT, totalStrLen);
-    assert(encodeEnd != nullptr);
-
     std::vector<u8 *> outStrings(COUNT);
     std::vector<u32> outLengths(COUNT);
+
+    u64 t0 = now_ns();
+    u32 *encodeEnd = DictionaryStringEncoder::encode(encoded.data(), inStrings.data(), inLengths.data(), COUNT, totalStrLen);
+    u64 t1 = now_ns();
+    (void)encodeEnd;
+    assert(encodeEnd != nullptr);
+
     u32 *decodeEnd = DictionaryStringEncoder::decode(outStrings.data(), outLengths.data(), encoded.data(), COUNT);
+    u64 t2 = now_ns();
+    (void)decodeEnd;
 
     assert(decodeEnd != nullptr);
     for (int i = 0; i < COUNT; i++)
@@ -663,6 +674,10 @@ void test_huge_dict()
         assert(outLengths[i] == inLengths[i]);
         assert(memcmp(outStrings[i], inStrings[i], inLengths[i]) == 0);
     }
+
+    printf("encode:   %.3f ms\n", (t1 - t0) / 1e6);
+    printf("decode:   %.3f ms\n", (t2 - t1) / 1e6);
+    printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
 }
 
 void test_rle_encoder()
@@ -745,31 +760,38 @@ int reserveCpuCore()
 
 void test_huge_dict_values()
 {
-    const int COUNT = 5000;
+    const int COUNT = 5'000'000;
     std::vector<u16> encoded(COUNT * 100); // Large buffer for unique strings
     std::vector<u16> in(COUNT);
 
     for (int i = 0; i < COUNT; i++)
     {
-        in[i] = status_distribution(gen) * 100;
+        in[i] = status_distribution(gen) * 10000;
     }
 
-    DictionaryValueEncoder<u16>::encode(encoded.data(), in.data(), COUNT);
-
     std::vector<u16> out(COUNT);
+
+    u64 t0 = now_ns();
+    DictionaryValueEncoder<u16>::encode(encoded.data(), in.data(), COUNT);
+    u64 t1 = now_ns();
     DictionaryValueEncoder<u16>::decode(out.data(), encoded.data(), COUNT);
+    u64 t2 = now_ns();
 
     for (int i = 0; i < COUNT; i++)
     {
         assert(out[i] == in[i]);
     }
 
+    printf("encode:   %.3f ms\n", (t1 - t0) / 1e6);
+    printf("decode:   %.3f ms\n", (t2 - t1) / 1e6);
+    printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
+
     std::cout << "works" << std::endl;
 }
 
 int main()
 {
-    // reserveCpuCore();
     test_huge_dict_values();
+    test_huge_dict();
     return 0;
 }

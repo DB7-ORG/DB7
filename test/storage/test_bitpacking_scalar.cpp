@@ -36,7 +36,7 @@ protected:
         // Encode
         u64 *encEnd = encoder.scalar_encode(encoded.data(), input.data(),
                                             input.size(), usedBits);
-
+        (void)encEnd;
         // Decode
         u32 *decEnd = encoder.scalar_decode(decoded.data(), encoded.data(),
                                             input.size(), usedBits);

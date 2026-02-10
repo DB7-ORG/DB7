@@ -4,7 +4,7 @@
 #include <algorithm>
 #include "../src/storage/compressions/compression.h"
 
-class DictionaryEncoderTest : public ::testing::Test
+class DictionaryStringEncoderTest : public ::testing::Test
 {
 protected:
     void SetUp() override
@@ -35,7 +35,7 @@ protected:
     std::vector<u8 *> allocatedStrings;
 };
 // Test: Round-trip encode/decode single string
-TEST_F(DictionaryEncoderTest, RoundTripSingleString)
+TEST_F(DictionaryStringEncoderTest, RoundTripSingleString)
 {
     u32 encoded[100];
     u8 *str1 = makeString("test");
@@ -48,12 +48,12 @@ TEST_F(DictionaryEncoderTest, RoundTripSingleString)
         totalStrLen += inLengths[i];
     }
 
-    u32 *encodeEnd = DictionaryEncoder::encode(encoded, inStrings, inLengths, 1, totalStrLen);
+    u32 *encodeEnd = DictionaryStringEncoder::encode(encoded, inStrings, inLengths, 1, totalStrLen);
     ASSERT_NE(encodeEnd, nullptr);
 
     u8 *outStrings[10];
     u32 outLengths[10];
-    u32 *decodeEnd = DictionaryEncoder::decode(outStrings, outLengths, encoded, 1);
+    u32 *decodeEnd = DictionaryStringEncoder::decode(outStrings, outLengths, encoded, 1);
 
     EXPECT_NE(decodeEnd, nullptr);
     EXPECT_EQ(outLengths[0], 4u);
@@ -63,7 +63,7 @@ TEST_F(DictionaryEncoderTest, RoundTripSingleString)
 }
 
 // Test: Round-trip multiple unique strings
-TEST_F(DictionaryEncoderTest, RoundTripMultipleUniqueStrings)
+TEST_F(DictionaryStringEncoderTest, RoundTripMultipleUniqueStrings)
 {
     u32 encoded[1000];
     u8 *str1 = makeString("one");
@@ -78,12 +78,12 @@ TEST_F(DictionaryEncoderTest, RoundTripMultipleUniqueStrings)
         totalStrLen += inLengths[i];
     }
 
-    u32 *encodeEnd = DictionaryEncoder::encode(encoded, inStrings, inLengths, 3, totalStrLen);
+    u32 *encodeEnd = DictionaryStringEncoder::encode(encoded, inStrings, inLengths, 3, totalStrLen);
     ASSERT_NE(encodeEnd, nullptr);
 
     u8 *outStrings[10];
     u32 outLengths[10];
-    u32 *decodeEnd = DictionaryEncoder::decode(outStrings, outLengths, encoded, 3);
+    u32 *decodeEnd = DictionaryStringEncoder::decode(outStrings, outLengths, encoded, 3);
 
     EXPECT_NE(decodeEnd, nullptr);
     EXPECT_EQ(outLengths[0], 3u);
@@ -97,7 +97,7 @@ TEST_F(DictionaryEncoderTest, RoundTripMultipleUniqueStrings)
 }
 
 // Test: Round-trip with duplicates
-TEST_F(DictionaryEncoderTest, RoundTripWithDuplicates)
+TEST_F(DictionaryStringEncoderTest, RoundTripWithDuplicates)
 {
     u32 encoded[1000];
     u8 *str1 = makeString("dup");
@@ -113,12 +113,12 @@ TEST_F(DictionaryEncoderTest, RoundTripWithDuplicates)
         totalStrLen += inLengths[i];
     }
 
-    u32 *encodeEnd = DictionaryEncoder::encode(encoded, inStrings, inLengths, 4, totalStrLen);
+    u32 *encodeEnd = DictionaryStringEncoder::encode(encoded, inStrings, inLengths, 4, totalStrLen);
     ASSERT_NE(encodeEnd, nullptr);
 
     u8 *outStrings[10];
     u32 outLengths[10];
-    u32 *decodeEnd = DictionaryEncoder::decode(outStrings, outLengths, encoded, 4);
+    u32 *decodeEnd = DictionaryStringEncoder::decode(outStrings, outLengths, encoded, 4);
 
     EXPECT_NE(decodeEnd, nullptr);
     EXPECT_EQ(outLengths[0], 3u);
@@ -134,7 +134,7 @@ TEST_F(DictionaryEncoderTest, RoundTripWithDuplicates)
 }
 
 // Test: Round-trip with empty strings
-TEST_F(DictionaryEncoderTest, RoundTripEmptyStrings)
+TEST_F(DictionaryStringEncoderTest, RoundTripEmptyStrings)
 {
     u32 encoded[100];
     u8 *str1 = makeString("");
@@ -149,12 +149,12 @@ TEST_F(DictionaryEncoderTest, RoundTripEmptyStrings)
         totalStrLen += inLengths[i];
     }
 
-    u32 *encodeEnd = DictionaryEncoder::encode(encoded, inStrings, inLengths, 3, totalStrLen);
+    u32 *encodeEnd = DictionaryStringEncoder::encode(encoded, inStrings, inLengths, 3, totalStrLen);
     ASSERT_NE(encodeEnd, nullptr);
 
     u8 *outStrings[10];
     u32 outLengths[10];
-    u32 *decodeEnd = DictionaryEncoder::decode(outStrings, outLengths, encoded, 3);
+    u32 *decodeEnd = DictionaryStringEncoder::decode(outStrings, outLengths, encoded, 3);
 
     EXPECT_NE(decodeEnd, nullptr);
     EXPECT_EQ(outLengths[0], 0u);
@@ -166,7 +166,7 @@ TEST_F(DictionaryEncoderTest, RoundTripEmptyStrings)
 }
 
 // Test: Large dataset round-trip
-TEST_F(DictionaryEncoderTest, RoundTripLargeDataset)
+TEST_F(DictionaryStringEncoderTest, RoundTripLargeDataset)
 {
     const int COUNT = 100;
     u32 encoded[10000];
@@ -186,12 +186,12 @@ TEST_F(DictionaryEncoderTest, RoundTripLargeDataset)
         totalStrLen += inLengths[i];
     }
 
-    u32 *encodeEnd = DictionaryEncoder::encode(encoded, inStrings, inLengths, COUNT, totalStrLen);
+    u32 *encodeEnd = DictionaryStringEncoder::encode(encoded, inStrings, inLengths, COUNT, totalStrLen);
     ASSERT_NE(encodeEnd, nullptr);
 
     u8 *outStrings[COUNT];
     u32 outLengths[COUNT];
-    u32 *decodeEnd = DictionaryEncoder::decode(outStrings, outLengths, encoded, COUNT);
+    u32 *decodeEnd = DictionaryStringEncoder::decode(outStrings, outLengths, encoded, COUNT);
 
     EXPECT_NE(decodeEnd, nullptr);
 
@@ -205,7 +205,7 @@ TEST_F(DictionaryEncoderTest, RoundTripLargeDataset)
 }
 
 // Test: Binary data
-TEST_F(DictionaryEncoderTest, RoundTripBinaryData)
+TEST_F(DictionaryStringEncoderTest, RoundTripBinaryData)
 {
     u32 encoded[1000];
     u8 binary1[] = {0x00, 0xFF, 0xAB, 0xCD};
@@ -219,12 +219,12 @@ TEST_F(DictionaryEncoderTest, RoundTripBinaryData)
         totalStrLen += inLengths[i];
     }
 
-    u32 *encodeEnd = DictionaryEncoder::encode(encoded, inStrings, inLengths, 2, totalStrLen);
+    u32 *encodeEnd = DictionaryStringEncoder::encode(encoded, inStrings, inLengths, 2, totalStrLen);
     ASSERT_NE(encodeEnd, nullptr);
 
     u8 *outStrings[10];
     u32 outLengths[10];
-    u32 *decodeEnd = DictionaryEncoder::decode(outStrings, outLengths, encoded, 2);
+    u32 *decodeEnd = DictionaryStringEncoder::decode(outStrings, outLengths, encoded, 2);
 
     EXPECT_NE(decodeEnd, nullptr);
     EXPECT_EQ(outLengths[0], 4u);
