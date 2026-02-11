@@ -638,7 +638,7 @@ u8 *makeString(const std::string &str)
 void test_huge_dict()
 {
     const int COUNT = 5'000'000;
-    std::vector<u32> encoded(COUNT * 100); // Large buffer for unique strings
+    // std::vector<u32> encoded(COUNT * 100); // Large buffer for unique strings
     std::vector<u8 *> inStrings(COUNT);
     std::vector<u32> inLengths(COUNT);
 
@@ -658,17 +658,18 @@ void test_huge_dict()
     std::vector<u8 *> outStrings(COUNT);
     std::vector<u32> outLengths(COUNT);
 
+    auto encoded = DictionaryStringEncodedRes{
+        .codes = (u32 *)malloc(COUNT * sizeof(u32)),
+        .indexes = (u32 *)malloc((COUNT + 1) * sizeof(u32)),
+        .strings = (u8 *)malloc(totalStrLen),
+    };
+
     u64 t0 = now_ns();
-    u32 *encodeEnd = DictionaryStringEncoder::encode(encoded.data(), inStrings.data(), inLengths.data(), COUNT, totalStrLen);
+    DictionaryStringEncoder::encode(&encoded, inStrings.data(), inLengths.data(), COUNT);
     u64 t1 = now_ns();
-    (void)encodeEnd;
-    assert(encodeEnd != nullptr);
-
-    u32 *decodeEnd = DictionaryStringEncoder::decode(outStrings.data(), outLengths.data(), encoded.data(), COUNT);
+    DictionaryStringEncoder::decode(outStrings.data(), outLengths.data(), &encoded, COUNT);
     u64 t2 = now_ns();
-    (void)decodeEnd;
 
-    assert(decodeEnd != nullptr);
     for (int i = 0; i < COUNT; i++)
     {
         assert(outLengths[i] == inLengths[i]);
@@ -761,7 +762,7 @@ int reserveCpuCore()
 void test_huge_dict_values()
 {
     const int COUNT = 5'000'000;
-    std::vector<u16> encoded(COUNT * 100); // Large buffer for unique strings
+    // std::vector<u16> encoded(COUNT * 100); // Large buffer for unique strings
     std::vector<u16> in(COUNT);
 
     for (int i = 0; i < COUNT; i++)
@@ -771,10 +772,15 @@ void test_huge_dict_values()
 
     std::vector<u16> out(COUNT);
 
+    auto encoded = DictionaryValueEncodedRes<u16>{
+        .codes = (u16 *)malloc(COUNT * sizeof(u16)),
+        .values = (u16 *)malloc(COUNT * sizeof(u16)),
+        .valCount = 0};
+
     u64 t0 = now_ns();
-    DictionaryValueEncoder<u16>::encode(encoded.data(), in.data(), COUNT);
+    DictionaryValueEncoder<u16>::encode(&encoded, in.data(), COUNT);
     u64 t1 = now_ns();
-    DictionaryValueEncoder<u16>::decode(out.data(), encoded.data(), COUNT);
+    DictionaryValueEncoder<u16>::decode(out.data(), &encoded, COUNT);
     u64 t2 = now_ns();
 
     for (int i = 0; i < COUNT; i++)
@@ -789,10 +795,38 @@ void test_huge_dict_values()
     std::cout << "works" << std::endl;
 }
 
+template <typename ValueType>
+void roundtrip(ValueType *input, u32 count, u32 expectedDistinct)
+{
+    DictionaryValueEncoder<ValueType> encoded{};
+    ValueType *decoded = nullptr;
+
+    encoded.codes = (ValueType *)malloc(count * sizeof(ValueType));
+    encoded.values = (ValueType *)malloc(count * sizeof(ValueType));
+    encoded.valCount = 0;
+
+    DictionaryValueEncoder<ValueType>::encode(&encoded, input, count);
+    assert(encoded.valCount == expectedDistinct);
+
+    decoded = (ValueType *)malloc(count * sizeof(ValueType));
+    DictionaryValueEncoder<ValueType>::decode(decoded, &encoded, count);
+
+    for (u32 i = 0; i < count; i++)
+    {
+        assert(decoded[i] == input[i]);
+    }
+}
+
 int main()
 {
     // test_huge_dict_values();
-    // test_huge_dict();
-    test_rle_encoder();
+    test_huge_dict();
+    // test_rle_encoder();
+
+    // u8 data[256];
+    // for (int i = 0; i < 256; i++)
+    //     data[i] = (u8)i;
+    // roundtrip(data, 256, 256);
+
     return 0;
 }

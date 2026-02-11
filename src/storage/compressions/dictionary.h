@@ -1,7 +1,6 @@
 #ifndef DICTIONARY_H
 #define DICTIONARY_H
 
-#include "common.h"
 #include "../../shared/append_hmap.h"
 #include <string.h>
 
@@ -13,26 +12,37 @@ inline int get_bits_used(ValueType value)
     return sizeof(ValueType) * 8 - __builtin_clz(value);
 }
 
+struct DictionaryStringEncodedRes
+{
+    u32 *codes;
+    u32 *indexes;
+    u8 *strings;
+};
+
 struct DictionaryStringEncoder
 {
-    static u32 *encode(u32 *out, u8 **in, u32 *lenIn, u32 count, u32 strLen);
-    static u32 *decode(u8 **out, u32 *lenOut, const u32 *in, u32 count);
+    static void encode(DictionaryStringEncodedRes *out, u8 **in, u32 *lenIn, u32 count);
+    static void decode(u8 **out, u32 *lenOut, const DictionaryStringEncodedRes *in, u32 count);
+};
+
+template <typename ValueType>
+struct DictionaryValueEncodedRes
+{
+    ValueType *codes;
+    ValueType *values;
+    u32 valCount;
 };
 
 template <typename ValueType>
 struct DictionaryValueEncoder
 {
-    static void encode(ValueType *out, ValueType *in, u32 count);
-    static void decode(ValueType *out, const ValueType *in, u32 count);
+    static void encode(DictionaryValueEncodedRes<ValueType> *out, ValueType *in, const u32 count);
+    static void decode(ValueType *out, const DictionaryValueEncodedRes<ValueType> *in, const u32 count);
 };
 
 template <typename ValueType>
-void DictionaryValueEncoder<ValueType>::encode(ValueType *out, ValueType *in, u32 count)
+void DictionaryValueEncoder<ValueType>::encode(DictionaryValueEncodedRes<ValueType> *out, ValueType *in, u32 count)
 {
-    u32 size = sizeof(ValueType);
-    ValueType *data = (ValueType *)malloc(count * size);
-    ValueType *values = (ValueType *)malloc(count * size);
-
     HMap<ValueType> map(count);
     u32 idx = 1;
 
@@ -40,28 +50,26 @@ void DictionaryValueEncoder<ValueType>::encode(ValueType *out, ValueType *in, u3
     {
         ValueType key = in[i];
         u32 item = map.get_insert(key, idx);
-        data[i] = item;
+        out->codes[i] = item - 1;
         if (item == idx)
         {
-            values[idx - 1] = key;
+            out->values[idx - 1] = key;
             idx++;
         }
     }
-
-    memcpy(out, data, count * size);
-    memcpy(out + count, values, (idx - 1) * size);
+    out->valCount = idx - 1;
 }
 
 template <typename ValueType>
-void DictionaryValueEncoder<ValueType>::decode(ValueType *out, const ValueType *in, u32 count)
+void DictionaryValueEncoder<ValueType>::decode(ValueType *out, const DictionaryValueEncodedRes<ValueType> *in, const u32 count)
 {
-    const ValueType *data = in;
-    const ValueType *values = in + count;
+    const ValueType *codes = in->codes;
+    const ValueType *values = in->values;
 
     for (u32 i = 0; i < count; i++)
     {
-        ValueType idx = data[i];
-        ValueType value = values[idx - 1];
+        ValueType idx = codes[i];
+        ValueType value = values[idx];
         out[i] = value;
     }
 }

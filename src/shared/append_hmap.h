@@ -4,6 +4,8 @@
 #include "common.h"
 #include <xxhash.h>
 #include <string.h>
+#include <stdlib.h>
+#include <type_traits>
 
 template <typename ValueType>
 struct MapEntry
@@ -67,10 +69,11 @@ constexpr bool key_equal(MapEntry<ValueType> data, ValueType key, u32 hash)
 template <typename ValueType>
 constexpr bool is_slot_taken(MapEntry<ValueType> data)
 {
-    if constexpr (std::is_same_v<ValueType, StringKey>)
-        return data.key.ptr == NULL;
-    else
-        return data.key == 0;
+    // if constexpr (std::is_same_v<ValueType, StringKey>)
+    //     return data.key.ptr == NULL;
+    // else
+    //     return data.key == 0;
+    return data.value == 0;
 }
 
 template <typename ValueType>

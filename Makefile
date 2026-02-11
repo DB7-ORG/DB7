@@ -1,5 +1,5 @@
 CXX = g++
-BASE_CXXFLAGS = -Wall -Wextra -std=c++17 -pedantic -Iinclude -DNONOPT_FSST -march=native
+BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -pedantic -Iinclude -DNONOPT_FSST -march=native
 LDFLAGS = -lxxhash #-larrow
 
 # Build mode: debug or release (default: release)
