@@ -791,7 +791,8 @@ void test_huge_dict_values()
 
 int main()
 {
-    test_huge_dict_values();
-    test_huge_dict();
+    // test_huge_dict_values();
+    // test_huge_dict();
+    test_rle_encoder();
     return 0;
 }

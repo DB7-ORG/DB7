@@ -56,6 +56,11 @@ std::vector<u32> generateBestCase(size_t n)
     return std::vector<u32>(n, 42);
 }
 
+size_t inline padU32Size()
+{
+    return 256 / sizeof(u32);
+}
+
 std::vector<u32> generateSortedWithDuplicates(size_t n, u32 duplicateFactor)
 {
     // Sorted data with runs of duplicateFactor length
@@ -251,7 +256,7 @@ static void BM_Decode_BestCase(benchmark::State &state)
     RleEncoder<u32>::encode(encoded.data(), encoded_lengths.data(), capacity, input.data(), n);
 
     // Benchmark decode
-    std::vector<u32> decoded(n);
+    std::vector<u32> decoded(n + padU32Size());
     for (auto _ : state)
     {
         u32 decodedItems = 0;
@@ -276,7 +281,7 @@ static void BM_Decode_WorstCase(benchmark::State &state)
     u32 capacity = encoded.size();
     RleEncoder<u32>::encode(encoded.data(), encoded_lengths.data(), capacity, input.data(), n);
 
-    std::vector<u32> decoded(n);
+    std::vector<u32> decoded(n + padU32Size());
     for (auto _ : state)
     {
         u32 decodedItems = 0;
@@ -325,7 +330,7 @@ static void BM_Decode_MixedRuns(benchmark::State &state)
     u32 capacity = encoded.size();
     RleEncoder<u32>::encode(encoded.data(), encoded_lengths.data(), capacity, input.data(), n);
 
-    std::vector<u32> decoded(n);
+    std::vector<u32> decoded(n + padU32Size());
     for (auto _ : state)
     {
         u32 decodedItems = 0;

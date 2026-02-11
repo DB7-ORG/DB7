@@ -53,7 +53,7 @@ struct StringKey
 };
 
 template <typename ValueType>
-inline bool key_equal(MapEntry<ValueType> data, ValueType key, u32 hash)
+constexpr bool key_equal(MapEntry<ValueType> data, ValueType key, u32 hash)
 {
     if constexpr (std::is_same_v<ValueType, StringKey>)
         return data.hash == hash &&
@@ -65,7 +65,7 @@ inline bool key_equal(MapEntry<ValueType> data, ValueType key, u32 hash)
 }
 
 template <typename ValueType>
-inline bool is_slot_taken(MapEntry<ValueType> data)
+constexpr bool is_slot_taken(MapEntry<ValueType> data)
 {
     if constexpr (std::is_same_v<ValueType, StringKey>)
         return data.key.ptr == NULL;
@@ -74,7 +74,7 @@ inline bool is_slot_taken(MapEntry<ValueType> data)
 }
 
 template <typename ValueType>
-u32 calc_hash(ValueType key)
+constexpr u32 calc_hash(ValueType key)
 {
     if constexpr (std::is_same_v<ValueType, StringKey>)
     {
