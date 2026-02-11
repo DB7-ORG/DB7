@@ -599,7 +599,7 @@ void test_bitpacking_scalar()
 
     for (size_t i = 0; i < values.size(); i++)
     {
-        assert(decoded[i] == values[i] & mask); // TODO fix this
+        assert(decoded[i] == (values[i] & mask)); // TODO fix this
     }
 
     assert(decEnd == decoded.data() + values.size());
@@ -708,19 +708,23 @@ void test_rle_encoder()
             currentValue = (currentValue + 1) % 10;
         }
 
-        std::vector<u32> encoded(input.size());
+        std::vector<u32> encodedData(input.size());
         std::vector<u16> encodedLen(input.size());
+
+        auto encoded = RleEncodedRes<u32>{
+            .values = encodedData.data(),
+            .counts = encodedLen.data(),
+            .size = 0,
+        };
+
         std::vector<u32> decoded(input.size());
-        u32 capacity = 0;
-        u32 nitems = 0;
 
         u64 t0 = now_ns();
-        encoder.encode(encoded.data(), encodedLen.data(), capacity, input.data(), input.size());
+        encoder.encode(&encoded, input.data(), input.size());
         u64 t1 = now_ns();
-        encoder.decode(decoded.data(), encoded.data(), encodedLen.data(), nitems, capacity);
+        encoder.decode(decoded.data(), &encoded);
         u64 t2 = now_ns();
 
-        assert(nitems == input.size());
         for (size_t i = 0; i < input.size(); i++)
         {
             assert(decoded[i] == input[i]);
@@ -817,11 +821,49 @@ void roundtrip(ValueType *input, u32 count, u32 expectedDistinct)
     }
 }
 
+void test_oneval_encoder()
+{
+    // Test 5: Large runs
+    {
+        std::vector<u32> input;
+        u32 currentValue = 5;
+        u32 COUNT = 1'000'000;
+        for (u32 i = 0; i < COUNT; i++)
+        {
+            input.push_back(5);
+        }
+
+        std::vector<u32> encoded(1);
+
+        std::vector<u32> decoded(input.size() + 32);
+
+        u64 t0 = now_ns();
+        OneValEncoder<u32>::encode(encoded.data(), input.data());
+        assert(encoded[0] == currentValue);
+        u64 t1 = now_ns();
+        OneValEncoder<u32>::decode(decoded.data(), encoded[0], COUNT);
+        u64 t2 = now_ns();
+
+        for (size_t i = 0; i < input.size(); i++)
+        {
+            assert(decoded[i] == currentValue);
+        }
+
+        std::cout << "Test 5 (large runs): PASSED\n";
+
+        printf("encode:   %.3f ms\n", (t1 - t0) / 1e6);
+        printf("decode:   %.3f ms\n", (t2 - t1) / 1e6);
+        printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
+    }
+
+    std::cout << "\nAll RLE tests PASSED!\n";
+}
+
 int main()
 {
     // test_huge_dict_values();
-    test_huge_dict();
-    // test_rle_encoder();
+    // test_huge_dict();
+    test_oneval_encoder();
 
     // u8 data[256];
     // for (int i = 0; i < 256; i++)

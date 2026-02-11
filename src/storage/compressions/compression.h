@@ -13,6 +13,7 @@
 #include <cassert>
 #include "dictionary.h"
 #include "rle.h"
+#include "oneval.h"
 
 struct BitPackEncoder
 {

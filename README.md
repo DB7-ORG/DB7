@@ -16,10 +16,11 @@ check out todos and fix them before there is too many ❌
 
 improvements to existing decompressions
 - add overflow when decoding rle ✅
-- check out btrblocks dict simd gather approach ❌
-- wtf is this _mm256_cvtepi32_pd, _mm256_mul_pd ❌
+- check out btrblocks dict simd gather approach ✅
+- wtf is this _mm256_cvtepi32_pd, _mm256_mul_pd ✅
 - roaring bitmaps ❌
-- seprate bitpacking from dict ❌
+- seprate bitpacking from dict ✅
+- fuse rle and dict decomperssion to avoid intermediate array ❌
 
 - refactor code for compression so function caller does the allocations and alignment ❌
 - single value compression probably sucks try block decompression ❌
