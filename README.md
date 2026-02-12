@@ -21,13 +21,15 @@ improvements to existing decompressions
 - roaring bitmaps ❌
 - seprate bitpacking from dict ✅
 - fuse rle and dict decomperssion to avoid intermediate array ❌
+- optimize append only dictionary for integer and double types ✅
+- bencharked something similar to swiss dictionary and my scalar version ✅
 
-- refactor code for compression so function caller does the allocations and alignment ❌
+- refactor code for compression so function caller does the allocations and alignment ✅
 - single value compression probably sucks try block decompression ❌
 
 # RESEARCH
 
-- better understand performance difference between these approaches ❌
+- better understand performance difference between these approaches ✅
 
 //  entries = (MapEntry *)calloc(hash_capacity, sizeof(MapEntry));
 

@@ -2,6 +2,7 @@
 #define SIMD_UTIL_H
 
 #include "common.h"
+#include <immintrin.h>
 
 template <typename ValueType>
 constexpr __m256i pickVecSize(const ValueType value)

@@ -24,6 +24,7 @@ COMPRESSION_DICT_SRC := src/storage/compressions/dictionary.cpp
 COMPRESSION_FSST_SRC := src/storage/compressions/libfsst.cpp
 COMPRESSION_BITPACK_SRC := src/storage/compressions/bitpacking.cpp
 COMPRESSION_FASTPFOR_SRC := src/storage/compressions/fastpfor.cpp
+UTILS_APPEND_STR_HMAP_SRC := src/shared/append_str_hmap.cpp
 
 MAIN_OBJ := $(OBJ_DIR)/main.o
 DISK_MGR_OBJ := $(OBJ_DIR)/storage/disk_manager.o
@@ -31,8 +32,9 @@ COMPRESSION_DICT_OBJ := $(OBJ_DIR)/storage/compressions/dictionary.o
 COMPRESSION_FSST_OBJ := $(OBJ_DIR)/storage/compressions/libfsst.o
 COMPRESSION_BITPACK_OBJ := $(OBJ_DIR)/storage/compressions/bitpacking.o
 COMPRESSION_FASTPFOR_OBJ := $(OBJ_DIR)/storage/compressions/fastpfor.o
+UTILS_APPEND_STR_HMAP_OBJ :=  $(OBJ_DIR)/shared/append_str_hmap.o
 
-OBJS := $(MAIN_OBJ) $(DISK_MGR_OBJ) $(COMPRESSION_DICT_OBJ) $(COMPRESSION_FSST_OBJ) $(COMPRESSION_BITPACK_OBJ) $(COMPRESSION_FASTPFOR_OBJ) 
+OBJS := $(MAIN_OBJ) $(DISK_MGR_OBJ) $(COMPRESSION_DICT_OBJ) $(COMPRESSION_FSST_OBJ) $(COMPRESSION_BITPACK_OBJ) $(COMPRESSION_FASTPFOR_OBJ) $(UTILS_APPEND_STR_HMAP_OBJ)
 
 all: $(TARGET)
 
@@ -70,6 +72,11 @@ $(COMPRESSION_BITPACK_OBJ): $(COMPRESSION_BITPACK_SRC) | $(OBJ_DIR)
 	
 # Compile 
 $(COMPRESSION_FASTPFOR_OBJ): $(COMPRESSION_FASTPFOR_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile 
+$(UTILS_APPEND_STR_HMAP_OBJ): $(UTILS_APPEND_STR_HMAP_SRC) | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 

@@ -1,7 +1,8 @@
 #ifndef DICTIONARY_H
 #define DICTIONARY_H
 
-#include "../../shared/append_hmap.h"
+#include "../../shared/append_str_hmap.h"
+#include "../../shared/append_valtyp_hmap.h"
 #include <string.h>
 
 template <typename ValueType>
@@ -43,13 +44,13 @@ struct DictionaryValueEncoder
 template <typename ValueType>
 void DictionaryValueEncoder<ValueType>::encode(DictionaryValueEncodedRes<ValueType> *out, ValueType *in, u32 count)
 {
-    HMap<ValueType> map(count);
+    AppendOnlyHMap<ValueType> map(count);
     u32 idx = 1;
 
     for (u32 i = 0; i < count; i++)
     {
         ValueType key = in[i];
-        u32 item = map.get_insert(key, idx);
+        u32 item = map.scalar_get_insert(key, idx);
         out->codes[i] = item - 1;
         if (item == idx)
         {

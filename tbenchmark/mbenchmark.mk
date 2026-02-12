@@ -2,7 +2,7 @@
 # ------------------------------------------------------------------
 # ---------------------- BENCHMARKS --------------------------------
 # ------------------------------------------------------------------
-BENCH_LIB_OBJS := $(DISK_MGR_OBJ) $(COMPRESSION_DICT_OBJ) $(COMPRESSION_FSST_OBJ) $(COMPRESSION_BITPACK_OBJ) $(COMPRESSION_FASTPFOR_OBJ) $(COMPRESSION_RLE_OBJ)
+BENCH_LIB_OBJS := $(DISK_MGR_OBJ) $(COMPRESSION_DICT_OBJ) $(COMPRESSION_FSST_OBJ) $(COMPRESSION_BITPACK_OBJ) $(COMPRESSION_FASTPFOR_OBJ) $(COMPRESSION_RLE_OBJ) $(UTILS_APPEND_STR_HMAP_OBJ)
 
 BENCH_DIR := tbenchmark
 BENCH_BIN_DIR := $(BIN_DIR)/tbenchmark

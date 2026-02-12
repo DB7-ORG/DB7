@@ -6,9 +6,10 @@
 #include "storage/compressions/fsst.h"
 #include <time.h>
 #include <cassert>
+#include "shared/append_valtyp_hmap.h"
 
 std::mt19937 gen(42);
-std::uniform_int_distribution<> status_distribution(1, 8);
+std::uniform_int_distribution<> status_distribution(1, 100'000);
 
 // int test_read_buffer_enc(const char *filename, long size, const long tuple_num)
 // {
@@ -767,24 +768,24 @@ void test_huge_dict_values()
 {
     const int COUNT = 5'000'000;
     // std::vector<u16> encoded(COUNT * 100); // Large buffer for unique strings
-    std::vector<u16> in(COUNT);
+    std::vector<u32> in(COUNT);
 
     for (int i = 0; i < COUNT; i++)
     {
-        in[i] = status_distribution(gen) * 10000;
+        in[i] = i + 1; // status_distribution(gen);
     }
 
-    std::vector<u16> out(COUNT);
+    std::vector<u32> out(COUNT);
 
-    auto encoded = DictionaryValueEncodedRes<u16>{
-        .codes = (u16 *)malloc(COUNT * sizeof(u16)),
-        .values = (u16 *)malloc(COUNT * sizeof(u16)),
+    auto encoded = DictionaryValueEncodedRes<u32>{
+        .codes = (u32 *)malloc(COUNT * sizeof(u32)),
+        .values = (u32 *)malloc(COUNT * sizeof(u32)),
         .valCount = 0};
 
     u64 t0 = now_ns();
-    DictionaryValueEncoder<u16>::encode(&encoded, in.data(), COUNT);
+    DictionaryValueEncoder<u32>::encode(&encoded, in.data(), COUNT);
     u64 t1 = now_ns();
-    DictionaryValueEncoder<u16>::decode(out.data(), &encoded, COUNT);
+    DictionaryValueEncoder<u32>::decode(out.data(), &encoded, COUNT);
     u64 t2 = now_ns();
 
     for (int i = 0; i < COUNT; i++)
@@ -854,21 +855,44 @@ void test_oneval_encoder()
         printf("encode:   %.3f ms\n", (t1 - t0) / 1e6);
         printf("decode:   %.3f ms\n", (t2 - t1) / 1e6);
         printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
+
+        (void)currentValue;
     }
 
     std::cout << "\nAll RLE tests PASSED!\n";
 }
 
+void test_append_valtyp_map()
+{
+    u32 COUNT = 10;
+    AppendOnlyHMap<u32> map(COUNT);
+
+    std::vector<u32> vec(COUNT);
+    for (u32 i = 0; i < COUNT; i++)
+    {
+        vec[i] = i + 1;
+    }
+
+    for (u32 i = 0; i < COUNT; i++)
+    {
+        assert(vec[i] == map.simd_get_insert(i, i + 1));
+    }
+
+    std::cout << "okkk" << std::endl;
+}
+
 int main()
 {
-    // test_huge_dict_values();
+    test_huge_dict_values();
     // test_huge_dict();
-    test_oneval_encoder();
+    // test_oneval_encoder();
 
     // u8 data[256];
     // for (int i = 0; i < 256; i++)
     //     data[i] = (u8)i;
     // roundtrip(data, 256, 256);
+
+    // test_append_valtyp_map();
 
     return 0;
 }

@@ -14,7 +14,7 @@ void DictionaryStringEncoder::encode(DictionaryStringEncodedRes *out, u8 **in, u
     indexes[0] = 0;
     u32 idx = 1;
 
-    HMap<StringKey> map(count);
+    AppendOnlyStrHMap map(count, 2);
 
     for (u32 i = 0; i < count; i++)
     {
