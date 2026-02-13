@@ -34,12 +34,12 @@ protected:
         decoded.resize(values.size(), 0);
 
         // Encode
-        u64 *encEnd = encoder.scalar_encode(encoded.data(), input.data(),
-                                            input.size(), usedBits);
+        u64 *encEnd = encoder.ScalarEncode(encoded.data(), input.data(),
+                                           input.size(), usedBits);
         (void)encEnd;
         // Decode
-        u32 *decEnd = encoder.scalar_decode(decoded.data(), encoded.data(),
-                                            input.size(), usedBits);
+        u32 *decEnd = encoder.ScalarDecode(decoded.data(), encoded.data(),
+                                           input.size(), usedBits);
 
         // Verify
         u32 mask = (1ULL << usedBits) - 1;
@@ -255,22 +255,22 @@ TEST_F(BitPackEncoderTest, MultipleEncoderInstances)
     std::vector<u32> decoded1(5, 0), decoded2(5, 0);
 
     // Encode with both instances
-    encoder1.scalar_encode(encoded1.data(), input_data.data(), 5, 8);
-    encoder2.scalar_encode(encoded2.data(), input_data.data(), 5, 8);
+    encoder1.ScalarEncode(encoded1.data(), input_data.data(), 5, 8);
+    encoder2.ScalarEncode(encoded2.data(), input_data.data(), 5, 8);
 
     // Verify encoded data is identical
     EXPECT_EQ(encoded1, encoded2);
 
     // Decode with both instances
-    encoder1.scalar_decode(decoded1.data(), encoded1.data(), 5, 8);
-    encoder2.scalar_decode(decoded2.data(), encoded2.data(), 5, 8);
+    encoder1.ScalarDecode(decoded1.data(), encoded1.data(), 5, 8);
+    encoder2.ScalarDecode(decoded2.data(), encoded2.data(), 5, 8);
 
     // Verify decoded data matches original
     EXPECT_EQ(decoded1, input_data);
     EXPECT_EQ(decoded2, input_data);
 }
 
-// Test encode/decode with different encoder instances
+// Test Encode/Decode with different encoder instances
 TEST_F(BitPackEncoderTest, CrossEncoderCompatibility)
 {
     BitPackEncoder encoder_a, encoder_b;
@@ -278,9 +278,9 @@ TEST_F(BitPackEncoderTest, CrossEncoderCompatibility)
     std::vector<u64> encoded(10, 0);
     std::vector<u32> decoded(5, 0);
 
-    // Encode with one instance, decode with another
-    encoder_a.scalar_encode(encoded.data(), input_data.data(), 5, 16);
-    encoder_b.scalar_decode(decoded.data(), encoded.data(), 5, 16);
+    // Encode with one instance, Decode with another
+    encoder_a.ScalarEncode(encoded.data(), input_data.data(), 5, 16);
+    encoder_b.ScalarDecode(decoded.data(), encoded.data(), 5, 16);
 
     // Verify round-trip
     for (size_t i = 0; i < input_data.size(); i++)

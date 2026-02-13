@@ -5,7 +5,7 @@
 #include <string.h>
 
 template <typename ValueType>
-inline int get_bits_used(ValueType value)
+inline int GetBitsUsed(ValueType value)
 {
     if (value == 0)
         return 0;
@@ -21,8 +21,8 @@ struct DictionaryStringEncodedRes
 
 struct DictionaryStringEncoder
 {
-    static void encode(DictionaryStringEncodedRes *out, u8 **in, u32 *lenIn, u32 count);
-    static void decode(u8 **out, u32 *lenOut, const DictionaryStringEncodedRes *in, u32 count);
+    static void Encode(DictionaryStringEncodedRes *out, u8 **in, u32 *lenIn, u32 count);
+    static void Decode(u8 **out, u32 *lenOut, const DictionaryStringEncodedRes *in, u32 count);
 };
 
 template <typename ValueType>
@@ -36,12 +36,12 @@ struct DictionaryValueEncodedRes
 template <typename ValueType>
 struct DictionaryValueEncoder
 {
-    static void encode(DictionaryValueEncodedRes<ValueType> *out, ValueType *in, const u32 count);
-    static void decode(ValueType *out, const DictionaryValueEncodedRes<ValueType> *in, const u32 count);
+    static void Encode(DictionaryValueEncodedRes<ValueType> *out, ValueType *in, const u32 count);
+    static void Decode(ValueType *out, const DictionaryValueEncodedRes<ValueType> *in, const u32 count);
 };
 
 template <typename ValueType>
-void DictionaryValueEncoder<ValueType>::encode(DictionaryValueEncodedRes<ValueType> *out, ValueType *in, u32 count)
+void DictionaryValueEncoder<ValueType>::Encode(DictionaryValueEncodedRes<ValueType> *out, ValueType *in, u32 count)
 {
     AppendOnlyHMap<ValueType> map(count);
     u32 idx = 1;
@@ -49,7 +49,7 @@ void DictionaryValueEncoder<ValueType>::encode(DictionaryValueEncodedRes<ValueTy
     for (u32 i = 0; i < count; i++)
     {
         ValueType key = in[i];
-        u32 item = map.scalar_get_insert(key, idx);
+        u32 item = map.ScalarGetInsert(key, idx);
         out->codes[i] = item - 1;
         if (item == idx)
         {
@@ -61,7 +61,7 @@ void DictionaryValueEncoder<ValueType>::encode(DictionaryValueEncodedRes<ValueTy
 }
 
 template <typename ValueType>
-void DictionaryValueEncoder<ValueType>::decode(ValueType *out, const DictionaryValueEncodedRes<ValueType> *in, const u32 count)
+void DictionaryValueEncoder<ValueType>::Decode(ValueType *out, const DictionaryValueEncodedRes<ValueType> *in, const u32 count)
 {
     const ValueType *codes = in->codes;
     const ValueType *values = in->values;

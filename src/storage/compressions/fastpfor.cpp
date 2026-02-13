@@ -5,7 +5,7 @@
 #include <iostream>
 #include <unistd.h>
 
-void get_best_b(const u32 *in, u8 &bestb, u8 &bestcexcept, u8 &maxb)
+void GetBestB(const u32 *in, u8 &bestb, u8 &bestcexcept, u8 &maxb)
 {
     u32 freqs[33];
     for (u32 k = 0; k <= 32; ++k)
@@ -38,13 +38,13 @@ void get_best_b(const u32 *in, u8 &bestb, u8 &bestcexcept, u8 &maxb)
     }
 }
 
-u32 *pack_exception_blocks(BitPackEncoder &bitpackEncoder, u32 *out, cachealignedvector &in, u8 bit)
+u32 *PackExceptionBlocks(BitPackEncoder &bitpackEncoder, u32 *out, cachealignedvector &in, u8 bit)
 {
     const u32 size = static_cast<u32>(in.size());
     *out = size;
     out++;
 
-    out = (u32 *)bitpackEncoder.scalar_encode(out, in.data(), in.size(), bit);
+    out = (u32 *)bitpackEncoder.ScalarEncode(out, in.data(), in.size(), bit);
 
     return out;
 }
@@ -55,20 +55,20 @@ FastPForEncoder::FastPForEncoder()
     bytescontainer.resize(1024);
 }
 
-u32 FastPForEncoder::encode(u32 *out, const u32 *in, size_t nitems)
+u32 FastPForEncoder::Encode(u32 *out, const u32 *in, size_t nitems)
 {
     u32 *const initout = out;
-    check_is_divisible_by(nitems, BlockSize / 32);
+    CheckIsDivisibleBy(nitems, BlockSize / 32);
     u32 *const headerout = out++;
 
-    resetTable();
+    ResetTable();
 
     u8 *bc = &bytescontainer[0];
 
     for (const u32 *const final = in + nitems; (in + BlockSize <= final); in += BlockSize)
     {
         u8 bestb, bestcexcept, maxb;
-        get_best_b(in, bestb, bestcexcept, maxb);
+        GetBestB(in, bestb, bestcexcept, maxb);
         *bc++ = bestb;
         *bc++ = bestcexcept;
         if (bestcexcept > 0)
@@ -85,11 +85,11 @@ u32 FastPForEncoder::encode(u32 *out, const u32 *in, size_t nitems)
                     *bc++ = static_cast<u8>(k);
                 }
             }
-            out = bitpackEncoder.simd_encode(out, in, BlockSize, bestb); // TODO executed once per loop
+            out = bitpackEncoder.SimdEncode(out, in, BlockSize, bestb); // TODO executed once per loop
         }
         else
         {
-            out = bitpackEncoder.simd_encode_withoutmask(out, in, BlockSize, bestb); // TODO executed once per loop
+            out = bitpackEncoder.SimdEncodeWithoutMask(out, in, BlockSize, bestb); // TODO executed once per loop
         }
     }
 
@@ -114,23 +114,23 @@ u32 FastPForEncoder::encode(u32 *out, const u32 *in, size_t nitems)
     for (u32 k = 2; k <= 32; ++k)
     {
         if (datatobepacked[k].size() > 0)
-            out = pack_exception_blocks(bitpackEncoder, out, datatobepacked[k], k);
+            out = PackExceptionBlocks(bitpackEncoder, out, datatobepacked[k], k);
     }
 
     return out - initout;
 }
 
-void FastPForEncoder::resetTable()
+void FastPForEncoder::ResetTable()
 {
     for (u32 k = 0; k < 32 + 1; ++k)
         datatobepacked[k].clear();
 }
 
-u32 FastPForEncoder::decode(u32 *out, const u32 *in, size_t nitems)
+u32 FastPForEncoder::Decode(u32 *out, const u32 *in, size_t nitems)
 {
     u32 *const initout = out;
 
-    resetTable();
+    ResetTable();
 
     const u32 *const headerin = in++;
     const u32 wheremeta = headerin[0];
@@ -145,8 +145,8 @@ u32 FastPForEncoder::decode(u32 *out, const u32 *in, size_t nitems)
         {
             u32 size = *(inexcept++);
             datatobepacked[k].resize(size);
-            bitpackEncoder.scalar_decode(datatobepacked[k].data(), inexcept, size, k);
-            inexcept += words_used(size, k);
+            bitpackEncoder.ScalarDecode(datatobepacked[k].data(), inexcept, size, k);
+            inexcept += WordsUsed(size, k);
         }
     }
 
@@ -160,7 +160,7 @@ u32 FastPForEncoder::decode(u32 *out, const u32 *in, size_t nitems)
     {
         const u8 b = *bytep++;
         const u8 cexcept = *bytep++;
-        auto newOut = bitpackEncoder.simd_decode(out, in, BlockSize, b);
+        auto newOut = bitpackEncoder.SimdDecode(out, in, BlockSize, b);
         in += 8 * b * BlockSize / 256;
 
         if (cexcept > 0)

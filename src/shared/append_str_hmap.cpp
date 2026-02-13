@@ -25,7 +25,7 @@ AppendOnlyStrHMap::~AppendOnlyStrHMap()
     free(entries);
 }
 
-u32 AppendOnlyStrHMap::get_insert(StringKey key, u32 value)
+u32 AppendOnlyStrHMap::GetInsert(StringKey key, u32 value)
 {
     u32 hash = XXH32(key.ptr, key.len, 0);
     u32 bucket = hash & (hash_capacity - 1);

@@ -25,8 +25,8 @@ private:
 public:
     AppendOnlyHMap(const u32 count, const u32 memfactor = 1);
     ~AppendOnlyHMap();
-    u32 simd_get_insert(ValueType key, u32 value);               // 1. faster for many collisions 2.higher cache pollution
-    u32 scalar_get_insert(const ValueType key, const u32 value); // 1. faster for low collisions  2.lower cache pollution
+    u32 SimdGetInsert(ValueType key, u32 value);               // 1. faster for many collisions 2.higher cache pollution
+    u32 ScalarGetInsert(const ValueType key, const u32 value); // 1. faster for low collisions  2.lower cache pollution
 };
 
 template <typename ValueType>
@@ -54,7 +54,7 @@ AppendOnlyHMap<ValueType>::~AppendOnlyHMap()
 }
 
 template <typename ValueType>
-constexpr u32 calc_hash(ValueType key)
+constexpr u32 CalcHash(ValueType key)
 {
     if constexpr (sizeof(ValueType) <= 4)
     {
@@ -70,10 +70,10 @@ constexpr u32 calc_hash(ValueType key)
 }
 
 template <typename ValueType>
-inline u32 AppendOnlyHMap<ValueType>::simd_get_insert(const ValueType key, const u32 value)
+inline u32 AppendOnlyHMap<ValueType>::SimdGetInsert(const ValueType key, const u32 value)
 {
     constexpr u32 movsize = 16 / sizeof(ValueType);
-    const u32 hash = calc_hash(key);
+    const u32 hash = CalcHash(key);
     u32 bucket = hash & (hash_capacity - 1);
     const __m128i hashVec = _mm_set1_epi8((u8)hash);
     const __m128i zeroVec = _mm_setzero_si128();
@@ -106,9 +106,9 @@ inline u32 AppendOnlyHMap<ValueType>::simd_get_insert(const ValueType key, const
 }
 
 template <typename ValueType>
-inline u32 AppendOnlyHMap<ValueType>::scalar_get_insert(const ValueType key, const u32 value)
+inline u32 AppendOnlyHMap<ValueType>::ScalarGetInsert(const ValueType key, const u32 value)
 {
-    const u32 hash = calc_hash(key);
+    const u32 hash = CalcHash(key);
     u32 bucket = hash & (hash_capacity - 1);
 
     while (true)

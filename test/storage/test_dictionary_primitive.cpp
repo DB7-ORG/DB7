@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <cstdlib>
-#include "../src/storage/compressions/dictionary.h"
+#include "../src/storage/compressions/dictionary.hpp"
 
 template <typename ValueType>
 class DictionaryTest : public ::testing::Test
@@ -15,11 +15,11 @@ protected:
         encoded.values = (ValueType *)malloc(count * sizeof(ValueType));
         encoded.valCount = 0;
 
-        DictionaryValueEncoder<ValueType>::encode(&encoded, input, count);
+        DictionaryValueEncoder<ValueType>::Encode(&encoded, input, count);
         ASSERT_EQ(encoded.valCount, expectedDistinct);
 
         decoded = (ValueType *)malloc(count * sizeof(ValueType));
-        DictionaryValueEncoder<ValueType>::decode(decoded, &encoded, count);
+        DictionaryValueEncoder<ValueType>::Decode(decoded, &encoded, count);
 
         for (u32 i = 0; i < count; i++)
         {

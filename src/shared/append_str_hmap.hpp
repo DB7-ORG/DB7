@@ -24,5 +24,5 @@ private:
 public:
     AppendOnlyStrHMap(const u32 count, const u32 memfactor = 2);
     ~AppendOnlyStrHMap();
-    u32 get_insert(StringKey key, u32 value);
+    u32 GetInsert(StringKey key, u32 value);
 };

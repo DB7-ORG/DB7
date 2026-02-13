@@ -74,8 +74,8 @@ void BM_HMap(benchmark::State &state, KeyDist dist)
     u32 idx = 0;
     for (auto _ : state)
     {
-        u32 result = UseSimd ? map.simd_get_insert(keys[idx % capacity], idx)
-                             : map.scalar_get_insert(keys[idx % capacity], idx);
+        u32 result = UseSimd ? map.SimdGetInsert(keys[idx % capacity], idx)
+                             : map.ScalarGetInsert(keys[idx % capacity], idx);
         benchmark::DoNotOptimize(result);
         idx++;
     }

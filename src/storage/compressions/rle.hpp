@@ -14,12 +14,12 @@ struct RleEncodedRes
 template <typename ValueType>
 struct RleEncoder
 {
-    static void encode(RleEncodedRes<ValueType> *out, const ValueType *in, const u32 nitems);
-    static void decode(ValueType *out, const RleEncodedRes<ValueType> *in);
+    static void Encode(RleEncodedRes<ValueType> *out, const ValueType *in, const u32 nitems);
+    static void Decode(ValueType *out, const RleEncodedRes<ValueType> *in);
 };
 
 template <typename ValueType>
-void RleEncoder<ValueType>::encode(RleEncodedRes<ValueType> *out, const ValueType *in, const u32 nitems)
+void RleEncoder<ValueType>::Encode(RleEncodedRes<ValueType> *out, const ValueType *in, const u32 nitems)
 {
     assert(nitems >= 1);
 
@@ -56,7 +56,7 @@ void RleEncoder<ValueType>::encode(RleEncodedRes<ValueType> *out, const ValueTyp
 // otherwise there might be memory corruption
 // ...
 template <typename ValueType>
-void RleEncoder<ValueType>::decode(ValueType *out, const RleEncodedRes<ValueType> *in)
+void RleEncoder<ValueType>::Decode(ValueType *out, const RleEncodedRes<ValueType> *in)
 {
     constexpr u32 itemsInVec = 32 / sizeof(ValueType);
     const u32 *values = in->values;
@@ -68,7 +68,7 @@ void RleEncoder<ValueType>::decode(ValueType *out, const RleEncodedRes<ValueType
         const u16 count = counts[i];
         const ValueType value = values[i];
 
-        __m256i valVec = pickVecSize(value);
+        __m256i valVec = PickVecSize(value);
         for (u32 j = 0; j < count; j += itemsInVec)
         {
             _mm256_storeu_si256((__m256i *)(out + j), valVec);

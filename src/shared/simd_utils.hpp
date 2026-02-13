@@ -4,7 +4,7 @@
 #include <immintrin.h>
 
 template <typename ValueType>
-constexpr __m256i pickVecSize(const ValueType value)
+constexpr __m256i PickVecSize(const ValueType value)
 {
     constexpr auto size = sizeof(ValueType);
     if constexpr (size == 1)

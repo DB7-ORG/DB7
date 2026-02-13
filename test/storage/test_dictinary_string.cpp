@@ -58,11 +58,11 @@ protected:
             .strings = (u8 *)malloc(totalLen ? totalLen : 1),
         };
 
-        DictionaryStringEncoder::encode(&encoded, inStrings.data(), inLengths.data(), count);
+        DictionaryStringEncoder::Encode(&encoded, inStrings.data(), inLengths.data(), count);
 
         std::vector<u8 *> outStrings(count);
         std::vector<u32> outLengths(count);
-        DictionaryStringEncoder::decode(outStrings.data(), outLengths.data(), &encoded, count);
+        DictionaryStringEncoder::Decode(outStrings.data(), outLengths.data(), &encoded, count);
 
         for (u32 i = 0; i < count; i++)
         {
@@ -164,7 +164,7 @@ TEST_F(DictionaryStringEncoderTest, MixedDuplication)
 //         totalStrLen += inLengths[i];
 //     }
 
-//     u32 *encodeEnd = DictionaryStringEncoder::encode(encoded.data(), inStrings.data(), inLengths.data(), COUNT, totalStrLen);
+//     u32 *encodeEnd = DictionaryStringEncoder::Encode(encoded.data(), inStrings.data(), inLengths.data(), COUNT, totalStrLen);
 //     ASSERT_NE(encodeEnd, nullptr);
 
 //     std::vector<u8 *> outStrings(COUNT);

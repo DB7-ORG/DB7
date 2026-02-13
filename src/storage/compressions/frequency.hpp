@@ -11,6 +11,6 @@ struct FreqEncodedRes
 
 struct FreqEncoder
 {
-    static void encode(FreqEncodedRes *out, const double *in, const u8 *nullmap, u32 nitems, double topval);
-    static void decode(double *out, FreqEncodedRes *in, u32 nitems);
+    static void Encode(FreqEncodedRes *out, const double *in, const u8 *nullmap, u32 nitems, double topval);
+    static void Decode(double *out, FreqEncodedRes *in, u32 nitems);
 };

@@ -25,12 +25,12 @@ protected:
 
     uint32_t decode_single(uint32_t idx)
     {
-        return BitPackEncoder::simd_decode_single(compressed, idx, bits);
+        return BitPackEncoder::SimdDecodeSingle(compressed, idx, bits);
     }
 
-    void encode(uint32_t nitems)
+    void Encode(uint32_t nitems)
     {
-        BitPackEncoder::simd_encode(compressed, values, nitems, bits);
+        BitPackEncoder::SimdEncode(compressed, values, nitems, bits);
     }
 };
 
@@ -44,7 +44,7 @@ TEST_P(BitPackSingleTest, SequentialValues)
         values[i] = i & mask;
     }
 
-    encode(nitems);
+    Encode(nitems);
 
     for (uint32_t i = 0; i < nitems; i++)
     {
@@ -65,7 +65,7 @@ TEST_P(BitPackSingleTest, MaxValues)
         values[i] = mask; // all bits set
     }
 
-    encode(nitems);
+    Encode(nitems);
 
     for (uint32_t i = 0; i < nitems; i++)
     {
@@ -85,7 +85,7 @@ TEST_P(BitPackSingleTest, AlternatingPattern)
         values[i] = (i % 2 == 0) ? 0 : mask;
     }
 
-    encode(nitems);
+    Encode(nitems);
 
     for (uint32_t i = 0; i < nitems; i++)
     {
@@ -107,7 +107,7 @@ TEST_P(BitPackSingleTest, SpanningBoundaries)
         values[i] = (i * 7 + 3) & mask;
     }
 
-    encode(nitems);
+    Encode(nitems);
 
     // Check specifically around word boundaries
     for (uint32_t lane = 0; lane < 32; lane++)
@@ -142,7 +142,7 @@ TEST_P(BitPackSingleTest, MultipleBlocks)
         values[i] = i & mask;
     }
 
-    encode(nitems);
+    Encode(nitems);
 
     for (uint32_t i = 0; i < nitems; i++)
     {

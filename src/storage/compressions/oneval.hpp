@@ -13,18 +13,18 @@
 template <typename ValueType> // TODO its not a value type
 struct OneValEncoder
 {
-    static void encode(ValueType *out, const ValueType *in);
-    static void decode(ValueType *out, const ValueType value, u32 nitems);
+    static void Encode(ValueType *out, const ValueType *in);
+    static void Decode(ValueType *out, const ValueType value, u32 nitems);
 };
 
 template <typename ValueType>
-void OneValEncoder<ValueType>::encode(ValueType *out, const ValueType *in)
+void OneValEncoder<ValueType>::Encode(ValueType *out, const ValueType *in)
 {
     out[0] = in[0];
 }
 
 template <typename ValueType>
-void OneValEncoder<ValueType>::decode(ValueType *out, const ValueType value, u32 nitems)
+void OneValEncoder<ValueType>::Decode(ValueType *out, const ValueType value, u32 nitems)
 {
     std::fill_n(out, nitems, value);
 }

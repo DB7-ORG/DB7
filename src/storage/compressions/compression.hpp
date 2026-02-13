@@ -16,13 +16,13 @@
 
 struct BitPackEncoder
 {
-    static u32 *simd_encode(void *out, const void *in, u32 nitems, u32 usedBits);
-    static u32 *simd_encode_withoutmask(void *out, const void *in, u32 nitems, u32 usedBits);
-    static u32 *simd_decode(void *out, const void *in, u32 nitems, u32 usedBits);
-    static u32 simd_decode_single(const void *compressed, u32 idx, u32 usedBits);
-    static u64 *scalar_encode(void *out, const void *in, u32 nitems, u32 usedBits);
-    static u32 *scalar_decode(void *out, const void *in, u32 nitems, u32 usedBits);
-    static u32 scalar_decode_single(const void *compressed, u32 idx, u32 usedBits);
+    static u32 *SimdEncode(void *out, const void *in, u32 nitems, u32 usedBits);
+    static u32 *SimdEncodeWithoutMask(void *out, const void *in, u32 nitems, u32 usedBits);
+    static u32 *SimdDecode(void *out, const void *in, u32 nitems, u32 usedBits);
+    static u32 SimdDecodeSingle(const void *compressed, u32 idx, u32 usedBits);
+    static u64 *ScalarEncode(void *out, const void *in, u32 nitems, u32 usedBits);
+    static u32 *ScalarDecode(void *out, const void *in, u32 nitems, u32 usedBits);
+    static u32 ScalarDecodeSingle(const void *compressed, u32 idx, u32 usedBits);
 };
 
 enum
@@ -45,12 +45,12 @@ struct FastPForEncoder
     std::vector<u8> bytescontainer;
 
     FastPForEncoder();
-    u32 encode(u32 *out, const u32 *in, size_t nitems);
-    u32 decode(u32 *out, const u32 *in, size_t nitems);
-    void resetTable();
+    u32 Encode(u32 *out, const u32 *in, size_t nitems);
+    u32 Decode(u32 *out, const u32 *in, size_t nitems);
+    void ResetTable();
 };
 
-inline void check_is_divisible_by(size_t a, u32 x)
+inline void CheckIsDivisibleBy(size_t a, u32 x)
 {
     if (a % x != 0)
     {
@@ -58,7 +58,7 @@ inline void check_is_divisible_by(size_t a, u32 x)
     }
 }
 
-static inline u32 words_used(u32 nitems, u32 usedBits)
+static inline u32 WordsUsed(u32 nitems, u32 usedBits)
 {
     u32 total_bits = nitems * usedBits;
     u32 n_u64 = (total_bits + 63) / 64;

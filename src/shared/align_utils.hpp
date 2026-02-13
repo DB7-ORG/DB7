@@ -5,13 +5,13 @@
 #include <limits>
 
 template <typename T>
-constexpr T align_up_pow2(T x, size_t align)
+constexpr T AlignUpPow2(T x, size_t align)
 {
     return (x + align - 1) & ~(align - 1);
 }
 
 template <class T, size_t alignment>
-T *moveToBoundary(T *inbyte)
+T *MoveToBoundary(T *inbyte)
 {
     return reinterpret_cast<T *>(
         (reinterpret_cast<uintptr_t>(inbyte) + (alignment - 1)) &
@@ -72,7 +72,7 @@ public:
          */
         size_t *buffer = reinterpret_cast<size_t *>(
             ::operator new(sizeof(uintptr_t) + (num + alignment) * sizeof(T)));
-        size_t *answer = moveToBoundary<size_t, alignment>(buffer + 1);
+        size_t *answer = MoveToBoundary<size_t, alignment>(buffer + 1);
         *(answer - 1) = reinterpret_cast<uintptr_t>(answer) -
                         reinterpret_cast<uintptr_t>(buffer);
         return reinterpret_cast<pointer>(answer);

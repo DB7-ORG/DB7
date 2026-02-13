@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/mman.h>
 
-void DictionaryStringEncoder::encode(DictionaryStringEncodedRes *out, u8 **in, u32 *lenIn, u32 count)
+void DictionaryStringEncoder::Encode(DictionaryStringEncodedRes *out, u8 **in, u32 *lenIn, u32 count)
 {
     u8 *strings = out->strings;
     u32 *indexes = out->indexes;
@@ -22,7 +22,7 @@ void DictionaryStringEncoder::encode(DictionaryStringEncodedRes *out, u8 **in, u
             in[i],
             (u16)lenIn[i], // TODO
         };
-        u32 item = map.get_insert(key, idx);
+        u32 item = map.GetInsert(key, idx);
         codes[i] = item;
         if (item == idx)
         {
@@ -33,7 +33,7 @@ void DictionaryStringEncoder::encode(DictionaryStringEncodedRes *out, u8 **in, u
     }
 }
 
-void DictionaryStringEncoder::decode(u8 **out, u32 *lenOut, const DictionaryStringEncodedRes *in, u32 count)
+void DictionaryStringEncoder::Decode(u8 **out, u32 *lenOut, const DictionaryStringEncodedRes *in, u32 count)
 {
     const u32 *indexes = in->indexes;
     const u32 *codes = in->codes;

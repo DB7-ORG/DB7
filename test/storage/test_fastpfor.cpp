@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "../src/storage/compressions/compression.h"
+#include "../src/storage/compressions/compression.hpp"
 #include <vector>
 #include <random>
 #include <algorithm>
@@ -22,8 +22,8 @@ protected:
     void EncodeAndDecode(const std::vector<u32> &data)
     {
         input = data;
-        encoder.encode(encoded.data(), input.data(), input.size());
-        encoder.decode(decoded.data(), encoded.data(), input.size());
+        encoder.Encode(encoded.data(), input.data(), input.size());
+        encoder.Decode(decoded.data(), encoded.data(), input.size());
         decoded.resize(input.size());
     }
 };
@@ -184,7 +184,7 @@ TEST_F(FastPForTest, CompressionRatioSmallValues)
 {
     std::vector<u32> data(BlockSize, 7); // 3 bits needed
 
-    u32 encoded_size = encoder.encode(encoded.data(), data.data(), data.size());
+    u32 encoded_size = encoder.Encode(encoded.data(), data.data(), data.size());
     u32 original_size = data.size() * sizeof(u32);
 
     // Should compress well (exact ratio depends on implementation)
@@ -215,7 +215,7 @@ TEST_F(FastPForTest, RoundTripMultipleTimes)
         data[i] = i % 256;
     }
 
-    // Encode and decode multiple times
+    // Encode and Decode multiple times
     for (int round = 0; round < 5; round++)
     {
         EncodeAndDecode(data);
