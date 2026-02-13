@@ -2,7 +2,7 @@
 #define RLE_H
 
 #include "common.h"
-#include "../../shared/simd_utils.h"
+#include "simd_utils.h"
 
 template <typename ValueType>
 struct RleEncodedRes
