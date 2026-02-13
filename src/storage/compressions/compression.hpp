@@ -1,19 +1,18 @@
-#ifndef COMPRESSION_H
-#define COMPRESSION_H
+#pragma once
 
 #include <cstdint> // u32, uint16_t, int32_t, etc.
 #include <cstddef>
 #include <string.h>
 #include <string>
 #include <x86intrin.h>
-#include "common.h"
-#include "../../shared/align_utils.h"
+#include "common.hpp"
+#include "align_utils.hpp"
 #include <vector>
 #include <stdexcept>
 #include <cassert>
-#include "dictionary.h"
-#include "rle.h"
-#include "oneval.h"
+#include "dictionary.hpp"
+#include "rle.hpp"
+#include "oneval.hpp"
 
 struct BitPackEncoder
 {
@@ -65,5 +64,3 @@ static inline u32 words_used(u32 nitems, u32 usedBits)
     u32 n_u64 = (total_bits + 63) / 64;
     return n_u64 * 2;
 }
-
-#endif

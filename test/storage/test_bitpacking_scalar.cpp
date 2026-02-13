@@ -2,7 +2,7 @@
 #include <vector>
 #include <cstdint>
 #include <cstring>
-#include "../src/storage/compressions/compression.h"
+#include "../src/storage/compressions/compression.hpp"
 
 // Type aliases to match your code
 using u64 = uint64_t;

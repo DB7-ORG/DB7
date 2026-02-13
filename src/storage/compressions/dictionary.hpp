@@ -1,8 +1,7 @@
-#ifndef DICTIONARY_H
-#define DICTIONARY_H
+#pragma once
 
-#include "../../shared/append_str_hmap.h"
-#include "../../shared/append_valtyp_hmap.h"
+#include "append_str_hmap.hpp"
+#include "append_valtyp_hmap.hpp"
 #include <string.h>
 
 template <typename ValueType>
@@ -74,5 +73,3 @@ void DictionaryValueEncoder<ValueType>::decode(ValueType *out, const DictionaryV
         out[i] = value;
     }
 }
-
-#endif

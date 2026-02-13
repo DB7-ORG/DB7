@@ -1,8 +1,7 @@
-#ifndef RLE_H
-#define RLE_H
+#pragma once
 
-#include "common.h"
-#include "simd_utils.h"
+#include "common.hpp"
+#include "simd_utils.hpp"
 
 template <typename ValueType>
 struct RleEncodedRes
@@ -77,5 +76,3 @@ void RleEncoder<ValueType>::decode(ValueType *out, const RleEncodedRes<ValueType
         out += count;
     }
 }
-
-#endif

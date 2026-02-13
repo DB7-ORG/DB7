@@ -1,7 +1,6 @@
-#ifndef ALIGN_UTIL_H
-#define ALIGN_UTIL_H
+#pragma once
 
-#include "common.h"
+#include "common.hpp"
 #include <stddef.h>
 #include <limits>
 
@@ -112,5 +111,3 @@ bool operator!=(const AlignedSTLAllocator<T1, t> &, const T2 &) throw()
 }
 // typical cache line
 typedef AlignedSTLAllocator<uint32_t, 64> cacheallocator;
-
-#endif

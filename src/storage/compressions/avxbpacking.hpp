@@ -1,8 +1,7 @@
 
-#ifndef DICT_UTIL_AVXBPACKING_H
-#define DICT_UTIL_AVXBPACKING_H
+#pragma once
 
-#include "common.h"
+#include "common.hpp"
 
 #ifndef __AVX2__
 #error This code requires AVX2 support (available on Intel processors made since ~2013)
@@ -7883,5 +7882,3 @@ uint32_t *avxunpack(const __m256i *in, uint32_t *out, const uint32_t number, con
     }
     return (uint32_t *)out;
 }
-
-#endif

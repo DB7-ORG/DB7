@@ -1,5 +1,5 @@
-#include "compression.h"
-#include "../../shared/helper_utils.h"
+#include "compression.hpp"
+#include "helper_utils.hpp"
 
 #include <immintrin.h>
 #include <iostream>

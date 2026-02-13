@@ -3,7 +3,7 @@
 #include <random>
 #include <algorithm>
 #include <cstdint>
-#include "../src/storage/compressions/rle.h"
+#include "../src/storage/compressions/rle.hpp"
 
 // ============================================================================
 // Test Data Generators

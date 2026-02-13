@@ -20,5 +20,5 @@ make_uniq_array_uninitialized(size_t n)
 template <class T, typename... ARGS>
 std::shared_ptr<T> make_buffer(ARGS &&...args)
 {
-    return std::make_shared<T>(std::forward<ARGS>(args...));
+    return std::make_shared<T>(std::forward<ARGS>(args)...);
 }

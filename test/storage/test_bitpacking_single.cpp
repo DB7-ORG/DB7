@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <cstdint>
 #include <cstring>
-#include "../src/storage/compressions/compression.h"
+#include "../src/storage/compressions/compression.hpp"
 
 // Test fixture for BitPack tests
 class BitPackSingleTest : public ::testing::TestWithParam<uint32_t>

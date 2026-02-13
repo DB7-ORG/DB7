@@ -2,7 +2,7 @@
 #include <random>
 #include <vector>
 #include <algorithm>
-#include "../src/shared/append_valtyp_hmap.h"
+#include "../src/shared/append_valtyp_hmap.hpp"
 
 // ============================================================================
 // Key Distribution Generator

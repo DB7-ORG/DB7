@@ -1,7 +1,7 @@
 #pragma once
 
-#include "common.h"
-#include "helper_utils.h"
+#include "common.hpp"
+#include "helper_utils.hpp"
 #include <cassert>
 
 template <typename V>

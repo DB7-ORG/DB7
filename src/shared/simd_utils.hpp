@@ -1,7 +1,6 @@
-#ifndef SIMD_UTIL_H
-#define SIMD_UTIL_H
+#pragma once
 
-#include "common.h"
+#include "common.hpp"
 #include <immintrin.h>
 
 template <typename ValueType>
@@ -29,5 +28,3 @@ constexpr __m256i pickVecSize(const ValueType value)
         static_assert(size == 0, "Unsupported type size");
     }
 }
-
-#endif

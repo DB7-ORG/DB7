@@ -1,12 +1,12 @@
 #include <iostream>
-#include "storage/disk_manager.h"
-#include "storage/compressions/compression.h"
+#include "storage/disk_manager.hpp"
+#include "storage/compressions/compression.hpp"
 #include <random>
 #include <string.h>
-#include "storage/compressions/fsst.h"
+#include "storage/compressions/fsst.hpp"
 #include <time.h>
 #include <cassert>
-#include "shared/append_valtyp_hmap.h"
+#include "shared/append_valtyp_hmap.hpp"
 #include "storage/compressions/frequency.hpp"
 
 std::mt19937 gen(42);

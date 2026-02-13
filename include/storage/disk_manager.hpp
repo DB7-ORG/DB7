@@ -1,5 +1,4 @@
-#ifndef DISK_MANAGER_H
-#define DISK_MANAGER_H
+#pragma once
 
 #include <cstdlib>
 
@@ -14,5 +13,3 @@ constexpr size_t align_up(size_t value, size_t alignment)
 int readCF(const char *file_name, char *buffer, size_t size, size_t offset = 0);
 
 int writeCF(const char *file_name, const char *buffer, size_t size);
-
-#endif

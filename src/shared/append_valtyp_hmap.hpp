@@ -1,7 +1,6 @@
-#ifndef APPEND_VAL_HMAP_H
-#define APPEND_VAL_HMAP_H
+#pragma once
 
-#include "common.h"
+#include "common.hpp"
 #include <xxhash.h>
 #include <string.h>
 #include <stdlib.h>
@@ -131,5 +130,3 @@ inline u32 AppendOnlyHMap<ValueType>::scalar_get_insert(const ValueType key, con
         bucket = (bucket + 1) & (hash_capacity - 1);
     }
 }
-
-#endif

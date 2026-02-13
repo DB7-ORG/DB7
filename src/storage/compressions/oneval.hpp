@@ -1,8 +1,7 @@
-#ifndef ONEVAL_H
-#define ONEVAL_H
+#pragma once
 
-#include "common.h"
-#include "../../shared/simd_utils.h"
+#include "common.hpp"
+#include "simd_utils.hpp"
 
 // TODO duplicate
 // struct StringKey
@@ -28,13 +27,4 @@ template <typename ValueType>
 void OneValEncoder<ValueType>::decode(ValueType *out, const ValueType value, u32 nitems)
 {
     std::fill_n(out, nitems, value);
-    // constexpr u32 itemsInVec = 32 / sizeof(ValueType);
-    // __m256i valVec = pickVecSize(value);
-
-    // for (u32 j = 0; j < nitems; j += itemsInVec)
-    // {
-    //     _mm256_storeu_si256((__m256i *)(out + j), valVec);
-    // }
 }
-
-#endif

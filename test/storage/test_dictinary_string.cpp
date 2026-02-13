@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <random>
 #include <sstream>
-#include "../src/storage/compressions/compression.h"
+#include "../src/storage/compressions/compression.hpp"
 
 class DictionaryStringEncoderTest : public ::testing::Test
 {

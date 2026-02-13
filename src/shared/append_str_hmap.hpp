@@ -1,7 +1,6 @@
-#ifndef APPEND_STR_HMAP_H
-#define APPEND_STR_HMAP_H
+#pragma once
 
-#include "common.h"
+#include "common.hpp"
 
 struct StringKey
 {
@@ -27,5 +26,3 @@ public:
     ~AppendOnlyStrHMap();
     u32 get_insert(StringKey key, u32 value);
 };
-
-#endif

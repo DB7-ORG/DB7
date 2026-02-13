@@ -1,5 +1,5 @@
 
-#include "append_str_hmap.h"
+#include "append_str_hmap.hpp"
 #include <xxhash.h>
 #include <string.h>
 #include <stdlib.h>
