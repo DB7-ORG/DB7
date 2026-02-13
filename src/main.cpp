@@ -880,12 +880,29 @@ void test_append_valtyp_map()
 
     std::cout << "okkk" << std::endl;
 }
+#include "shared/roaring/roaring.hh"
+void test_roaring()
+{
+    roaring::Roaring r1;
+    for (uint32_t i = 100; i < 1000; i++)
+    {
+        r1.add(i);
+    }
+    std::cout << "cardinality = " << r1.cardinality() << std::endl;
+
+    roaring::Roaring64Map r2;
+    for (uint64_t i = 18000000000000000100ull; i < 18000000000000001000ull; i++)
+    {
+        r2.add(i);
+    }
+    std::cout << "cardinality = " << r2.cardinality() << std::endl;
+}
 
 int main()
 {
-    test_huge_dict_values();
-    // test_huge_dict();
-    // test_oneval_encoder();
+    //  test_huge_dict_values();
+    //  test_huge_dict();
+    //  test_oneval_encoder();
 
     // u8 data[256];
     // for (int i = 0; i < 256; i++)
@@ -893,6 +910,6 @@ int main()
     // roundtrip(data, 256, 256);
 
     // test_append_valtyp_map();
-
+    test_roaring();
     return 0;
 }
