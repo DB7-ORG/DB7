@@ -8,9 +8,9 @@ implement compression schemes ❌
 - run len encoding / one value ✅
 - bitpacking ✅
 - fsst ✅
-- frequency encoding ❌
+- frequency encoding ✅
 - add floating point compressions ❌
-- support for NULLS ❌
+- support for NULLS ✅
 
 check out todo template for decode single in bitpacking ❌
 check out todos and fix them before there is too many ❌

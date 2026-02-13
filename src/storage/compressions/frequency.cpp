@@ -1,6 +1,38 @@
-#include "common.h"
+#include "frequency.hpp"
+#include "roaring/roaring.hh"
 
-u32 encode(u8 *out, const double *in, u32 mitems)
+void FreqEncoder::encode(FreqEncodedRes *out, const double *in, const u8 *nullmap, u32 nitems, double topval)
 {
-    
+    u8 *bitmap = out->bitmap;
+    double *exceptions = out->exceptions;
+    u32 offset = 0;
+
+    roaring::Roaring exceptions_bitmap;
+
+    for (u32 i = 0; i < nitems; i++)
+    {
+        if (in[i] != topval && (nullmap == nullptr || nullmap[i]))
+        {
+            exceptions[offset++] = in[i];
+            exceptions_bitmap.add(i);
+        }
+    }
+
+    exceptions_bitmap.runOptimize();
+    exceptions_bitmap.setCopyOnWrite(true);
+    exceptions_bitmap.write(reinterpret_cast<char *>(bitmap), false);
+    out->topval = topval;
+}
+
+void FreqEncoder::decode(double *out, FreqEncodedRes *in, u32 nitems)
+{
+    const roaring::Roaring exceptions_bitmap = roaring::Roaring::read(reinterpret_cast<const char *>(in->bitmap), false);
+    const double *exceptions = in->exceptions;
+
+    std::fill_n(out, nitems, in->topval);
+
+    for (u32 index : exceptions_bitmap)
+    {
+        out[index] = *exceptions++;
+    }
 }

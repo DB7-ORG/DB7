@@ -1,5 +1,5 @@
 CXX = g++
-BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -pedantic -Iinclude -march=native
+BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -pedantic -Iinclude -Isrc/shared -march=native
 LDFLAGS = -lxxhash #-larrow
 
 # For c libs
@@ -30,6 +30,7 @@ COMPRESSION_DICT_SRC := src/storage/compressions/dictionary.cpp
 COMPRESSION_FSST_SRC := src/storage/compressions/libfsst.cpp
 COMPRESSION_BITPACK_SRC := src/storage/compressions/bitpacking.cpp
 COMPRESSION_FASTPFOR_SRC := src/storage/compressions/fastpfor.cpp
+COMPRESSION_FREQUENCY_SRC := src/storage/compressions/frequency.cpp
 UTILS_APPEND_STR_HMAP_SRC := src/shared/append_str_hmap.cpp
 
 
@@ -39,13 +40,22 @@ COMPRESSION_DICT_OBJ := $(OBJ_DIR)/storage/compressions/dictionary.o
 COMPRESSION_FSST_OBJ := $(OBJ_DIR)/storage/compressions/libfsst.o
 COMPRESSION_BITPACK_OBJ := $(OBJ_DIR)/storage/compressions/bitpacking.o
 COMPRESSION_FASTPFOR_OBJ := $(OBJ_DIR)/storage/compressions/fastpfor.o
+COMPRESSION_FREQUENCY_OBJ := $(OBJ_DIR)/storage/compressions/frequency.o
 UTILS_APPEND_STR_HMAP_OBJ :=  $(OBJ_DIR)/shared/append_str_hmap.o
 
 # Cached .o files
 UTILS_ROARING_SRC := src/shared/roaring/roaring.c
 UTILS_ROARING_OBJ := $(CACHE_OBJ_DIR)/shared/roaring/roaring.o
 
-OBJS := $(MAIN_OBJ) $(DISK_MGR_OBJ) $(COMPRESSION_DICT_OBJ) $(COMPRESSION_FSST_OBJ) $(COMPRESSION_BITPACK_OBJ) $(COMPRESSION_FASTPFOR_OBJ) $(UTILS_APPEND_STR_HMAP_OBJ) $(UTILS_ROARING_OBJ)
+OBJS := $(MAIN_OBJ) \
+		$(DISK_MGR_OBJ) \
+		$(COMPRESSION_DICT_OBJ) \
+		$(COMPRESSION_FSST_OBJ) \
+		$(COMPRESSION_BITPACK_OBJ) \
+		$(COMPRESSION_FASTPFOR_OBJ) \
+		$(UTILS_APPEND_STR_HMAP_OBJ) \
+		$(UTILS_ROARING_OBJ) \
+		$(COMPRESSION_FREQUENCY_OBJ)
 
 all: $(TARGET)
 
@@ -98,6 +108,11 @@ $(UTILS_APPEND_STR_HMAP_OBJ): $(UTILS_APPEND_STR_HMAP_SRC) | $(OBJ_DIR)
 $(UTILS_ROARING_OBJ): $(UTILS_ROARING_SRC) | $(CACHE_OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(CC) $(CCO3FLAGS) -march=native -c $< -o $@
+
+# Compile 
+$(COMPRESSION_FREQUENCY_OBJ): $(COMPRESSION_FREQUENCY_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Link the target
 $(TARGET): $(OBJS) | $(BIN_DIR)

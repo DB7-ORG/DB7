@@ -7,6 +7,7 @@
 #include <time.h>
 #include <cassert>
 #include "shared/append_valtyp_hmap.h"
+#include "storage/compressions/frequency.hpp"
 
 std::mt19937 gen(42);
 std::uniform_int_distribution<> status_distribution(1, 100'000);
@@ -880,22 +881,53 @@ void test_append_valtyp_map()
 
     std::cout << "okkk" << std::endl;
 }
-#include "shared/roaring/roaring.hh"
-void test_roaring()
-{
-    roaring::Roaring r1;
-    for (uint32_t i = 100; i < 1000; i++)
-    {
-        r1.add(i);
-    }
-    std::cout << "cardinality = " << r1.cardinality() << std::endl;
 
-    roaring::Roaring64Map r2;
-    for (uint64_t i = 18000000000000000100ull; i < 18000000000000001000ull; i++)
+void test_freq()
+{
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<double> dist(0.0, 100.0);
+
+    u32 nitems = 50'000'000;
+    u32 size = nitems * sizeof(double);
+    double topval = 4.4;
+
+    auto in = (double *)malloc(size);
+    for (u32 i = 0; i < nitems; i++)
     {
-        r2.add(i);
+        if (i % 7 == 0)
+        {
+            in[i] = dist(gen);
+        }
+        else
+        {
+            in[i] = topval;
+        }
     }
-    std::cout << "cardinality = " << r2.cardinality() << std::endl;
+
+    auto out = FreqEncodedRes{
+        .exceptions = (double *)malloc(size),
+        .bitmap = (u8 *)malloc(size),
+        .topval = 0.0};
+    auto res = (double *)malloc(size);
+
+    u64 t0 = now_ns();
+    FreqEncoder::encode(&out, in, nullptr, nitems, topval);
+    u64 t1 = now_ns();
+    FreqEncoder::decode(res, &out, nitems);
+    u64 t2 = now_ns();
+
+    for (u32 i = 0; i < nitems; i++)
+    {
+        if (res[i] != in[i])
+        {
+            throw std::runtime_error("failed");
+        }
+    }
+
+    printf("encode:    %.3f ms\n", (t1 - t0) / 1e6);
+    printf("decode:    %.3f ms\n", (t2 - t1) / 1e6);
+    printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
 }
 
 int main()
@@ -910,6 +942,7 @@ int main()
     // roundtrip(data, 256, 256);
 
     // test_append_valtyp_map();
-    test_roaring();
+
+    test_freq();
     return 0;
 }
