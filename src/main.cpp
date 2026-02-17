@@ -8,6 +8,7 @@
 #include <cassert>
 #include "shared/append_valtyp_hmap.hpp"
 #include "storage/compressions/frequency.hpp"
+#include "nullbitmap.hpp"
 
 std::mt19937 gen(42);
 std::uniform_int_distribution<> status_distribution(1, 100'000);
@@ -666,8 +667,10 @@ void test_huge_dict()
         .strings = (u8 *)malloc(totalStrLen),
     };
 
+    ValidityMask validity(COUNT);
+
     u64 t0 = now_ns();
-    DictionaryStringEncoder::Encode(&encoded, inStrings.data(), inLengths.data(), COUNT);
+    DictionaryStringEncoder::Encode(&encoded, inStrings.data(), inLengths.data(), &validity, COUNT);
     u64 t1 = now_ns();
     DictionaryStringEncoder::Decode(outStrings.data(), outLengths.data(), &encoded, COUNT);
     u64 t2 = now_ns();
@@ -720,9 +723,10 @@ void test_rle_encoder()
         };
 
         std::vector<u32> decoded(input.size());
+        ValidityMask validity(input.size());
 
         u64 t0 = now_ns();
-        encoder.Encode(&encoded, input.data(), input.size());
+        encoder.Encode(&encoded, input.data(), &validity, input.size());
         u64 t1 = now_ns();
         encoder.Decode(decoded.data(), &encoded);
         u64 t2 = now_ns();
@@ -783,8 +787,10 @@ void test_huge_dict_values()
         .values = (u32 *)malloc(COUNT * sizeof(u32)),
         .valCount = 0};
 
+    ValidityMask validity(COUNT);
+
     u64 t0 = now_ns();
-    DictionaryValueEncoder<u32>::Encode(&encoded, in.data(), COUNT);
+    DictionaryValueEncoder<u32>::Encode(&encoded, in.data(), &validity, COUNT);
     u64 t1 = now_ns();
     DictionaryValueEncoder<u32>::Decode(out.data(), &encoded, COUNT);
     u64 t2 = now_ns();
@@ -892,6 +898,9 @@ void test_freq()
     u32 size = nitems * sizeof(double);
     double topval = 4.4;
 
+    ValidityMask validity(nitems);
+    validity.Initialize();
+
     auto in = (double *)malloc(size);
     for (u32 i = 0; i < nitems; i++)
     {
@@ -902,6 +911,7 @@ void test_freq()
         else
         {
             in[i] = topval;
+            validity.SetInvalid(i);
         }
     }
 
@@ -912,14 +922,14 @@ void test_freq()
     auto res = (double *)malloc(size);
 
     u64 t0 = now_ns();
-    FreqEncoder::Encode(&out, in, nullptr, nitems, topval);
+    FreqEncoder::Encode(&out, in, &validity, nitems, topval);
     u64 t1 = now_ns();
     FreqEncoder::Decode(res, &out, nitems);
     u64 t2 = now_ns();
 
     for (u32 i = 0; i < nitems; i++)
     {
-        if (res[i] != in[i])
+        if (res[i] != in[i] && validity.RowIsValid(i))
         {
             throw std::runtime_error("failed");
         }

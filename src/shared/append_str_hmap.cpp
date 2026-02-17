@@ -17,12 +17,7 @@ AppendOnlyStrHMap::AppendOnlyStrHMap(const u32 count, const u32 memfactor)
         hash_capacity = 1u << (32 - __builtin_clz(target - 1));
     }
 
-    entries = (StrEntry *)calloc(hash_capacity, sizeof(StrEntry));
-}
-
-AppendOnlyStrHMap::~AppendOnlyStrHMap()
-{
-    free(entries);
+    entries = std::make_unique<StrEntry[]>(hash_capacity);
 }
 
 u32 AppendOnlyStrHMap::GetInsert(StringKey key, u32 value)

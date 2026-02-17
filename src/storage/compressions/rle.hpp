@@ -2,6 +2,7 @@
 
 #include "common.hpp"
 #include "simd_utils.hpp"
+#include "nullbitmap.hpp"
 
 template <typename ValueType>
 struct RleEncodedRes
@@ -14,12 +15,12 @@ struct RleEncodedRes
 template <typename ValueType>
 struct RleEncoder
 {
-    static void Encode(RleEncodedRes<ValueType> *out, const ValueType *in, const u32 nitems);
+    static void Encode(RleEncodedRes<ValueType> *out, const ValueType *in, const ValidityMask *nullmap, const u32 nitems);
     static void Decode(ValueType *out, const RleEncodedRes<ValueType> *in);
 };
 
 template <typename ValueType>
-void RleEncoder<ValueType>::Encode(RleEncodedRes<ValueType> *out, const ValueType *in, const u32 nitems)
+void RleEncoder<ValueType>::Encode(RleEncodedRes<ValueType> *out, const ValueType *in, const ValidityMask *nullmap, const u32 nitems)
 {
     assert(nitems >= 1);
 
@@ -30,9 +31,13 @@ void RleEncoder<ValueType>::Encode(RleEncodedRes<ValueType> *out, const ValueTyp
     u16 count = 1;
     u32 offset = 0;
 
+    bool allValid = nullmap->AllValid();
+
     for (u32 i = 1; i < nitems; i++)
     {
-        if (value == in[i] && __builtin_expect(count != UINT16_MAX, 1))
+        bool isValid = allValid || nullmap->RowIsValid(i);
+
+        if ((!isValid || value == in[i]) && __builtin_expect(count != UINT16_MAX, 1))
         {
             count++;
         }

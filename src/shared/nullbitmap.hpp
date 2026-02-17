@@ -7,22 +7,32 @@
 template <typename V>
 struct TemplatedValidityData
 {
-    static constexpr u32 BITS_PER_VALUE = sizeof(V) * 8;
+    static constexpr u64 BITS_PER_VALUE = sizeof(V) * 8;
     static constexpr V MAX_ENTRY = V(~V(0));
 
     std::unique_ptr<V[]> owned_data;
 
-    inline explicit TemplatedValidityData(u32 count)
+    inline explicit TemplatedValidityData(u64 count)
     {
         auto entry_count = EntryCount(count);
-        owned_data = make_uniq_array_uninitialized<V>(entry_count);
-        for (u32 i = 0; i < entry_count; i++)
+        owned_data = make_unique_array_uninitialized<V>(entry_count);
+        for (u64 i = 0; i < entry_count; i++)
         {
             owned_data[i] = MAX_ENTRY;
         }
     }
 
-    static inline u32 EntryCount(u32 count)
+    inline TemplatedValidityData(const V *validity_mask, u64 count)
+    {
+        auto entry_count = EntryCount(count);
+        owned_data = make_unique_array_uninitialized<V>(entry_count);
+        for (u64 i = 0; i < entry_count; i++)
+        {
+            owned_data[i] = validity_mask[i];
+        }
+    }
+
+    static inline u64 EntryCount(u64 count)
     {
         return (count + (BITS_PER_VALUE - 1)) / BITS_PER_VALUE;
     }
@@ -33,6 +43,7 @@ struct TemplatedValidityMask
 {
     using ValidityBuffer = TemplatedValidityData<V>;
 
+protected:
     static constexpr u64 BITS_PER_VALUE = ValidityBuffer::BITS_PER_VALUE;
     static constexpr u64 STANDARD_ENTRY_COUNT = (STANDARD_VECTOR_SIZE + (BITS_PER_VALUE - 1)) / BITS_PER_VALUE;
     static constexpr u64 STANDARD_MASK_SIZE = STANDARD_ENTRY_COUNT * sizeof(V);
@@ -41,6 +52,7 @@ struct TemplatedValidityMask
     std::shared_ptr<ValidityBuffer> validity_data;
     u64 capacity;
 
+public:
     inline TemplatedValidityMask() : validity_mask(nullptr), capacity(STANDARD_VECTOR_SIZE) {}
     inline explicit TemplatedValidityMask(u64 target_count) : validity_mask(nullptr), capacity(target_count) {}
     inline explicit TemplatedValidityMask(V *ptr, u64 capacity) : validity_mask(ptr), capacity(capacity) {}
@@ -55,6 +67,7 @@ struct TemplatedValidityMask
         validity_data = make_buffer<ValidityBuffer>(count);
         validity_mask = validity_data->owned_data.get();
     }
+
     inline void Initialize()
     {
         Initialize(capacity);
@@ -80,6 +93,16 @@ struct TemplatedValidityMask
         return entry == ValidityBuffer::MAX_ENTRY;
     }
 
+    inline bool CheckAllValid(u64 count) const
+    {
+        return CountValid(count) == count;
+    }
+
+    inline bool CheckAllInvalid(u64 count) const
+    {
+        return CountValid(count) == 0;
+    }
+
     inline bool CheckAllValid(u64 to, u64 from) const
     {
         if (AllValid())
@@ -94,16 +117,6 @@ struct TemplatedValidityMask
             }
         }
         return true;
-    }
-
-    inline bool CheckAllValid(u64 count) const
-    {
-        return CountValid(count) == count;
-    }
-
-    inline bool CheckAllInvalid(u64 count) const
-    {
-        return CountValid(count) == 0;
     }
 
     static inline bool RowIsValid(const V &entry, const u64 &idx_in_entry)
@@ -201,7 +214,6 @@ struct TemplatedValidityMask
     {
         assert(validity_mask != nullptr);
         assert(row_idx <= capacity);
-        u64 entry_idx, idx_in_entry;
         u64 entry_idx = row_idx / BITS_PER_VALUE;
         u64 idx_in_entry = row_idx % BITS_PER_VALUE;
         SetInvalidUnsafe(entry_idx, idx_in_entry);
@@ -245,4 +257,23 @@ struct TemplatedValidityMask
             validity_mask = validity_data->owned_data.get();
         }
     }
+};
+
+struct ValidityMask : public TemplatedValidityMask<u64>
+{
+public:
+    inline ValidityMask() : TemplatedValidityMask(nullptr, STANDARD_VECTOR_SIZE)
+    {
+    }
+    inline explicit ValidityMask(u64 capacity) : TemplatedValidityMask(capacity)
+    {
+    }
+    inline explicit ValidityMask(u64 *ptr, u64 capacity) : TemplatedValidityMask(ptr, capacity)
+    {
+    }
+    inline ValidityMask(const ValidityMask &original, u64 count) : TemplatedValidityMask(original, count)
+    {
+    }
+
+    // Some extra apis
 };

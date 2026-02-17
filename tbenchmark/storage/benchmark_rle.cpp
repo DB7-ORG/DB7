@@ -72,17 +72,18 @@ static void BM_RLE_Template(benchmark::State &state, DataPattern pattern)
         .size = 0,
     };
 
+    ValidityMask validity(n);
     if constexpr (!IsEncode)
     {
         // Pre-Encode for Decode benchmarks
-        RleEncoder<u32>::Encode(&encoded, input.data(), n);
+        RleEncoder<u32>::Encode(&encoded, input.data(), &validity, n);
     }
 
     for (auto _ : state)
     {
         if constexpr (IsEncode)
         {
-            RleEncoder<u32>::Encode(&encoded, input.data(), n);
+            RleEncoder<u32>::Encode(&encoded, input.data(), &validity, n);
             benchmark::DoNotOptimize(encodedData.data());
             benchmark::DoNotOptimize(encodedLen.data());
         }

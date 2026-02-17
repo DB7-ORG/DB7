@@ -45,7 +45,7 @@ protected:
         return s;
     }
 
-    void roundtrip(std::vector<u8 *> &inStrings, std::vector<u32> &inLengths)
+    void roundtrip(std::vector<u8 *> &inStrings, std::vector<u32> &inLengths, ValidityMask *validity)
     {
         u32 count = inStrings.size();
         u32 totalLen = 0;
@@ -58,7 +58,7 @@ protected:
             .strings = (u8 *)malloc(totalLen ? totalLen : 1),
         };
 
-        DictionaryStringEncoder::Encode(&encoded, inStrings.data(), inLengths.data(), count);
+        DictionaryStringEncoder::Encode(&encoded, inStrings.data(), inLengths.data(), validity, count);
 
         std::vector<u8 *> outStrings(count);
         std::vector<u32> outLengths(count);
@@ -83,14 +83,16 @@ TEST_F(DictionaryStringEncoderTest, SingleString)
 {
     std::vector<u8 *> strs = {make("test")};
     std::vector<u32> lens = {4};
-    roundtrip(strs, lens);
+    ValidityMask validity(strs.size());
+    roundtrip(strs, lens, &validity);
 }
 
 TEST_F(DictionaryStringEncoderTest, EmptyStrings)
 {
     std::vector<u8 *> strs = {make(""), make("data"), make("")};
     std::vector<u32> lens = {0, 4, 0};
-    roundtrip(strs, lens);
+    ValidityMask validity(strs.size());
+    roundtrip(strs, lens, &validity);
 }
 
 TEST_F(DictionaryStringEncoderTest, AllIdentical)
@@ -103,7 +105,8 @@ TEST_F(DictionaryStringEncoderTest, AllIdentical)
         strs[i] = make("repeated");
         lens[i] = 8;
     }
-    roundtrip(strs, lens);
+    ValidityMask validity(strs.size());
+    roundtrip(strs, lens, &validity);
 }
 
 TEST_F(DictionaryStringEncoderTest, AllUnique)
@@ -117,7 +120,8 @@ TEST_F(DictionaryStringEncoderTest, AllUnique)
         strs[i] = make(s);
         lens[i] = s.size();
     }
-    roundtrip(strs, lens);
+    ValidityMask validity(strs.size());
+    roundtrip(strs, lens, &validity);
 }
 
 TEST_F(DictionaryStringEncoderTest, MixedDuplication)
@@ -137,7 +141,8 @@ TEST_F(DictionaryStringEncoderTest, MixedDuplication)
         strs[i] = make(s);
         lens[i] = s.size();
     }
-    roundtrip(strs, lens);
+    ValidityMask validity(strs.size());
+    roundtrip(strs, lens, &validity);
 }
 
 // TODO this should be added but later
@@ -191,7 +196,8 @@ TEST_F(DictionaryStringEncoderTest, BinaryDataWithNullBytes)
             bytes[j] = (u8)((i + j) % 256);
         strs[i] = makeBinary(bytes);
     }
-    roundtrip(strs, lens);
+    ValidityMask validity(strs.size());
+    roundtrip(strs, lens, &validity);
 }
 
 TEST_F(DictionaryStringEncoderTest, UnicodeStrings)
@@ -209,5 +215,6 @@ TEST_F(DictionaryStringEncoderTest, UnicodeStrings)
         strs[i] = make(s);
         lens[i] = s.size();
     }
-    roundtrip(strs, lens);
+    ValidityMask validity(strs.size());
+    roundtrip(strs, lens, &validity);
 }

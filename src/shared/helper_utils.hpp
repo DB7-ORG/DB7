@@ -10,7 +10,7 @@ T min(T a, T b)
 
 template <class ValueType>
 inline std::unique_ptr<ValueType[]>
-make_uniq_array_uninitialized(size_t n)
+make_unique_array_uninitialized(size_t n)
 {
     // Allocate raw memory without calling constructors
     void *raw = ::operator new(n * sizeof(ValueType));

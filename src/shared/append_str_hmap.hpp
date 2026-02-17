@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include "common.hpp"
 
 struct StringKey
@@ -18,11 +19,10 @@ struct StrEntry
 struct AppendOnlyStrHMap
 {
 private:
-    StrEntry *entries;
+    std::unique_ptr<StrEntry[]> entries;
     u32 hash_capacity;
 
 public:
     AppendOnlyStrHMap(const u32 count, const u32 memfactor = 2);
-    ~AppendOnlyStrHMap();
     u32 GetInsert(StringKey key, u32 value);
 };

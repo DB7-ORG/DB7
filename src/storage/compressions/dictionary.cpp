@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/mman.h>
 
-void DictionaryStringEncoder::Encode(DictionaryStringEncodedRes *out, u8 **in, u32 *lenIn, u32 count)
+void DictionaryStringEncoder::Encode(DictionaryStringEncodedRes *out, u8 **in, const u32 *lenIn, const ValidityMask *nullmap, const u32 count)
 {
     u8 *strings = out->strings;
     u32 *indexes = out->indexes;
@@ -16,8 +16,17 @@ void DictionaryStringEncoder::Encode(DictionaryStringEncodedRes *out, u8 **in, u
 
     AppendOnlyStrHMap map(count, 2);
 
+    bool allValid = nullmap->AllValid();
+
     for (u32 i = 0; i < count; i++)
     {
+        bool isValid = allValid || nullmap->RowIsValid(i);
+        if (!isValid)
+        {
+            out->codes[i] = 0;
+            continue;
+        }
+
         auto key = StringKey{
             in[i],
             (u16)lenIn[i], // TODO

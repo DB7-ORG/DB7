@@ -1,7 +1,7 @@
 #include "frequency.hpp"
 #include "roaring/roaring.hh"
 
-void FreqEncoder::Encode(FreqEncodedRes *out, const double *in, const u8 *nullmap, u32 nitems, double topval)
+void FreqEncoder::Encode(FreqEncodedRes *out, const double *in, const ValidityMask *nullmap, u32 nitems, double topval)
 {
     u8 *bitmap = out->bitmap;
     double *exceptions = out->exceptions;
@@ -9,9 +9,12 @@ void FreqEncoder::Encode(FreqEncodedRes *out, const double *in, const u8 *nullma
 
     roaring::Roaring exceptions_bitmap;
 
+    bool allValid = nullmap->AllValid();
+
     for (u32 i = 0; i < nitems; i++)
     {
-        if (in[i] != topval && (nullmap == nullptr || nullmap[i]))
+        bool isValid = allValid || nullmap->RowIsValid(i);
+        if (isValid && in[i] != topval)
         {
             exceptions[offset++] = in[i];
             exceptions_bitmap.add(i);

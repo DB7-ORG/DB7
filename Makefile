@@ -32,6 +32,7 @@ COMPRESSION_BITPACK_SRC := src/storage/compressions/bitpacking.cpp
 COMPRESSION_FASTPFOR_SRC := src/storage/compressions/fastpfor.cpp
 COMPRESSION_FREQUENCY_SRC := src/storage/compressions/frequency.cpp
 UTILS_APPEND_STR_HMAP_SRC := src/shared/append_str_hmap.cpp
+UTILS_NULLBITMAP_SRC := src/shared/nullbitmap.cpp
 
 
 MAIN_OBJ := $(OBJ_DIR)/main.o
@@ -42,6 +43,7 @@ COMPRESSION_BITPACK_OBJ := $(OBJ_DIR)/storage/compressions/bitpacking.o
 COMPRESSION_FASTPFOR_OBJ := $(OBJ_DIR)/storage/compressions/fastpfor.o
 COMPRESSION_FREQUENCY_OBJ := $(OBJ_DIR)/storage/compressions/frequency.o
 UTILS_APPEND_STR_HMAP_OBJ :=  $(OBJ_DIR)/shared/append_str_hmap.o
+UTILS_NULLBITMAP_OBJ := $(OBJ_DIR)/shared/nullbitmap.o
 
 # Cached .o files
 UTILS_ROARING_SRC := src/shared/roaring/roaring.c
@@ -53,9 +55,11 @@ OBJS := $(MAIN_OBJ) \
 		$(COMPRESSION_FSST_OBJ) \
 		$(COMPRESSION_BITPACK_OBJ) \
 		$(COMPRESSION_FASTPFOR_OBJ) \
+		$(COMPRESSION_FREQUENCY_OBJ) \
 		$(UTILS_APPEND_STR_HMAP_OBJ) \
 		$(UTILS_ROARING_OBJ) \
-		$(COMPRESSION_FREQUENCY_OBJ)
+		$(UTILS_NULLBITMAP_OBJ) 
+		
 
 all: $(TARGET)
 
@@ -108,6 +112,11 @@ $(UTILS_APPEND_STR_HMAP_OBJ): $(UTILS_APPEND_STR_HMAP_SRC) | $(OBJ_DIR)
 $(UTILS_ROARING_OBJ): $(UTILS_ROARING_SRC) | $(CACHE_OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(CC) $(CCO3FLAGS) -march=native -c $< -o $@
+
+# Compile 
+$(UTILS_NULLBITMAP_OBJ): $(UTILS_NULLBITMAP_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Compile 
 $(COMPRESSION_FREQUENCY_OBJ): $(COMPRESSION_FREQUENCY_SRC) | $(OBJ_DIR)
