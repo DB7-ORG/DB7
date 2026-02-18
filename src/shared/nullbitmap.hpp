@@ -132,6 +132,18 @@ public:
         return RowIsValid(entry, idx_in_entry);
     }
 
+    inline bool RowIsValidSafe(u64 row_idx) const
+    {
+        if (!validity_mask)
+        {
+            return true;
+        }
+        u64 entry_idx = row_idx / BITS_PER_VALUE;
+        u64 idx_in_entry = row_idx % BITS_PER_VALUE;
+        auto entry = validity_mask[entry_idx];
+        return RowIsValid(entry, idx_in_entry);
+    }
+
     u64 CountValid(const u64 count) const
     {
         if (AllValid() || count == 0)

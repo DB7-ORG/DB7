@@ -9,6 +9,7 @@
 #include "shared/append_valtyp_hmap.hpp"
 #include "storage/compressions/frequency.hpp"
 #include "nullbitmap.hpp"
+#include "storage/stats/number_stats.hpp"
 
 std::mt19937 gen(42);
 std::uniform_int_distribution<> status_distribution(1, 100'000);
@@ -940,6 +941,57 @@ void test_freq()
     printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
 }
 
+void test_stats_generation()
+{
+    u32 nitems = 1'000'000;
+    std::vector<u32> src(nitems);
+    ValidityMask nullmap(nitems);
+
+    for (u32 i = 0; i < nitems; i++)
+    {
+        src[i] = rand() % 11;
+        nullmap.Set(i, i % 5 != 0);
+    }
+
+    NumberStats<u32> stats(src.data(), &nullmap, nitems);
+
+    u64 t0 = now_ns();
+    stats.GenerateStats();
+    u64 t1 = now_ns();
+
+    stats.Print();
+
+    printf("total:    %.3f ms\n", (t1 - t0) / 1e6);
+}
+
+void test_generate_samples()
+{
+    u32 nitems = 1'000'000;
+    std::vector<u32> src(nitems);
+    ValidityMask nullmap(nitems);
+
+    for (u32 i = 0; i < nitems; i++)
+    {
+        src[i] = rand() % 11;
+        nullmap.Set(i, i % 5 != 0);
+    }
+
+    NumberStats<u32> stats(src.data(), &nullmap, nitems);
+
+    u64 t0 = now_ns();
+    auto samples = stats.GenerateSamples();
+    u64 t1 = now_ns();
+
+    printf("total:    %.3f ms\n", (t1 - t0) / 1e6);
+
+    std::cout << "size is " << samples.size() << std::endl;
+    for (auto &s : samples)
+    {
+        if (rand() % 5000 == 0)
+            std::cout << s << std::endl;
+    }
+}
+
 int main()
 {
     //  test_huge_dict_values();
@@ -953,6 +1005,9 @@ int main()
 
     // test_append_valtyp_map();
 
-    test_freq();
+    // test_freq();
+
+    test_generate_samples();
+    test_stats_generation();
     return 0;
 }

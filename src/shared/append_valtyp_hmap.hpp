@@ -21,12 +21,15 @@ private:
     MapEntry<ValueType> *entries;
     u8 *header; // TODO
     u32 hash_capacity;
+    u32 size;
 
 public:
     AppendOnlyHMap(const u32 count, const u32 memfactor = 1);
     ~AppendOnlyHMap();
     u32 SimdGetInsert(ValueType key, u32 value);               // 1. faster for many collisions 2.higher cache pollution
     u32 ScalarGetInsert(const ValueType key, const u32 value); // 1. faster for low collisions  2.lower cache pollution
+    u32 Inc(const ValueType key);
+    u32 Size();
 };
 
 template <typename ValueType>
@@ -41,6 +44,7 @@ AppendOnlyHMap<ValueType>::AppendOnlyHMap(const u32 count, const u32 memfactor)
     {
         hash_capacity = 1u << (32 - __builtin_clz(target - 1));
     }
+    size = 0;
 
     entries = (MapEntry<ValueType> *)calloc(hash_capacity, sizeof(MapEntry<ValueType>));
     header = (u8 *)calloc(hash_capacity + 16, sizeof(u8)); // 15 is padding for simd TODO i added 16 for alignment test speed w 15
@@ -129,4 +133,36 @@ inline u32 AppendOnlyHMap<ValueType>::ScalarGetInsert(const ValueType key, const
 
         bucket = (bucket + 1) & (hash_capacity - 1);
     }
+}
+
+template <typename ValueType>
+inline u32 AppendOnlyHMap<ValueType>::Inc(const ValueType key) // TODO dict is not following size
+{
+    const u32 hash = CalcHash(key);
+    u32 bucket = hash & (hash_capacity - 1);
+
+    while (true)
+    {
+        MapEntry<ValueType> &data = entries[bucket];
+        if (data.value == 0)
+        {
+            size++;
+            data = MapEntry<ValueType>{
+                1,
+                key};
+            return 1;
+        }
+        else if (data.key == key)
+        {
+            return ++data.value;
+        }
+
+        bucket = (bucket + 1) & (hash_capacity - 1);
+    }
+}
+
+template <typename ValueType>
+inline u32 AppendOnlyHMap<ValueType>::Size()
+{
+    return size;
 }
