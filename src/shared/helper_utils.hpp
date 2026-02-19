@@ -2,12 +2,6 @@
 
 #include <memory>
 
-template <typename T>
-T min(T a, T b)
-{
-    return (a < b) ? a : b;
-}
-
 template <class ValueType>
 inline std::unique_ptr<ValueType[]>
 make_unique_array_uninitialized(size_t n)

@@ -943,14 +943,14 @@ void test_freq()
 
 void test_stats_generation()
 {
-    u32 nitems = 1'000'000;
+    u32 nitems = 120'000;
     std::vector<u32> src(nitems);
     ValidityMask nullmap(nitems);
 
     for (u32 i = 0; i < nitems; i++)
     {
-        src[i] = rand() % 11;
-        nullmap.Set(i, i % 5 != 0);
+        src[i] = rand(); // rand()% 10'000;
+        // nullmap.Set(i, src[i] % 5 != 0);
     }
 
     NumberStats<u32> stats(src.data(), &nullmap, nitems);
@@ -964,33 +964,33 @@ void test_stats_generation()
     printf("total:    %.3f ms\n", (t1 - t0) / 1e6);
 }
 
-void test_generate_samples()
-{
-    u32 nitems = 1'000'000;
-    std::vector<u32> src(nitems);
-    ValidityMask nullmap(nitems);
+// void test_generate_samples()
+// {
+//     u32 nitems = 1'000'000;
+//     std::vector<u32> src(nitems);
+//     ValidityMask nullmap(nitems);
 
-    for (u32 i = 0; i < nitems; i++)
-    {
-        src[i] = rand() % 11;
-        nullmap.Set(i, i % 5 != 0);
-    }
+//     for (u32 i = 0; i < nitems; i++)
+//     {
+//         src[i] = rand() % 11;
+//         nullmap.Set(i, i % 5 != 0);
+//     }
 
-    NumberStats<u32> stats(src.data(), &nullmap, nitems);
+//     NumberStats<u32> stats(src.data(), &nullmap, nitems);
 
-    u64 t0 = now_ns();
-    auto samples = stats.GenerateSamples();
-    u64 t1 = now_ns();
+//     u64 t0 = now_ns();
+//     auto samples = stats.GenerateSamples();
+//     u64 t1 = now_ns();
 
-    printf("total:    %.3f ms\n", (t1 - t0) / 1e6);
+//     printf("total:    %.3f ms\n", (t1 - t0) / 1e6);
 
-    std::cout << "size is " << samples.size() << std::endl;
-    for (auto &s : samples)
-    {
-        if (rand() % 5000 == 0)
-            std::cout << s << std::endl;
-    }
-}
+//     std::cout << "size is " << samples.size() << std::endl;
+//     for (auto &s : samples)
+//     {
+//         if (rand() % 5000 == 0)
+//             std::cout << s << std::endl;
+//     }
+// }
 
 int main()
 {
@@ -1007,7 +1007,7 @@ int main()
 
     // test_freq();
 
-    test_generate_samples();
+    // test_generate_samples();
     test_stats_generation();
     return 0;
 }

@@ -19,17 +19,17 @@ struct AppendOnlyHMap
 {
 private:
     MapEntry<ValueType> *entries;
-    u8 *header; // TODO
+    // u8 *header; // TODO
     u32 hash_capacity;
     u32 size;
 
 public:
     AppendOnlyHMap(const u32 count, const u32 memfactor = 1);
     ~AppendOnlyHMap();
-    u32 SimdGetInsert(ValueType key, u32 value);               // 1. faster for many collisions 2.higher cache pollution
-    u32 ScalarGetInsert(const ValueType key, const u32 value); // 1. faster for low collisions  2.lower cache pollution
+    // u32 SimdGetInsert(ValueType key, u32 value);
+    u32 ScalarGetInsert(const ValueType key, const u32 value);
     u32 Inc(const ValueType key);
-    u32 Size();
+    u32 Size() const;
 };
 
 template <typename ValueType>
@@ -46,15 +46,19 @@ AppendOnlyHMap<ValueType>::AppendOnlyHMap(const u32 count, const u32 memfactor)
     }
     size = 0;
 
+    // entries = (MapEntry<ValueType> *)malloc(hash_capacity * sizeof(MapEntry<ValueType>));
+    // memset(entries, 0, hash_capacity * sizeof(MapEntry<ValueType>));
+
     entries = (MapEntry<ValueType> *)calloc(hash_capacity, sizeof(MapEntry<ValueType>));
-    header = (u8 *)calloc(hash_capacity + 16, sizeof(u8)); // 15 is padding for simd TODO i added 16 for alignment test speed w 15
+
+    // header = (u8 *)calloc(hash_capacity + 16, sizeof(u8)); // 15 is padding for simd TODO i added 16 for alignment test speed w 15
 }
 
 template <typename ValueType>
 AppendOnlyHMap<ValueType>::~AppendOnlyHMap()
 {
     free(entries);
-    free(header);
+    // free(header);
 }
 
 template <typename ValueType>
@@ -73,41 +77,41 @@ constexpr u32 CalcHash(ValueType key)
     }
 }
 
-template <typename ValueType>
-inline u32 AppendOnlyHMap<ValueType>::SimdGetInsert(const ValueType key, const u32 value)
-{
-    constexpr u32 movsize = 16 / sizeof(ValueType);
-    const u32 hash = CalcHash(key);
-    u32 bucket = hash & (hash_capacity - 1);
-    const __m128i hashVec = _mm_set1_epi8((u8)hash);
-    const __m128i zeroVec = _mm_setzero_si128();
+// template <typename ValueType>
+// inline u32 AppendOnlyHMap<ValueType>::SimdGetInsert(const ValueType key, const u32 value)
+// {
+//     constexpr u32 movsize = 16 / sizeof(ValueType);
+//     const u32 hash = CalcHash(key);
+//     u32 bucket = hash & (hash_capacity - 1);
+//     const __m128i hashVec = _mm_set1_epi8((u8)hash);
+//     const __m128i zeroVec = _mm_setzero_si128();
 
-    while (true)
-    {
-        auto headVec = _mm_loadu_si128((__m128i *)(header + bucket));
-        __m128i matchMask = _mm_cmpeq_epi8(headVec, hashVec);
-        __m128i emptyMask = _mm_cmpeq_epi8(headVec, zeroVec);
-        __m128i res = _mm_or_si128(matchMask, emptyMask);
-        int bitmap = _mm_movemask_epi8(res);
-        while (bitmap)
-        {
-            int first = __builtin_ctz(bitmap);
-            u32 idx = (bucket + first) & (hash_capacity - 1);
-            auto &data = entries[idx];
-            if (data.value == 0)
-            {
-                data = MapEntry<ValueType>{value, key};
-                return data.value;
-            }
-            else if (data.key == key)
-            {
-                return data.value;
-            }
-            bitmap &= bitmap - 1;
-        }
-        bucket = (bucket + movsize) & (hash_capacity - 1);
-    }
-}
+//     while (true)
+//     {
+//         auto headVec = _mm_loadu_si128((__m128i *)(header + bucket));
+//         __m128i matchMask = _mm_cmpeq_epi8(headVec, hashVec);
+//         __m128i emptyMask = _mm_cmpeq_epi8(headVec, zeroVec);
+//         __m128i res = _mm_or_si128(matchMask, emptyMask);
+//         int bitmap = _mm_movemask_epi8(res);
+//         while (bitmap)
+//         {
+//             int first = __builtin_ctz(bitmap);
+//             u32 idx = (bucket + first) & (hash_capacity - 1);
+//             auto &data = entries[idx];
+//             if (data.value == 0)
+//             {
+//                 data = MapEntry<ValueType>{value, key};
+//                 return data.value;
+//             }
+//             else if (data.key == key)
+//             {
+//                 return data.value;
+//             }
+//             bitmap &= bitmap - 1;
+//         }
+//         bucket = (bucket + movsize) & (hash_capacity - 1);
+//     }
+// }
 
 template <typename ValueType>
 inline u32 AppendOnlyHMap<ValueType>::ScalarGetInsert(const ValueType key, const u32 value)
@@ -123,6 +127,8 @@ inline u32 AppendOnlyHMap<ValueType>::ScalarGetInsert(const ValueType key, const
             data = MapEntry<ValueType>{
                 value,
                 key};
+
+            size++;
 
             return value;
         }
@@ -144,12 +150,15 @@ inline u32 AppendOnlyHMap<ValueType>::Inc(const ValueType key) // TODO dict is n
     while (true)
     {
         MapEntry<ValueType> &data = entries[bucket];
+
         if (data.value == 0)
         {
-            size++;
             data = MapEntry<ValueType>{
                 1,
                 key};
+
+            size++;
+
             return 1;
         }
         else if (data.key == key)
@@ -162,7 +171,7 @@ inline u32 AppendOnlyHMap<ValueType>::Inc(const ValueType key) // TODO dict is n
 }
 
 template <typename ValueType>
-inline u32 AppendOnlyHMap<ValueType>::Size()
+inline u32 AppendOnlyHMap<ValueType>::Size() const
 {
     return size;
 }

@@ -17,7 +17,7 @@ int ReadCF(const char *file_name, char *buffer, size_t size, size_t offset)
     size_t total = 0;
     while (total < size)
     {
-        size_t bytes_to_read = min((size_t)BLOCK_SIZE, size - total);
+        size_t bytes_to_read = std::min((size_t)BLOCK_SIZE, size - total);
         ssize_t n = pread(fd, buffer + total, bytes_to_read, offset + total);
 
         if (n < 0)
@@ -53,7 +53,7 @@ int WriteCF(const char *file_name, const char *buffer, size_t size)
     size_t total = 0;
     while (total < size)
     {
-        size_t bytes_to_write = min((size_t)BLOCK_SIZE, AlignUp(size - total, IO_ALIGN));
+        size_t bytes_to_write = std::min((size_t)BLOCK_SIZE, AlignUp(size - total, IO_ALIGN));
         ssize_t n = write(fd, (char *)buffer + total, bytes_to_write);
         if (n <= 0)
         {

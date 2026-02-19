@@ -28,6 +28,12 @@ improvements to existing decompressions
 - refactor code for compression so function caller does the allocations and alignment ✅
 - single value compression probably sucks try block decompression ❌
 
+framework
+- should always bitpack codes after dictionary encoding ❌
+- templated pfor version ❌ 
+- i might want to apply something else on exceptions in pfor ❌
+- add a dictionary that is sing a bitmap so collisions are less punishable ❌
+
 # RESEARCH
 
 - better understand performance difference between these approaches ✅

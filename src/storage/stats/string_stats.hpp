@@ -22,12 +22,12 @@ struct StringStats
 
     StringStats() = delete;
 
-    static void GenerateSamples(u8 **samples, ValidityMask *bitmap)
+    void GenerateSamples(u8 **samples, ValidityMask *bitmap)
     {
         // TODO probably dont need intermediate array to avoid copying
     }
 
-    static void GenerateStats(const u8 **samples, const ValidityMask *bitmap)
+    void GenerateStats(const u8 **samples, const ValidityMask *bitmap)
     {
     }
 };
