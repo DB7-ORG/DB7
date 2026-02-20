@@ -29,10 +29,15 @@ improvements to existing decompressions
 - single value compression probably sucks try block decompression ❌
 
 framework
-- should always bitpack codes after dictionary encoding ❌
+- should always bitpack codes after dictionary encoding (check out sorted dic talternatives) ❌
 - templated pfor version ❌ 
 - i might want to apply something else on exceptions in pfor ❌
-- add a dictionary that is sing a bitmap so collisions are less punishable ❌
+- add a dictionary that is a single bitmap so collisions are less punishable (might be a bad idea) ❌
+- estimate pfor size and evaluate that to see how well does the estimate predict ❌
+- move all compressions to coresponding hpp file ❌
+- validate other compression estimates and move estimate functions to compressions ❌
+- AlignedSTLAllocator is unsafe for pfor 1'000'000 entries ✅
+(std::vector<u8> bytescontainer; was the problem) should decide what size to use ❌
 
 # RESEARCH
 

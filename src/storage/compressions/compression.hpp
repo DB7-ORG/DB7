@@ -45,8 +45,10 @@ struct FastPForEncoder
     std::vector<u8> bytescontainer;
 
     FastPForEncoder();
+    FastPForEncoder(u32 nitems);
     u32 Encode(u32 *out, const u32 *in, size_t nitems);
     u32 Decode(u32 *out, const u32 *in, size_t nitems);
+    static u32 EstimateCompression(u32 *freqs, u32 size);
     void ResetTable();
 };
 

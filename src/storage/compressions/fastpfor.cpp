@@ -5,6 +5,50 @@
 #include <iostream>
 #include <unistd.h>
 
+u32 FastPForEncoder::EstimateCompression(u32 *freqs, u32 nitems)
+{
+    u32 bestb = 32;
+    while (freqs[bestb] == 0)
+        bestb--;
+
+    u32 numOfBlocks = nitems / BlockSize;
+    u32 numExcBlocks = numOfBlocks; // TODO should be better aprox
+    u32 cexcept = 0;
+    u32 nonZeroCount = 0;
+    u32 cpackExcept = 0;
+
+    u32 metaDataSize = +16 * numOfBlocks // bestcexcept and bestb in bytescontainer
+                       + 2 * 32          // len prefixes for packed data and bytescontainer
+                       + 3 * 8           // len of padding (max 3 bytes)
+                       + 32;             // bitmap
+
+    u32 bestcost = bestb * nitems + metaDataSize;
+
+    for (u32 b = bestb - 1; b < 32; --b)
+    {
+        cexcept += freqs[b + 1];
+        nonZeroCount += (freqs[b + 1] != 0);
+        cpackExcept += ((freqs[b + 1] * (b + 1) + 63) / 64) * 64;
+
+        // if (freqs[b + 1] != 0)
+        // {
+        //     nonZeroCount++;
+        //     cpackExcept += ((freqs[b + 1] * (b + 1) + 63) / 64) * 64;
+        // }
+
+        u32 thiscost = cexcept * overheadofeachexcept // overhead of and index that points to an exception
+                       + cpackExcept                  // calculation for packing exceptions
+                       + b * nitems                   // packed data with best bit size
+                       + 8 * numExcBlocks             // maxb stored for each block that contains exceptions
+                       + nonZeroCount * 32            // size prefix when padding exceptions
+                       + metaDataSize;                // metadata
+
+        bestcost = std::min(thiscost, bestcost);
+    }
+
+    return bestcost;
+}
+
 void GetBestB(const u32 *in, u8 &bestb, u8 &bestcexcept, u8 &maxb)
 {
     u32 freqs[33];
@@ -41,8 +85,7 @@ void GetBestB(const u32 *in, u8 &bestb, u8 &bestcexcept, u8 &maxb)
 u32 *PackExceptionBlocks(BitPackEncoder &bitpackEncoder, u32 *out, cachealignedvector &in, u8 bit)
 {
     const u32 size = static_cast<u32>(in.size());
-    *out = size;
-    out++;
+    *out++ = size;
 
     out = (u32 *)bitpackEncoder.ScalarEncode(out, in.data(), in.size(), bit);
 
@@ -51,8 +94,15 @@ u32 *PackExceptionBlocks(BitPackEncoder &bitpackEncoder, u32 *out, cachealignedv
 
 FastPForEncoder::FastPForEncoder()
 {
+    std::cout << "unsafe pfor!!!" << std::endl;
     datatobepacked.resize(33);
     bytescontainer.resize(1024);
+}
+
+FastPForEncoder::FastPForEncoder(u32 nitems)
+{
+    datatobepacked.resize(33);
+    bytescontainer.resize(3 * (nitems / BlockSize) + 2 * nitems); // TODO this should be optimized
 }
 
 u32 FastPForEncoder::Encode(u32 *out, const u32 *in, size_t nitems)
@@ -92,16 +142,21 @@ u32 FastPForEncoder::Encode(u32 *out, const u32 *in, size_t nitems)
             out = bitpackEncoder.SimdEncodeWithoutMask(out, in, BlockSize, bestb); // TODO executed once per loop
         }
     }
+    // std::cout << "[1] after packed data: " << (out - initout) << " u32s = " << (out - initout) * 4 << " bytes\n";
 
     headerout[0] = static_cast<u32>(out - headerout);
     const u32 bytescontainersize = static_cast<u32>(bc - &bytescontainer[0]);
     *(out++) = bytescontainersize;
+
+    // std::cout << "[2] bytescontainersize = " << bytescontainersize << " bytes\n";
     memcpy(out, &bytescontainer[0], bytescontainersize);
 
     u8 *pad8 = (u8 *)out + bytescontainersize;
     out += (bytescontainersize + sizeof(u32) - 1) / sizeof(u32);
     while (pad8 < (u8 *)out)
         *pad8++ = 0;
+
+    // std::cout << "[3] after bytescontainer+padding: " << (out - initout) << " u32s = " << (out - initout) * 4 << " bytes\n";
 
     u32 bitmap = 0;
     for (u32 k = 2; k <= 32; ++k)
@@ -111,11 +166,19 @@ u32 FastPForEncoder::Encode(u32 *out, const u32 *in, size_t nitems)
     }
     *(out++) = bitmap;
 
-    for (u32 k = 2; k <= 32; ++k)
+    // std::cout << "[4] after bitmap: " << (out - initout) << " u32s = " << (out - initout) * 4 << " bytes\n";
+
+    for (u32 k = 2; k <= 32; ++k) // TODO this is awful change it so there is no padding
     {
         if (datatobepacked[k].size() > 0)
+        {
+            auto first = out;
             out = PackExceptionBlocks(bitpackEncoder, out, datatobepacked[k], k);
+            auto second = out;
+            // std::cout << "[5] exc group k=" << k << " count=" << datatobepacked[k].size() << " u32s written=" << (second - first) << "\n";
+        }
     }
+    // std::cout << "[6] TOTAL: " << (out - initout) << " u32s = " << (out - initout) * 4 << " bytes\n";
 
     return out - initout;
 }

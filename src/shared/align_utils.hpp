@@ -92,6 +92,7 @@ public:
     {
         const size_t *assize_t = reinterpret_cast<size_t *>(p);
         const size_t offset = assize_t[-1];
+        assert(offset > 0 && offset <= alignment + sizeof(size_t));
         ::operator delete(
             reinterpret_cast<pointer>(reinterpret_cast<uintptr_t>(p) - offset));
     }

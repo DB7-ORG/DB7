@@ -130,29 +130,29 @@ struct FrequencyNode : AlgNode
     }
 };
 
-template <typename T>
-u32 CalcScore(SchemeAlgorythm alg, const NumberStats<T> &stats)
-{
-    switch (alg)
-    {
-    case Uncompressed:
-        return stats.total_size;
-    case Bitpacking:
-        return stats.total_size * 1;
-    case Rle:
-        return stats.average_run_len * 1;
-    case Oneval:
-        return stats.distinct_values.Size() == 1 ? 0 : UINT32_MAX;
-    case FastPFor:
-        return 0;
-    case Dictionary:
-        return 0;
-    case Frequency:
-        return 0;
-    default:
-        throw std::runtime_error("Unsupported type in CalcScore number type");
-    }
-}
+// template <typename T>
+// u32 CalcScore(SchemeAlgorythm alg, const NumberStats<T> &stats)
+// {
+//     switch (alg)
+//     {
+//     case Uncompressed:
+//         return stats.total_size;
+//     case Bitpacking:
+//         return stats.total_size * 1;
+//     case Rle:
+//         return stats.average_run_len * 1;
+//     case Oneval:
+//         return stats.distinct_values.Size() == 1 ? 0 : UINT32_MAX;
+//     case FastPFor:
+//         return 0;
+//     case Dictionary:
+//         return 0;
+//     case Frequency:
+//         return 0;
+//     default:
+//         throw std::runtime_error("Unsupported type in CalcScore number type");
+//     }
+// }
 
 u32 CalcScore(SchemeAlgorythm alg, const StringStats &stats)
 {
@@ -170,32 +170,6 @@ u32 CalcScore(SchemeAlgorythm alg, const StringStats &stats)
         throw std::runtime_error("Unsupported type in CalcScore string type");
     }
 }
-
-// AlgNode *PickBestNode(AlgNode **nodes, u32 size, NumberStats<u32> &stats, std::vector<u32> &samples)
-// {
-//     AlgNode *best = nodes[0];
-//     assert(best->alg == Uncompressed);
-//     u32 uncompressed_score = CalcScore(best->alg, stats);
-//     u32 best_score = uncompressed_score;
-
-//     for (u32 i = 1; i < size; i++)
-//     {
-//         AlgNode *node = nodes[i];
-
-//         u32 score = CalcScore(node->alg, stats);
-//         if (score < best_score)
-//         {
-//             u32 newSize = CompressSamples(type, stats);
-//             if (newSize < best_score)
-//             {
-//                 best = node;
-//                 best_score = score;
-//             }
-//         }
-//     }
-
-//     return best;
-// }
 
 u32 CompressSamples(SchemaType type, NumberStats<T> &stats)
 {
@@ -234,9 +208,7 @@ u32 CompressSamples(SchemaType type, NumberStats<T> &stats)
         // u32 size = encoder.Encode(data, sampleData.samples.data(), sampleData.size());
         // return size * sizeof(u32);
 
-        // TODO do something like in here
-        // void GetBestB(const u32 *in, u8 &bestb, u8 &bestcexcept, u8 &maxb)
-        return 2;
+        return FastPForEncoder::EstimateCompression(stats.bitFreq, stats.total_size);
     }
     case Oneval:
         return stats.distinct_values.Size() == 1 ? sizeof(T) : UINT32_MAX;
@@ -272,28 +244,20 @@ struct NumberNode : INode
     void Next()
     {
         stats.GenerateStats();
-        SampleStats<T> samples = stats.GenerateSamples();
-        // AlgNode *best = PickBestNode(nodes, std::size(nodes), stats, samples);
 
-        // MAIN LOGIC for compressing data
         AlgNode *best = nodes[0];
         assert(best->alg == Uncompressed);
-        u32 uncompressed_score = CalcScore(best->alg, stats);
-        u32 best_score = uncompressed_score;
+        u32 uncompressed_score = CompressSamples(type, stats);
+        u32 best_size = uncompressed_score;
 
         for (u32 i = 1; i < std::size(nodes); i++)
         {
             AlgNode *node = nodes[i];
-
-            u32 score = CalcScore(node->alg, stats);
-            if (score < best_score)
+            u32 new_size = CompressSamples(type, stats);
+            if (new_size < best_size)
             {
-                u32 newSize = CompressSamples(type, stats);
-                if (newSize < best_score)
-                {
-                    best = node;
-                    best_score = score;
-                }
+                best_size = new_size;
+                best = node;
             }
         }
 
