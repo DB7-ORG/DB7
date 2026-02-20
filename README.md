@@ -34,7 +34,7 @@ framework
 - i might want to apply something else on exceptions in pfor ❌
 - add a dictionary that is a single bitmap so collisions are less punishable (might be a bad idea) ❌
 - estimate pfor size and evaluate that to see how well does the estimate predict ❌
-- move all compressions to coresponding hpp file ❌
+- move all compressions to coresponding hpp file ✅
 - validate other compression estimates and move estimate functions to compressions ❌
 - AlignedSTLAllocator is unsafe for pfor 1'000'000 entries ✅
 (std::vector<u8> bytescontainer; was the problem) should decide what size to use ❌

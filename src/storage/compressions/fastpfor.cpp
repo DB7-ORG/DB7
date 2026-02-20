@@ -1,9 +1,10 @@
-#include "compression.hpp"
+#include "fastpfor.hpp"
 #include "helper_utils.hpp"
 
 #include <immintrin.h>
 #include <iostream>
 #include <unistd.h>
+#include <cstring>
 
 u32 FastPForEncoder::EstimateCompression(u32 *freqs, u32 nitems)
 {
@@ -105,7 +106,7 @@ FastPForEncoder::FastPForEncoder(u32 nitems)
     bytescontainer.resize(3 * (nitems / BlockSize) + 2 * nitems); // TODO this should be optimized
 }
 
-u32 FastPForEncoder::Encode(u32 *out, const u32 *in, size_t nitems)
+u32 FastPForEncoder::Encode(u32 *out, const u32 *in, u32 nitems)
 {
     u32 *const initout = out;
     CheckIsDivisibleBy(nitems, BlockSize / 32);
@@ -142,21 +143,17 @@ u32 FastPForEncoder::Encode(u32 *out, const u32 *in, size_t nitems)
             out = bitpackEncoder.SimdEncodeWithoutMask(out, in, BlockSize, bestb); // TODO executed once per loop
         }
     }
-    // std::cout << "[1] after packed data: " << (out - initout) << " u32s = " << (out - initout) * 4 << " bytes\n";
 
     headerout[0] = static_cast<u32>(out - headerout);
     const u32 bytescontainersize = static_cast<u32>(bc - &bytescontainer[0]);
     *(out++) = bytescontainersize;
 
-    // std::cout << "[2] bytescontainersize = " << bytescontainersize << " bytes\n";
     memcpy(out, &bytescontainer[0], bytescontainersize);
 
     u8 *pad8 = (u8 *)out + bytescontainersize;
     out += (bytescontainersize + sizeof(u32) - 1) / sizeof(u32);
     while (pad8 < (u8 *)out)
         *pad8++ = 0;
-
-    // std::cout << "[3] after bytescontainer+padding: " << (out - initout) << " u32s = " << (out - initout) * 4 << " bytes\n";
 
     u32 bitmap = 0;
     for (u32 k = 2; k <= 32; ++k)
@@ -166,19 +163,13 @@ u32 FastPForEncoder::Encode(u32 *out, const u32 *in, size_t nitems)
     }
     *(out++) = bitmap;
 
-    // std::cout << "[4] after bitmap: " << (out - initout) << " u32s = " << (out - initout) * 4 << " bytes\n";
-
     for (u32 k = 2; k <= 32; ++k) // TODO this is awful change it so there is no padding
     {
         if (datatobepacked[k].size() > 0)
         {
-            auto first = out;
             out = PackExceptionBlocks(bitpackEncoder, out, datatobepacked[k], k);
-            auto second = out;
-            // std::cout << "[5] exc group k=" << k << " count=" << datatobepacked[k].size() << " u32s written=" << (second - first) << "\n";
         }
     }
-    // std::cout << "[6] TOTAL: " << (out - initout) << " u32s = " << (out - initout) * 4 << " bytes\n";
 
     return out - initout;
 }
@@ -189,7 +180,7 @@ void FastPForEncoder::ResetTable()
         datatobepacked[k].clear();
 }
 
-u32 FastPForEncoder::Decode(u32 *out, const u32 *in, size_t nitems)
+u32 FastPForEncoder::Decode(u32 *out, const u32 *in, u32 nitems)
 {
     u32 *const initout = out;
 

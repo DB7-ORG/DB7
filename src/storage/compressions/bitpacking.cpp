@@ -1,6 +1,6 @@
-#include "compression.hpp"
 #include "helper_utils.hpp"
 #include "avxbpacking.hpp"
+#include "bitpacking.hpp"
 
 #include <iostream>
 #include <string.h>

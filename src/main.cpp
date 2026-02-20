@@ -992,21 +992,28 @@ void test_stats_generation()
 //     }
 // }
 
-#define RUN_TEST(name)                                                                       \
-    {                                                                                        \
-        encoder.ResetTable();                                                                \
-        u64 t0 = now_ns();                                                                   \
-        u32 sizeInBytes = encoder.Encode(coded, data, tuple_num) * sizeof(u32);              \
-        u64 t1 = now_ns();                                                                   \
-        NumberStats<u32> stats(data, &nullmap, tuple_num);                                   \
-        stats.GenerateStats();                                                               \
-        u32 estimate = FastPForEncoder::EstimateCompression(stats.bitFreq, tuple_num);       \
-        u32 estimateBytes = ((estimate + 31) / 32) * 4;                                      \
-        int diff = int(estimateBytes) - int(sizeInBytes);                                    \
-        std::cout << "[" name "] estimate=" << estimateBytes << " real=" << sizeInBytes      \
-                  << " diff=" << diff << (diff < 0 ? " *** UNDERESTIMATE ***" : "") << "\n"; \
-        printf("  time: %.3f ms\n", (t1 - t0) / 1e6);                                        \
-        encoder.ResetTable();                                                                \
+#include <iomanip>
+#define RUN_TEST(name)                                                                           \
+    {                                                                                            \
+        encoder.ResetTable();                                                                    \
+        u64 t0 = now_ns();                                                                       \
+        u32 sizeInBytes = encoder.Encode(coded, data, tuple_num) * sizeof(u32);                  \
+        u64 t1 = now_ns();                                                                       \
+        NumberStats<u32> stats(data, &nullmap, tuple_num);                                       \
+        stats.GenerateStats();                                                                   \
+        u32 estimate = FastPForEncoder::EstimateCompression(stats.bitFreq, tuple_num);           \
+        u32 estimateBytes = ((estimate + 31) / 32) * 4;                                          \
+        int diff = int(estimateBytes) - int(sizeInBytes);                                        \
+        double errorPct = sizeInBytes == 0 ? 0.0 : (double(diff) * 100.0) / double(sizeInBytes); \
+        std::cout << std::fixed << std::setprecision(2)                                          \
+                  << "[" name "] estimate=" << estimateBytes                                     \
+                  << " real=" << sizeInBytes                                                     \
+                  << " diff=" << diff                                                            \
+                  << " (" << errorPct << "%)"                                                    \
+                  << (diff < 0 ? " *** UNDERESTIMATE ***" : "")                                  \
+                  << "\n";                                                                       \
+        printf("  time: %.3f ms\n", (t1 - t0) / 1e6);                                            \
+        encoder.ResetTable();                                                                    \
     }
 
 void benchmark_pfor_estimate()
@@ -1016,36 +1023,6 @@ void benchmark_pfor_estimate()
     auto coded = (u32 *)malloc(tuple_num * sizeof(u32));
     auto encoder = FastPForEncoder(tuple_num);
     ValidityMask nullmap;
-
-    // { // Distribution 1: few exceptions, small base values
-    //     std::mt19937 rng(123456);
-    //     std::uniform_int_distribution<u32> des(5, 1'000'000'000);
-
-    //     for (int i = 0; i < tuple_num; i++)
-    //     {
-    //         if (i % 150 == 0)
-    //             data[i] = des(rng);
-    //         else
-    //             data[i] = i % (4);
-    //     }
-
-    //     u64 t0 = now_ns();
-    //     u32 sizeInBytes = encoder.Encode(coded, data, tuple_num) * sizeof(u32);
-    //     u64 t1 = now_ns();
-
-    //     NumberStats<u32> stats(data, &nullmap, tuple_num);
-    //     stats.GenerateStats();
-
-    //     u32 estimate = FastPForEncoder::EstimateCompression(stats.bitFreq, tuple_num);
-    //     u32 estimateBytes = ((estimate + 31) / 32) * 4;
-
-    //     std::cout << "estimate " << estimateBytes << " bytes" << std::endl;
-    //     std::cout << "real " << sizeInBytes << " bytes" << std::endl;
-    //     std::cout << "diff " << int(estimateBytes) - int(sizeInBytes) << " bytes" << std::endl;
-    //     printf("total:    %.3f ms\n", (t1 - t0) / 1e6);
-
-    //     encoder.ResetTable();
-    // }
 
     { // Distribution 1: few exceptions, small base values
         std::mt19937 rng(123456);
@@ -1107,10 +1084,10 @@ void benchmark_pfor_estimate()
     }
 
     // Distribution 9: all zeros(works badly dont care)
-    {
-        memset(data, 0, tuple_num * sizeof(u32));
-        RUN_TEST("all zeros");
-    }
+    // {
+    //     memset(data, 0, tuple_num * sizeof(u32));
+    //     RUN_TEST("all zeros");
+    // }
 }
 
 int main()
