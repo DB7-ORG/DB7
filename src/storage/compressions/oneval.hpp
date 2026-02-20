@@ -15,6 +15,13 @@ struct OneValEncoder
 {
     static void Encode(ValueType *out, const ValueType *in);
     static void Decode(ValueType *out, const ValueType value, u32 nitems);
+    static u32 EstimateCompression(const u32 nunique);
+};
+
+template <typename ValueType>
+u32 OneValEncoder<ValueType>::EstimateCompression(const u32 nunique)
+{
+    return nunique == 1 ? sizeof(ValueType) : UINT32_MAX;
 };
 
 template <typename ValueType>

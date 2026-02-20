@@ -5,5 +5,6 @@
 template <typename ValueType>
 inline u32 CountBitsUsed(ValueType value)
 {
-    return value == 0 ? 1 : 32 - __builtin_clz(value);
+    static_assert(std::is_unsigned_v<ValueType>);
+    return value == 0 ? 1 : sizeof(ValueType) * CHAR_BIT - std::countl_zero(value);
 }

@@ -6,22 +6,22 @@
 #include <unistd.h>
 #include <cstring>
 
-u32 FastPForEncoder::EstimateCompression(u32 *freqs, u32 nitems)
+u32 FastPForEncoder::EstimateCompression(const u32 *freqs, const u32 nitems)
 {
+    const u32 numOfBlocks = nitems / BlockSize;
+    const u32 numExcBlocks = numOfBlocks;      // TODO should be better aprox
+    const u32 metaDataSize = +16 * numOfBlocks // bestcexcept and bestb in bytescontainer
+                             + 2 * 32          // len prefixes for packed data and bytescontainer
+                             + 3 * 8           // len of padding (max 3 bytes)
+                             + 32;             // bitmap
+
     u32 bestb = 32;
     while (freqs[bestb] == 0)
         bestb--;
 
-    u32 numOfBlocks = nitems / BlockSize;
-    u32 numExcBlocks = numOfBlocks; // TODO should be better aprox
     u32 cexcept = 0;
     u32 nonZeroCount = 0;
     u32 cpackExcept = 0;
-
-    u32 metaDataSize = +16 * numOfBlocks // bestcexcept and bestb in bytescontainer
-                       + 2 * 32          // len prefixes for packed data and bytescontainer
-                       + 3 * 8           // len of padding (max 3 bytes)
-                       + 32;             // bitmap
 
     u32 bestcost = bestb * nitems + metaDataSize;
 
@@ -29,7 +29,7 @@ u32 FastPForEncoder::EstimateCompression(u32 *freqs, u32 nitems)
     {
         cexcept += freqs[b + 1];
         nonZeroCount += (freqs[b + 1] != 0);
-        cpackExcept += ((freqs[b + 1] * (b + 1) + 63) / 64) * 64;
+        cpackExcept += ((freqs[b + 1] * (b + 1) + 63) / 64) * 64; // TODO chnage scalar compression
 
         // if (freqs[b + 1] != 0)
         // {

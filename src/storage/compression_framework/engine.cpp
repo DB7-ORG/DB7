@@ -171,49 +171,27 @@ u32 CalcScore(SchemeAlgorythm alg, const StringStats &stats)
     }
 }
 
+static inline constexpr u32 EstimateUncompressed(const u32 nitems)
+{
+    return nitems * sizeof(u32);
+}
+
 u32 CompressSamples(SchemaType type, NumberStats<T> &stats)
 {
     switch (type)
     {
     case Uncompressed:
-        return stats.nitems * sizeof(u32);
+        return EstimateUncompressed(stats.nitems);
     case Bitpacking:
-    {
-        u32 usedBits = CountBitsUsed(stats.max);
-        return (stats.nitems * usedBits + sizeof(u8) - 1) / sizeof(u8);
-    }
+        return BitPackEncoder::EstimateCompression(stats.max, stats.nitems);
     case Dictionary:
-    {
-        // if (stats.distinct_values.Size() >= 0.8 * stats.nitems)
-        // {
-        //     return UINT32_MAX;
-        // }
-        // DictionaryValueEncodedRes<T> out = {
-        //     .codes = nullptr,
-        //     .values = nullptr, // TODO
-        //     .valCount = 0};
-        // DictionaryValueEncoder<T>::Encode(&out, sampleData.samples.data(), sampleData.bitmap, sampleData.size());
-        // return out.valCount * (sizeof(T) + sizeof(T));
-
-        u32 uniqNum = stats.distinct_values.Size();
-        u32 usedBits = CountBitsUsed(uniqNum + 1);
-        u32 codeSize = (stats.nitems * usedBits + sizeof(u8) - 1) / sizeof(u8); // dict should bitpack codes
-        u32 valueSize = uniqNum * sizeof(T);
-        return codeSize + valueSize;
-    }
+        return DictionaryValueEncoder<T>::EstimateCompression(stats.distinct_values.Size(), stats.nitems);
     case FastPFor:
-    {
-        // u32 *data = nullptr;
-        // FastPForEncoder encoder;
-        // u32 size = encoder.Encode(data, sampleData.samples.data(), sampleData.size());
-        // return size * sizeof(u32);
-
         return FastPForEncoder::EstimateCompression(stats.bitFreq, stats.total_size);
-    }
     case Oneval:
-        return stats.distinct_values.Size() == 1 ? sizeof(T) : UINT32_MAX;
+        return OneValEncoder<T>::EstimateCompression(stats.distinct_values.Size());
     case Rle:
-        return stats.count_run_len * (sizeof(T) + sizeof(u16));
+        return RleEncoder<T>::EstimateCompression(stats.count_run_len);
     default:
         throw std::runtime_error("Unsupported type in CompressSample");
     }

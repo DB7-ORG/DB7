@@ -30,6 +30,6 @@ struct FastPForEncoder
     FastPForEncoder(u32 nitems);
     u32 Encode(u32 *out, const u32 *in, u32 nitems);
     u32 Decode(u32 *out, const u32 *in, u32 nitems);
-    static u32 EstimateCompression(u32 *freqs, u32 size);
+    static u32 EstimateCompression(const u32 *freqs, const u32 size);
     void ResetTable();
 };

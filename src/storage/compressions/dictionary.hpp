@@ -2,8 +2,10 @@
 
 #include "append_str_hmap.hpp"
 #include "append_valtyp_hmap.hpp"
-#include <string.h>
 #include "nullbitmap.hpp"
+#include "bit_utils.hpp"
+
+#include <string.h>
 
 template <typename ValueType>
 inline int GetBitsUsed(ValueType value)
@@ -39,6 +41,16 @@ struct DictionaryValueEncoder
 {
     static void Encode(DictionaryValueEncodedRes<ValueType> *out, const ValueType *in, const ValidityMask *nullmap, const u32 count);
     static void Decode(ValueType *out, const DictionaryValueEncodedRes<ValueType> *in, const u32 count);
+    static u32 EstimateCompression(const u32 nunique, const u32 nitems);
+};
+
+template <typename ValueType>
+u32 DictionaryValueEncoder<ValueType>::EstimateCompression(const u32 nunique, const u32 nitems)
+{
+    u32 usedBits = CountBitsUsed(nunique + 1);
+    u32 codeSize = (nitems * usedBits + sizeof(u8) - 1) / sizeof(u8); // dict should bitpack codes
+    u32 valueSize = nunique * sizeof(ValueType);
+    return codeSize + valueSize;
 };
 
 template <typename ValueType>

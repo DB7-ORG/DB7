@@ -1,6 +1,7 @@
 #include "helper_utils.hpp"
 #include "avxbpacking.hpp"
 #include "bitpacking.hpp"
+#include "bit_utils.hpp"
 
 #include <iostream>
 #include <string.h>
@@ -66,6 +67,12 @@ static inline u32 *ScalarDecodePr(u32 *out, u64 *in, u32 nitems, u32 usedBits)
     }
 
     return out + nitems;
+}
+
+u32 BitPackEncoder::EstimateCompression(const u64 max, const u32 nitems)
+{
+    u32 usedBits = CountBitsUsed(max);
+    return (nitems * usedBits + sizeof(u8) - 1) / sizeof(u8);
 }
 
 u32 *BitPackEncoder::SimdEncode(void *out, const void *in, u32 nitems, u32 usedBits)

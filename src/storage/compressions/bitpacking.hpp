@@ -12,6 +12,7 @@ struct BitPackEncoder
     static u64 *ScalarEncode(void *out, const void *in, u32 nitems, u32 usedBits);
     static u32 *ScalarDecode(void *out, const void *in, u32 nitems, u32 usedBits);
     static u32 ScalarDecodeSingle(const void *compressed, u32 idx, u32 usedBits);
+    static u32 EstimateCompression(const u64 max, const u32 nitems);
 };
 
 inline void CheckIsDivisibleBy(u32 a, u32 x)

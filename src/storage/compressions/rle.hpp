@@ -17,6 +17,13 @@ struct RleEncoder
 {
     static void Encode(RleEncodedRes<ValueType> *out, const ValueType *in, const ValidityMask *nullmap, const u32 nitems);
     static void Decode(ValueType *out, const RleEncodedRes<ValueType> *in);
+    static u32 EstimateCompression(const u32 count_run_len);
+};
+
+template <typename ValueType>
+u32 RleEncoder<ValueType>::EstimateCompression(const u32 count_run_len)
+{
+    return count_run_len * (sizeof(ValueType) + sizeof(u16));
 };
 
 template <typename ValueType>

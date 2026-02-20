@@ -19,7 +19,7 @@ improvements to existing decompressions
 - add overflow when decoding rle ✅
 - check out btrblocks dict simd gather approach ✅
 - wtf is this _mm256_cvtepi32_pd, _mm256_mul_pd ✅
-- roaring bitmaps ❌
+- roaring bitmaps ✅ more detailed reading ❌
 - seprate bitpacking from dict ✅
 - fuse rle and dict decomperssion to avoid intermediate array ❌
 - optimize append only dictionary for integer and double types ✅
@@ -29,15 +29,18 @@ improvements to existing decompressions
 - single value compression probably sucks try block decompression ❌
 
 framework
-- should always bitpack codes after dictionary encoding (check out sorted dic talternatives) ❌
+- should always bitpack codes after dictionary encoding (check out sorted dict alternatives) ❌
 - templated pfor version ❌ 
-- i might want to apply something else on exceptions in pfor ❌
+- i might want to apply something else on exceptions in pfor (might be a bad idea because its shifted bits which is semi random values) ❌
 - add a dictionary that is a single bitmap so collisions are less punishable (might be a bad idea) ❌
-- estimate pfor size and evaluate that to see how well does the estimate predict ❌
+- estimate pfor size and evaluate that to see how well does the estimate predict ✅
 - move all compressions to coresponding hpp file ✅
-- validate other compression estimates and move estimate functions to compressions ❌
+- validate other compression estimates and move estimate functions to compressions ✅
 - AlignedSTLAllocator is unsafe for pfor 1'000'000 entries ✅
 (std::vector<u8> bytescontainer; was the problem) should decide what size to use ❌
+- change pfor scalar packing exceptions is awful ❌
+- can i change stats after an estimation ❌
+- why do i get UNDERESTIMATE in [exceptions at 3 distinct bit widths] ❌
 
 # RESEARCH
 
