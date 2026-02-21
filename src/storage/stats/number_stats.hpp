@@ -36,7 +36,7 @@ struct NumberStats
     CountHSet<T> distinct_values;
     u32 bitFreq[33];
     u32 total_size;
-    u32 null_count;
+    u32 null_count; // TODO useless??
     u32 count_run_len;
     u32 average_run_len;
     T min;
@@ -52,8 +52,6 @@ struct NumberStats
         is_sorted_asc = true;
         is_sorted_desc = true;
         null_count = 0;
-        min = std::numeric_limits<T>::max();
-        max = std::numeric_limits<T>::lowest();
         average_run_len = 0;
         count_run_len = 0;
     }
@@ -89,6 +87,8 @@ struct NumberStats
     {
         u32 rle_count = 1;
         u32 rle_last_seen = src[0];
+        min = rle_last_seen;
+        max = rle_last_seen;
         bool allValid = bitmap->AllValid();
         for (u32 i = 1; i < nitems; i++)
         {

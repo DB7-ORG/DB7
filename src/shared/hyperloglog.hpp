@@ -15,10 +15,10 @@ static const double neg_pow_2_32 = -4294967296.0; ///< -(2^32)
 class HyperLogLog
 {
 protected:
-    uint8_t b_;              ///< register bit width
-    uint32_t m_;             ///< register size
-    double alphaMM_;         ///< alpha * m^2
-    std::vector<uint8_t> M_; ///< registers
+    u8 b_;              ///< register bit width
+    u32 m_;             ///< register size
+    double alphaMM_;    ///< alpha * m^2
+    std::vector<u8> M_; ///< registers
 
 public:
     /**
@@ -29,7 +29,7 @@ public:
      *
      * @exception std::invalid_argument the argument is out of range.
      */
-    HyperLogLog(uint8_t b = 4) : b_(b), m_(1 << b), M_(m_, 0)
+    HyperLogLog(u8 b = 4) : b_(b), m_(1 << b), M_(m_, 0)
     {
 
         if (b < 4 || b > 30)
@@ -57,16 +57,16 @@ public:
     }
 
     /**
-     * Adds element to the estimator
+     * Adds element to the estimator for general types
      *
      * @param[in] str string to add
      * @param[in] len length of string
      */
-    void add(const char *str, uint32_t len)
+    void add(const u8 *str, u32 len)
     {
-        uint32_t hash = XXH32(str, len, HLL_HASH_SEED);
-        uint32_t index = hash >> (32 - b_);
-        uint8_t rank = std::min(32 - b_, (int)std::countl_zero(hash << b_)) + 1;
+        u32 hash = XXH32(str, len, HLL_HASH_SEED);
+        u32 index = hash >> (32 - b_);
+        u8 rank = std::min(32 - b_, (int)std::countl_zero(hash << b_)) + 1;
         if (rank > M_[index])
         {
             M_[index] = rank;
@@ -74,18 +74,17 @@ public:
     }
 
     /**
-     * Adds element to the estimator
+     * Adds element to the estimator for numbers
      *
-     * @param[in] str string to add
-     * @param[in] len length of string
+     * @param[in] key number to add
      */
     template <typename ValueType>
     void add(const ValueType key)
     {
-        // uint32_t hash = XXH32(key, len, HLL_HASH_SEED);
+        // u32 hash = XXH32(key, len, HLL_HASH_SEED);
         u32 hash = XXH32(&key, sizeof(key), HLL_HASH_SEED);
-        uint32_t index = hash >> (32 - b_);
-        uint8_t rank = std::min(32 - b_, (int)std::countl_zero(hash << b_)) + 1;
+        u32 index = hash >> (32 - b_);
+        u8 rank = std::min(32 - b_, (int)std::countl_zero(hash << b_)) + 1;
         if (rank > M_[index])
         {
             M_[index] = rank;
@@ -101,15 +100,15 @@ public:
     {
         double estimate;
         double sum = 0.0;
-        for (uint32_t i = 0; i < m_; i++)
+        for (u32 i = 0; i < m_; i++)
         {
             sum += 1.0 / (1 << M_[i]);
         }
         estimate = alphaMM_ / sum; // E in the original paper
         if (estimate <= 2.5 * m_)
         {
-            uint32_t zeros = 0;
-            for (uint32_t i = 0; i < m_; i++)
+            u32 zeros = 0;
+            for (u32 i = 0; i < m_; i++)
             {
                 if (M_[i] == 0)
                 {

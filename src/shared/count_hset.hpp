@@ -14,6 +14,8 @@ private:
     u32 capacity;
     u32 size;
 
+    bool PushPrimitiveValue(const ValueType key);
+
 public:
     CountHSet(const u32 count, const u32 memfactor = 1);
     ~CountHSet();
@@ -46,7 +48,7 @@ CountHSet<ValueType>::~CountHSet()
 }
 
 template <typename ValueType>
-inline bool CountHSet<ValueType>::Push(const ValueType key)
+inline bool CountHSet<ValueType>::PushPrimitiveValue(const ValueType key)
 {
     const u32 hash = CalcHash(key);
     u32 bucket = hash & (capacity - 1);
@@ -66,6 +68,20 @@ inline bool CountHSet<ValueType>::Push(const ValueType key)
         }
 
         bucket = (bucket + 1) & (capacity - 1);
+    }
+}
+
+template <typename ValueType>
+inline bool CountHSet<ValueType>::Push(const ValueType key)
+{
+    if constexpr (std::is_arithmetic_v<ValueType>)
+    {
+        return CountHSet<ValueType>::PushPrimitiveValue(key);
+    }
+    else
+    {
+        // throw std::runtime_error("unsupported method");
+        static_assert("unsupported method");
     }
 }
 

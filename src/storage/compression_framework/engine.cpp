@@ -170,9 +170,9 @@ u32 CalcScore(SchemeAlgorythm alg, const StringStats &stats)
     }
 }
 
-static inline constexpr u32 EstimateUncompressed(const u32 nitems)
+static inline constexpr T EstimateUncompressed(const u32 nitems)
 {
-    return nitems * sizeof(u32);
+    return nitems * sizeof(T);
 }
 
 u32 CompressSamples(SchemaType type, NumberStats<T> &stats)

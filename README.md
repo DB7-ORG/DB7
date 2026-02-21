@@ -42,6 +42,12 @@ framework
 - can i change stats after an estimation ❌
 - why do i get UNDERESTIMATE in [exceptions at 3 distinct bit widths] ❌
 - optimize dict in stat collecting it takes almost all of the time overhead ❌
+- TODO this is not handling a case where i have really large string that is repeaded many times
+    // and rest of small strings. This can be problematic when doing dictionary encoding and trying
+    // to estimate the size.
+    // One way to handle this to build a hash map where we only compare 64 bit hash values and act like there
+    // is no different values w same hash to avoid memcpy which should be as fast as integer statistics.
+    // Then later calculate EV (might be better approaches)
 
 # RESEARCH
 

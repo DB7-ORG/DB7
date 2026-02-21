@@ -10,6 +10,7 @@
 #include "storage/compressions/frequency.hpp"
 #include "nullbitmap.hpp"
 #include "storage/stats/number_stats.hpp"
+#include "storage/stats/string_stats.hpp"
 
 std::mt19937 gen(42);
 std::uniform_int_distribution<> status_distribution(1, 100'000);
@@ -1090,6 +1091,68 @@ void benchmark_pfor_estimate()
     // }
 }
 
+void test_stats_generation_string()
+{
+    u32 nitems = 120'000;
+    std::vector<const u8 *> src(nitems);
+    std::vector<u32> lens(nitems + 1);
+    ValidityMask nullmap(nitems);
+
+    std::srand(std::time(nullptr));
+    lens[0] = 0;
+    for (u32 i = 0; i < nitems; i++)
+    {
+        // if ((i + 1) % 3 == 0)
+        // {
+        //     src[i] = src[i - 1];
+        //     sum += lens[i - 1] - lens[i - 2];
+        //     lens[i + 1] = sum;
+        //     continue;
+        // }
+
+        // u32 len = 5 + (std::rand() % 46);
+
+        // sum += len;
+        // lens[i + 1] = sum;
+
+        // u8 *str = new u8[len + 1];
+        // for (u32 j = 0; j < len; j++)
+        // {
+        //     str[j] = 'a' + (std::rand() % 26);
+        // }
+        // str[len] = '\0';
+        // src[i] = str;
+
+        u32 len = 5;
+        if ((i + 1) % 4 == 0)
+        {
+            src[i] = src[i - 1];
+        }
+        else
+        {
+            u8 *str = new u8[len + 1];
+            for (u32 j = 0; j < len; j++)
+            {
+                str[j] = 'a' + (std::rand() % 26);
+            }
+            str[len] = '\0';
+            src[i] = str;
+        }
+
+        lens[i + 1] = (i + 1) * 5;
+    }
+
+    StringStats stats(src.data(), lens.data(), &nullmap, nitems);
+
+    u64 t0 = now_ns();
+    stats.GenerateStats();
+    u64 t1 = now_ns();
+
+    stats.Print();
+
+    printf("total:    %.3f ms\n", (t1 - t0) / 1e6);
+}
+
 int main()
 {
     //  test_huge_dict_values();
@@ -1106,7 +1169,8 @@ int main()
     // test_freq();
 
     // test_generate_samples();
-    test_stats_generation();
+    // test_stats_generation();
+    test_stats_generation_string();
 
     // benchmark_pfor_estimate();
 
