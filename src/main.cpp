@@ -1106,9 +1106,9 @@ int main()
     // test_freq();
 
     // test_generate_samples();
-    // test_stats_generation();
+    test_stats_generation();
 
-    benchmark_pfor_estimate();
+    // benchmark_pfor_estimate();
 
     return 0;
 }

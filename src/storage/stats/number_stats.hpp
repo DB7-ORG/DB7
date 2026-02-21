@@ -98,7 +98,7 @@ struct NumberStats
             u32 usedBits = CountBitsUsed(value);
             bitFreq[usedBits]++;
 
-            distinct_values.Inc(value); // Replace this with a map that is using bits instead of bytes
+            distinct_values.Inc(value); // TODO Replace this with a map that is using bits instead of bytes
 
             min = std::min(value, min);
             max = std::max(value, max);

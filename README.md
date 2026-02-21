@@ -41,6 +41,7 @@ framework
 - change pfor scalar packing exceptions is awful ❌
 - can i change stats after an estimation ❌
 - why do i get UNDERESTIMATE in [exceptions at 3 distinct bit widths] ❌
+- optimize dict in stat collecting it takes almost all of the time overhead ❌
 
 # RESEARCH
 
