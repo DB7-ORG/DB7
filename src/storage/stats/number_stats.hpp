@@ -4,9 +4,13 @@
 #include "nullbitmap.hpp"
 #include "append_valtyp_hmap.hpp"
 #include "bit_utils.hpp"
+#include "count_hset.hpp"
+#include "hyperloglog.hpp"
 
 #include <limits>
 #include <vector>
+#include <algorithm>
+#include <iostream>
 
 template <typename T>
 struct SampleStats
@@ -29,7 +33,7 @@ struct NumberStats
     const T *src;
     const ValidityMask *bitmap;
     const u32 nitems;
-    AppendOnlyHMap<T> distinct_values;
+    CountHSet<T> distinct_values;
     u32 bitFreq[33];
     u32 total_size;
     u32 null_count;
@@ -39,9 +43,10 @@ struct NumberStats
     T max;
     bool is_sorted_asc;
     bool is_sorted_desc;
+    // HyperLogLog hll;
 
     NumberStats(const T *src, const ValidityMask *bitmap, const u32 nitems)
-        : src(src), bitmap(bitmap), nitems(nitems), distinct_values(240'000), bitFreq{} // TODO pick a viable size
+        : src(src), bitmap(bitmap), nitems(nitems), distinct_values(240'000), bitFreq{} //, hll(16) // TODO pick a viable size
     {
         total_size = nitems * sizeof(T);
         is_sorted_asc = true;
@@ -98,7 +103,9 @@ struct NumberStats
             u32 usedBits = CountBitsUsed(value);
             bitFreq[usedBits]++;
 
-            distinct_values.Inc(value); // TODO Replace this with a map that is using bits instead of bytes
+            // distinct_values.Inc(value); // TODO Replace this with a map that is using bits instead of bytes
+            distinct_values.Push(value);
+            // hll.add(value);
 
             min = std::min(value, min);
             max = std::max(value, max);
@@ -109,6 +116,9 @@ struct NumberStats
             rle_count += (value != rle_last_seen);
             rle_last_seen = value;
         }
+
+        // std::cout << hll.estimate() << std::endl;
+
         average_run_len = nitems / rle_count;
         count_run_len = rle_count;
     }

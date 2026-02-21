@@ -949,7 +949,7 @@ void test_stats_generation()
 
     for (u32 i = 0; i < nitems; i++)
     {
-        src[i] = rand(); // rand()% 10'000;
+        src[i] = rand(); // rand(); // rand()% 10'000;
         // nullmap.Set(i, src[i] % 5 != 0);
     }
 

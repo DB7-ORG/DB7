@@ -1,5 +1,4 @@
 #include "engine.hpp"
-#include <stdexcept>
 #include "../stats/number_stats.hpp"
 #include "../stats/string_stats.hpp"
 #include <vector>
