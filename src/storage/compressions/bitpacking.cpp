@@ -1,5 +1,5 @@
 #include "helper_utils.hpp"
-#include "avxbpacking.hpp"
+// #include "avxbpacking.hpp"
 #include "bitpacking.hpp"
 #include "bit_utils.hpp"
 
@@ -78,26 +78,39 @@ u32 BitPackEncoder::EstimateCompression(const u64 max, const u32 nitems)
 u32 *BitPackEncoder::SimdEncode(void *out, const void *in, u32 nitems, u32 usedBits)
 {
     CheckIsDivisibleBy(nitems, 256);
-    return AvxPack((u32 *)in, (__m256i *)out, nitems, usedBits);
+    return AvxPack<u32, true>((u32 *)in, (__m256i *)out, nitems, usedBits);
 }
 
 u32 *BitPackEncoder::SimdEncodeWithoutMask(void *out, const void *in, u32 nitems, u32 usedBits)
 {
     CheckIsDivisibleBy(nitems, 256);
-    return AvxPackWithoutMask((u32 *)in, (__m256i *)out, nitems, usedBits);
+    return AvxPack<u32, false>((u32 *)in, (__m256i *)out, nitems, usedBits);
 }
+
+// u32 *BitPackEncoder::SimdEncode(void *out, const void *in, u32 nitems, u32 usedBits)
+// {
+//     CheckIsDivisibleBy(nitems, 256);
+//     return AvxPack((u32 *)in, (__m256i *)out, nitems, usedBits);
+// }
+
+// u32 *BitPackEncoder::SimdEncodeWithoutMask(void *out, const void *in, u32 nitems, u32 usedBits)
+// {
+//     CheckIsDivisibleBy(nitems, 256);
+//     return AvxPackWithoutMask((u32 *)in, (__m256i *)out, nitems, usedBits);
+// }
 
 u32 *BitPackEncoder::SimdDecode(void *out, const void *in, u32 nitems, u32 usedBits)
 {
     CheckIsDivisibleBy(nitems, 256);
-    return AvxunPack((__m256i *)in, (u32 *)out, nitems, usedBits);
+    return AvxUnPack((__m256i *)in, (u32 *)out, nitems, usedBits);
 }
 
 u32 BitPackEncoder::SimdDecodeSingle(const void *compressed, u32 idx, u32 usedBits)
 {
-    auto func = decodeSingleFuncArr[usedBits];
-    return func(compressed, idx); // TODO if this is called in a loop (which it will be)
-    //                               there should be separate method to avoid pointer chasing in arr
+    // auto func = decodeSingleFuncArr[usedBits];
+    // return func(compressed, idx); // TODO if this is called in a loop (which it will be)
+    // //                               there should be separate method to avoid pointer chasing in arr
+    return 4;
 }
 
 u64 *BitPackEncoder::ScalarEncode(void *out, const void *in, u32 nitems, u32 usedBits)

@@ -24,6 +24,7 @@ improvements to existing decompressions
 - fuse rle and dict decomperssion to avoid intermediate array ❌
 - optimize append only dictionary for integer and double types ✅
 - bencharked something similar to swiss dictionary and my scalar version ✅
+- python code generation that manually writes bitpacking code for all uX types ❌// TODO replace w common
 
 - refactor code for compression so function caller does the allocations and alignment ✅
 - single value compression probably sucks try block decompression ❌

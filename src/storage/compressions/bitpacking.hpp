@@ -1,6 +1,8 @@
 #pragma once
 
 #include "common.hpp"
+#include "avx2bitpacking_definitions.hpp"
+
 #include <stdexcept>
 
 struct BitPackEncoder

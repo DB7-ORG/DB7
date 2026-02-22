@@ -22,10 +22,11 @@ typedef std::vector<u32, AlignedSTLAllocator<u32, 32>> cachealignedvector;
 
 struct FastPForEncoder
 {
-    BitPackEncoder bitpackEncoder;
+private:
     std::vector<cachealignedvector> datatobepacked;
     std::vector<u8> bytescontainer;
 
+public:
     FastPForEncoder();
     FastPForEncoder(u32 nitems);
     u32 Encode(u32 *out, const u32 *in, u32 nitems);

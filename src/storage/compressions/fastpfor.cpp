@@ -83,12 +83,12 @@ void GetBestB(const u32 *in, u8 &bestb, u8 &bestcexcept, u8 &maxb)
     }
 }
 
-u32 *PackExceptionBlocks(BitPackEncoder &bitpackEncoder, u32 *out, cachealignedvector &in, u8 bit)
+u32 *PackExceptionBlocks(u32 *out, cachealignedvector &in, u8 bit)
 {
     const u32 size = static_cast<u32>(in.size());
     *out++ = size;
 
-    out = (u32 *)bitpackEncoder.ScalarEncode(out, in.data(), in.size(), bit);
+    out = (u32 *)BitPackEncoder::ScalarEncode(out, in.data(), in.size(), bit);
 
     return out;
 }
@@ -136,11 +136,11 @@ u32 FastPForEncoder::Encode(u32 *out, const u32 *in, u32 nitems)
                     *bc++ = static_cast<u8>(k);
                 }
             }
-            out = bitpackEncoder.SimdEncode(out, in, BlockSize, bestb); // TODO executed once per loop
+            out = BitPackEncoder::SimdEncode(out, in, BlockSize, bestb); // TODO executed once per loop
         }
         else
         {
-            out = bitpackEncoder.SimdEncodeWithoutMask(out, in, BlockSize, bestb); // TODO executed once per loop
+            out = BitPackEncoder::SimdEncodeWithoutMask(out, in, BlockSize, bestb); // TODO executed once per loop
         }
     }
 
@@ -167,7 +167,7 @@ u32 FastPForEncoder::Encode(u32 *out, const u32 *in, u32 nitems)
     {
         if (datatobepacked[k].size() > 0)
         {
-            out = PackExceptionBlocks(bitpackEncoder, out, datatobepacked[k], k);
+            out = PackExceptionBlocks(out, datatobepacked[k], k);
         }
     }
 
@@ -199,7 +199,7 @@ u32 FastPForEncoder::Decode(u32 *out, const u32 *in, u32 nitems)
         {
             u32 size = *(inexcept++);
             datatobepacked[k].resize(size);
-            bitpackEncoder.ScalarDecode(datatobepacked[k].data(), inexcept, size, k);
+            BitPackEncoder::ScalarDecode(datatobepacked[k].data(), inexcept, size, k);
             inexcept += WordsUsed(size, k);
         }
     }
@@ -214,7 +214,7 @@ u32 FastPForEncoder::Decode(u32 *out, const u32 *in, u32 nitems)
     {
         const u8 b = *bytep++;
         const u8 cexcept = *bytep++;
-        auto newOut = bitpackEncoder.SimdDecode(out, in, BlockSize, b);
+        auto newOut = BitPackEncoder::SimdDecode(out, in, BlockSize, b);
         in += 8 * b * BlockSize / 256;
 
         if (cexcept > 0)
