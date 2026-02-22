@@ -40,7 +40,7 @@ static void (*const avx_pack_functions_mask_u16[17])(const u16 *, __m256i *) = {
     avxpackblock<u16, 15, true>,
     avxpackblock<u16, 16, true>};
 
-static void (*const avx_unpack_functions_u16[33])(const __m256i *, u16 *) = {
+static void (*const avx_unpack_functions_u16[17])(const __m256i *, u16 *) = {
     avxunpackblock<u16, 0>,
     avxunpackblock<u16, 1>,
     avxunpackblock<u16, 2>,
@@ -58,6 +58,25 @@ static void (*const avx_unpack_functions_u16[33])(const __m256i *, u16 *) = {
     avxunpackblock<u16, 14>,
     avxunpackblock<u16, 15>,
     avxunpackblock<u16, 16>};
+
+static u16 (*const avx_unpack_single_functions_u16[17])(const u16 *compressed, u32 idx) = {
+    UnPackSingle<u16, 0>,
+    UnPackSingle<u16, 1>,
+    UnPackSingle<u16, 2>,
+    UnPackSingle<u16, 3>,
+    UnPackSingle<u16, 4>,
+    UnPackSingle<u16, 5>,
+    UnPackSingle<u16, 6>,
+    UnPackSingle<u16, 7>,
+    UnPackSingle<u16, 8>,
+    UnPackSingle<u16, 9>,
+    UnPackSingle<u16, 10>,
+    UnPackSingle<u16, 11>,
+    UnPackSingle<u16, 12>,
+    UnPackSingle<u16, 13>,
+    UnPackSingle<u16, 14>,
+    UnPackSingle<u16, 15>,
+    UnPackSingle<u16, 16>};
 
 static void (*const avx_pack_functions_u32[33])(const u32 *, __m256i *) = {
     avxpackblock<u32, 0>,
@@ -163,6 +182,41 @@ static void (*const avx_unpack_functions_u32[33])(const __m256i *, u32 *) = {
     avxunpackblock<u32, 30>,
     avxunpackblock<u32, 31>,
     avxunpackblock<u32, 32>};
+
+static u32 (*const avx_unpack_single_functions_u32[33])(const u32 *compressed, u32 idx) = {
+    UnPackSingle<u32, 0>,
+    UnPackSingle<u32, 1>,
+    UnPackSingle<u32, 2>,
+    UnPackSingle<u32, 3>,
+    UnPackSingle<u32, 4>,
+    UnPackSingle<u32, 5>,
+    UnPackSingle<u32, 6>,
+    UnPackSingle<u32, 7>,
+    UnPackSingle<u32, 8>,
+    UnPackSingle<u32, 9>,
+    UnPackSingle<u32, 10>,
+    UnPackSingle<u32, 11>,
+    UnPackSingle<u32, 12>,
+    UnPackSingle<u32, 13>,
+    UnPackSingle<u32, 14>,
+    UnPackSingle<u32, 15>,
+    UnPackSingle<u32, 16>,
+    UnPackSingle<u32, 17>,
+    UnPackSingle<u32, 18>,
+    UnPackSingle<u32, 19>,
+    UnPackSingle<u32, 20>,
+    UnPackSingle<u32, 21>,
+    UnPackSingle<u32, 22>,
+    UnPackSingle<u32, 23>,
+    UnPackSingle<u32, 24>,
+    UnPackSingle<u32, 25>,
+    UnPackSingle<u32, 26>,
+    UnPackSingle<u32, 27>,
+    UnPackSingle<u32, 28>,
+    UnPackSingle<u32, 29>,
+    UnPackSingle<u32, 30>,
+    UnPackSingle<u32, 31>,
+    UnPackSingle<u32, 32>};
 
 static void (*const avx_pack_functions_u64[65])(const u64 *, __m256i *) = {
     avxpackblock<u64, 0>,
@@ -365,8 +419,75 @@ static void (*const avx_unpack_functions_u64[65])(const __m256i *, u64 *) = {
     avxunpackblock<u64, 63>,
     avxunpackblock<u64, 64>};
 
+static u64 (*const avx_unpack_single_functions_u64[65])(const u64 *compressed, u32 idx) = {
+    UnPackSingle<u64, 0>,
+    UnPackSingle<u64, 1>,
+    UnPackSingle<u64, 2>,
+    UnPackSingle<u64, 3>,
+    UnPackSingle<u64, 4>,
+    UnPackSingle<u64, 5>,
+    UnPackSingle<u64, 6>,
+    UnPackSingle<u64, 7>,
+    UnPackSingle<u64, 8>,
+    UnPackSingle<u64, 9>,
+    UnPackSingle<u64, 10>,
+    UnPackSingle<u64, 11>,
+    UnPackSingle<u64, 12>,
+    UnPackSingle<u64, 13>,
+    UnPackSingle<u64, 14>,
+    UnPackSingle<u64, 15>,
+    UnPackSingle<u64, 16>,
+    UnPackSingle<u64, 17>,
+    UnPackSingle<u64, 18>,
+    UnPackSingle<u64, 19>,
+    UnPackSingle<u64, 20>,
+    UnPackSingle<u64, 21>,
+    UnPackSingle<u64, 22>,
+    UnPackSingle<u64, 23>,
+    UnPackSingle<u64, 24>,
+    UnPackSingle<u64, 25>,
+    UnPackSingle<u64, 26>,
+    UnPackSingle<u64, 27>,
+    UnPackSingle<u64, 28>,
+    UnPackSingle<u64, 29>,
+    UnPackSingle<u64, 30>,
+    UnPackSingle<u64, 31>,
+    UnPackSingle<u64, 32>,
+    UnPackSingle<u64, 33>,
+    UnPackSingle<u64, 34>,
+    UnPackSingle<u64, 35>,
+    UnPackSingle<u64, 36>,
+    UnPackSingle<u64, 37>,
+    UnPackSingle<u64, 38>,
+    UnPackSingle<u64, 39>,
+    UnPackSingle<u64, 40>,
+    UnPackSingle<u64, 41>,
+    UnPackSingle<u64, 42>,
+    UnPackSingle<u64, 43>,
+    UnPackSingle<u64, 44>,
+    UnPackSingle<u64, 45>,
+    UnPackSingle<u64, 46>,
+    UnPackSingle<u64, 47>,
+    UnPackSingle<u64, 48>,
+    UnPackSingle<u64, 49>,
+    UnPackSingle<u64, 50>,
+    UnPackSingle<u64, 51>,
+    UnPackSingle<u64, 52>,
+    UnPackSingle<u64, 53>,
+    UnPackSingle<u64, 54>,
+    UnPackSingle<u64, 55>,
+    UnPackSingle<u64, 56>,
+    UnPackSingle<u64, 57>,
+    UnPackSingle<u64, 58>,
+    UnPackSingle<u64, 59>,
+    UnPackSingle<u64, 60>,
+    UnPackSingle<u64, 61>,
+    UnPackSingle<u64, 62>,
+    UnPackSingle<u64, 63>,
+    UnPackSingle<u64, 64>};
+
 template <typename T, bool USE_MASK = false>
-static inline auto get_pack_function(u32 bit) -> void (*)(const T *, __m256i *)
+static inline auto GetPackFunction(u32 bit) -> void (*)(const T *, __m256i *)
 {
     static_assert(std::is_same_v<T, u16> || std::is_same_v<T, u32> || std::is_same_v<T, u64>,
                   "AvxPack only supports u16, u32, and u64 types");
@@ -386,7 +507,7 @@ static inline auto get_pack_function(u32 bit) -> void (*)(const T *, __m256i *)
 }
 
 template <typename T>
-static inline auto get_unpack_function(u32 bit) -> void (*)(const __m256i *, T *)
+static inline auto GetUnPackFunction(u32 bit) -> void (*)(const __m256i *, T *)
 {
     static_assert(std::is_same_v<T, u16> || std::is_same_v<T, u32> || std::is_same_v<T, u64>,
                   "AvxPack only supports u16, u32, and u64 types");
@@ -405,15 +526,38 @@ static inline auto get_unpack_function(u32 bit) -> void (*)(const __m256i *, T *
     }
 }
 
+template <typename T>
+static inline auto GetUnPackSingleFunction(u32 bit) -> T (*)(const T *, u32)
+{
+    static_assert(std::is_same_v<T, u16> || std::is_same_v<T, u32> || std::is_same_v<T, u64>,
+                  "AvxPack only supports u16, u32, and u64 types");
+
+    if constexpr (std::is_same_v<T, u16>)
+    {
+        return avx_unpack_single_functions_u16[bit];
+    }
+    else if constexpr (std::is_same_v<T, u32>)
+    {
+        return avx_unpack_single_functions_u32[bit];
+    }
+    else
+    {
+        return avx_unpack_single_functions_u64[bit];
+    }
+}
+
 template <typename T, bool USE_MASK = false>
 inline T *AvxPack(const T *in, __m256i *out, const u32 number, const u32 bit)
 {
+    assert(reinterpret_cast<uintptr_t>(in) % alignof(T) == 0 && "Input not aligned");
+    assert(reinterpret_cast<uintptr_t>(out) % 32 == 0 && "Output not 32-byte aligned");
+
     constexpr int MAX_BITS = sizeof(T) * 8;
 
     if (bit > MAX_BITS)
         throw std::runtime_error("invalid bit size in pack");
 
-    auto func = get_pack_function<T, USE_MASK>(bit);
+    auto func = GetPackFunction<T, USE_MASK>(bit);
 
     for (u32 i = 0; i < number / 256; ++i)
     {
@@ -431,7 +575,7 @@ inline T *AvxUnPack(const __m256i *in, T *out, const u32 number, const u32 bit)
     if (bit > MAX_BITS)
         throw std::runtime_error("invalid bit size in unpack");
 
-    auto func = get_unpack_function<T>(bit);
+    auto func = GetUnPackFunction<T>(bit);
 
     for (u32 i = 0; i < number / 256; ++i)
     {
@@ -439,4 +583,15 @@ inline T *AvxUnPack(const __m256i *in, T *out, const u32 number, const u32 bit)
         out += 256;
     }
     return (T *)out;
+}
+
+template <typename T>
+inline auto AvxUnPackSingleFun(const u32 bit) -> T (*)(const T *, u32)
+{
+    constexpr int MAX_BITS = sizeof(T) * 8;
+
+    if (bit > MAX_BITS)
+        throw std::runtime_error("invalid bit size in unpack single");
+
+    return GetUnPackSingleFunction<T>(bit);
 }

@@ -182,7 +182,7 @@ u32 CompressSamples(SchemaType type, NumberStats<T> &stats)
     case Uncompressed:
         return EstimateUncompressed(stats.nitems);
     case Bitpacking:
-        return BitPackEncoder::EstimateCompression(stats.max, stats.nitems);
+        return BitPackEncoder<T>::EstimateCompression(stats.max, stats.nitems);
     case Dictionary:
         return DictionaryValueEncoder<T>::EstimateCompression(stats.distinct_values.Size(), stats.nitems);
     case FastPFor:

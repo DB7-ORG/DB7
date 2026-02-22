@@ -268,3 +268,52 @@ static void avxunpackblock(const __m256i *compressed, T *pout)
         _mm256_storeu_si256(out + i, result);
     }
 }
+
+template <typename T, u32 Bits>
+static T UnPackSingle(const T *compressed, u32 idx)
+{
+    static_assert(Bits >= 0, "Bits must be >= 0");
+
+    if constexpr (Bits == 0)
+    {
+        return 0;
+    }
+    else
+    {
+
+        using traits = avx_traits<T>;
+        constexpr u32 ELEMENT_BITS = traits::element_bits;
+        constexpr u32 ELEMENTS_PER_VECTOR = traits::elements_per_vector;
+        constexpr T mask = (Bits == ELEMENT_BITS) ? T(~T(0)) : (T(1) << Bits) - 1;
+
+        // Which 256-element block
+        u32 block = idx >> 8; // idx / 256
+
+        // Offset to start of this block (each block uses Bits * ELEMENTS_PER_VECTOR words)
+        auto in = compressed + block * Bits * ELEMENTS_PER_VECTOR;
+
+        // Lane and position within vector
+        u32 lane = (idx >> 3) & 31; // Which of 32 lanes (0-31)
+        u32 pos = idx & 7;          // Position within lane (0-7)
+
+        // Calculate bit position for this lane
+        u32 bitpos = lane * Bits;
+
+        // Which word and bit offset within that word
+        u32 word = bitpos >> (ELEMENT_BITS == 64 ? 6 : ELEMENT_BITS == 32 ? 5
+                                                                          : 4); // div by ELEMENT_BITS
+        u32 shift = bitpos & (ELEMENT_BITS - 1);                                // mod ELEMENT_BITS
+
+        // Read value from vectorized layout: word * ELEMENTS_PER_VECTOR + pos
+        T val = in[word * ELEMENTS_PER_VECTOR + pos] >> shift;
+
+        if constexpr (ELEMENT_BITS % Bits != 0)
+        {
+            constexpr u32 threshold = ELEMENT_BITS - Bits;
+            T hi = in[(word + 1) * ELEMENTS_PER_VECTOR + pos] << (ELEMENT_BITS - shift);
+            val |= (shift > threshold) ? hi : 0;
+        }
+
+        return val & mask;
+    }
+}

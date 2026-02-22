@@ -1155,21 +1155,29 @@ static inline u64 now_ns()
 
 void test_templated_bitpacking()
 {
-    constexpr long tuple_num = AlignUp(2'000'000, 256);
-    auto data = (u32 *)malloc(tuple_num * sizeof(u32));
-    auto out = (u32 *)malloc(tuple_num * sizeof(u32));
-    auto decoded = (u32 *)malloc(tuple_num * sizeof(u32));
+    using type = u16;
 
+    constexpr long tuple_num = AlignUp(2'000'000, 256);
+    auto data = (type *)malloc(tuple_num * sizeof(type));
+    auto out = (type *)malloc(tuple_num * sizeof(type));
+    auto decoded = (type *)malloc(tuple_num * sizeof(type));
+
+    auto usedBits = 3;
     for (int i = 0; i < tuple_num; i++)
     {
-        data[i] = i % (3);
+        data[i] = i % (8);
     }
 
     u64 t0 = now_ns();
-    BitPackEncoder::SimdEncode(out, data, tuple_num, 2);
+    BitPackEncoder<type>::SimdEncode(out, data, tuple_num, usedBits);
     u64 t1 = now_ns();
-    BitPackEncoder::SimdDecode(decoded, out, tuple_num, 2);
+    BitPackEncoder<type>::SimdDecode(decoded, out, tuple_num, usedBits);
     u64 t2 = now_ns();
+
+    std::cout << BitPackEncoder<type>::SimdDecodeSingle(out, 0, usedBits) << std::endl;
+    std::cout << BitPackEncoder<type>::SimdDecodeSingle(out, 1, usedBits) << std::endl;
+    std::cout << BitPackEncoder<type>::SimdDecodeSingle(out, 2, usedBits) << std::endl;
+    std::cout << BitPackEncoder<type>::SimdDecodeSingle(out, 3, usedBits) << std::endl;
 
     for (int i = 0; i < 20; i++)
     {

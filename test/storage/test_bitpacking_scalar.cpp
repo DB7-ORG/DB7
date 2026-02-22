@@ -12,7 +12,7 @@ using u32 = uint32_t;
 class BitPackEncoderTest : public ::testing::Test
 {
 protected:
-    BitPackEncoder encoder;
+    BitPackEncoder<u32> encoder;
     std::vector<u32> input;
     std::vector<u64> encoded;
     std::vector<u32> decoded;
@@ -249,7 +249,7 @@ TEST_F(BitPackEncoderTest, AllBitWidths)
 // Test multiple encoder instances (stateless verification)
 TEST_F(BitPackEncoderTest, MultipleEncoderInstances)
 {
-    BitPackEncoder encoder1, encoder2;
+    BitPackEncoder<u32> encoder1, encoder2;
     std::vector<u32> input_data = {10, 20, 30, 40, 50};
     std::vector<u64> encoded1(10, 0), encoded2(10, 0);
     std::vector<u32> decoded1(5, 0), decoded2(5, 0);
@@ -273,7 +273,7 @@ TEST_F(BitPackEncoderTest, MultipleEncoderInstances)
 // Test Encode/Decode with different encoder instances
 TEST_F(BitPackEncoderTest, CrossEncoderCompatibility)
 {
-    BitPackEncoder encoder_a, encoder_b;
+    BitPackEncoder<u32> encoder_a, encoder_b;
     std::vector<u32> input_data = {123, 456, 789, 1011, 1213};
     std::vector<u64> encoded(10, 0);
     std::vector<u32> decoded(5, 0);
