@@ -13,7 +13,7 @@ using u32 = uint32_t;
 class BitPackEncoderTest : public ::testing::Test
 {
 protected:
-    BitPackEncoder<u32> encoder;
+    BitPackScalarEncoder<u32> encoder;
     std::vector<u32> input;
     std::vector<u32> encoded;
     std::vector<u32> decoded;
@@ -34,12 +34,12 @@ protected:
         decoded.resize(values.size(), 0);
 
         // Encode
-        u32 *encEnd = encoder.ScalarEncode(encoded.data(), input.data(),
-                                           input.size(), usedBits);
+        u32 *encEnd = encoder.Encode(encoded.data(), input.data(),
+                                     input.size(), usedBits);
         (void)encEnd;
         // Decode
-        u32 *decEnd = encoder.ScalarDecode(decoded.data(), encoded.data(),
-                                           input.size(), usedBits);
+        u32 *decEnd = encoder.Decode(decoded.data(), encoded.data(),
+                                     input.size(), usedBits);
 
         // Verify
         for (size_t i = 0; i < values.size(); i++)

@@ -88,7 +88,7 @@ u32 *PackExceptionBlocks(u32 *out, cachealignedvector &in, u8 bit)
     const u32 size = static_cast<u32>(in.size());
     *out++ = size;
 
-    out = BitPackEncoder<u32>::ScalarEncode(out, in.data(), in.size(), bit);
+    out = BitPackScalarEncoder<u32>::Encode(out, in.data(), in.size(), bit);
 
     return out;
 }
@@ -137,11 +137,11 @@ u32 FastPForEncoder::Encode(u32 *out, const u32 *in, u32 nitems)
                     *bc++ = static_cast<u8>(k);
                 }
             }
-            out = BitPackEncoder<u32>::SimdEncode(out, in, BlockSize, bestb); // TODO executed once per loop
+            out = BitPackEncoder<u32>::Encode(out, in, BlockSize, bestb); // TODO executed once per loop
         }
         else
         {
-            out = BitPackEncoder<u32>::SimdEncodeWithoutMask(out, in, BlockSize, bestb); // TODO executed once per loop
+            out = BitPackEncoder<u32>::EncodeWithoutMask(out, in, BlockSize, bestb); // TODO executed once per loop
         }
     }
 
@@ -200,7 +200,7 @@ u32 FastPForEncoder::Decode(u32 *out, const u32 *in, u32 nitems)
         {
             u32 size = *(inexcept++);
             datatobepacked[k].resize(size);
-            inexcept = BitPackEncoder<u32>::ScalarDecode(datatobepacked[k].data(), inexcept, size, k);
+            inexcept = BitPackScalarEncoder<u32>::Decode(datatobepacked[k].data(), inexcept, size, k);
             // inexcept += WordsUsed(size, k);
         }
     }
@@ -215,7 +215,7 @@ u32 FastPForEncoder::Decode(u32 *out, const u32 *in, u32 nitems)
     {
         const u8 b = *bytep++;
         const u8 cexcept = *bytep++;
-        auto newOut = BitPackEncoder<u32>::SimdDecode(out, in, BlockSize, b);
+        auto newOut = BitPackEncoder<u32>::Decode(out, in, BlockSize, b);
         in += 8 * b * BlockSize / 256;
 
         if (cexcept > 0)

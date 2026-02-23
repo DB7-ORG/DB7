@@ -25,12 +25,12 @@ protected:
 
     uint32_t decode_single(uint32_t idx)
     {
-        return BitPackEncoder<u32>::SimdDecodeSingle(compressed, idx, bits);
+        return BitPackEncoder<u32>::DecodeSingle(compressed, idx, bits);
     }
 
     void Encode(uint32_t nitems)
     {
-        BitPackEncoder<u32>::SimdEncode(compressed, values, nitems, bits);
+        BitPackEncoder<u32>::Encode(compressed, values, nitems, bits);
     }
 };
 

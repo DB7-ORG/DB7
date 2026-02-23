@@ -1154,15 +1154,15 @@ void test_templated_bitpacking()
     }
 
     u64 t0 = now_ns();
-    BitPackEncoder<type>::SimdEncode(out, data, tuple_num, usedBits);
+    BitPackEncoder<type>::Encode(out, data, tuple_num, usedBits);
     u64 t1 = now_ns();
-    BitPackEncoder<type>::SimdDecode(decoded, out, tuple_num, usedBits);
+    BitPackEncoder<type>::Decode(decoded, out, tuple_num, usedBits);
     u64 t2 = now_ns();
 
-    std::cout << BitPackEncoder<type>::SimdDecodeSingle(out, 0, usedBits) << std::endl;
-    std::cout << BitPackEncoder<type>::SimdDecodeSingle(out, 1, usedBits) << std::endl;
-    std::cout << BitPackEncoder<type>::SimdDecodeSingle(out, 2, usedBits) << std::endl;
-    std::cout << BitPackEncoder<type>::SimdDecodeSingle(out, 3, usedBits) << std::endl;
+    std::cout << BitPackEncoder<type>::DecodeSingle(out, 0, usedBits) << std::endl;
+    std::cout << BitPackEncoder<type>::DecodeSingle(out, 1, usedBits) << std::endl;
+    std::cout << BitPackEncoder<type>::DecodeSingle(out, 2, usedBits) << std::endl;
+    std::cout << BitPackEncoder<type>::DecodeSingle(out, 3, usedBits) << std::endl;
 
     for (int i = 0; i < 20; i++)
     {
@@ -1197,9 +1197,9 @@ void test_templated_bitpacking_scalar()
     }
 
     u64 t0 = now_ns();
-    BitPackEncoder<type>::ScalarEncode(out, data, tuple_num, usedBits);
+    BitPackScalarEncoder<type>::Encode(out, data, tuple_num, usedBits);
     u64 t1 = now_ns();
-    BitPackEncoder<type>::ScalarDecode(decoded, out, tuple_num, usedBits);
+    BitPackScalarEncoder<type>::Decode(decoded, out, tuple_num, usedBits);
     u64 t2 = now_ns();
 
     for (int i = 0; i < tuple_num; i++)
