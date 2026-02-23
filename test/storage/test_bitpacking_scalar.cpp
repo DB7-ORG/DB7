@@ -76,7 +76,7 @@ TEST_F(BitPackEncoderTest, SplittingCase)
     u32 nitems = 500;
     u32 mod = 64;
     std::vector<u32> data(nitems);
-    for (int i = 0; i < nitems; i++)
+    for (u32 i = 0; i < nitems; i++)
     {
         data[i] = i % (mod);
     }
@@ -89,7 +89,7 @@ TEST_F(BitPackEncoderTest, GeneralCase)
     u32 nitems = 120'000;
     u32 mod = 222;
     std::vector<u32> data(nitems);
-    for (int i = 0; i < nitems; i++)
+    for (u32 i = 0; i < nitems; i++)
     {
         data[i] = i % mod;
     }

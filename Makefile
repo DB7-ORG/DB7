@@ -1,5 +1,6 @@
+MAKEFLAGS += -j$(nproc)
 CXX = g++
-BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -pedantic -Iinclude -Isrc/shared -march=native
+BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -pedantic -Iinclude -Isrc/shared -march=native 
 LDFLAGS = -lxxhash #-larrow
 
 # For c libs
@@ -97,7 +98,7 @@ $(COMPRESSION_FSST_OBJ): $(COMPRESSION_FSST_SRC) | $(OBJ_DIR)
 # Compile 
 $(COMPRESSION_BITPACK_OBJ): $(COMPRESSION_BITPACK_SRC) | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXO3FLAGS) -c $< -o $@
 
 	
 # Compile 

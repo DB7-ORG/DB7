@@ -24,7 +24,7 @@ improvements to existing decompressions
 - fuse rle and dict decomperssion to avoid intermediate array ❌
 - optimize append only dictionary for integer and double types ✅
 - bencharked something similar to swiss dictionary and my scalar version ✅
-- python code generation that manually writes bitpacking code for all uX types ❌// TODO replace w common
+- python code generation that manually writes bitpacking code for all uX types ✅// TODO replace w common
 
 - refactor code for compression so function caller does the allocations and alignment ✅
 - single value compression probably sucks try block decompression ❌
@@ -39,7 +39,6 @@ framework
 - validate other compression estimates and move estimate functions to compressions ✅
 - AlignedSTLAllocator is unsafe for pfor 1'000'000 entries ✅
 (std::vector<u8> bytescontainer; was the problem) should decide what size to use ❌
-- change pfor scalar packing exceptions is awful ❌
 - can i change stats after an estimation ❌
 - why do i get UNDERESTIMATE in [exceptions at 3 distinct bit widths] ❌
 - optimize dict in stat collecting it takes almost all of the time overhead ❌
@@ -49,6 +48,9 @@ framework
     // One way to handle this to build a hash map where we only compare 64 bit hash values and act like there
     // is no different values w same hash to avoid memcpy which should be as fast as integer statistics.
     // Then later calculate EV (might be better approaches)
+
+
+- change pfor scalar packing exceptions is awful ❌
 
 # RESEARCH
 
