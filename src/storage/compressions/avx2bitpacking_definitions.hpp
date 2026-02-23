@@ -550,7 +550,7 @@ template <typename T, bool USE_MASK = false>
 inline T *AvxPack(const T *in, __m256i *out, const u32 number, const u32 bit)
 {
     assert(reinterpret_cast<uintptr_t>(in) % alignof(T) == 0 && "Input not aligned");
-    assert(reinterpret_cast<uintptr_t>(out) % 32 == 0 && "Output not 32-byte aligned");
+    assert(reinterpret_cast<uintptr_t>(out) % 4 == 0 && "Output not 4-byte aligned");
 
     constexpr int MAX_BITS = sizeof(T) * 8;
 

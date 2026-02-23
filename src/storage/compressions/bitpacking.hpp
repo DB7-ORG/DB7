@@ -14,8 +14,8 @@ struct BitPackEncoder
     static ValueType *SimdEncodeWithoutMask(void *out, const ValueType *in, u32 nitems, u32 usedBits);
     static ValueType *SimdDecode(ValueType *out, const void *in, u32 nitems, u32 usedBits);
     static ValueType SimdDecodeSingle(const ValueType *compressed, u32 idx, u32 usedBits);
-    static u64 *ScalarEncode(void *out, const void *in, u32 nitems, u32 usedBits);
-    static u32 *ScalarDecode(void *out, const void *in, u32 nitems, u32 usedBits);
+    static ValueType *ScalarEncode(ValueType *out, const ValueType *in, const u32 nitems, const u32 usedBits);
+    static ValueType *ScalarDecode(ValueType *out, const ValueType *in, const u32 nitems, const u32 usedBits);
     static u32 ScalarDecodeSingle(const void *compressed, u32 idx, u32 usedBits);
     static u32 EstimateCompression(const u64 max, const u32 nitems);
 };
@@ -63,64 +63,100 @@ ValueType BitPackEncoder<ValueType>::SimdDecodeSingle(const ValueType *compresse
     return func(compressed, idx);
 }
 
-//////////////////////////////////// TODO should be templated
-
-static inline u64 *ScalarEncodePr(u64 *out, u32 *in, u32 nitems, u32 usedBits)
+template <typename ValueType>
+ValueType *BitPackEncoder<ValueType>::ScalarEncode(ValueType *out, const ValueType *in, const u32 nitems, const u32 usedBits)
 {
-    u32 shift = 0;
-    u64 pack = 0;
-    for (u32 i = 0; i < nitems; i++)
+    using ptype = u64;
+
+    constexpr u32 MAX_USED_BITS = sizeof(ptype) * 8;
+    assert(usedBits <= MAX_USED_BITS);
+
+    if (usedBits == MAX_USED_BITS)
     {
-        u64 item = (u64)in[i];
-        pack |= (item) << (shift);
-        shift += usedBits;
-        if (shift >= 64)
+        memcpy(out, in, nitems * sizeof(ValueType));
+        return out + nitems;
+    }
+    else if (usedBits == 0)
+    {
+        // skip
+        return out;
+    }
+
+    ptype *result = (ptype *)out;
+    i8 shift = MAX_USED_BITS - usedBits;
+    ptype pack = 0;
+    for (u32 i = 0; i < nitems; i++, shift -= usedBits)
+    {
+        ptype item = (ptype)in[i];
+
+        if (shift < 0)
         {
-            *(out++) = pack;
-            shift -= 64;
-            pack = item >> (usedBits - shift);
+            i8 pos_shift = -1 * shift;
+            ptype hi = item >> (pos_shift);
+            ptype lo = item & ((1ull << pos_shift) - 1);
+
+            pack |= hi;
+            *(result++) = pack;
+
+            shift = MAX_USED_BITS - pos_shift;
+            pack = lo << shift;
+            continue;
         }
+
+        pack |= item << shift;
     }
 
-    if (shift != 0)
-    {
-        *(out++) = pack;
-    }
+    *(result++) = pack;
 
-    return out;
+    return (ValueType *)result;
 }
 
-static inline u32 *ScalarDecodePr(u32 *out, u64 *in, u32 nitems, u32 usedBits)
+template <typename ValueType>
+ValueType *BitPackEncoder<ValueType>::ScalarDecode(ValueType *out, const ValueType *in, const u32 nitems, const u32 usedBits)
 {
-    u32 notUsedBits = 32 - usedBits;
+    using ptype = u64;
 
-    u64 mask = UINT32_MAX >> notUsedBits;
-    u32 shift = 0;
+    constexpr u32 MAX_USED_BITS = sizeof(ptype) * 8;
+    assert(usedBits <= MAX_USED_BITS);
+
+    if (usedBits == MAX_USED_BITS)
+    {
+        memcpy(out, in, nitems * sizeof(ValueType));
+        return out + nitems;
+    }
+    else if (usedBits == 0)
+    {
+        memset(out, 0, nitems * sizeof(ValueType));
+        return out + nitems;
+    }
+
+    const ptype *in_u64 = (const ptype *)in;
+    const ptype mask = (1ull << usedBits) - 1;
+    i8 shift = MAX_USED_BITS - usedBits;
     u32 offset = 0;
 
-    for (u32 i = 0; i < nitems; i++)
+    for (u32 i = 0; i < nitems; i++, shift -= usedBits)
     {
 
-        if (shift + usedBits <= 64)
+        if (shift == -i8(usedBits))
         {
-            out[i] = (in[offset] >> shift) & mask;
-            shift += usedBits;
-            if (shift == 64)
-            {
-                shift = 0;
-                offset++;
-            }
+            shift = MAX_USED_BITS - usedBits;
+            offset++;
         }
-        else
+        else if (shift < 0)
         {
-            u32 bitsFromFirst = 64 - shift;
-            u64 lowBits = in[offset] >> shift;
-            u64 highBits = in[offset + 1] & ((1ULL << (usedBits - bitsFromFirst)) - 1);
-            out[i] = lowBits | (highBits << bitsFromFirst);
+            i8 pos_shift = -1 * shift;
+
+            ptype hi = in_u64[offset] & ((1ull << (usedBits - pos_shift)) - 1);
+            ptype lo = in_u64[offset + 1] >> (MAX_USED_BITS - pos_shift);
+            out[i] = (hi << pos_shift) | (lo);
 
             offset++;
-            shift = usedBits - bitsFromFirst;
+            shift = MAX_USED_BITS - pos_shift;
+            continue;
         }
+
+        out[i] = (in_u64[offset] >> shift) & mask;
     }
 
     return out + nitems;
@@ -131,18 +167,6 @@ u32 BitPackEncoder<ValueType>::EstimateCompression(const u64 max, const u32 nite
 {
     u32 usedBits = CountBitsUsed(max);
     return (nitems * usedBits + sizeof(u8) - 1) / sizeof(u8);
-}
-
-template <typename ValueType>
-u64 *BitPackEncoder<ValueType>::ScalarEncode(void *out, const void *in, u32 nitems, u32 usedBits)
-{
-    return ScalarEncodePr((u64 *)out, (u32 *)in, nitems, usedBits);
-}
-
-template <typename ValueType>
-u32 *BitPackEncoder<ValueType>::ScalarDecode(void *out, const void *in, u32 nitems, u32 usedBits)
-{
-    return ScalarDecodePr((u32 *)out, (u64 *)in, nitems, usedBits);
 }
 
 template <typename ValueType>

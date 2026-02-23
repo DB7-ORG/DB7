@@ -1,6 +1,7 @@
 #include <iostream>
 #include "storage/disk_manager.hpp"
 #include "storage/compressions/compression.hpp"
+// #include "storage/compressions/avxbpacking.hpp"
 #include <random>
 #include <string.h>
 #include "storage/compressions/fsst.hpp"
@@ -358,52 +359,36 @@ static inline u64 now_ns()
 // std::mt19937 rng(123456);
 // std::uniform_int_distribution<u32> disti(5, 1'000'000'000);
 
-// void test_fastpfor()
-// {
-//     constexpr long tuple_num = AlignUp(2048, 256);
-//     auto data = (u32 *)malloc(tuple_num * sizeof(u32));
+void test_fastpfor()
+{
+    constexpr long tuple_num = AlignUp(BlockSize, 256);
 
-//     for (int i = 0; i < tuple_num; i++)
-//     {
-//         if (i % 150 == 0)
-//             data[i] = disti(rng);
-//         else
-//             data[i] = i % (4);
-//     }
-//     auto coded = (u32 *)malloc(tuple_num * sizeof(u32));
+    std::vector<u32> data(BlockSize, 15); // Most values are small
+    data[0] = 100000;                     // Exception
+    data[127] = 500000;                   // Exception
+    data[255] = 999999;
 
-//     auto encoder = FastPForEncoder();
+    auto coded = (u32 *)aligned_alloc(32, tuple_num * sizeof(u32));
+    auto decoded = (u32 *)aligned_alloc(32, tuple_num * sizeof(u32));
 
-//     auto decoded = (u32 *)malloc(tuple_num * sizeof(u32));
+    auto encoder = FastPForEncoder();
 
-//     u64 t0 = now_ns();
-//     encoder.Encode(coded, data, tuple_num);
-//     u64 t1 = now_ns();
-//     encoder.Decode(decoded, coded, tuple_num);
-//     u64 t2 = now_ns();
+    u64 t0 = now_ns();
+    encoder.Encode(coded, data.data(), tuple_num);
+    u64 t1 = now_ns();
+    encoder.Decode(decoded, coded, tuple_num);
+    u64 t2 = now_ns();
 
-//     for (int i = 0; i < 20; i++)
-//     {
-//         std::cout << decoded[i] << "-";
-//     }
-//     std::cout << std::endl;
+    for (int i = 0; i < 20; i++)
+    {
+        std::cout << decoded[i] << "-";
+    }
+    std::cout << std::endl;
 
-//     for (int i = 150; i < 150 + 20; i++)
-//     {
-//         std::cout << decoded[i] << "-";
-//     }
-//     std::cout << std::endl;
-
-//     for (int i = 0; i < 20; i++)
-//     {
-//         std::cout << decoded[tuple_num - i - 1] << "-";
-//     }
-//     std::cout << std::endl;
-
-//     printf("bitpack_encode:   %.3f ms\n", (t1 - t0) / 1e6);
-//     printf("bitpack_decode:   %.3f ms\n", (t2 - t1) / 1e6);
-//     printf("bitpack_total:   %.3f ms\n", (t2 - t0) / 1e6);
-// }
+    printf("bitpack_encode:   %.3f ms\n", (t1 - t0) / 1e6);
+    printf("bitpack_decode:   %.3f ms\n", (t2 - t1) / 1e6);
+    printf("bitpack_total:   %.3f ms\n", (t2 - t0) / 1e6);
+}
 
 // void test_scalarbitpack()
 // {
@@ -1155,9 +1140,9 @@ static inline u64 now_ns()
 
 void test_templated_bitpacking()
 {
-    using type = u16;
+    using type = u64;
 
-    constexpr long tuple_num = AlignUp(2'000'000, 256);
+    constexpr long tuple_num = AlignUp(120'000, 256);
     auto data = (type *)malloc(tuple_num * sizeof(type));
     auto out = (type *)malloc(tuple_num * sizeof(type));
     auto decoded = (type *)malloc(tuple_num * sizeof(type));
@@ -1196,6 +1181,81 @@ void test_templated_bitpacking()
     printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
 }
 
+void test_templated_bitpacking_scalar()
+{
+    using type = u32;
+
+    constexpr long tuple_num = 120'000; // AlignUp(120'000, 256);
+    auto data = (type *)malloc(tuple_num * sizeof(type));
+    auto out = (type *)malloc(tuple_num * sizeof(type));
+    auto decoded = (type *)malloc(tuple_num * sizeof(type));
+
+    auto usedBits = CountBitsUsed(u32(222 - 1));
+    for (int i = 0; i < tuple_num; i++)
+    {
+        data[i] = i % (222);
+    }
+
+    u64 t0 = now_ns();
+    BitPackEncoder<type>::ScalarEncode(out, data, tuple_num, usedBits);
+    u64 t1 = now_ns();
+    BitPackEncoder<type>::ScalarDecode(decoded, out, tuple_num, usedBits);
+    u64 t2 = now_ns();
+
+    for (int i = 0; i < tuple_num; i++)
+    {
+        // std::cout << decoded[i] << data[i] << std::endl;
+        assert(decoded[i] == data[i]);
+    }
+
+    printf("encode:   %.3f ms\n", (t1 - t0) / 1e6);
+    printf("decode:   %.3f ms\n", (t2 - t1) / 1e6);
+    printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
+}
+
+// void test_templated_bitpacking()
+// {
+//     using type = u32;
+
+//     constexpr long tuple_num = AlignUp(20'000'000, 256);
+//     auto data = (type *)malloc(tuple_num * sizeof(type));
+//     auto out = (type *)malloc(tuple_num * sizeof(type));
+//     auto decoded = (type *)malloc(tuple_num * sizeof(type));
+
+//     auto usedBits = 3;
+//     for (int i = 0; i < tuple_num; i++)
+//     {
+//         data[i] = i % (8);
+//     }
+
+//     u64 t0 = now_ns();
+//     AvxPack(data, (__m256i *)out, tuple_num, usedBits);
+//     u64 t1 = now_ns();
+//     AvxunPack((__m256i *)out, decoded, tuple_num, usedBits);
+//     u64 t2 = now_ns();
+
+//     // std::cout << BitPackEncoder<type>::SimdDecodeSingle(out, 0, usedBits) << std::endl;
+//     // std::cout << BitPackEncoder<type>::SimdDecodeSingle(out, 1, usedBits) << std::endl;
+//     // std::cout << BitPackEncoder<type>::SimdDecodeSingle(out, 2, usedBits) << std::endl;
+//     // std::cout << BitPackEncoder<type>::SimdDecodeSingle(out, 3, usedBits) << std::endl;
+
+//     for (int i = 0; i < 20; i++)
+//     {
+//         std::cout << decoded[i] << "-";
+//     }
+//     std::cout << std::endl;
+
+//     for (int i = 0; i < 20; i++)
+//     {
+//         std::cout << decoded[tuple_num - i - 1] << "-";
+//     }
+//     std::cout << std::endl;
+
+//     printf("encode:   %.3f ms\n", (t1 - t0) / 1e6);
+//     printf("decode:   %.3f ms\n", (t2 - t1) / 1e6);
+//     printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
+// }
+
 int main()
 {
     //  test_huge_dict_values();
@@ -1217,7 +1277,7 @@ int main()
 
     // benchmark_pfor_estimate();
 
-    test_templated_bitpacking();
+    test_templated_bitpacking_scalar();
 
     return 0;
 }

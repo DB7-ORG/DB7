@@ -88,7 +88,7 @@ u32 *PackExceptionBlocks(u32 *out, cachealignedvector &in, u8 bit)
     const u32 size = static_cast<u32>(in.size());
     *out++ = size;
 
-    out = (u32 *)BitPackEncoder<u32>::ScalarEncode(out, in.data(), in.size(), bit);
+    out = BitPackEncoder<u32>::ScalarEncode(out, in.data(), in.size(), bit);
 
     return out;
 }
@@ -108,8 +108,9 @@ FastPForEncoder::FastPForEncoder(u32 nitems)
 
 u32 FastPForEncoder::Encode(u32 *out, const u32 *in, u32 nitems)
 {
+    assert(nitems % BlockSize != 0);
+
     u32 *const initout = out;
-    CheckIsDivisibleBy(nitems, BlockSize / 32);
     u32 *const headerout = out++;
 
     ResetTable();
@@ -199,8 +200,8 @@ u32 FastPForEncoder::Decode(u32 *out, const u32 *in, u32 nitems)
         {
             u32 size = *(inexcept++);
             datatobepacked[k].resize(size);
-            BitPackEncoder<u32>::ScalarDecode(datatobepacked[k].data(), inexcept, size, k);
-            inexcept += WordsUsed(size, k);
+            inexcept = BitPackEncoder<u32>::ScalarDecode(datatobepacked[k].data(), inexcept, size, k);
+            // inexcept += WordsUsed(size, k);
         }
     }
 
