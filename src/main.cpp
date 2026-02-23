@@ -1256,6 +1256,19 @@ void test_templated_bitpacking_scalar()
 //     printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
 // }
 
+void test_cast()
+{
+    auto out = (u32 *)malloc(100 * sizeof(u32));
+    for (u32 i = 0; i < 100; i++)
+        out[i] = i + 1;
+    out++;
+    auto data = (u64 *)out;
+    auto hi = data[0] >> 32;
+    auto lo = data[0] & ((1ull << 32) - 1);
+
+    std::cout << hi << lo << std::endl;
+}
+
 int main()
 {
     //  test_huge_dict_values();
@@ -1277,7 +1290,7 @@ int main()
 
     // benchmark_pfor_estimate();
 
-    test_templated_bitpacking_scalar();
+    test_cast();
 
     return 0;
 }

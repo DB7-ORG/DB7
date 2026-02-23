@@ -84,7 +84,7 @@ struct avx_traits<u64>
 
 // Main template function that works for all types
 template <typename T, int BITS, bool USE_MASK = false>
-static void avxpackblock(const T *pin, __m256i *compressed)
+static void AvxPackBlock(const T *pin, __m256i *compressed)
 {
     if constexpr (BITS == 0)
     {
@@ -174,7 +174,7 @@ static void avxpackblock(const T *pin, __m256i *compressed)
 
 // Main template decode function that works for all types
 template <typename T, int BITS>
-static void avxunpackblock(const __m256i *compressed, T *pout)
+static void AvxUnPackBlock(const __m256i *compressed, T *pout)
 {
     if constexpr (BITS == 0)
     {
@@ -316,4 +316,52 @@ static T UnPackSingle(const T *compressed, u32 idx)
 
         return val & mask;
     }
+}
+
+template <typename T, u32 Bits>
+T *ScalarPack(T *out, const T *in, const u32 nitems)
+{
+    using ptype = u64;
+
+    constexpr u32 MAX_USED_BITS = sizeof(ptype) * 8;
+    assert(Bits <= MAX_USED_BITS);
+
+    if constexpr (Bits == MAX_USED_BITS)
+    {
+        memcpy(out, in, nitems * sizeof(T));
+        return out + nitems;
+    }
+    else if constexpr (Bits == 0)
+    {
+        // skip
+        return out;
+    }
+
+    ptype *result = reinterpret_cast<ptype *>(out);
+    i8 shift = MAX_USED_BITS - Bits;
+    ptype pack = 0;
+    for (u32 i = 0; i < nitems; i++, shift -= Bits)
+    {
+        ptype item = (ptype)in[i];
+
+        if (shift < 0)
+        {
+            i8 pos_shift = -1 * shift;
+            ptype hi = item >> (pos_shift);
+            ptype lo = item & ((1ull << pos_shift) - 1);
+
+            pack |= hi;
+            *(result++) = pack;
+
+            shift = MAX_USED_BITS - pos_shift;
+            pack = lo << shift;
+            continue;
+        }
+
+        pack |= item << shift;
+    }
+
+    *(result++) = pack;
+
+    return reinterpret_cast<T *>(result);
 }

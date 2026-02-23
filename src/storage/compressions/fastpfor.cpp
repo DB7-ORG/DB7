@@ -106,6 +106,8 @@ FastPForEncoder::FastPForEncoder(u32 nitems)
     bytescontainer.resize(3 * (nitems / BlockSize) + 2 * nitems); // TODO this should be optimized
 }
 
+using ValueType = u32;
+
 u32 FastPForEncoder::Encode(u32 *out, const u32 *in, u32 nitems)
 {
     assert(nitems % BlockSize != 0);
