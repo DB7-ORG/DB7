@@ -124,7 +124,7 @@ static void AvxPackBlock(const T *pin, __m256i *compressed)
     int bit_offset = 0;
     __m256i *current_word = &w0;
 
-#pragma GCC unroll 256
+#pragma GCC unroll 64
     for (int i = 0; i < NUM_VECTORS; ++i)
     {
         __m256i data = _mm256_lddqu_si256(in + i);
@@ -209,7 +209,7 @@ static void AvxUnPackBlock(const __m256i *compressed, T *pout)
     int bit_offset = 0;
     __m256i *current_word = &w0;
 
-#pragma GCC unroll 256
+#pragma GCC unroll 64
     for (int i = 0; i < NUM_VECTORS; ++i)
     {
         __m256i result;
@@ -319,12 +319,12 @@ static T UnPackSingle(const T *compressed, u32 idx)
 }
 
 template <typename T, u32 Bits>
-T *ScalarPack(T *out, const T *in, const u32 nitems)
+T *ScalarPackDef(T *out, const T *in, const u32 nitems)
 {
     using ptype = u64;
 
     constexpr u32 MAX_USED_BITS = sizeof(ptype) * 8;
-    assert(Bits <= MAX_USED_BITS);
+    static_assert(Bits <= MAX_USED_BITS);
 
     if constexpr (Bits == MAX_USED_BITS)
     {
@@ -364,4 +364,57 @@ T *ScalarPack(T *out, const T *in, const u32 nitems)
     *(result++) = pack;
 
     return reinterpret_cast<T *>(result);
+}
+
+template <typename T, u32 Bits>
+T *ScalarUnPackDef(T *out, const T *in, const u32 nitems)
+{
+    using ptype = u64;
+
+    constexpr u32 MAX_USED_BITS = sizeof(ptype) * 8;
+    static_assert(Bits <= MAX_USED_BITS);
+
+    if constexpr (Bits == MAX_USED_BITS)
+    {
+        memcpy(out, in, nitems * sizeof(T));
+        return out + nitems;
+    }
+    else if constexpr (Bits == 0)
+    {
+        memset(out, 0, nitems * sizeof(T));
+        return out + nitems;
+    }
+    else
+    {
+        const ptype *in_u64 = (const ptype *)in;
+        constexpr ptype mask = (1ull << Bits) - 1;
+        i8 shift = MAX_USED_BITS - Bits;
+        u32 offset = 0;
+
+        for (u32 i = 0; i < nitems; i++, shift -= Bits)
+        {
+
+            if (shift == -i8(Bits))
+            {
+                shift = MAX_USED_BITS - Bits;
+                offset++;
+            }
+            else if (shift < 0)
+            {
+                i8 pos_shift = -1 * shift;
+
+                ptype hi = in_u64[offset] & ((1ull << (Bits - pos_shift)) - 1);
+                ptype lo = in_u64[offset + 1] >> (MAX_USED_BITS - pos_shift);
+                out[i] = (hi << pos_shift) | (lo);
+
+                offset++;
+                shift = MAX_USED_BITS - pos_shift;
+                continue;
+            }
+
+            out[i] = (in_u64[offset] >> shift) & mask;
+        }
+
+        return out + nitems;
+    }
 }

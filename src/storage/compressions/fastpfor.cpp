@@ -110,7 +110,7 @@ using ValueType = u32;
 
 u32 FastPForEncoder::Encode(u32 *out, const u32 *in, u32 nitems)
 {
-    assert(nitems % BlockSize != 0);
+    assert(nitems % BlockSize == 0);
 
     u32 *const initout = out;
     u32 *const headerout = out++;

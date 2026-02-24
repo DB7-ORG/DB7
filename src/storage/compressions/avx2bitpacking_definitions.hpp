@@ -78,6 +78,44 @@ static u16 (*const avx_unpack_single_functions_u16[17])(const u16 *, u32) = {
     UnPackSingle<u16, 15>,
     UnPackSingle<u16, 16>};
 
+static u16 *(*const pack_scalar_functions_u16[17])(u16 *, const u16 *, const u32) = {
+    ScalarPackDef<u16, 0>,
+    ScalarPackDef<u16, 1>,
+    ScalarPackDef<u16, 2>,
+    ScalarPackDef<u16, 3>,
+    ScalarPackDef<u16, 4>,
+    ScalarPackDef<u16, 5>,
+    ScalarPackDef<u16, 6>,
+    ScalarPackDef<u16, 7>,
+    ScalarPackDef<u16, 8>,
+    ScalarPackDef<u16, 9>,
+    ScalarPackDef<u16, 10>,
+    ScalarPackDef<u16, 11>,
+    ScalarPackDef<u16, 12>,
+    ScalarPackDef<u16, 13>,
+    ScalarPackDef<u16, 14>,
+    ScalarPackDef<u16, 15>,
+    ScalarPackDef<u16, 16>};
+
+static u16 *(*const unpack_scalar_functions_u16[17])(u16 *, const u16 *, const u32) = {
+    ScalarUnPackDef<u16, 0>,
+    ScalarUnPackDef<u16, 1>,
+    ScalarUnPackDef<u16, 2>,
+    ScalarUnPackDef<u16, 3>,
+    ScalarUnPackDef<u16, 4>,
+    ScalarUnPackDef<u16, 5>,
+    ScalarUnPackDef<u16, 6>,
+    ScalarUnPackDef<u16, 7>,
+    ScalarUnPackDef<u16, 8>,
+    ScalarUnPackDef<u16, 9>,
+    ScalarUnPackDef<u16, 10>,
+    ScalarUnPackDef<u16, 11>,
+    ScalarUnPackDef<u16, 12>,
+    ScalarUnPackDef<u16, 13>,
+    ScalarUnPackDef<u16, 14>,
+    ScalarUnPackDef<u16, 15>,
+    ScalarUnPackDef<u16, 16>};
+
 static void (*const avx_pack_functions_u32[33])(const u32 *, __m256i *) = {
     AvxPackBlock<u32, 0>,
     AvxPackBlock<u32, 1>,
@@ -217,6 +255,76 @@ static u32 (*const avx_unpack_single_functions_u32[33])(const u32 *, u32) = {
     UnPackSingle<u32, 30>,
     UnPackSingle<u32, 31>,
     UnPackSingle<u32, 32>};
+
+static u32 *(*const pack_scalar_functions_u32[33])(u32 *, const u32 *, const u32) = {
+    ScalarPackDef<u32, 0>,
+    ScalarPackDef<u32, 1>,
+    ScalarPackDef<u32, 2>,
+    ScalarPackDef<u32, 3>,
+    ScalarPackDef<u32, 4>,
+    ScalarPackDef<u32, 5>,
+    ScalarPackDef<u32, 6>,
+    ScalarPackDef<u32, 7>,
+    ScalarPackDef<u32, 8>,
+    ScalarPackDef<u32, 9>,
+    ScalarPackDef<u32, 10>,
+    ScalarPackDef<u32, 11>,
+    ScalarPackDef<u32, 12>,
+    ScalarPackDef<u32, 13>,
+    ScalarPackDef<u32, 14>,
+    ScalarPackDef<u32, 15>,
+    ScalarPackDef<u32, 16>,
+    ScalarPackDef<u32, 17>,
+    ScalarPackDef<u32, 18>,
+    ScalarPackDef<u32, 19>,
+    ScalarPackDef<u32, 20>,
+    ScalarPackDef<u32, 21>,
+    ScalarPackDef<u32, 22>,
+    ScalarPackDef<u32, 23>,
+    ScalarPackDef<u32, 24>,
+    ScalarPackDef<u32, 25>,
+    ScalarPackDef<u32, 26>,
+    ScalarPackDef<u32, 27>,
+    ScalarPackDef<u32, 28>,
+    ScalarPackDef<u32, 29>,
+    ScalarPackDef<u32, 30>,
+    ScalarPackDef<u32, 31>,
+    ScalarPackDef<u32, 32>};
+
+static u32 *(*const unpack_scalar_functions_u32[33])(u32 *, const u32 *, const u32) = {
+    ScalarUnPackDef<u32, 0>,
+    ScalarUnPackDef<u32, 1>,
+    ScalarUnPackDef<u32, 2>,
+    ScalarUnPackDef<u32, 3>,
+    ScalarUnPackDef<u32, 4>,
+    ScalarUnPackDef<u32, 5>,
+    ScalarUnPackDef<u32, 6>,
+    ScalarUnPackDef<u32, 7>,
+    ScalarUnPackDef<u32, 8>,
+    ScalarUnPackDef<u32, 9>,
+    ScalarUnPackDef<u32, 10>,
+    ScalarUnPackDef<u32, 11>,
+    ScalarUnPackDef<u32, 12>,
+    ScalarUnPackDef<u32, 13>,
+    ScalarUnPackDef<u32, 14>,
+    ScalarUnPackDef<u32, 15>,
+    ScalarUnPackDef<u32, 16>,
+    ScalarUnPackDef<u32, 17>,
+    ScalarUnPackDef<u32, 18>,
+    ScalarUnPackDef<u32, 19>,
+    ScalarUnPackDef<u32, 20>,
+    ScalarUnPackDef<u32, 21>,
+    ScalarUnPackDef<u32, 22>,
+    ScalarUnPackDef<u32, 23>,
+    ScalarUnPackDef<u32, 24>,
+    ScalarUnPackDef<u32, 25>,
+    ScalarUnPackDef<u32, 26>,
+    ScalarUnPackDef<u32, 27>,
+    ScalarUnPackDef<u32, 28>,
+    ScalarUnPackDef<u32, 29>,
+    ScalarUnPackDef<u32, 30>,
+    ScalarUnPackDef<u32, 31>,
+    ScalarUnPackDef<u32, 32>};
 
 static void (*const avx_pack_functions_u64[65])(const u64 *, __m256i *) = {
     AvxPackBlock<u64, 0>,
@@ -486,72 +594,139 @@ static u64 (*const avx_unpack_single_functions_u64[65])(const u64 *, u32) = {
     UnPackSingle<u64, 63>,
     UnPackSingle<u64, 64>};
 
-static u64 *(*const avx_pack_scalar_single_functions_u32[65])(u64 *, const u64 *, const u32) = {
-    ScalarPack<u64, 0>,
-    ScalarPack<u64, 1>,
-    ScalarPack<u64, 2>,
-    ScalarPack<u64, 3>,
-    ScalarPack<u64, 4>,
-    ScalarPack<u64, 5>,
-    ScalarPack<u64, 6>,
-    ScalarPack<u64, 7>,
-    ScalarPack<u64, 8>,
-    ScalarPack<u64, 9>,
-    ScalarPack<u64, 10>,
-    ScalarPack<u64, 11>,
-    ScalarPack<u64, 12>,
-    ScalarPack<u64, 13>,
-    ScalarPack<u64, 14>,
-    ScalarPack<u64, 15>,
-    ScalarPack<u64, 16>,
-    ScalarPack<u64, 17>,
-    ScalarPack<u64, 18>,
-    ScalarPack<u64, 19>,
-    ScalarPack<u64, 20>,
-    ScalarPack<u64, 21>,
-    ScalarPack<u64, 22>,
-    ScalarPack<u64, 23>,
-    ScalarPack<u64, 24>,
-    ScalarPack<u64, 25>,
-    ScalarPack<u64, 26>,
-    ScalarPack<u64, 27>,
-    ScalarPack<u64, 28>,
-    ScalarPack<u64, 29>,
-    ScalarPack<u64, 30>,
-    ScalarPack<u64, 31>,
-    ScalarPack<u64, 32>,
-    ScalarPack<u64, 33>,
-    ScalarPack<u64, 34>,
-    ScalarPack<u64, 35>,
-    ScalarPack<u64, 36>,
-    ScalarPack<u64, 37>,
-    ScalarPack<u64, 38>,
-    ScalarPack<u64, 39>,
-    ScalarPack<u64, 40>,
-    ScalarPack<u64, 41>,
-    ScalarPack<u64, 42>,
-    ScalarPack<u64, 43>,
-    ScalarPack<u64, 44>,
-    ScalarPack<u64, 45>,
-    ScalarPack<u64, 46>,
-    ScalarPack<u64, 47>,
-    ScalarPack<u64, 48>,
-    ScalarPack<u64, 49>,
-    ScalarPack<u64, 50>,
-    ScalarPack<u64, 51>,
-    ScalarPack<u64, 52>,
-    ScalarPack<u64, 53>,
-    ScalarPack<u64, 54>,
-    ScalarPack<u64, 55>,
-    ScalarPack<u64, 56>,
-    ScalarPack<u64, 57>,
-    ScalarPack<u64, 58>,
-    ScalarPack<u64, 59>,
-    ScalarPack<u64, 60>,
-    ScalarPack<u64, 61>,
-    ScalarPack<u64, 62>,
-    ScalarPack<u64, 63>,
-    ScalarPack<u64, 64>};
+static u64 *(*const pack_scalar_functions_u64[65])(u64 *, const u64 *, const u32) = {
+    ScalarPackDef<u64, 0>,
+    ScalarPackDef<u64, 1>,
+    ScalarPackDef<u64, 2>,
+    ScalarPackDef<u64, 3>,
+    ScalarPackDef<u64, 4>,
+    ScalarPackDef<u64, 5>,
+    ScalarPackDef<u64, 6>,
+    ScalarPackDef<u64, 7>,
+    ScalarPackDef<u64, 8>,
+    ScalarPackDef<u64, 9>,
+    ScalarPackDef<u64, 10>,
+    ScalarPackDef<u64, 11>,
+    ScalarPackDef<u64, 12>,
+    ScalarPackDef<u64, 13>,
+    ScalarPackDef<u64, 14>,
+    ScalarPackDef<u64, 15>,
+    ScalarPackDef<u64, 16>,
+    ScalarPackDef<u64, 17>,
+    ScalarPackDef<u64, 18>,
+    ScalarPackDef<u64, 19>,
+    ScalarPackDef<u64, 20>,
+    ScalarPackDef<u64, 21>,
+    ScalarPackDef<u64, 22>,
+    ScalarPackDef<u64, 23>,
+    ScalarPackDef<u64, 24>,
+    ScalarPackDef<u64, 25>,
+    ScalarPackDef<u64, 26>,
+    ScalarPackDef<u64, 27>,
+    ScalarPackDef<u64, 28>,
+    ScalarPackDef<u64, 29>,
+    ScalarPackDef<u64, 30>,
+    ScalarPackDef<u64, 31>,
+    ScalarPackDef<u64, 32>,
+    ScalarPackDef<u64, 33>,
+    ScalarPackDef<u64, 34>,
+    ScalarPackDef<u64, 35>,
+    ScalarPackDef<u64, 36>,
+    ScalarPackDef<u64, 37>,
+    ScalarPackDef<u64, 38>,
+    ScalarPackDef<u64, 39>,
+    ScalarPackDef<u64, 40>,
+    ScalarPackDef<u64, 41>,
+    ScalarPackDef<u64, 42>,
+    ScalarPackDef<u64, 43>,
+    ScalarPackDef<u64, 44>,
+    ScalarPackDef<u64, 45>,
+    ScalarPackDef<u64, 46>,
+    ScalarPackDef<u64, 47>,
+    ScalarPackDef<u64, 48>,
+    ScalarPackDef<u64, 49>,
+    ScalarPackDef<u64, 50>,
+    ScalarPackDef<u64, 51>,
+    ScalarPackDef<u64, 52>,
+    ScalarPackDef<u64, 53>,
+    ScalarPackDef<u64, 54>,
+    ScalarPackDef<u64, 55>,
+    ScalarPackDef<u64, 56>,
+    ScalarPackDef<u64, 57>,
+    ScalarPackDef<u64, 58>,
+    ScalarPackDef<u64, 59>,
+    ScalarPackDef<u64, 60>,
+    ScalarPackDef<u64, 61>,
+    ScalarPackDef<u64, 62>,
+    ScalarPackDef<u64, 63>,
+    ScalarPackDef<u64, 64>};
+
+static u64 *(*const unpack_scalar_functions_u64[65])(u64 *, const u64 *, const u32) = {
+    ScalarUnPackDef<u64, 0>,
+    ScalarUnPackDef<u64, 1>,
+    ScalarUnPackDef<u64, 2>,
+    ScalarUnPackDef<u64, 3>,
+    ScalarUnPackDef<u64, 4>,
+    ScalarUnPackDef<u64, 5>,
+    ScalarUnPackDef<u64, 6>,
+    ScalarUnPackDef<u64, 7>,
+    ScalarUnPackDef<u64, 8>,
+    ScalarUnPackDef<u64, 9>,
+    ScalarUnPackDef<u64, 10>,
+    ScalarUnPackDef<u64, 11>,
+    ScalarUnPackDef<u64, 12>,
+    ScalarUnPackDef<u64, 13>,
+    ScalarUnPackDef<u64, 14>,
+    ScalarUnPackDef<u64, 15>,
+    ScalarUnPackDef<u64, 16>,
+    ScalarUnPackDef<u64, 17>,
+    ScalarUnPackDef<u64, 18>,
+    ScalarUnPackDef<u64, 19>,
+    ScalarUnPackDef<u64, 20>,
+    ScalarUnPackDef<u64, 21>,
+    ScalarUnPackDef<u64, 22>,
+    ScalarUnPackDef<u64, 23>,
+    ScalarUnPackDef<u64, 24>,
+    ScalarUnPackDef<u64, 25>,
+    ScalarUnPackDef<u64, 26>,
+    ScalarUnPackDef<u64, 27>,
+    ScalarUnPackDef<u64, 28>,
+    ScalarUnPackDef<u64, 29>,
+    ScalarUnPackDef<u64, 30>,
+    ScalarUnPackDef<u64, 31>,
+    ScalarUnPackDef<u64, 32>,
+    ScalarUnPackDef<u64, 33>,
+    ScalarUnPackDef<u64, 34>,
+    ScalarUnPackDef<u64, 35>,
+    ScalarUnPackDef<u64, 36>,
+    ScalarUnPackDef<u64, 37>,
+    ScalarUnPackDef<u64, 38>,
+    ScalarUnPackDef<u64, 39>,
+    ScalarUnPackDef<u64, 40>,
+    ScalarUnPackDef<u64, 41>,
+    ScalarUnPackDef<u64, 42>,
+    ScalarUnPackDef<u64, 43>,
+    ScalarUnPackDef<u64, 44>,
+    ScalarUnPackDef<u64, 45>,
+    ScalarUnPackDef<u64, 46>,
+    ScalarUnPackDef<u64, 47>,
+    ScalarUnPackDef<u64, 48>,
+    ScalarUnPackDef<u64, 49>,
+    ScalarUnPackDef<u64, 50>,
+    ScalarUnPackDef<u64, 51>,
+    ScalarUnPackDef<u64, 52>,
+    ScalarUnPackDef<u64, 53>,
+    ScalarUnPackDef<u64, 54>,
+    ScalarUnPackDef<u64, 55>,
+    ScalarUnPackDef<u64, 56>,
+    ScalarUnPackDef<u64, 57>,
+    ScalarUnPackDef<u64, 58>,
+    ScalarUnPackDef<u64, 59>,
+    ScalarUnPackDef<u64, 60>,
+    ScalarUnPackDef<u64, 61>,
+    ScalarUnPackDef<u64, 62>,
+    ScalarUnPackDef<u64, 63>,
+    ScalarUnPackDef<u64, 64>};
 
 template <typename T, bool USE_MASK = false>
 static inline auto GetPackFunction(u32 bit) -> void (*)(const T *, __m256i *)
@@ -614,22 +789,42 @@ static inline auto GetUnPackSingleFunction(u32 bit) -> T (*)(const T *, u32)
 }
 
 template <typename T>
-static inline auto GetScalarPack(u32 bit) -> void (*)(T *out, const T *in, const u32 nitems)
+static inline auto GetScalarPackDef(u32 bit) -> T *(*)(T * out, const T *in, const u32 nitems)
 {
     static_assert(std::is_same_v<T, u16> || std::is_same_v<T, u32> || std::is_same_v<T, u64>,
                   "AvxPack only supports u16, u32, and u64 types");
 
     if constexpr (std::is_same_v<T, u16>)
     {
-        return avx_pack_scalar_single_functions_u16[bit];
+        return pack_scalar_functions_u16[bit];
     }
     else if constexpr (std::is_same_v<T, u32>)
     {
-        return avx_pack_scalar_single_functions_u32[bit];
+        return pack_scalar_functions_u32[bit];
     }
     else
     {
-        return avx_pack_scalar_single_functions_u64[bit];
+        return pack_scalar_functions_u64[bit];
+    }
+}
+
+template <typename T>
+static inline auto GetScalarUnPackDef(u32 bit) -> T *(*)(T * out, const T *in, const u32 nitems)
+{
+    static_assert(std::is_same_v<T, u16> || std::is_same_v<T, u32> || std::is_same_v<T, u64>,
+                  "AvxPack only supports u16, u32, and u64 types");
+
+    if constexpr (std::is_same_v<T, u16>)
+    {
+        return unpack_scalar_functions_u16[bit];
+    }
+    else if constexpr (std::is_same_v<T, u32>)
+    {
+        return unpack_scalar_functions_u32[bit];
+    }
+    else
+    {
+        return unpack_scalar_functions_u64[bit];
     }
 }
 
@@ -684,12 +879,26 @@ inline auto AvxUnPackSingleFun(const u32 bit) -> T (*)(const T *, u32)
 }
 
 template <typename T>
-inline T *ScalarPack(const u32 bit)
+inline T *ScalarPack(T *out, const T *in, const u32 nitems, const u32 bit)
+
 {
     constexpr int MAX_BITS = sizeof(T) * 8;
 
     if (bit > MAX_BITS)
         throw std::runtime_error("invalid bit size in unpack single");
 
-    return GetScalarPack<T>(bit);
+    auto func = GetScalarPackDef<T>(bit);
+    return func(out, in, nitems);
+}
+
+template <typename T>
+inline T *ScalarUnPack(T *out, const T *in, const u32 nitems, const u32 bit)
+{
+    constexpr int MAX_BITS = sizeof(T) * 8;
+
+    if (bit > MAX_BITS)
+        throw std::runtime_error("invalid bit size in unpack single");
+
+    auto func = GetScalarUnPackDef<T>(bit);
+    return func(out, in, nitems);
 }

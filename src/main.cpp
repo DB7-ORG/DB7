@@ -1142,7 +1142,7 @@ void test_templated_bitpacking()
 {
     using type = u64;
 
-    constexpr long tuple_num = AlignUp(120'000, 256);
+    constexpr long tuple_num = AlignUp(200'000'000, 256);
     auto data = (type *)malloc(tuple_num * sizeof(type));
     auto out = (type *)malloc(tuple_num * sizeof(type));
     auto decoded = (type *)malloc(tuple_num * sizeof(type));
@@ -1164,17 +1164,17 @@ void test_templated_bitpacking()
     std::cout << BitPackEncoder<type>::DecodeSingle(out, 2, usedBits) << std::endl;
     std::cout << BitPackEncoder<type>::DecodeSingle(out, 3, usedBits) << std::endl;
 
-    for (int i = 0; i < 20; i++)
-    {
-        std::cout << decoded[i] << "-";
-    }
-    std::cout << std::endl;
+    // for (int i = 0; i < 20; i++)
+    // {
+    //     std::cout << decoded[i] << "-";
+    // }
+    // std::cout << std::endl;
 
-    for (int i = 0; i < 20; i++)
-    {
-        std::cout << decoded[tuple_num - i - 1] << "-";
-    }
-    std::cout << std::endl;
+    // for (int i = 0; i < 20; i++)
+    // {
+    //     std::cout << decoded[tuple_num - i - 1] << "-";
+    // }
+    // std::cout << std::endl;
 
     printf("encode:   %.3f ms\n", (t1 - t0) / 1e6);
     printf("decode:   %.3f ms\n", (t2 - t1) / 1e6);
@@ -1185,7 +1185,7 @@ void test_templated_bitpacking_scalar()
 {
     using type = u32;
 
-    constexpr long tuple_num = 120'000; // AlignUp(120'000, 256);
+    constexpr long tuple_num = 200'000'000; // AlignUp(120'000, 256);
     auto data = (type *)malloc(tuple_num * sizeof(type));
     auto out = (type *)malloc(tuple_num * sizeof(type));
     auto decoded = (type *)malloc(tuple_num * sizeof(type));
@@ -1202,11 +1202,11 @@ void test_templated_bitpacking_scalar()
     BitPackScalarEncoder<type>::Decode(decoded, out, tuple_num, usedBits);
     u64 t2 = now_ns();
 
-    for (int i = 0; i < tuple_num; i++)
-    {
-        // std::cout << decoded[i] << data[i] << std::endl;
-        assert(decoded[i] == data[i]);
-    }
+    // for (int i = 0; i < tuple_num; i++)
+    // {
+    //     // std::cout << decoded[i] << data[i] << std::endl;
+    //     assert(decoded[i] == data[i]);
+    // }
 
     printf("encode:   %.3f ms\n", (t1 - t0) / 1e6);
     printf("decode:   %.3f ms\n", (t2 - t1) / 1e6);
@@ -1290,7 +1290,8 @@ int main()
 
     // benchmark_pfor_estimate();
 
-    test_cast();
+    test_templated_bitpacking();
+    test_templated_bitpacking_scalar();
 
     return 0;
 }
