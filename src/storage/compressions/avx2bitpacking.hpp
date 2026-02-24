@@ -9,6 +9,7 @@ using u8 = uint8_t;
 using u16 = uint16_t;
 using u32 = uint32_t;
 using u64 = uint64_t;
+using i8 = int8_t;
 
 #ifndef __AVX2__
 #error This code requires AVX2 support (available on Intel processors made since ~2013)
@@ -31,16 +32,16 @@ struct avx_traits;
 template <>
 struct avx_traits<u16>
 {
-    static constexpr int element_bits = 16;
-    static constexpr int elements_per_vector = 16; // 256 bits / 16 bits
-    static constexpr int num_vectors = 256 / 16;   // 16 vectors for 256 values
+    static constexpr u32 element_bits = 16;
+    static constexpr u32 elements_per_vector = 16; // 256 bits / 16 bits
+    static constexpr u32 num_vectors = 256 / 16;   // 16 vectors for 256 values
 
-    static __m256i shift_left(__m256i v, int bits)
+    static inline __m256i shift_left(__m256i v, u32 bits)
     {
         return _mm256_slli_epi16(v, bits);
     }
 
-    static __m256i shift_right(__m256i v, int bits)
+    static inline __m256i shift_right(__m256i v, u32 bits)
     {
         return _mm256_srli_epi16(v, bits);
     }
@@ -49,16 +50,16 @@ struct avx_traits<u16>
 template <>
 struct avx_traits<u32>
 {
-    static constexpr int element_bits = 32;
-    static constexpr int elements_per_vector = 8; // 256 bits / 32 bits
-    static constexpr int num_vectors = 256 / 8;   // 32 vectors for 256 values
+    static constexpr u32 element_bits = 32;
+    static constexpr u32 elements_per_vector = 8; // 256 bits / 32 bits
+    static constexpr u32 num_vectors = 256 / 8;   // 32 vectors for 256 values
 
-    static __m256i shift_left(__m256i v, int bits)
+    static inline __m256i shift_left(__m256i v, u32 bits)
     {
         return _mm256_slli_epi32(v, bits);
     }
 
-    static __m256i shift_right(__m256i v, int bits)
+    static inline __m256i shift_right(__m256i v, u32 bits)
     {
         return _mm256_srli_epi32(v, bits);
     }
@@ -67,24 +68,42 @@ struct avx_traits<u32>
 template <>
 struct avx_traits<u64>
 {
-    static constexpr int element_bits = 64;
-    static constexpr int elements_per_vector = 4; // 256 bits / 64 bits
-    static constexpr int num_vectors = 256 / 4;   // 64 vectors for 256 values
+    static constexpr u32 element_bits = 64;
+    static constexpr u32 elements_per_vector = 4; // 256 bits / 64 bits
+    static constexpr u32 num_vectors = 256 / 4;   // 64 vectors for 256 values
 
-    static __m256i shift_left(__m256i v, int bits)
+    static inline __m256i shift_left(__m256i v, u32 bits)
     {
         return _mm256_slli_epi64(v, bits);
     }
 
-    static __m256i shift_right(__m256i v, int bits)
+    static inline __m256i shift_right(__m256i v, u32 bits)
     {
         return _mm256_srli_epi64(v, bits);
     }
 };
 
+template <typename T, u32 BITS, u32 ELEMENT_BITS>
+static constexpr __m256i GetMask()
+{
+    constexpr T mask_value = (BITS == ELEMENT_BITS) ? T(~T(0)) : (T(1) << BITS) - 1;
+    if constexpr (std::is_same_v<T, u16>)
+    {
+        return _mm256_set1_epi16(mask_value);
+    }
+    else if constexpr (std::is_same_v<T, u32>)
+    {
+        return _mm256_set1_epi32(mask_value);
+    }
+    else if constexpr (std::is_same_v<T, u64>)
+    {
+        return _mm256_set1_epi64x(mask_value);
+    }
+}
+
 // Main template function that works for all types
-template <typename T, int BITS, bool USE_MASK = false>
-static void AvxPackBlock(const T *pin, __m256i *compressed)
+template <typename T, u32 BITS, bool USE_MASK = false>
+static void AvxPackBlock(const T *__restrict pin, __m256i *__restrict compressed)
 {
     if constexpr (BITS == 0)
     {
@@ -94,38 +113,26 @@ static void AvxPackBlock(const T *pin, __m256i *compressed)
     }
 
     using traits = avx_traits<T>;
-    constexpr int ELEMENT_BITS = traits::element_bits;
-    constexpr int NUM_VECTORS = traits::num_vectors;
+    constexpr u32 ELEMENT_BITS = traits::element_bits;
+    constexpr u32 NUM_VECTORS = traits::num_vectors;
 
     __m256i mask;
     if constexpr (USE_MASK && BITS < ELEMENT_BITS)
     {
-        constexpr T mask_value = (T(1) << BITS) - 1;
-        if constexpr (std::is_same_v<T, u16>)
-        {
-            mask = _mm256_set1_epi16(mask_value);
-        }
-        else if constexpr (std::is_same_v<T, u32>)
-        {
-            mask = _mm256_set1_epi32(mask_value);
-        }
-        else if constexpr (std::is_same_v<T, u64>)
-        {
-            mask = _mm256_set1_epi64x(mask_value);
-        }
+        mask = GetMask<T, BITS, ELEMENT_BITS>();
     }
 
-    const __m256i *in = (const __m256i *)pin;
+    const __m256i *in = reinterpret_cast<const __m256i *>(pin);
     __m256i w0 = _mm256_setzero_si256();
     __m256i w1 = _mm256_setzero_si256();
     __m256i tmp;
 
-    int out_idx = 0;
-    int bit_offset = 0;
+    u32 out_idx = 0;
+    u32 bit_offset = 0;
     __m256i *current_word = &w0;
 
 #pragma GCC unroll 64
-    for (int i = 0; i < NUM_VECTORS; ++i)
+    for (u32 i = 0; i < NUM_VECTORS; ++i)
     {
         __m256i data = _mm256_lddqu_si256(in + i);
 
@@ -157,8 +164,8 @@ static void AvxPackBlock(const T *pin, __m256i *compressed)
         }
         else
         {
-            int bits_in_first = ELEMENT_BITS - bit_offset;
-            int bits_in_second = BITS - bits_in_first;
+            u32 bits_in_first = ELEMENT_BITS - bit_offset;
+            u32 bits_in_second = BITS - bits_in_first;
 
             tmp = data;
             *current_word = _mm256_or_si256(*current_word,
@@ -173,8 +180,8 @@ static void AvxPackBlock(const T *pin, __m256i *compressed)
 }
 
 // Main template decode function that works for all types
-template <typename T, int BITS>
-static void AvxUnPackBlock(const __m256i *compressed, T *pout)
+template <typename T, u32 BITS>
+static void AvxUnPackBlock(const __m256i *__restrict compressed, T *__restrict pout)
 {
     if constexpr (BITS == 0)
     {
@@ -183,86 +190,48 @@ static void AvxUnPackBlock(const __m256i *compressed, T *pout)
     }
 
     using traits = avx_traits<T>;
-    constexpr int ELEMENT_BITS = traits::element_bits;
-    constexpr int NUM_VECTORS = traits::num_vectors;
+    constexpr u32 ELEMENT_BITS = traits::element_bits;
+    constexpr u32 NUM_VECTORS = traits::num_vectors;
 
-    constexpr T mask_value = (BITS == ELEMENT_BITS) ? T(~T(0)) : (T(1) << BITS) - 1;
-    __m256i mask;
-    if constexpr (std::is_same_v<T, u16>)
-    {
-        mask = _mm256_set1_epi16(mask_value);
-    }
-    else if constexpr (std::is_same_v<T, u32>)
-    {
-        mask = _mm256_set1_epi32(mask_value);
-    }
-    else if constexpr (std::is_same_v<T, u64>)
-    {
-        mask = _mm256_set1_epi64x(mask_value);
-    }
+    __m256i mask = GetMask<T, BITS, ELEMENT_BITS>();
 
-    __m256i *out = (__m256i *)pout;
-    __m256i w0 = _mm256_lddqu_si256(compressed);
-    __m256i w1;
-
-    int in_idx = 0;
-    int bit_offset = 0;
-    __m256i *current_word = &w0;
+    __m256i *out = reinterpret_cast<__m256i *>(pout);
+    __m256i w[2];
+    w[0] = _mm256_lddqu_si256(compressed + 0);
 
 #pragma GCC unroll 64
-    for (int i = 0; i < NUM_VECTORS; ++i)
+    for (u32 i = 0; i < NUM_VECTORS; ++i)
     {
-        __m256i result;
+        u32 bit_offset = (i * BITS) % ELEMENT_BITS;
+        u32 in_idx = (i * BITS) / ELEMENT_BITS;
+        u32 slot = in_idx & 1;
+        u32 prev_in_idx = (i == 0) ? 0 : ((i - 1) * BITS) / ELEMENT_BITS;
 
+        if (i > 0 && in_idx != prev_in_idx)
+            w[slot] = _mm256_lddqu_si256(compressed + in_idx);
+
+        __m256i result;
         if (bit_offset + BITS <= ELEMENT_BITS)
         {
             if (bit_offset == 0 && BITS == ELEMENT_BITS)
-            {
-                result = *current_word;
-            }
+                result = w[slot];
             else if (bit_offset == 0)
-            {
-                result = _mm256_and_si256(mask, *current_word);
-            }
+                result = _mm256_and_si256(mask, w[slot]);
             else if (bit_offset + BITS == ELEMENT_BITS)
-            {
-                result = traits::shift_right(*current_word, bit_offset);
-            }
+                result = traits::shift_right(w[slot], bit_offset);
             else
-            {
-                result = _mm256_and_si256(mask, traits::shift_right(*current_word, bit_offset));
-            }
-
-            bit_offset += BITS;
-
-            if (bit_offset == ELEMENT_BITS)
-            {
-                in_idx++;
-                bit_offset = 0;
-
-                if (i + 1 < NUM_VECTORS)
-                {
-                    current_word = (current_word == &w0) ? &w1 : &w0;
-                    *current_word = _mm256_lddqu_si256(compressed + in_idx);
-                }
-            }
+                result = _mm256_and_si256(mask, traits::shift_right(w[slot], bit_offset));
         }
         else
         {
-            int bits_in_first = ELEMENT_BITS - bit_offset;
-            int bits_in_second = BITS - bits_in_first;
+            u32 bits_in_first = ELEMENT_BITS - bit_offset;
+            u32 next_slot = (in_idx + 1) & 1;
 
-            __m256i low_bits = traits::shift_right(*current_word, bit_offset);
+            w[next_slot] = _mm256_lddqu_si256(compressed + in_idx + 1);
 
-            in_idx++;
-            current_word = (current_word == &w0) ? &w1 : &w0;
-            *current_word = _mm256_lddqu_si256(compressed + in_idx);
-
-            __m256i high_bits = traits::shift_left(*current_word, bits_in_first);
-
+            __m256i low_bits = traits::shift_right(w[slot], bit_offset);
+            __m256i high_bits = traits::shift_left(w[next_slot], bits_in_first);
             result = _mm256_and_si256(mask, _mm256_or_si256(low_bits, high_bits));
-
-            bit_offset = bits_in_second;
         }
 
         _mm256_storeu_si256(out + i, result);
@@ -270,7 +239,7 @@ static void AvxUnPackBlock(const __m256i *compressed, T *pout)
 }
 
 template <typename T, u32 Bits>
-static T UnPackSingle(const T *compressed, u32 idx)
+static T UnPackSingle(const T *compressed, const u32 idx)
 {
     static_assert(Bits >= 0, "Bits must be >= 0");
 
@@ -280,29 +249,28 @@ static T UnPackSingle(const T *compressed, u32 idx)
     }
     else
     {
-
         using traits = avx_traits<T>;
         constexpr u32 ELEMENT_BITS = traits::element_bits;
         constexpr u32 ELEMENTS_PER_VECTOR = traits::elements_per_vector;
         constexpr T mask = (Bits == ELEMENT_BITS) ? T(~T(0)) : (T(1) << Bits) - 1;
 
         // Which 256-element block
-        u32 block = idx >> 8; // idx / 256
+        const u32 block = idx / 256; // idx / 256
 
         // Offset to start of this block (each block uses Bits * ELEMENTS_PER_VECTOR words)
         auto in = compressed + block * Bits * ELEMENTS_PER_VECTOR;
 
         // Lane and position within vector
-        u32 lane = (idx >> 3) & 31; // Which of 32 lanes (0-31)
-        u32 pos = idx & 7;          // Position within lane (0-7)
+        const u32 lane = (idx / ELEMENTS_PER_VECTOR) % ELEMENT_BITS; // Which of 32 lanes (0-31)
+        const u32 pos = idx % ELEMENTS_PER_VECTOR;                   // Position within lane (0-7)
 
         // Calculate bit position for this lane
-        u32 bitpos = lane * Bits;
+        const u32 bitpos = lane * Bits;
 
         // Which word and bit offset within that word
-        u32 word = bitpos >> (ELEMENT_BITS == 64 ? 6 : ELEMENT_BITS == 32 ? 5
-                                                                          : 4); // div by ELEMENT_BITS
-        u32 shift = bitpos & (ELEMENT_BITS - 1);                                // mod ELEMENT_BITS
+        const u32 word = bitpos >> (ELEMENT_BITS == 64 ? 6 : ELEMENT_BITS == 32 ? 5
+                                                                                : 4); // div by ELEMENT_BITS
+        const u32 shift = bitpos & (ELEMENT_BITS - 1);                                // mod ELEMENT_BITS
 
         // Read value from vectorized layout: word * ELEMENTS_PER_VECTOR + pos
         T val = in[word * ELEMENTS_PER_VECTOR + pos] >> shift;
@@ -317,6 +285,67 @@ static T UnPackSingle(const T *compressed, u32 idx)
         return val & mask;
     }
 }
+
+// template <typename T, u32 Bits, u32 IDX>
+// static inline T UnPackSingleTemp(const T *compressed)
+// {
+//     static_assert(Bits >= 0, "Bits must be >= 0");
+
+//     if constexpr (Bits == 0)
+//     {
+//         return 0;
+//     }
+//     else
+//     {
+//         using traits = avx_traits<T>;
+//         constexpr u32 ELEMENT_BITS = traits::element_bits;
+//         constexpr u32 ELEMENTS_PER_VECTOR = traits::elements_per_vector;
+//         constexpr T mask = (Bits == ELEMENT_BITS) ? T(~T(0)) : (T(1) << Bits) - 1;
+
+//         // Which 256-element block
+//         constexpr u32 block = IDX / 256; // idx / 256
+
+//         // Offset to start of this block (each block uses Bits * ELEMENTS_PER_VECTOR words)
+//         auto in = compressed + block * Bits * ELEMENTS_PER_VECTOR;
+
+//         // Lane and position within vector
+//         constexpr u32 lane = (IDX / ELEMENTS_PER_VECTOR) % ELEMENT_BITS; // Which of 32 lanes (0-31)
+//         constexpr u32 pos = IDX % ELEMENTS_PER_VECTOR;                   // Position within lane (0-7)
+
+//         // Calculate bit position for this lane
+//         constexpr u32 bitpos = lane * Bits;
+
+//         // Which word and bit offset within that word
+//         constexpr u32 word = bitpos >> (ELEMENT_BITS == 64 ? 6 : ELEMENT_BITS == 32 ? 5
+//                                                                                     : 4); // div by ELEMENT_BITS
+//         constexpr u32 shift = bitpos & (ELEMENT_BITS - 1);                                // mod ELEMENT_BITS
+
+//         // Read value from vectorized layout: word * ELEMENTS_PER_VECTOR + pos
+//         T val = in[word * ELEMENTS_PER_VECTOR + pos] >> shift;
+
+//         if constexpr (ELEMENT_BITS % Bits != 0)
+//         {
+//             constexpr u32 threshold = ELEMENT_BITS - Bits;
+//             if constexpr (shift > threshold) // <-- use constexpr if since shift is constexpr
+//             {
+//                 T hi = in[(word + 1) * ELEMENTS_PER_VECTOR + pos] << (ELEMENT_BITS - shift);
+//                 val |= hi;
+//             }
+//         }
+
+//         return val & mask;
+//     }
+// }
+
+// template <typename T, u32 BITS, u32 IDX = 0>
+// static void AvxUnPackBlockTemp(const T *compressed, T *pout)
+// {
+//     if constexpr (IDX < 256)
+//     {
+//         pout[IDX] = UnPackSingleTemp<T, BITS, IDX>(compressed);
+//         AvxUnPackBlockTemp<T, BITS, IDX + 1>(compressed, pout);
+//     }
+// }
 
 template <typename T, u32 Bits>
 T *ScalarPackDef(T *out, const T *in, const u32 nitems)
@@ -418,3 +447,38 @@ T *ScalarUnPackDef(T *out, const T *in, const u32 nitems)
         return out + nitems;
     }
 }
+
+// template <typename T, u32 BITS, u32 IDX>
+// T ScalarUnPackSingle(const T *in)
+// {
+//     using traits = avx_traits<T>;
+//     constexpr u32 ELEMENT_BITS = traits::element_bits;
+//     constexpr u32 pos = (IDX * BITS) / ELEMENT_BITS;
+//     constexpr u32 offset = (IDX * BITS) % ELEMENT_BITS;
+//     constexpr u32 shift = BITS + offset - ELEMENT_BITS;
+//     constexpr u32 mask = (1u << BITS) - 1;
+
+//     if constexpr (ELEMENT_BITS - offset < BITS)
+//     {
+//         return (in[pos] << shift) | (in[pos + 1] >> (ELEMENT_BITS - shift));
+//     }
+//     else
+//     {
+//         return (in[pos] >> shift) & mask;
+//     }
+// }
+
+// template <typename T, u32 BITS, u32 IDX = 0>
+// T *ScalarUnPackDef2(T *__restrict out, const T *__restrict in, const u32 nitems)
+// {
+//     using traits = avx_traits<T>;
+//     constexpr u32 ELEMENT_BITS = traits::element_bits;
+//     constexpr u32 PERIOD = 64;
+
+//     out[IDX] = ScalarUnPackSingle<T, BITS, IDX>(in);
+
+//     if constexpr (IDX + 1 < PERIOD)
+//         return ScalarUnPackDef2<T, BITS, IDX + 1>(out, in, nitems);
+//     else
+//         return out + PERIOD;
+// }

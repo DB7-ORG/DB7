@@ -1147,10 +1147,10 @@ void test_templated_bitpacking()
     auto out = (type *)malloc(tuple_num * sizeof(type));
     auto decoded = (type *)malloc(tuple_num * sizeof(type));
 
-    auto usedBits = 3;
+    auto usedBits = CountBitsUsed(u32(222 - 1));
     for (int i = 0; i < tuple_num; i++)
     {
-        data[i] = i % (8);
+        data[i] = i % (222);
     }
 
     u64 t0 = now_ns();
@@ -1164,10 +1164,10 @@ void test_templated_bitpacking()
     std::cout << BitPackEncoder<type>::DecodeSingle(out, 2, usedBits) << std::endl;
     std::cout << BitPackEncoder<type>::DecodeSingle(out, 3, usedBits) << std::endl;
 
-    // for (int i = 0; i < 20; i++)
-    // {
-    //     std::cout << decoded[i] << "-";
-    // }
+    for (int i = 0; i < tuple_num; i++)
+    {
+        assert(data[i] == decoded[i]);
+    }
     // std::cout << std::endl;
 
     // for (int i = 0; i < 20; i++)
@@ -1183,14 +1183,14 @@ void test_templated_bitpacking()
 
 void test_templated_bitpacking_scalar()
 {
-    using type = u32;
+    using type = u64;
 
     constexpr long tuple_num = 200'000'000; // AlignUp(120'000, 256);
     auto data = (type *)malloc(tuple_num * sizeof(type));
     auto out = (type *)malloc(tuple_num * sizeof(type));
     auto decoded = (type *)malloc(tuple_num * sizeof(type));
 
-    auto usedBits = CountBitsUsed(u32(222 - 1));
+    auto usedBits = CountBitsUsed(u64(222 - 1));
     for (int i = 0; i < tuple_num; i++)
     {
         data[i] = i % (222);
@@ -1269,6 +1269,43 @@ void test_cast()
     std::cout << hi << lo << std::endl;
 }
 
+void test_templated_bitpacking_temp()
+{
+    using type = u64;
+
+    constexpr long tuple_num = AlignUp(200, 32);
+    auto data = (type *)malloc(tuple_num * sizeof(type));
+    auto out = (type *)malloc(tuple_num * sizeof(type));
+    auto decoded = (type *)malloc(tuple_num * sizeof(type));
+
+    constexpr auto usedBits = 8;
+    for (int i = 0; i < tuple_num; i++)
+    {
+        data[i] = i % (222);
+    }
+
+    u64 t0 = now_ns();
+    BitPackEncoder<type>::Encode(out, data, tuple_num, usedBits);
+    u64 t1 = now_ns();
+    // BitPackEncoder<type>::Decode(decoded, out, tuple_num, usedBits);
+    for (u32 i = 0; i < tuple_num; ++i)
+    {
+        // ScalarUnPackDef2<type, usedBits>(decoded, out, tuple_num);
+        break;
+    }
+
+    u64 t2 = now_ns();
+
+    for (int i = 0; i < 64; i++)
+    {
+        assert(data[i] == decoded[i]);
+    }
+
+    printf("encode:   %.3f ms\n", (t1 - t0) / 1e6);
+    printf("decode:   %.3f ms\n", (t2 - t1) / 1e6);
+    printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
+}
+
 int main()
 {
     //  test_huge_dict_values();
@@ -1290,8 +1327,11 @@ int main()
 
     // benchmark_pfor_estimate();
 
+    // test_templated_bitpacking_temp();
+
     test_templated_bitpacking();
-    test_templated_bitpacking_scalar();
+
+    // test_templated_bitpacking_scalar();
 
     return 0;
 }
