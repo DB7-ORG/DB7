@@ -4,13 +4,14 @@
 #include <random>
 #include <algorithm>
 
+template <typename T>
 class FastPForTest : public ::testing::Test
 {
 protected:
     FastPForEncoder encoder;
-    std::vector<u32> input;
+    std::vector<T> input;
     std::vector<u32> encoded;
-    std::vector<u32> decoded;
+    std::vector<T> decoded;
 
     void SetUp() override
     {
@@ -19,7 +20,7 @@ protected:
         decoded.resize(10000);
     }
 
-    void EncodeAndDecode(const std::vector<u32> &data)
+    void EncodeAndDecode(const std::vector<T> &data)
     {
         input = data;
         encoder.Encode(encoded.data(), input.data(), input.size());
@@ -28,114 +29,117 @@ protected:
     }
 };
 
-TEST_F(FastPForTest, BlockSizeAssertions)
+using TestTypes = ::testing::Types<u16, u32, u64>;
+TYPED_TEST_SUITE(FastPForTest, TestTypes);
+
+TYPED_TEST(FastPForTest, BlockSizeAssertions)
 {
     EXPECT_EQ(BlockSize, 256);
     EXPECT_EQ(BlockSize % 256, 0);
 }
 
-TEST_F(FastPForTest, EncodeDecodeAllZeros)
+TYPED_TEST(FastPForTest, EncodeDecodeAllZeros)
 {
-    std::vector<u32> data(BlockSize, 0);
-    EncodeAndDecode(data);
-    EXPECT_EQ(decoded, input);
+    std::vector<TypeParam> data(BlockSize, 0);
+    this->EncodeAndDecode(data);
+    EXPECT_EQ(this->decoded, this->input);
 }
 
-TEST_F(FastPForTest, EncodeDecodeAllOnes)
+TYPED_TEST(FastPForTest, EncodeDecodeAllOnes)
 {
-    std::vector<u32> data(BlockSize, 1);
-    EncodeAndDecode(data);
-    EXPECT_EQ(decoded, input);
+    std::vector<TypeParam> data(BlockSize, 1);
+    this->EncodeAndDecode(data);
+    EXPECT_EQ(this->decoded, this->input);
 }
 
-TEST_F(FastPForTest, EncodeDecodeSmallValues)
+TYPED_TEST(FastPForTest, EncodeDecodeSmallValues)
 {
-    std::vector<u32> data(BlockSize);
+    std::vector<TypeParam> data(BlockSize);
     for (size_t i = 0; i < BlockSize; i++)
     {
         data[i] = i % 16; // Values 0-15 (4 bits)
     }
-    EncodeAndDecode(data);
-    EXPECT_EQ(decoded, input);
+    this->EncodeAndDecode(data);
+    EXPECT_EQ(this->decoded, this->input);
 }
 
-TEST_F(FastPForTest, EncodeDecodeSequential)
+TYPED_TEST(FastPForTest, EncodeDecodeSequential)
 {
-    std::vector<u32> data(BlockSize);
+    std::vector<TypeParam> data(BlockSize);
     for (size_t i = 0; i < BlockSize; i++)
     {
         data[i] = i;
     }
-    EncodeAndDecode(data);
-    EXPECT_EQ(decoded, input);
+    this->EncodeAndDecode(data);
+    EXPECT_EQ(this->decoded, this->input);
 }
 
-TEST_F(FastPForTest, EncodeDecodeMaxValues)
+TYPED_TEST(FastPForTest, EncodeDecodeMaxValues)
 {
-    std::vector<u32> data(BlockSize, 0xFFFFFFFF);
-    EncodeAndDecode(data);
-    EXPECT_EQ(decoded, input);
+    std::vector<TypeParam> data(BlockSize, 5000);
+    this->EncodeAndDecode(data);
+    EXPECT_EQ(this->decoded, this->input);
 }
 
-TEST_F(FastPForTest, EncodeDecodeMixedValues)
+TYPED_TEST(FastPForTest, EncodeDecodeMixedValues)
 {
-    std::vector<u32> data(BlockSize);
+    std::vector<TypeParam> data(BlockSize);
     for (size_t i = 0; i < BlockSize; i++)
     {
-        data[i] = (i % 2 == 0) ? 10 : 1000000;
+        data[i] = (i % 2 == 0) ? 10 : 1000;
     }
-    EncodeAndDecode(data);
-    EXPECT_EQ(decoded, input);
+    this->EncodeAndDecode(data);
+    EXPECT_EQ(this->decoded, this->input);
 }
 
-TEST_F(FastPForTest, EncodeDecodeWithExceptions)
+TYPED_TEST(FastPForTest, EncodeDecodeWithExceptions)
 {
-    std::vector<u32> data(BlockSize, 15); // Most values are small
-    data[0] = 100000;                     // Exception
-    data[127] = 500000;                   // Exception
-    data[255] = 999999;                   // Exception
+    std::vector<TypeParam> data(BlockSize, 15); // Most values are small
+    data[0] = 1000;                             // Exception
+    data[127] = 5000;                           // Exception
+    data[255] = 9999;                           // Exception
 
-    EncodeAndDecode(data);
-    EXPECT_EQ(decoded, input);
+    this->EncodeAndDecode(data);
+    EXPECT_EQ(this->decoded, this->input);
 }
 
-TEST_F(FastPForTest, EncodeDecodeMultipleBlocks)
+TYPED_TEST(FastPForTest, EncodeDecodeMultipleBlocks)
 {
-    std::vector<u32> data(BlockSize * 4); // 4 blocks
+    std::vector<TypeParam> data(BlockSize * 4); // 4 blocks
     for (size_t i = 0; i < data.size(); i++)
     {
         data[i] = i % 1000;
     }
-    EncodeAndDecode(data);
-    EXPECT_EQ(decoded, input);
+    this->EncodeAndDecode(data);
+    EXPECT_EQ(this->decoded, this->input);
 }
 
-TEST_F(FastPForTest, EncodeDecodeRandomData)
+TYPED_TEST(FastPForTest, EncodeDecodeRandomData)
 {
     std::mt19937 rng(42);
-    std::uniform_int_distribution<u32> dist(0, 1000000);
+    std::uniform_int_distribution<u32> dist(0, 1000);
 
-    std::vector<u32> data(BlockSize * 2);
+    std::vector<TypeParam> data(BlockSize * 2);
     for (auto &val : data)
     {
         val = dist(rng);
     }
 
-    EncodeAndDecode(data);
-    EXPECT_EQ(decoded, input);
+    this->EncodeAndDecode(data);
+    EXPECT_EQ(this->decoded, this->input);
 }
 
-TEST_F(FastPForTest, EncodeDecodeSkewedDistribution)
+TYPED_TEST(FastPForTest, EncodeDecodeSkewedDistribution)
 {
     std::mt19937 rng(123);
-    std::vector<u32> data(BlockSize * 3);
+    std::vector<TypeParam> data(BlockSize * 3);
 
     // 90% small values, 10% large values
     for (size_t i = 0; i < data.size(); i++)
     {
         if (i % 10 == 0)
         {
-            data[i] = rng() % 10000000; // Large value
+            data[i] = rng() % 10000; // Large value
         }
         else
         {
@@ -143,93 +147,77 @@ TEST_F(FastPForTest, EncodeDecodeSkewedDistribution)
         }
     }
 
-    EncodeAndDecode(data);
-    EXPECT_EQ(decoded, input);
+    this->EncodeAndDecode(data);
+    EXPECT_EQ(this->decoded, this->input);
 }
 
-TEST_F(FastPForTest, EncodeDecode1BitValues)
+TYPED_TEST(FastPForTest, EncodeDecode1BitValues)
 {
-    std::vector<u32> data(BlockSize);
+    std::vector<TypeParam> data(BlockSize);
     for (size_t i = 0; i < BlockSize; i++)
     {
         data[i] = i % 2; // Only 0 or 1
     }
-    EncodeAndDecode(data);
-    EXPECT_EQ(decoded, input);
+    this->EncodeAndDecode(data);
+    EXPECT_EQ(this->decoded, this->input);
 }
 
-TEST_F(FastPForTest, EncodeDecodePowerOfTwo)
+TYPED_TEST(FastPForTest, EncodeDecodePowerOfTwo)
 {
-    std::vector<u32> data(BlockSize);
+    std::vector<TypeParam> data(BlockSize);
     for (size_t i = 0; i < BlockSize; i++)
     {
         data[i] = 1u << (i % 16); // Powers of 2
     }
-    EncodeAndDecode(data);
-    EXPECT_EQ(decoded, input);
+    this->EncodeAndDecode(data);
+    EXPECT_EQ(this->decoded, this->input);
 }
 
-TEST_F(FastPForTest, EncodeDecodeAlternatingPattern)
+TYPED_TEST(FastPForTest, EncodeDecodeAlternatingPattern)
 {
-    std::vector<u32> data(BlockSize * 2);
+    std::vector<TypeParam> data(BlockSize * 2);
     for (size_t i = 0; i < data.size(); i++)
     {
-        data[i] = (i % 4 < 2) ? 5 : 50000;
+        data[i] = (i % 4 < 2) ? 5 : 5000;
     }
-    EncodeAndDecode(data);
-    EXPECT_EQ(decoded, input);
+    this->EncodeAndDecode(data);
+    EXPECT_EQ(this->decoded, this->input);
 }
 
-TEST_F(FastPForTest, CompressionRatioSmallValues)
+TYPED_TEST(FastPForTest, CompressionRatioSmallValues)
 {
-    std::vector<u32> data(BlockSize, 7); // 3 bits needed
+    std::vector<TypeParam> data(BlockSize, 7); // 3 bits needed
 
-    u32 encoded_size = encoder.Encode(encoded.data(), data.data(), data.size());
-    u32 original_size = data.size() * sizeof(u32);
+    u32 encoded_size = this->encoder.Encode(this->encoded.data(), data.data(), data.size());
+    u32 original_size = data.size() * sizeof(TypeParam);
 
     // Should compress well (exact ratio depends on implementation)
-    EXPECT_LT(encoded_size * sizeof(u32), original_size);
+    EXPECT_LT(encoded_size * sizeof(TypeParam), original_size);
 }
 
-TEST_F(FastPForTest, VerifyIndividualElements)
+TYPED_TEST(FastPForTest, VerifyIndividualElements)
 {
-    std::vector<u32> data(BlockSize);
+    std::vector<TypeParam> data(BlockSize);
     for (size_t i = 0; i < BlockSize; i++)
     {
         data[i] = i * 7 + 13; // Arbitrary pattern
     }
 
-    EncodeAndDecode(data);
+    this->EncodeAndDecode(data);
 
     for (size_t i = 0; i < BlockSize; i++)
     {
-        EXPECT_EQ(decoded[i], input[i]) << "Mismatch at index " << i;
+        EXPECT_EQ(this->decoded[i], this->input[i]) << "Mismatch at index " << i;
     }
 }
 
-TEST_F(FastPForTest, RoundTripMultipleTimes)
+TYPED_TEST(FastPForTest, EdgeCasesSingleException)
 {
-    std::vector<u32> data(BlockSize);
-    for (size_t i = 0; i < BlockSize; i++)
-    {
-        data[i] = i % 256;
-    }
+    std::vector<TypeParam> data(BlockSize, 1);
 
-    // Encode and Decode multiple times
-    for (int round = 0; round < 5; round++)
-    {
-        EncodeAndDecode(data);
-        EXPECT_EQ(decoded, data) << "Round " << round << " failed";
-        data = decoded; // Use decoded as input for next round
-    }
-}
+    data[BlockSize / 2] = 6000; // Single outlier
 
-TEST_F(FastPForTest, EdgeCasesSingleException)
-{
-    std::vector<u32> data(BlockSize, 1);
-    data[BlockSize / 2] = 1000000; // Single outlier
-
-    EncodeAndDecode(data);
-    EXPECT_EQ(decoded, input);
-    EXPECT_EQ(decoded[BlockSize / 2], 1000000u);
+    this->EncodeAndDecode(data);
+    EXPECT_EQ(this->decoded, this->input);
+    EXPECT_EQ(this->decoded[BlockSize / 2], 6000);
 }

@@ -361,15 +361,18 @@ static inline u64 now_ns()
 
 void test_fastpfor()
 {
-    constexpr long tuple_num = AlignUp(BlockSize, 256);
+    constexpr long tuple_num = AlignUp(4 * BlockSize, 256);
 
-    std::vector<u32> data(BlockSize, 15); // Most values are small
-    data[0] = 100000;                     // Exception
-    data[127] = 500000;                   // Exception
-    data[255] = 999999;
+    using type = u64;
 
-    auto coded = (u32 *)aligned_alloc(32, tuple_num * sizeof(u32));
-    auto decoded = (u32 *)aligned_alloc(32, tuple_num * sizeof(u32));
+    std::vector<type> data(tuple_num);
+    for (size_t i = 0; i < data.size(); i++)
+    {
+        data[i] = i % 1000;
+    }
+
+    auto coded = (u32 *)aligned_alloc(32, tuple_num * sizeof(type));
+    auto decoded = (type *)aligned_alloc(32, tuple_num * sizeof(type));
 
     auto encoder = FastPForEncoder();
 
@@ -379,11 +382,10 @@ void test_fastpfor()
     encoder.Decode(decoded, coded, tuple_num);
     u64 t2 = now_ns();
 
-    for (int i = 0; i < 20; i++)
+    for (int i = 0; i < tuple_num; i++)
     {
-        std::cout << decoded[i] << "-";
+        assert(data[i] == decoded[i]);
     }
-    std::cout << std::endl;
 
     printf("bitpack_encode:   %.3f ms\n", (t1 - t0) / 1e6);
     printf("bitpack_decode:   %.3f ms\n", (t2 - t1) / 1e6);
@@ -1256,19 +1258,6 @@ void test_templated_bitpacking_scalar()
 //     printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
 // }
 
-void test_cast()
-{
-    auto out = (u32 *)malloc(100 * sizeof(u32));
-    for (u32 i = 0; i < 100; i++)
-        out[i] = i + 1;
-    out++;
-    auto data = (u64 *)out;
-    auto hi = data[0] >> 32;
-    auto lo = data[0] & ((1ull << 32) - 1);
-
-    std::cout << hi << lo << std::endl;
-}
-
 void test_templated_bitpacking_temp()
 {
     using type = u64;
@@ -1306,6 +1295,10 @@ void test_templated_bitpacking_temp()
     printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
 }
 
+void test_fast_pfor_template()
+{
+}
+
 int main()
 {
     //  test_huge_dict_values();
@@ -1329,7 +1322,7 @@ int main()
 
     // test_templated_bitpacking_temp();
 
-    test_templated_bitpacking();
+    test_fastpfor();
 
     // test_templated_bitpacking_scalar();
 
