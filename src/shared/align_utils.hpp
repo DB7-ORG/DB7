@@ -4,8 +4,7 @@
 #include <stddef.h>
 #include <limits>
 
-template <typename T>
-constexpr T RoundUp(T val, T alignment)
+inline u32 RoundUp(u32 val, u32 alignment)
 {
     return (val + alignment - 1) / alignment;
 }

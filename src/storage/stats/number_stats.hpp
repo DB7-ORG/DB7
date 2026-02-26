@@ -34,7 +34,7 @@ struct NumberStats
     const ValidityMask *bitmap;
     const u32 nitems;
     CountHSet<T> distinct_values;
-    u32 bitFreq[33];
+    u32 bitFreq[65];
     u32 total_size;
     u32 null_count; // TODO useless??
     u32 count_run_len;
@@ -85,11 +85,14 @@ struct NumberStats
 
     void GenerateStats()
     {
+
         u32 rle_count = 1;
         u32 rle_last_seen = src[0];
         min = rle_last_seen;
         max = rle_last_seen;
         bool allValid = bitmap->AllValid();
+        u32 used = CountBitsUsed(rle_last_seen);
+        bitFreq[used]++;
         for (u32 i = 1; i < nitems; i++)
         {
             if (!allValid && !bitmap->RowIsValid(i)) // TODO this can be optimize everywhere

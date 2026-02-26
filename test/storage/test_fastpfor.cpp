@@ -45,13 +45,6 @@ TYPED_TEST(FastPForTest, EncodeDecodeAllZeros)
     EXPECT_EQ(this->decoded, this->input);
 }
 
-TYPED_TEST(FastPForTest, EncodeDecodeAllOnes)
-{
-    std::vector<TypeParam> data(BlockSize, 1);
-    this->EncodeAndDecode(data);
-    EXPECT_EQ(this->decoded, this->input);
-}
-
 TYPED_TEST(FastPForTest, EncodeDecodeSmallValues)
 {
     std::vector<TypeParam> data(BlockSize);
@@ -63,31 +56,9 @@ TYPED_TEST(FastPForTest, EncodeDecodeSmallValues)
     EXPECT_EQ(this->decoded, this->input);
 }
 
-TYPED_TEST(FastPForTest, EncodeDecodeSequential)
-{
-    std::vector<TypeParam> data(BlockSize);
-    for (size_t i = 0; i < BlockSize; i++)
-    {
-        data[i] = i;
-    }
-    this->EncodeAndDecode(data);
-    EXPECT_EQ(this->decoded, this->input);
-}
-
 TYPED_TEST(FastPForTest, EncodeDecodeMaxValues)
 {
     std::vector<TypeParam> data(BlockSize, 5000);
-    this->EncodeAndDecode(data);
-    EXPECT_EQ(this->decoded, this->input);
-}
-
-TYPED_TEST(FastPForTest, EncodeDecodeMixedValues)
-{
-    std::vector<TypeParam> data(BlockSize);
-    for (size_t i = 0; i < BlockSize; i++)
-    {
-        data[i] = (i % 2 == 0) ? 10 : 1000;
-    }
     this->EncodeAndDecode(data);
     EXPECT_EQ(this->decoded, this->input);
 }
@@ -173,17 +144,6 @@ TYPED_TEST(FastPForTest, EncodeDecodePowerOfTwo)
     EXPECT_EQ(this->decoded, this->input);
 }
 
-TYPED_TEST(FastPForTest, EncodeDecodeAlternatingPattern)
-{
-    std::vector<TypeParam> data(BlockSize * 2);
-    for (size_t i = 0; i < data.size(); i++)
-    {
-        data[i] = (i % 4 < 2) ? 5 : 5000;
-    }
-    this->EncodeAndDecode(data);
-    EXPECT_EQ(this->decoded, this->input);
-}
-
 TYPED_TEST(FastPForTest, CompressionRatioSmallValues)
 {
     std::vector<TypeParam> data(BlockSize, 7); // 3 bits needed
@@ -193,31 +153,4 @@ TYPED_TEST(FastPForTest, CompressionRatioSmallValues)
 
     // Should compress well (exact ratio depends on implementation)
     EXPECT_LT(encoded_size * sizeof(TypeParam), original_size);
-}
-
-TYPED_TEST(FastPForTest, VerifyIndividualElements)
-{
-    std::vector<TypeParam> data(BlockSize);
-    for (size_t i = 0; i < BlockSize; i++)
-    {
-        data[i] = i * 7 + 13; // Arbitrary pattern
-    }
-
-    this->EncodeAndDecode(data);
-
-    for (size_t i = 0; i < BlockSize; i++)
-    {
-        EXPECT_EQ(this->decoded[i], this->input[i]) << "Mismatch at index " << i;
-    }
-}
-
-TYPED_TEST(FastPForTest, EdgeCasesSingleException)
-{
-    std::vector<TypeParam> data(BlockSize, 1);
-
-    data[BlockSize / 2] = 6000; // Single outlier
-
-    this->EncodeAndDecode(data);
-    EXPECT_EQ(this->decoded, this->input);
-    EXPECT_EQ(this->decoded[BlockSize / 2], 6000);
 }

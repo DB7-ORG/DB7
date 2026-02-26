@@ -4,6 +4,7 @@
 #include "avx2bitpacking_definitions.hpp"
 #include "helper_utils.hpp"
 #include "bit_utils.hpp"
+#include "align_utils.hpp"
 
 #include <stdexcept>
 
@@ -85,7 +86,7 @@ template <typename ValueType>
 u32 BitPackEncoder<ValueType>::EstimateCompression(const u64 max, const u32 nitems)
 {
     u32 usedBits = CountBitsUsed(max);
-    return nitems * usedBits;
+    return RoundUp(nitems * usedBits, sizeof(ValueType));
 }
 
 template <typename ValueType>

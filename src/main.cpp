@@ -929,28 +929,28 @@ void test_fastpfor()
 //     printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
 // }
 
-// void test_stats_generation()
-// {
-//     u32 nitems = 120'000;
-//     std::vector<u32> src(nitems);
-//     ValidityMask nullmap(nitems);
+void test_stats_generation()
+{
+    u32 nitems = 120'000;
+    std::vector<u32> src(nitems);
+    ValidityMask nullmap(nitems);
 
-//     for (u32 i = 0; i < nitems; i++)
-//     {
-//         src[i] = rand(); // rand(); // rand()% 10'000;
-//         // nullmap.Set(i, src[i] % 5 != 0);
-//     }
+    for (u32 i = 0; i < nitems; i++)
+    {
+        src[i] = rand(); // rand(); // rand()% 10'000;
+        // nullmap.Set(i, src[i] % 5 != 0);
+    }
 
-//     NumberStats<u32> stats(src.data(), &nullmap, nitems);
+    NumberStats<u32> stats(src.data(), &nullmap, nitems);
 
-//     u64 t0 = now_ns();
-//     stats.GenerateStats();
-//     u64 t1 = now_ns();
+    u64 t0 = now_ns();
+    stats.GenerateStats();
+    u64 t1 = now_ns();
 
-//     stats.Print();
+    stats.Print();
 
-//     printf("total:    %.3f ms\n", (t1 - t0) / 1e6);
-// }
+    printf("total:    %.3f ms\n", (t1 - t0) / 1e6);
+}
 
 // // void test_generate_samples()
 // // {
@@ -980,103 +980,117 @@ void test_fastpfor()
 // //     }
 // // }
 
-// #include <iomanip>
-// #define RUN_TEST(name)                                                                           \
-//     {                                                                                            \
-//         encoder.ResetTable();                                                                    \
-//         u64 t0 = now_ns();                                                                       \
-//         u32 sizeInBytes = encoder.Encode(coded, data, tuple_num) * sizeof(u32);                  \
-//         u64 t1 = now_ns();                                                                       \
-//         NumberStats<u32> stats(data, &nullmap, tuple_num);                                       \
-//         stats.GenerateStats();                                                                   \
-//         u32 estimate = FastPForEncoder::EstimateCompression(stats.bitFreq, tuple_num);           \
-//         u32 estimateBytes = ((estimate + 31) / 32) * 4;                                          \
-//         int diff = int(estimateBytes) - int(sizeInBytes);                                        \
-//         double errorPct = sizeInBytes == 0 ? 0.0 : (double(diff) * 100.0) / double(sizeInBytes); \
-//         std::cout << std::fixed << std::setprecision(2)                                          \
-//                   << "[" name "] estimate=" << estimateBytes                                     \
-//                   << " real=" << sizeInBytes                                                     \
-//                   << " diff=" << diff                                                            \
-//                   << " (" << errorPct << "%)"                                                    \
-//                   << (diff < 0 ? " *** UNDERESTIMATE ***" : "")                                  \
-//                   << "\n";                                                                       \
-//         printf("  time: %.3f ms\n", (t1 - t0) / 1e6);                                            \
-//         encoder.ResetTable();                                                                    \
-//     }
+#include <iomanip>
+#define RUN_TEST(name, ValueType)                                                                 \
+    {                                                                                             \
+        encoder.ResetTable();                                                                     \
+        u64 t0 = now_ns();                                                                        \
+        u32 sizeInBytes = encoder.Encode(coded, data, tuple_num) * sizeof(u32);                   \
+        u64 t1 = now_ns();                                                                        \
+        NumberStats<ValueType> stats(data, &nullmap, tuple_num);                                  \
+        stats.GenerateStats();                                                                    \
+        u32 estimate = FastPForEncoder::EstimateCompression<ValueType>(stats.bitFreq, tuple_num); \
+        u32 estimateBytes = ((estimate + 31) / 32) * 4;                                           \
+        int diff = int(estimateBytes) - int(sizeInBytes);                                         \
+        double errorPct = sizeInBytes == 0 ? 0.0 : (double(diff) * 100.0) / double(sizeInBytes);  \
+        std::cout << std::fixed << std::setprecision(2)                                           \
+                  << "[" name "] estimate=" << estimateBytes                                      \
+                  << " real=" << sizeInBytes                                                      \
+                  << " diff=" << diff                                                             \
+                  << " (" << errorPct << "%)"                                                     \
+                  << (diff < 0 ? " *** UNDERESTIMATE ***" : "")                                   \
+                  << "\n";                                                                        \
+        printf("  time: %.3f ms\n", (t1 - t0) / 1e6);                                             \
+        encoder.ResetTable();                                                                     \
+    }
 
-// void benchmark_pfor_estimate()
-// {
-//     constexpr long tuple_num = AlignUp(126'000, 256);
-//     auto data = (u32 *)malloc(tuple_num * sizeof(u32));
-//     auto coded = (u32 *)malloc(tuple_num * sizeof(u32));
-//     auto encoder = FastPForEncoder(tuple_num);
-//     ValidityMask nullmap;
+void benchmark_pfor_estimate()
+{
+    using type = u32;
+    constexpr type MAX = std::numeric_limits<type>::max(); // 65535
+    constexpr long tuple_num = AlignUp(126'000, 256);
+    auto data = (type *)malloc(tuple_num * sizeof(type));
+    auto coded = (u32 *)malloc(tuple_num * sizeof(u32));
+    auto encoder = FastPForEncoder(tuple_num);
+    ValidityMask nullmap;
 
-//     { // Distribution 1: few exceptions, small base values
-//         std::mt19937 rng(123456);
-//         std::uniform_int_distribution<u32> des(5, 1'000'000'000);
-//         for (int i = 0; i < tuple_num; i++)
-//             data[i] = (i % 150 == 0) ? des(rng) : i % 4;
-//         RUN_TEST("few exceptions, small base");
-//     }
+    // Distribution 1: few exceptions, small base values
+    {
+        std::mt19937 rng(123456);
+        std::uniform_int_distribution<type> des(5, MAX);
+        for (int i = 0; i < tuple_num; i++)
+            data[i] = (i % 150 == 0) ? des(rng) : i % 4;
+        RUN_TEST("few exceptions, small base", type);
+    }
 
-//     // Distribution 2: no exceptions, sequential
-//     {
-//         for (int i = 0; i < tuple_num; i++)
-//             data[i] = i % 256;
-//         RUN_TEST("no exceptions, sequential 0-255");
-//     }
+    // Distribution 2: no exceptions, sequential
+    {
+        for (int i = 0; i < tuple_num; i++)
+            data[i] = i % 256;
+        RUN_TEST("no exceptions, sequential 0-255", type);
+    }
 
-//     // Distribution 4: ~50% exceptions
-//     {
-//         std::mt19937 rng(42);
-//         std::uniform_int_distribution<u32> des(1 << 20, 1'000'000'000);
-//         for (int i = 0; i < tuple_num; i++)
-//             data[i] = (i % 2 == 0) ? des(rng) : i % 8;
-//         RUN_TEST("50pct exceptions large values");
-//     }
+    // Distribution 4: ~50% exceptions
+    {
+        std::mt19937 rng(42);
+        std::uniform_int_distribution<type> des(1 << 10, MAX);
+        for (int i = 0; i < tuple_num; i++)
+            data[i] = (i % 2 == 0) ? des(rng) : i % 8;
+        RUN_TEST("50pct exceptions large values", type);
+    }
 
-//     // Distribution 5: all large random (worst case, all exceptions)
-//     {
-//         std::mt19937 rng(99);
-//         std::uniform_int_distribution<u32> des(1 << 28, UINT32_MAX);
-//         for (int i = 0; i < tuple_num; i++)
-//             data[i] = des(rng);
-//         RUN_TEST("all large random 28-32 bit");
-//     }
+    // Distribution 5: all large random (worst case, all exceptions)
+    {
+        std::mt19937 rng(99);
+        std::uniform_int_distribution<type> des(1 << 14, MAX);
+        for (int i = 0; i < tuple_num; i++)
+            data[i] = des(rng);
+        RUN_TEST("all large random 28-32 bit", type);
+    }
 
-//     // Distribution 6: exceptions at multiple distinct bit widths
-//     {
-//         std::mt19937 rng(555);
-//         for (int i = 0; i < tuple_num; i++)
-//         {
-//             if (i % 200 == 0)
-//                 data[i] = 1u << 27;
-//             else if (i % 170 == 0)
-//                 data[i] = 1u << 20;
-//             else if (i % 130 == 0)
-//                 data[i] = 1u << 15;
-//             else
-//                 data[i] = i % 8;
-//         }
-//         RUN_TEST("exceptions at 3 distinct bit widths");
-//     }
+    // Distribution 6: exceptions at multiple distinct bit widths
+    {
+        std::mt19937 rng(555);
+        for (int i = 0; i < tuple_num; i++)
+        {
+            if (i % 200 == 0)
+                data[i] = 1u << 15;
+            else if (i % 170 == 0)
+                data[i] = 1u << 12;
+            else if (i % 130 == 0)
+                data[i] = 1u << 9;
+            else
+                data[i] = i % 8;
+        }
+        RUN_TEST("exceptions at 3 distinct bit widths", type);
+    }
 
-//     // Distribution 7: clustered exceptions (bursts)
-//     {
-//         std::mt19937 rng(321);
-//         std::uniform_int_distribution<u32> des(1 << 25, 1'000'000'000);
-//         for (int i = 0; i < tuple_num; i++)
-//             data[i] = (i / 10 % 20 == 0) ? des(rng) : i % 16;
-//         RUN_TEST("clustered exceptions in bursts");
-//     }
+    // Distribution 7: clustered exceptions (bursts)
+    {
+        std::mt19937 rng(321);
+        std::uniform_int_distribution<type> des(1 << 13, MAX);
+        for (int i = 0; i < tuple_num; i++)
+            data[i] = (i / 10 % 20 == 0) ? des(rng) : i % 16;
+        RUN_TEST("clustered exceptions in bursts", type);
+    }
 
-//     // Distribution 9: all zeros(works badly dont care)
-//     // {
-//     //     memset(data, 0, tuple_num * sizeof(u32));
-//     //     RUN_TEST("all zeros");
-//     // }
-// }
+    // Distribution 8: ~50% exceptions at start
+    {
+        std::mt19937 rng(42);
+        std::uniform_int_distribution<type> des(1 << 10, MAX);
+        for (int i = 0; i < tuple_num / 2; i++)
+            data[i] = des(rng);
+        for (int i = tuple_num / 2; i < tuple_num; i++)
+            data[i] = i % 8;
+        RUN_TEST("50pct exceptions at start", type);
+    }
+
+    // Distribution 9: all zeros(works badly dont care)
+    // {
+    //     memset(data, 0, tuple_num * sizeof(u32));
+    //     RUN_TEST("all zeros");
+    // }
+}
 
 // void test_stats_generation_string()
 // {
@@ -1322,9 +1336,13 @@ int main()
 
     // test_templated_bitpacking_temp();
 
-    test_fastpfor();
+    // test_fastpfor();
 
     // test_templated_bitpacking_scalar();
+
+    benchmark_pfor_estimate();
+
+    // test_stats_generation();
 
     return 0;
 }

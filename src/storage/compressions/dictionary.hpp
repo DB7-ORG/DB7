@@ -4,6 +4,7 @@
 #include "append_valtyp_hmap.hpp"
 #include "nullbitmap.hpp"
 #include "bit_utils.hpp"
+#include "align_utils.hpp"
 
 #include <string.h>
 
@@ -48,7 +49,7 @@ template <typename ValueType>
 u32 DictionaryValueEncoder<ValueType>::EstimateCompression(const u32 nunique, const u32 nitems)
 {
     u32 usedBits = CountBitsUsed(nunique + 1);
-    u32 codeSize = (nitems * usedBits + sizeof(u8) - 1) / sizeof(u8); // dict should bitpack codes
+    u32 codeSize = RoundUp(nitems * usedBits, sizeof(ValueType)); // dict should bitpack codes
     u32 valueSize = nunique * sizeof(ValueType);
     return codeSize + valueSize;
 };

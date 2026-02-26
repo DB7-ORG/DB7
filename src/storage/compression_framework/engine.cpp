@@ -5,39 +5,10 @@
 #include "../compressions/bitpacking.hpp"
 #include "../compressions/dictionary.hpp"
 #include "../compressions/compression.hpp"
+#include "nodes/types.hpp"
+#include "nodes/dictionary_value_node.hpp"
 
 using T = u32;
-constexpr u32 MAX_DEPTH = 3;
-
-enum SchemaType
-{
-    Number,
-    Double,
-    String
-};
-
-enum SchemeAlgorythm
-{
-    Uncompressed,
-    Bitpacking,
-    Dictionary,
-    FastPFor,
-    Frequency,
-    Fsst,
-    Oneval,
-    Rle
-};
-
-struct INode
-{
-};
-
-struct AlgNode
-{
-    SchemeAlgorythm alg;
-
-    virtual void Next() = 0;
-};
 
 struct UncompressedNode : AlgNode
 {
@@ -51,20 +22,6 @@ struct UncompressedNode : AlgNode
 struct BitpackingNode : AlgNode
 {
     SchemeAlgorythm alg = Bitpacking;
-
-    void Next()
-    {
-        // TODO
-    }
-};
-
-struct DictionaryNode : AlgNode
-{
-    SchemeAlgorythm alg = Dictionary;
-    INode *values_node;
-    INode *codes_node;
-
-    DictionaryNode(u8 depth, SchemaType type);
 
     void Next()
     {
@@ -175,7 +132,7 @@ static inline constexpr T EstimateUncompressed(const u32 nitems)
     return nitems * sizeof(T);
 }
 
-u32 CompressSamples(SchemaType type, NumberStats<T> &stats)
+u32 EstimateCompression(SchemaType type, NumberStats<T> &stats)
 {
     switch (type)
     {
@@ -186,7 +143,7 @@ u32 CompressSamples(SchemaType type, NumberStats<T> &stats)
     case Dictionary:
         return DictionaryValueEncoder<T>::EstimateCompression(stats.distinct_values.Size(), stats.nitems);
     case FastPFor:
-        return FastPForEncoder::EstimateCompression(stats.bitFreq, stats.total_size);
+        return FastPForEncoder::EstimateCompression<T>(stats.bitFreq, stats.total_size);
     case Oneval:
         return OneValEncoder<T>::EstimateCompression(stats.distinct_values.Size());
     case Rle:
@@ -196,7 +153,7 @@ u32 CompressSamples(SchemaType type, NumberStats<T> &stats)
     }
 }
 
-u32 CompressSamples(std::vector<u32> samples, StringStats &stats)
+u32 EstimateCompression(std::vector<u32> samples, StringStats &stats)
 {
 }
 
@@ -220,25 +177,6 @@ struct NumberNode : INode
 
     void Next()
     {
-        stats.GenerateStats();
-
-        AlgNode *best = nodes[0];
-        assert(best->alg == Uncompressed);
-        u32 uncompressed_score = CompressSamples(type, stats);
-        u32 best_size = uncompressed_score;
-
-        for (u32 i = 1; i < std::size(nodes); i++)
-        {
-            AlgNode *node = nodes[i];
-            u32 new_size = CompressSamples(type, stats);
-            if (new_size < best_size)
-            {
-                best_size = new_size;
-                best = node;
-            }
-        }
-
-        best->Next();
     }
 };
 
@@ -284,18 +222,6 @@ static INode *switchType(SchemaType type, u32 depth)
     default:
         throw std::runtime_error("Unsupported type in AlgNode");
     }
-}
-
-inline DictionaryNode::DictionaryNode(u8 depth, SchemaType type)
-{
-    if (depth >= MAX_DEPTH)
-    {
-        values_node = nullptr;
-        codes_node = nullptr;
-        return;
-    }
-    codes_node = new NumberNode(nullptr, nullptr, 0, depth + 1);
-    values_node = switchType(type, depth + 1);
 }
 
 inline RleNode::RleNode(u8 depth)

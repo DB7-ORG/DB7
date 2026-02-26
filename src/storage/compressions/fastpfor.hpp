@@ -44,9 +44,86 @@ public:
     u32 Encode(u32 *out, const ValueType *in, u32 nitems);
     template <typename ValueType>
     u32 Decode(ValueType *out, const u32 *in, u32 nitems);
-
+    template <typename ValueType>
     static u32 EstimateCompression(const u32 *freqs, const u32 size);
 };
+
+template <typename ValueType>
+u32 FastPForEncoder::EstimateCompression(const u32 *freqs, const u32 nitems)
+{
+    constexpr u32 bitmapSize = std::is_same_v<ValueType, u64> ? sizeof(u64) * 8 : sizeof(u32) * 8;
+    const u32 numOfBlocks = nitems / BlockSize;
+    const u32 numExcBlocks = numOfBlocks;     // TODO should be better aprox
+    const u32 metaDataSize = 16 * numOfBlocks // bestcexcept and bestb in bytescontainer
+                             + 2 * 32         // len prefixes for packed data and bytescontainer
+                             + 3 * 8          // len of padding (max 3 bytes)
+                             + bitmapSize;    // bitmap
+
+    constexpr u32 ValueTypeBits = sizeof(ValueType) * 8;
+    u32 bestb = ValueTypeBits;
+    while (freqs[bestb] == 0)
+        bestb--;
+
+    u32 cexcept = 0;
+    u32 nonZeroCount = 0;
+    u32 cpackExcept = 0;
+
+    u32 bestcost = bestb * nitems + metaDataSize;
+
+    for (u32 b = bestb - 1; b < ValueTypeBits; --b)
+    {
+        cexcept += freqs[b + 1];
+        nonZeroCount += (freqs[b + 1] != 0);
+        cpackExcept += freqs[b + 1] * ValueTypeBits; //((freqs[b + 1] * (b + 1) + 63) / 64) * 64; // TODO chnage scalar compression
+
+        u32 thiscost = cexcept * overheadofeachexcept // overhead of and index that points to an exception
+                       + cpackExcept                  // calculation for packing exceptions
+                       + b * nitems                   // packed data with best bit size
+                       + 8 * numExcBlocks             // maxb stored for each block that contains exceptions
+                       + nonZeroCount * 32            // size prefix when padding exceptions
+                       + metaDataSize;                // metadata
+
+        bestcost = std::min(thiscost, bestcost);
+    }
+
+    return bestcost;
+}
+
+template <typename ValueType>
+void FastPForEncoder::GetBestB(const ValueType *in, u8 &bestb, u8 &bestcexcept, u8 &maxb)
+{
+    constexpr u32 ValueTypeBits = sizeof(ValueType) * 8;
+
+    u32 freqs[ValueTypeBits + 1];
+    for (u32 k = 0; k <= ValueTypeBits; ++k)
+        freqs[k] = 0;
+
+    for (u32 k = 0; k < BlockSize; ++k)
+    {
+        auto pos = CountBitsUsed(in[k]);
+        freqs[pos]++;
+    }
+
+    bestb = ValueTypeBits;
+    while (freqs[bestb] == 0)
+        bestb--;
+
+    maxb = bestb;
+    u32 bestcost = bestb * BlockSize;
+    u32 cexcept = 0;
+    bestcexcept = static_cast<u8>(cexcept);
+    for (u32 b = bestb - 1; b < ValueTypeBits; --b)
+    {
+        cexcept += freqs[b + 1];
+        u32 thiscost = cexcept * overheadofeachexcept + cexcept * (maxb - b) + b * BlockSize + 8; // the  extra 8 is the cost of storing maxbits
+        if (thiscost < bestcost)
+        {
+            bestcost = thiscost;
+            bestb = static_cast<u8>(b);
+            bestcexcept = static_cast<u8>(cexcept);
+        }
+    }
+}
 
 template <typename ValueType>
 u32 FastPForEncoder::Encode(u32 *out, const ValueType *in, u32 nitems)
@@ -97,7 +174,7 @@ u32 FastPForEncoder::Encode(u32 *out, const ValueType *in, u32 nitems)
     memcpy(out, &bytescontainer[0], bytescontainersize);
 
     u8 *pad8 = reinterpret_cast<u8 *>(out + bytescontainersize);
-    out += RoundUp(bytescontainersize, (u32)sizeof(u32));
+    out += RoundUp(bytescontainersize, sizeof(u32));
 
     while (pad8 < reinterpret_cast<u8 *>(out))
         *pad8++ = 0;
@@ -144,7 +221,7 @@ u32 FastPForEncoder::Decode(ValueType *out, const u32 *in, u32 nitems)
     const u32 *inexcept = headerin + wheremeta;
     const u32 bytesize = *inexcept++;
     const u8 *bytep = reinterpret_cast<const u8 *>(inexcept);
-    inexcept += RoundUp(bytesize, (u32)sizeof(u32));
+    inexcept += RoundUp(bytesize, sizeof(u32));
 
     ValueType bitmap;
     if constexpr (std::is_same_v<ValueType, u64>)
@@ -164,7 +241,11 @@ u32 FastPForEncoder::Decode(ValueType *out, const u32 *in, u32 nitems)
         {
             u32 size = *(inexcept++);
             datatobepacked[k].resize(size);
-            inexcept = BitPackScalarEncoder<u32>::Decode(datatobepacked[k].data(), inexcept, size, k);
+            // inexcept = BitPackScalarEncoder<u32>::Decode(datatobepacked[k].data(), inexcept, size, k);
+            for (u32 i = 0; i < size; i++)
+            {
+                datatobepacked[k][i] = *(inexcept++);
+            }
         }
     }
 
@@ -206,40 +287,4 @@ u32 FastPForEncoder::Decode(ValueType *out, const u32 *in, u32 nitems)
     }
 
     return out - initout;
-}
-
-template <typename ValueType>
-void FastPForEncoder::GetBestB(const ValueType *in, u8 &bestb, u8 &bestcexcept, u8 &maxb)
-{
-    constexpr u32 ValueTypeBits = sizeof(ValueType) * 8;
-
-    u32 freqs[ValueTypeBits + 1];
-    for (u32 k = 0; k <= ValueTypeBits; ++k)
-        freqs[k] = 0;
-
-    for (u32 k = 0; k < BlockSize; ++k)
-    {
-        auto pos = ValueTypeBits - CountLeadingZeros(in[k]);
-        freqs[pos]++;
-    }
-
-    bestb = ValueTypeBits;
-    while (freqs[bestb] == 0)
-        bestb--;
-
-    maxb = bestb;
-    u32 bestcost = bestb * BlockSize;
-    u32 cexcept = 0;
-    bestcexcept = static_cast<u8>(cexcept);
-    for (u32 b = bestb - 1; b < ValueTypeBits; --b)
-    {
-        cexcept += freqs[b + 1];
-        u32 thiscost = cexcept * overheadofeachexcept + cexcept * (maxb - b) + b * BlockSize + 8; // the  extra 8 is the cost of storing maxbits
-        if (thiscost < bestcost)
-        {
-            bestcost = thiscost;
-            bestb = static_cast<u8>(b);
-            bestcexcept = static_cast<u8>(cexcept);
-        }
-    }
 }
