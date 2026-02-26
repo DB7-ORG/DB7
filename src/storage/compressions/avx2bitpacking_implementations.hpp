@@ -102,6 +102,8 @@ static constexpr __m256i GetMask()
 }
 
 // Main template function that works for all types
+// Better approach is recursive templating because we have more control on i (in the for loop)
+// and that creates a cleaner looking code (but compilers are smart so i dont care)
 template <typename T, u32 BITS, bool USE_MASK = false>
 static void AvxPackBlock(const T *__restrict pin, __m256i *__restrict compressed)
 {
@@ -180,6 +182,8 @@ static void AvxPackBlock(const T *__restrict pin, __m256i *__restrict compressed
 }
 
 // Main template decode function that works for all types
+// Better approach is recursive templating because we have more control on i (in the for loop)
+// and that creates a cleaner looking code (but compilers are smart so i dont care)
 template <typename T, u32 BITS>
 static void AvxUnPackBlock(const __m256i *__restrict compressed, T *__restrict pout)
 {
@@ -348,7 +352,7 @@ static T UnPackSingle(const T *compressed, const u32 idx)
 // }
 
 template <typename T, u32 Bits>
-T *ScalarPackDef(T *out, const T *in, const u32 nitems)
+T *ScalarPackDef(T *__restrict out, const T *__restrict in, const u32 nitems)
 {
     using ptype = u64;
 
@@ -396,7 +400,7 @@ T *ScalarPackDef(T *out, const T *in, const u32 nitems)
 }
 
 template <typename T, u32 Bits>
-T *ScalarUnPackDef(T *out, const T *in, const u32 nitems)
+T *ScalarUnPackDef(T *__restrict out, const T *__restrict in, const u32 nitems)
 {
     using ptype = u64;
 

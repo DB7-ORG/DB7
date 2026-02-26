@@ -12,6 +12,7 @@
 #include "nullbitmap.hpp"
 #include "storage/stats/number_stats.hpp"
 #include "storage/stats/string_stats.hpp"
+#include "storage/compression_framework/engine.hpp"
 
 static inline u64 now_ns()
 {
@@ -1280,6 +1281,7 @@ void test_templated_bitpacking_temp()
     auto data = (type *)malloc(tuple_num * sizeof(type));
     auto out = (type *)malloc(tuple_num * sizeof(type));
     auto decoded = (type *)malloc(tuple_num * sizeof(type));
+    (void)decoded;
 
     constexpr auto usedBits = 8;
     for (int i = 0; i < tuple_num; i++)
@@ -1309,8 +1311,11 @@ void test_templated_bitpacking_temp()
     printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
 }
 
-void test_fast_pfor_template()
+void test_tree_building()
 {
+    auto estimator = EstimateCostVisitor();
+    auto node = NumberNode();
+    node.Accept(estimator);
 }
 
 int main()
@@ -1340,7 +1345,8 @@ int main()
 
     // test_templated_bitpacking_scalar();
 
-    benchmark_pfor_estimate();
+    // benchmark_pfor_estimate();
+    test_tree_building();
 
     // test_stats_generation();
 

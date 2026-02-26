@@ -1,4 +1,5 @@
 sudo apt-get install libabsl-dev
+g++ -O3 -march=native -S -masm=intel atest.cpp -o template.s -fverbose-asm
 
 # DB7 ✅ ❌
 
@@ -11,6 +12,7 @@ implement compression schemes ❌
 - frequency encoding ✅
 - add floating point compressions ❌
 - support for NULLS ✅
+- patched FOR ❌
 
 check out todo template for decode single in bitpacking ❌
 check out todos and fix them before there is too many ❌
@@ -28,6 +30,8 @@ improvements to existing decompressions
 
 - refactor code for compression so function caller does the allocations and alignment ✅
 - single value compression probably sucks try block decompression ❌
+
+- add __restrict to all compressions ❌
 
 framework
 - should always bitpack codes after dictionary encoding (check out sorted dict alternatives) ❌
@@ -51,6 +55,9 @@ framework
 
 
 - change pfor scalar packing exceptions is awful ❌
+
+OPTIONAL
+- reqrite bitpacking using fancy recursive templates ❌
 
 # RESEARCH
 
