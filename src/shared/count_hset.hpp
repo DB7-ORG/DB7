@@ -64,7 +64,7 @@ inline bool CountHSet<ValueType>::PushPrimitiveValue(const ValueType key)
         }
         else if (data == key)
         { // match
-            return true;
+            return false;
         }
 
         bucket = (bucket + 1) & (capacity - 1);

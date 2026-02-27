@@ -3,8 +3,9 @@
 #include "common.hpp"
 #include "nullbitmap.hpp"
 #include "count_hset.hpp"
+#include "types.hpp"
 
-struct StringStats
+struct StringStats : IStats
 {
     // TODO think about more helpful stats
     const u8 **src;

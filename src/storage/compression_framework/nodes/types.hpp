@@ -2,7 +2,7 @@
 
 #include "common.hpp"
 
-constexpr u32 MAX_DEPTH = 2 * 2 - 1;
+constexpr u32 MAX_DEPTH = 2;
 
 enum SchemaType
 {

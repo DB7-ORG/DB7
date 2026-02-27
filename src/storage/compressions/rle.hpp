@@ -12,22 +12,23 @@ struct RleEncodedRes
     u32 size;
 };
 
-template <typename ValueType>
 struct RleEncoder
 {
+    template <typename ValueType>
     static void Encode(RleEncodedRes<ValueType> *out, const ValueType *in, const ValidityMask *nullmap, const u32 nitems);
+    template <typename ValueType>
     static void Decode(ValueType *out, const RleEncodedRes<ValueType> *in);
-    static u32 EstimateCompression(const u32 count_run_len);
+    static void EstimateCompression(const u32 count_run_len, const u8 size_of_type, u32 &len_size, u32 &val_size);
 };
 
-template <typename ValueType>
-u32 RleEncoder<ValueType>::EstimateCompression(const u32 count_run_len)
+inline void RleEncoder::EstimateCompression(const u32 count_run_len, const u8 size_of_type, u32 &len_size, u32 &val_size)
 {
-    return count_run_len * (sizeof(ValueType) + sizeof(u16));
+    len_size = count_run_len * sizeof(size_of_type);
+    val_size = count_run_len * sizeof(u16);
 };
 
 template <typename ValueType>
-void RleEncoder<ValueType>::Encode(RleEncodedRes<ValueType> *out, const ValueType *in, const ValidityMask *nullmap, const u32 nitems)
+void RleEncoder::Encode(RleEncodedRes<ValueType> *out, const ValueType *in, const ValidityMask *nullmap, const u32 nitems)
 {
     assert(nitems >= 1);
 
@@ -68,7 +69,7 @@ void RleEncoder<ValueType>::Encode(RleEncodedRes<ValueType> *out, const ValueTyp
 // otherwise there might be memory corruption
 // ...
 template <typename ValueType>
-void RleEncoder<ValueType>::Decode(ValueType *out, const RleEncodedRes<ValueType> *in)
+void RleEncoder::Decode(ValueType *out, const RleEncodedRes<ValueType> *in)
 {
     constexpr u32 itemsInVec = 32 / sizeof(ValueType);
     const u32 *values = in->values;

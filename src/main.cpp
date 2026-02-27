@@ -942,10 +942,10 @@ void test_stats_generation()
         // nullmap.Set(i, src[i] % 5 != 0);
     }
 
-    NumberStats<u32> stats(src.data(), &nullmap, nitems);
+    NumberStats stats;
 
     u64 t0 = now_ns();
-    stats.GenerateStats();
+    stats.GenerateStats(src.data(), &nullmap, nitems);
     u64 t1 = now_ns();
 
     stats.Print();
@@ -988,8 +988,8 @@ void test_stats_generation()
         u64 t0 = now_ns();                                                                        \
         u32 sizeInBytes = encoder.Encode(coded, data, tuple_num) * sizeof(u32);                   \
         u64 t1 = now_ns();                                                                        \
-        NumberStats<ValueType> stats(data, &nullmap, tuple_num);                                  \
-        stats.GenerateStats();                                                                    \
+        NumberStats stats;                                                                        \
+        stats.GenerateStats(data, &nullmap, tuple_num);                                           \
         u32 estimate = FastPForEncoder::EstimateCompression<ValueType>(stats.bitFreq, tuple_num); \
         u32 estimateBytes = ((estimate + 31) / 32) * 4;                                           \
         int diff = int(estimateBytes) - int(sizeInBytes);                                         \
@@ -1313,7 +1313,20 @@ void test_templated_bitpacking_temp()
 
 void test_tree_building()
 {
-    auto estimator = EstimateCostVisitor();
+    using type = u32;
+
+    constexpr long tuple_num = AlignUp(120'000, 256);
+    auto data = (type *)malloc(tuple_num * sizeof(type));
+
+    for (int i = 0; i < tuple_num; i++)
+    {
+        data[i] = i % (222);
+    }
+
+    ValidityMask validity(tuple_num);
+    NumberStats *stats = new NumberStats();
+    stats->GenerateStats(data, &validity, tuple_num);
+    auto estimator = EstimateCostVisitor(stats);
     auto node = NumberNode();
     node.Accept(estimator);
 }

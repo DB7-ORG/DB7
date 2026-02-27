@@ -6,11 +6,15 @@
 #include "bit_utils.hpp"
 #include "count_hset.hpp"
 #include "hyperloglog.hpp"
+#include "types.hpp"
 
 #include <limits>
 #include <vector>
 #include <algorithm>
 #include <iostream>
+#include <cstring>
+
+constexpr u32 FREQ_SIZE = 65;
 
 template <typename T>
 struct SampleStats
@@ -26,70 +30,98 @@ struct SampleStats
     }
 };
 
-template <typename T>
-struct NumberStats
+struct NumberStats : IStats
 {
-    // TODO think about more helpful stats
-    const T *src;
-    const ValidityMask *bitmap;
-    const u32 nitems;
-    CountHSet<T> distinct_values;
-    u32 bitFreq[65];
+    u32 bitFreq[FREQ_SIZE];
+    u32 uniqueBitFreq[FREQ_SIZE];
+    u32 num_items;
     u32 total_size;
     u32 null_count; // TODO useless??
     u32 count_run_len;
     u32 average_run_len;
-    T min;
-    T max;
+    u32 count_distinct;
     bool is_sorted_asc;
     bool is_sorted_desc;
+    u8 size_of_type;
+
+    // MinMax min;
+    // MinMax max;
+
     // HyperLogLog hll;
 
-    NumberStats(const T *src, const ValidityMask *bitmap, const u32 nitems)
-        : src(src), bitmap(bitmap), nitems(nitems), distinct_values(240'000), bitFreq{} //, hll(16) // TODO pick a viable size
+    NumberStats() : bitFreq{}, uniqueBitFreq{} //, hll(16) // TODO pick a viable size
     {
-        total_size = nitems * sizeof(T);
+        type = StatsType::Number;
+        num_items = 0;
+        total_size = 0;
         is_sorted_asc = true;
         is_sorted_desc = true;
         null_count = 0;
         average_run_len = 0;
         count_run_len = 0;
+        count_distinct = 0;
+        size_of_type = 0;
     }
 
-    NumberStats() = delete;
-
-    inline void ChooseSamplingParams(u32 &sample_target, u32 &num_runs, u32 &run_len, u32 &interval_len)
+    NumberStats(
+        const u32 bitFreq[FREQ_SIZE],
+        const u32 uniqueBitFreq[FREQ_SIZE],
+        u32 num_items,
+        u32 total_size,
+        u32 null_count,
+        u32 count_run_len,
+        u32 average_run_len,
+        u32 count_distinct,
+        bool is_sorted_asc,
+        bool is_sorted_desc,
+        u8 size_of_type)
+        : num_items(num_items),
+          total_size(total_size),
+          null_count(null_count),
+          count_run_len(count_run_len),
+          average_run_len(average_run_len),
+          count_distinct(count_distinct),
+          is_sorted_asc(is_sorted_asc),
+          is_sorted_desc(is_sorted_desc),
+          size_of_type(size_of_type)
     {
-        if (nitems >= 10'000)
-        {
-            sample_target = nitems / 100; // 1%
-            num_runs = 10;
-            run_len = sample_target / num_runs;
-            interval_len = nitems / num_runs;
-        }
-        else if (nitems >= 1'000)
-        {
-            sample_target = nitems / 10; // 10%
-            num_runs = 10;
-            run_len = sample_target / num_runs;
-            interval_len = nitems / num_runs;
-        }
-        else
-        {
-            sample_target = nitems; // 100%
-            num_runs = 1;
-            run_len = nitems;
-            interval_len = nitems;
-        }
+        this->type = StatsType::Number;
+        std::memcpy(this->bitFreq, bitFreq, FREQ_SIZE * sizeof(u32));
+        std::memcpy(this->uniqueBitFreq, uniqueBitFreq, FREQ_SIZE * sizeof(u32));
     }
 
-    void GenerateStats()
+    NumberStats(const NumberStats &other)
     {
+        type = StatsType::Number;
+        std::memcpy(bitFreq, other.bitFreq, sizeof(bitFreq));
+        std::memcpy(uniqueBitFreq, other.uniqueBitFreq, sizeof(uniqueBitFreq));
+        num_items = other.num_items;
+        total_size = other.total_size;
+        null_count = other.null_count;
+        count_run_len = other.count_run_len;
+        average_run_len = other.average_run_len;
+        count_distinct = other.count_distinct;
+        is_sorted_asc = other.is_sorted_asc;
+        is_sorted_desc = other.is_sorted_desc;
+        size_of_type = other.size_of_type;
 
+        // min = other.min;
+        // max = other.max;
+    }
+
+    NumberStats(const NumberStats *other) : NumberStats(*other) {}
+
+    template <typename T>
+    void GenerateStats(const T *src, const ValidityMask *bitmap, const u32 nitems)
+    {
+        size_of_type = sizeof(T);
+        num_items = nitems;
+        total_size = nitems * sizeof(T);
+        CountHSet<T> distinct_values(2 * nitems);
         u32 rle_count = 1;
-        u32 rle_last_seen = src[0];
-        min = rle_last_seen;
-        max = rle_last_seen;
+        T rle_last_seen = src[0];
+        // min = rle_last_seen;
+        // max = rle_last_seen;
         bool allValid = bitmap->AllValid();
         u32 used = CountBitsUsed(rle_last_seen);
         bitFreq[used]++;
@@ -107,11 +139,11 @@ struct NumberStats
             bitFreq[usedBits]++;
 
             // distinct_values.Inc(value); // TODO Replace this with a map that is using bits instead of bytes
-            distinct_values.Push(value);
+            uniqueBitFreq[usedBits] += distinct_values.Push(value);
             // hll.add(value);
 
-            min = std::min(value, min);
-            max = std::max(value, max);
+            // min = std::min(value, min);
+            // max = std::max(value, max);
 
             is_sorted_asc &= (rle_last_seen <= value);
             is_sorted_desc &= (rle_last_seen >= value);
@@ -121,41 +153,66 @@ struct NumberStats
         }
 
         // std::cout << hll.estimate() << std::endl;
-
+        count_distinct = distinct_values.Size();
         average_run_len = nitems / rle_count;
         count_run_len = rle_count;
     }
 
-    SampleStats<T> GenerateSamples()
-    {
-        u32 sample_target, num_runs, run_len, interval_len;
-        ChooseSamplingParams(sample_target, num_runs, run_len, interval_len);
+    // inline void ChooseSamplingParams(u32 &sample_target, u32 &num_runs, u32 &run_len, u32 &interval_len)
+    // {
+    //     if (nitems >= 10'000)
+    //     {
+    //         sample_target = nitems / 100; // 1%
+    //         num_runs = 10;
+    //         run_len = sample_target / num_runs;
+    //         interval_len = nitems / num_runs;
+    //     }
+    //     else if (nitems >= 1'000)
+    //     {
+    //         sample_target = nitems / 10; // 10%
+    //         num_runs = 10;
+    //         run_len = sample_target / num_runs;
+    //         interval_len = nitems / num_runs;
+    //     }
+    //     else
+    //     {
+    //         sample_target = nitems; // 100%
+    //         num_runs = 1;
+    //         run_len = nitems;
+    //         interval_len = nitems;
+    //     }
+    // }
 
-        std::vector<T> samples(sample_target);
+    // SampleStats<T> GenerateSamples()
+    // {
+    //     u32 sample_target, num_runs, run_len, interval_len;
+    //     ChooseSamplingParams(sample_target, num_runs, run_len, interval_len);
 
-        u32 offset = 0;
+    //     std::vector<T> samples(sample_target);
 
-        for (u32 i = 0; i < num_runs; i++, offset += interval_len)
-        {
-            // u32 src_offset = i * interval_len + rand() % (interval_len - run_len);
-            // u32 dst_offset = i * run_len;
-            // memcpy(samples + dst_offset, src + src_offset, run_len * sizeof(T));
-            memcpy(samples.data() + i * run_len, src + offset, run_len * sizeof(T));
-        }
+    //     u32 offset = 0;
 
-        return SampleStats<T>(std::move(samples), nullptr);
-    }
+    //     for (u32 i = 0; i < num_runs; i++, offset += interval_len)
+    //     {
+    //         // u32 src_offset = i * interval_len + rand() % (interval_len - run_len);
+    //         // u32 dst_offset = i * run_len;
+    //         // memcpy(samples + dst_offset, src + src_offset, run_len * sizeof(T));
+    //         memcpy(samples.data() + i * run_len, src + offset, run_len * sizeof(T));
+    //     }
+
+    //     return SampleStats<T>(std::move(samples), nullptr);
+    // }
 
     void Print()
     {
         printf("=== Column Stats ===\n");
-        printf("  nitems:          %u\n", nitems);
+        printf("  nitems:          %u\n", num_items);
         printf("  total_size:      %u\n", total_size);
         printf("  null_count:      %u\n", null_count);
-        printf("  distinct_values: %u\n", distinct_values.Size());
+        printf("  distinct_values: %u\n", count_distinct);
         printf("  average_run_len: %u\n", average_run_len);
-        printf("  min:             %s\n", std::to_string(min).c_str());
-        printf("  max:             %s\n", std::to_string(max).c_str());
+        // printf("  min:             %s\n", std::to_string(min).c_str());
+        // printf("  max:             %s\n", std::to_string(max).c_str());
         printf("  sorted_asc:      %s\n", is_sorted_asc ? "yes" : "no");
         printf("  sorted_desc:     %s\n", is_sorted_desc ? "yes" : "no");
         printf("  bit_freq:        ");

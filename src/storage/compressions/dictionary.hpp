@@ -37,25 +37,19 @@ struct DictionaryValueEncodedRes
     u32 valCount;
 };
 
-template <typename ValueType>
 struct DictionaryValueEncoder
 {
+
+    template <typename ValueType>
     static void Encode(DictionaryValueEncodedRes<ValueType> *out, const ValueType *in, const ValidityMask *nullmap, const u32 count);
+
+    template <typename ValueType>
     static void Decode(ValueType *out, const DictionaryValueEncodedRes<ValueType> *in, const u32 count);
-    static u32 EstimateCompression(const u32 nunique, const u32 nitems);
+    static u32 EstimateCompression(const u32 nunique, const u32 nitems, const u8 sizeOfType);
 };
 
 template <typename ValueType>
-u32 DictionaryValueEncoder<ValueType>::EstimateCompression(const u32 nunique, const u32 nitems)
-{
-    u32 usedBits = CountBitsUsed(nunique + 1);
-    u32 codeSize = RoundUp(nitems * usedBits, sizeof(ValueType)); // dict should bitpack codes
-    u32 valueSize = nunique * sizeof(ValueType);
-    return codeSize + valueSize;
-};
-
-template <typename ValueType>
-void DictionaryValueEncoder<ValueType>::Encode(
+void DictionaryValueEncoder::Encode(
     DictionaryValueEncodedRes<ValueType> *out,
     const ValueType *in,
     const ValidityMask *nullmap,
@@ -87,7 +81,7 @@ void DictionaryValueEncoder<ValueType>::Encode(
 }
 
 template <typename ValueType>
-void DictionaryValueEncoder<ValueType>::Decode(
+void DictionaryValueEncoder::Decode(
     ValueType *out,
     const DictionaryValueEncodedRes<ValueType> *in,
     const u32 count)
