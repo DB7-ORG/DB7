@@ -5,12 +5,10 @@
 #include <string.h>
 #include <sys/mman.h>
 
-u32 DictionaryValueEncoder::EstimateCompression(const u32 nunique, const u32 nitems, const u8 sizeOfType)
+void DictionaryValueEncoder::EstimateCompression(const u32 nunique, const u32 nitems, const u8 sizeOfType, u32 codeSize, u32 valueSize)
 {
-    u32 usedBits = CountBitsUsed(nunique + 1);
-    u32 codeSize = RoundUp(nitems * usedBits, u32(sizeOfType)); // dict should bitpack codes
-    // u32 valueSize = nunique * sizeof(ValueType);
-    return codeSize; //+ valueSize;
+    codeSize = nitems * sizeOfType;
+    valueSize = nunique * sizeOfType;
 };
 
 void DictionaryStringEncoder::Encode(DictionaryStringEncodedRes *out, u8 **in, const u32 *lenIn, const ValidityMask *nullmap, const u32 count)

@@ -14,8 +14,6 @@
 #include <iostream>
 #include <cstring>
 
-constexpr u32 FREQ_SIZE = 65;
-
 template <typename T>
 struct SampleStats
 {
@@ -32,81 +30,58 @@ struct SampleStats
 
 struct NumberStats : IStats
 {
-    u32 bitFreq[FREQ_SIZE];
-    u32 uniqueBitFreq[FREQ_SIZE];
     u32 num_items;
     u32 total_size;
-    u32 null_count; // TODO useless??
+    u32 bitFreq[MAX_HIST_SIZE];
     u32 count_run_len;
-    u32 average_run_len;
     u32 count_distinct;
-    bool is_sorted_asc;
-    bool is_sorted_desc;
-    u8 size_of_type;
+    u64 min;
+    u64 max;
 
-    // MinMax min;
-    // MinMax max;
-
-    // HyperLogLog hll;
-
-    NumberStats() : bitFreq{}, uniqueBitFreq{} //, hll(16) // TODO pick a viable size
+    NumberStats() : bitFreq{}
     {
         type = StatsType::Number;
+        size_of_type = 0;
         num_items = 0;
         total_size = 0;
-        is_sorted_asc = true;
-        is_sorted_desc = true;
-        null_count = 0;
-        average_run_len = 0;
         count_run_len = 0;
         count_distinct = 0;
-        size_of_type = 0;
+        min = UINT64_MAX;
+        max = 0;
     }
 
     NumberStats(
-        const u32 bitFreq[FREQ_SIZE],
-        const u32 uniqueBitFreq[FREQ_SIZE],
+        const u32 bitFreq[MAX_HIST_SIZE],
         u32 num_items,
         u32 total_size,
-        u32 null_count,
         u32 count_run_len,
-        u32 average_run_len,
         u32 count_distinct,
-        bool is_sorted_asc,
-        bool is_sorted_desc,
+        u64 min,
+        u64 max,
         u8 size_of_type)
         : num_items(num_items),
           total_size(total_size),
-          null_count(null_count),
           count_run_len(count_run_len),
-          average_run_len(average_run_len),
           count_distinct(count_distinct),
-          is_sorted_asc(is_sorted_asc),
-          is_sorted_desc(is_sorted_desc),
-          size_of_type(size_of_type)
+          min(min),
+          max(max)
     {
         this->type = StatsType::Number;
-        std::memcpy(this->bitFreq, bitFreq, FREQ_SIZE * sizeof(u32));
-        std::memcpy(this->uniqueBitFreq, uniqueBitFreq, FREQ_SIZE * sizeof(u32));
+        this->size_of_type = size_of_type;
+        std::memcpy(this->bitFreq, bitFreq, MAX_HIST_SIZE * sizeof(u32));
     }
 
     NumberStats(const NumberStats &other)
     {
         type = StatsType::Number;
         std::memcpy(bitFreq, other.bitFreq, sizeof(bitFreq));
-        std::memcpy(uniqueBitFreq, other.uniqueBitFreq, sizeof(uniqueBitFreq));
         num_items = other.num_items;
         total_size = other.total_size;
-        null_count = other.null_count;
         count_run_len = other.count_run_len;
-        average_run_len = other.average_run_len;
         count_distinct = other.count_distinct;
-        is_sorted_asc = other.is_sorted_asc;
-        is_sorted_desc = other.is_sorted_desc;
         size_of_type = other.size_of_type;
-
-        // min = other.min;
-        // max = other.max;
+        min = other.min;
+        max = other.max;
     }
 
     NumberStats(const NumberStats *other) : NumberStats(*other) {}
@@ -117,20 +92,21 @@ struct NumberStats : IStats
         size_of_type = sizeof(T);
         num_items = nitems;
         total_size = nitems * sizeof(T);
-        CountHSet<T> distinct_values(2 * nitems);
+        CountHSet<T> distinct_values(nitems, 2);
         u32 rle_count = 1;
         T rle_last_seen = src[0];
-        // min = rle_last_seen;
-        // max = rle_last_seen;
+        min = rle_last_seen;
+        max = rle_last_seen;
         bool allValid = bitmap->AllValid();
         u32 used = CountBitsUsed(rle_last_seen);
         bitFreq[used]++;
+        bool stopDict = false;
+        const u32 half_nitems = nitems / 2;
         for (u32 i = 1; i < nitems; i++)
         {
             if (!allValid && !bitmap->RowIsValid(i)) // TODO this can be optimize everywhere
             {
                 bitFreq[0]++;
-                null_count++;
                 continue;
             }
 
@@ -139,22 +115,26 @@ struct NumberStats : IStats
             bitFreq[usedBits]++;
 
             // distinct_values.Inc(value); // TODO Replace this with a map that is using bits instead of bytes
-            uniqueBitFreq[usedBits] += distinct_values.Push(value);
+            if (!stopDict)
+            {
+                distinct_values.Push(value);
+                if (i == nitems / 2 && (half_nitems - distinct_values.Size()) * 100 / half_nitems <= 10)
+                {
+                    stopDict = true;
+                }
+            }
+
             // hll.add(value);
 
-            // min = std::min(value, min);
-            // max = std::max(value, max);
-
-            is_sorted_asc &= (rle_last_seen <= value);
-            is_sorted_desc &= (rle_last_seen >= value);
+            min = std::min(u64(value), min);
+            max = std::max(u64(value), max);
 
             rle_count += (value != rle_last_seen);
             rle_last_seen = value;
         }
 
         // std::cout << hll.estimate() << std::endl;
-        count_distinct = distinct_values.Size();
-        average_run_len = nitems / rle_count;
+        count_distinct = stopDict ? nitems : distinct_values.Size();
         count_run_len = rle_count;
     }
 
@@ -208,13 +188,9 @@ struct NumberStats : IStats
         printf("=== Column Stats ===\n");
         printf("  nitems:          %u\n", num_items);
         printf("  total_size:      %u\n", total_size);
-        printf("  null_count:      %u\n", null_count);
         printf("  distinct_values: %u\n", count_distinct);
-        printf("  average_run_len: %u\n", average_run_len);
-        // printf("  min:             %s\n", std::to_string(min).c_str());
-        // printf("  max:             %s\n", std::to_string(max).c_str());
-        printf("  sorted_asc:      %s\n", is_sorted_asc ? "yes" : "no");
-        printf("  sorted_desc:     %s\n", is_sorted_desc ? "yes" : "no");
+        printf("  min:             %s\n", std::to_string(min).c_str());
+        printf("  max:             %s\n", std::to_string(max).c_str());
         printf("  bit_freq:        ");
 
         bool first = true;

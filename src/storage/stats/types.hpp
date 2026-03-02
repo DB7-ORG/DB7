@@ -9,4 +9,5 @@ enum struct StatsType
 struct IStats
 {
     StatsType type;
+    u8 size_of_type;
 };

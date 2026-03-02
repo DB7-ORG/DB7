@@ -39,13 +39,11 @@ struct DictionaryValueEncodedRes
 
 struct DictionaryValueEncoder
 {
-
     template <typename ValueType>
     static void Encode(DictionaryValueEncodedRes<ValueType> *out, const ValueType *in, const ValidityMask *nullmap, const u32 count);
-
     template <typename ValueType>
     static void Decode(ValueType *out, const DictionaryValueEncodedRes<ValueType> *in, const u32 count);
-    static u32 EstimateCompression(const u32 nunique, const u32 nitems, const u8 sizeOfType);
+    static void EstimateCompression(const u32 nunique, const u32 nitems, const u8 sizeOfType, u32 codeSize, u32 valueSize);
 };
 
 template <typename ValueType>

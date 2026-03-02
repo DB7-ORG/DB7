@@ -947,10 +947,13 @@ void test_stats_generation()
     u64 t0 = now_ns();
     stats.GenerateStats(src.data(), &nullmap, nitems);
     u64 t1 = now_ns();
+    stats.GenerateStats(src.data(), &nullmap, nitems);
+    u64 t2 = now_ns();
 
     stats.Print();
 
     printf("total:    %.3f ms\n", (t1 - t0) / 1e6);
+    printf("total 2:    %.3f ms\n", (t2 - t1) / 1e6);
 }
 
 // // void test_generate_samples()
@@ -1347,7 +1350,7 @@ int main()
     // test_freq();
 
     // test_generate_samples();
-    // test_stats_generation();
+    test_stats_generation();
     // test_stats_generation_string();
 
     // benchmark_pfor_estimate();
@@ -1359,7 +1362,7 @@ int main()
     // test_templated_bitpacking_scalar();
 
     // benchmark_pfor_estimate();
-    test_tree_building();
+    // test_tree_building();
 
     // test_stats_generation();
 
