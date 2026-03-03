@@ -30,7 +30,6 @@ struct SampleStats
 
 struct NumberStats : IStats
 {
-    u32 num_items;
     u32 total_size;
     u32 bitFreq[MAX_HIST_SIZE];
     u32 count_run_len;
@@ -59,16 +58,19 @@ struct NumberStats : IStats
         u64 min,
         u64 max,
         u8 size_of_type)
-        : num_items(num_items),
-          total_size(total_size),
+        : total_size(total_size),
           count_run_len(count_run_len),
           count_distinct(count_distinct),
           min(min),
           max(max)
     {
+        this->num_items = num_items;
         this->type = StatsType::Number;
         this->size_of_type = size_of_type;
-        std::memcpy(this->bitFreq, bitFreq, MAX_HIST_SIZE * sizeof(u32));
+        if (bitFreq != nullptr)
+        {
+            std::memcpy(this->bitFreq, bitFreq, MAX_HIST_SIZE * sizeof(u32));
+        }
     }
 
     NumberStats(const NumberStats &other)
@@ -86,6 +88,8 @@ struct NumberStats : IStats
 
     NumberStats(const NumberStats *other) : NumberStats(*other) {}
 
+    // TODO fix inserting zero to set
+    // TODO early stopping for dict
     template <typename T>
     void GenerateStats(const T *src, const ValidityMask *bitmap, const u32 nitems)
     {
@@ -100,8 +104,8 @@ struct NumberStats : IStats
         bool allValid = bitmap->AllValid();
         u32 used = CountBitsUsed(rle_last_seen);
         bitFreq[used]++;
-        bool stopDict = false;
-        const u32 half_nitems = nitems / 2;
+        // bool stopDict = false;
+        // const u32 half_nitems = nitems / 2;
         for (u32 i = 1; i < nitems; i++)
         {
             if (!allValid && !bitmap->RowIsValid(i)) // TODO this can be optimize everywhere
@@ -115,14 +119,16 @@ struct NumberStats : IStats
             bitFreq[usedBits]++;
 
             // distinct_values.Inc(value); // TODO Replace this with a map that is using bits instead of bytes
-            if (!stopDict)
-            {
-                distinct_values.Push(value);
-                if (i == nitems / 2 && (half_nitems - distinct_values.Size()) * 100 / half_nitems <= 10)
-                {
-                    stopDict = true;
-                }
-            }
+
+            // if (!stopDict)
+            // {
+            //     distinct_values.Push(value);
+            //     if (i == nitems / 2 && (half_nitems - distinct_values.Size()) * 100 / half_nitems <= 10)
+            //     {
+            //         stopDict = true;
+            //     }
+            // }
+            distinct_values.Push(value);
 
             // hll.add(value);
 
@@ -134,7 +140,7 @@ struct NumberStats : IStats
         }
 
         // std::cout << hll.estimate() << std::endl;
-        count_distinct = stopDict ? nitems : distinct_values.Size();
+        count_distinct = distinct_values.Size(); // stopDict ? nitems : distinct_values.Size();
         count_run_len = rle_count;
     }
 
@@ -188,6 +194,7 @@ struct NumberStats : IStats
         printf("=== Column Stats ===\n");
         printf("  nitems:          %u\n", num_items);
         printf("  total_size:      %u\n", total_size);
+        printf("  rle_count:       %u\n", count_run_len);
         printf("  distinct_values: %u\n", count_distinct);
         printf("  min:             %s\n", std::to_string(min).c_str());
         printf("  max:             %s\n", std::to_string(max).c_str());

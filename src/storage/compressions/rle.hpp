@@ -9,7 +9,7 @@ struct RleEncodedRes
 {
     ValueType *values;
     u16 *counts;
-    u32 size;
+    u32 count;
 };
 
 struct RleEncoder
@@ -32,7 +32,7 @@ void RleEncoder::Encode(RleEncodedRes<ValueType> *out, const ValueType *in, cons
 {
     assert(nitems >= 1);
 
-    u32 *values = out->values;
+    ValueType *values = out->values;
     u16 *counts = out->counts;
 
     ValueType value = in[0];
@@ -61,7 +61,7 @@ void RleEncoder::Encode(RleEncodedRes<ValueType> *out, const ValueType *in, cons
 
     values[offset] = value;
     counts[offset] = count;
-    out->size = ++offset;
+    out->count = ++offset;
 }
 
 // ...

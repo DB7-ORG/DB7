@@ -8,6 +8,8 @@
 
 u32 *FastPForEncoder::PackExceptionBlocks(u32 *out, cachealignedvector &in, u8 bit)
 {
+    (void)bit; // TODO not used
+
     const u32 size = static_cast<u32>(in.size());
     *out++ = size;
 

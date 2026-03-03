@@ -12,12 +12,12 @@
 #include <unordered_set>
 #include <array>
 
-using T = u32;
+// using T = u32;
 
-// static inline constexpr T EstimateUncompressed(const u32 nitems)
-// {
-//     return nitems * sizeof(T);
-// }
+static inline constexpr u32 EstimateUncompressed(const u32 nitems, const u32 sizeof_type)
+{
+    return nitems * sizeof_type;
+}
 
 // static u32 EstimateCompression(SchemaType type, NumberStats<T> &stats)
 // {
@@ -43,12 +43,14 @@ using T = u32;
 struct DictionaryNode;
 struct RleNode;
 struct NumberNode;
+struct UncompressedNode;
 
 struct IVisitor
 {
+    virtual u32 Visit(NumberNode &node) = 0;
+    virtual u32 Visit(UncompressedNode &node) = 0;
     virtual u32 Visit(DictionaryNode &node) = 0;
     virtual u32 Visit(RleNode &node) = 0;
-    virtual u32 Visit(NumberNode &node) = 0;
 };
 
 struct INode
@@ -60,8 +62,15 @@ struct INode
 struct NumberNode : INode
 {
     u32 best_node_idx;
-    INode *children[2];
+    INode *children[3];
+
     NumberNode(u8 depth = 0);
+    u32 Accept(IVisitor &visitor) override { return visitor.Visit(*this); }
+};
+
+struct UncompressedNode : INode
+{
+    UncompressedNode(u8 depth);
     u32 Accept(IVisitor &visitor) override { return visitor.Visit(*this); }
 };
 
@@ -76,9 +85,9 @@ struct DictionaryNode : INode
 
 struct RleNode : INode
 {
-    NumberStats stats;
-    NumberNode *lens_node;
     NumberNode *values_node;
+    NumberNode *lens_node;
+
     RleNode(u8 depth);
     u32 Accept(IVisitor &visitor) override { return visitor.Visit(*this); }
 };
@@ -88,20 +97,28 @@ inline NumberNode::NumberNode(u8 depth)
     this->depth = depth;
 
     if (depth >= MAX_COMPRESSION_DEPTH)
+    {
+        children[0] = new UncompressedNode(depth);
+        children[1] = nullptr;
+        children[2] = nullptr;
         return;
+    }
 
     best_node_idx = 0;
-    children[0] = new DictionaryNode(depth);
-    children[1] = new RleNode(depth);
+    children[0] = new UncompressedNode(depth);
+    children[1] = new DictionaryNode(depth);
+    children[2] = new RleNode(depth);
+}
+
+inline UncompressedNode::UncompressedNode(u8 depth)
+{
+    this->depth = depth;
+    return;
 }
 
 inline DictionaryNode::DictionaryNode(u8 depth)
 {
     this->depth = depth;
-
-    if (depth >= MAX_COMPRESSION_DEPTH)
-        return;
-
     u8 newDepth = depth + 1;
     values_node = new NumberNode(newDepth);
     codes_node = new NumberNode(newDepth);
@@ -110,10 +127,6 @@ inline DictionaryNode::DictionaryNode(u8 depth)
 inline RleNode::RleNode(u8 depth)
 {
     this->depth = depth;
-
-    if (depth >= MAX_COMPRESSION_DEPTH)
-        return;
-
     u8 newDepth = depth + 1;
     values_node = new NumberNode(newDepth);
     lens_node = new NumberNode(newDepth);
@@ -124,6 +137,8 @@ struct StatsAproxTransformer
 private:
     static void ScaleBitFreq(const u32 bitFreq[MAX_HIST_SIZE], const u32 nitems, const u32 ndistinct, u32 outFreq[MAX_HIST_SIZE])
     {
+        (void)nitems; // TODO unused
+
         u32 distinctPerBucket[MAX_HIST_SIZE] = {};
         u32 total = 0;
         for (u32 i = 0; i < MAX_HIST_SIZE; i++)
@@ -142,7 +157,7 @@ private:
     }
 
 public:
-    static NumberStats DictionaryValuesTransform(NumberStats *stats)
+    static NumberStats DictionaryValuesTransform(const NumberStats *stats)
     {
         u32 newBitFreq[MAX_HIST_SIZE] = {};
         ScaleBitFreq(stats->bitFreq, stats->num_items, stats->count_distinct, newBitFreq);
@@ -150,14 +165,14 @@ public:
             newBitFreq,                                  // bitFreq
             stats->count_distinct,                       // num_items
             stats->count_distinct * stats->size_of_type, // total_size
-            1,                                           // count_run_len
+            stats->count_distinct,                       // count_run_len
             stats->count_distinct,                       // count_distinct
             stats->min,                                  // min
             stats->max,                                  // max
             stats->size_of_type);                        // size_of_type
     }
 
-    static NumberStats DictionaryCodesTransform(NumberStats *stats)
+    static NumberStats DictionaryCodesTransform(const NumberStats *stats)
     {
         return NumberStats(
             nullptr,                                // bitFreq //TODO (should be INF)
@@ -170,12 +185,12 @@ public:
             stats->size_of_type);                   // size_of_type
     }
 
-    static StringStats *DictionaryTransform(StringStats *stats)
+    static const StringStats *DictionaryTransform(const StringStats *stats)
     {
         return stats;
     }
 
-    static NumberStats RleLensTransform(NumberStats *stats)
+    static NumberStats RleLensTransform(const NumberStats *stats)
     {
         u32 typeSize = sizeof(u16);
         u32 nitems = stats->count_run_len;
@@ -191,18 +206,20 @@ public:
         u32 newBitFreq[MAX_HIST_SIZE] = {};
         ScaleBitFreq(stats->bitFreq, stats->num_items, nitems, newBitFreq);
 
+        u32 lensRunLen = (u32)std::max(1.0f, (float)nitems / avgRunLen);
+
         return NumberStats(
             newBitFreq,        // bitFreq
             nitems,            // num_items
             nitems * typeSize, // total_size
-            1,                 // count_run_len
+            lensRunLen,        // count_run_len
             distinct,          // count_distinct
             min,               // min
             max,               // max
             typeSize);         // size_of_type
     }
 
-    static NumberStats RleValsTransform(NumberStats *stats)
+    static NumberStats RleValsTransform(const NumberStats *stats)
     {
         u32 newBitFreq[MAX_HIST_SIZE] = {};
         ScaleBitFreq(stats->bitFreq, stats->num_items, stats->count_run_len, newBitFreq);
@@ -210,7 +227,7 @@ public:
             newBitFreq,                                 // bitFreq
             stats->count_run_len,                       // num_items
             stats->count_run_len * stats->size_of_type, // total_size
-            1,                                          // count_run_len
+            stats->count_run_len,                       // count_run_len
             stats->count_distinct,                      // count_distinct
             stats->min,                                 // min
             stats->max,                                 // max
@@ -236,15 +253,17 @@ struct EstimateCostVisitor : IVisitor
 
     u32 Visit(NumberNode &node) override
     {
-        if (node.depth >= MAX_COMPRESSION_DEPTH)
-            return 0;
-
         std::cout << "num visited" << std::endl;
 
         u32 local_best = UINT32_MAX;
         u32 idx = 0;
         for (auto *child : node.children)
         {
+            if (!child)
+            {
+                idx++;
+                continue;
+            }
             u32 cost = child->Accept(*this);
             if (cost < local_best)
             {
@@ -257,11 +276,15 @@ struct EstimateCostVisitor : IVisitor
         return local_best;
     }
 
+    u32 Visit(UncompressedNode &) override
+    {
+        std::cout << "uncompressed visited" << std::endl;
+
+        return EstimateUncompressed(current_stats->num_items, current_stats->size_of_type);
+    }
+
     u32 Visit(DictionaryNode &node) override
     {
-        if (node.depth >= MAX_COMPRESSION_DEPTH)
-            return 0;
-
         std::cout << "dict visited" << std::endl;
 
         if (current_stats->type == StatsType::Number)
@@ -297,12 +320,9 @@ struct EstimateCostVisitor : IVisitor
 
     u32 Visit(RleNode &node) override
     {
-        if (node.depth >= MAX_COMPRESSION_DEPTH)
-            return 0;
-
         std::cout << "rle visited" << std::endl;
 
-        NumberStats *stats = static_cast<NumberStats *>(current_stats);
+        const NumberStats *stats = static_cast<NumberStats *>(current_stats);
 
         u32 len_size, val_size;
         RleEncoder::EstimateCompression(stats->count_run_len, stats->size_of_type, len_size, val_size);
@@ -320,35 +340,241 @@ struct EstimateCostVisitor : IVisitor
     }
 };
 
-template <typename ValueType>
+enum struct SrcType
+{
+    U8,
+    U16,
+    U32,
+    U64,
+    DBL
+};
+
+// template <typename ValueType>
 struct CompressVisitor : IVisitor
 {
+    const IStats *stats;
+    const void *src;
+    SrcType src_type;
+    ValidityMask *nullmap;
+    u32 nitems;
 
-    const ValueType *src;
-    const ValidityMask *nullmap;
-    const u32 count;
+    u32 *data;
+    std::vector<u8> header;
 
-    CompressVisitor(const ValueType *in, const ValidityMask *nullmap, const u32 count)
+    CompressVisitor(IStats *stats, SrcType src_type, void *src, ValidityMask *nullmap, u32 nitems, u32 *out)
+        : stats(stats), src(src), src_type(src_type), nullmap(nullmap), nitems(nitems), data(out)
     {
+    }
+
+    void Write(const void *buf, u32 size)
+    { // TODO align data
+        memcpy(data, buf, size);
     }
 
     u32 Visit(NumberNode &node) override
     {
-        auto node = node.children[node.best_node_idx];
-        node.Accept(*this);
+        std::cout << "num visited" << std::endl;
+        INode *cur = node.children[node.best_node_idx];
+        return cur->Accept(*this);
     }
 
-    u32 Visit(DictionaryNode &node) override{
-        // compress
-        DictionaryValueEncoder::Encode()
+    static constexpr u32 TypeSize(SrcType t)
+    {
+        switch (t)
+        {
+        case SrcType::U8:
+            return sizeof(u8);
+        case SrcType::U16:
+            return sizeof(u16);
+        case SrcType::U32:
+            return sizeof(u32);
+        case SrcType::U64:
+            return sizeof(u64);
+        case SrcType::DBL:
+            return sizeof(double);
+        }
+        std::terminate();
+    }
 
-        // drop to next node
+    u32 Visit(UncompressedNode &) override
+    {
+        std::cout << "uncom visited" << std::endl;
+        header.push_back(SchemeAlgorythm::Uncompressed);
+        u32 size = TypeSize(src_type) * nitems;
+        Write(src, size);
+        return size;
+    }
+
+    void SwitchDictTypes(void *&codes, void *&values, u32 &valCount)
+    {
+        switch (src_type)
+        {
+        case SrcType::U8:
+        {
+            using typ = u8;
+            codes = new typ[nitems];
+            values = new typ[nitems];
+            DictEncodeTemplated((typ *)codes, (typ *)values, valCount);
+            break;
+        }
+        case SrcType::U16:
+        {
+            using typ = u16;
+            codes = new typ[nitems];
+            values = new typ[nitems];
+            DictEncodeTemplated((typ *)codes, (typ *)values, valCount);
+            break;
+        }
+        case SrcType::U32:
+        {
+            using typ = u32;
+            codes = new typ[nitems];
+            values = new typ[nitems];
+            DictEncodeTemplated((typ *)codes, (typ *)values, valCount);
+            break;
+        }
+        case SrcType::U64:
+        {
+            using typ = u64;
+            codes = new typ[nitems];
+            values = new typ[nitems];
+            DictEncodeTemplated((typ *)codes, (typ *)values, valCount);
+            break;
+        }
+        case SrcType::DBL:
+        {
+            using typ = double;
+            codes = new typ[nitems];
+            values = new typ[nitems];
+            DictEncodeTemplated((typ *)codes, (typ *)values, valCount);
+            break;
+        }
+        default:
+            throw std::runtime_error("invalid type not supported");
+        }
+    }
+
+    template <typename T>
+    void DictEncodeTemplated(T *codes, T *values, u32 &valCount)
+    {
+        DictionaryValueEncodedRes<T> result{
+            .codes = codes,
+            .values = values,
+            .valCount = 0};
+        auto castSrc = reinterpret_cast<const T *>(src);
+        DictionaryValueEncoder::Encode(&result, castSrc, nullmap, nitems);
+        valCount = result.valCount;
+    }
+
+    u32 Visit(DictionaryNode &node) override
+    {
+        std::cout << "dict visited" << std::endl;
+        header.push_back(SchemeAlgorythm::Dictionary);
+
+        // TODO should take from pool
+        void *codes;
+        void *values;
+        u32 valCount;
+        SwitchDictTypes(codes, values, valCount);
+
+        // Collect stats again
+
+        // Compare w estimated stats
+
+        src = codes;
+        u32 val1 = node.codes_node->Accept(*this);
+
+        src = values;
+        nitems = valCount;
+        u32 val2 = node.values_node->Accept(*this);
+
+        return val1 + val2;
+    }
+
+    void SwitchRleTypes(void *&counts, void *&values, u32 &count)
+    {
+        switch (src_type)
+        {
+        case SrcType::U8:
+        {
+            using typ = u8;
+            counts = new u16[nitems];
+            values = new typ[nitems];
+            RleEncodeTemplated((u16 *)counts, (typ *)values, count);
+            break;
+        }
+        case SrcType::U16:
+        {
+            using typ = u16;
+            counts = new u16[nitems];
+            values = new typ[nitems];
+            RleEncodeTemplated((u16 *)counts, (typ *)values, count);
+            break;
+        }
+        case SrcType::U32:
+        {
+            using typ = u32;
+            counts = new u16[nitems];
+            values = new typ[nitems];
+            RleEncodeTemplated((u16 *)counts, (typ *)values, count);
+            break;
+        }
+        case SrcType::U64:
+        {
+            using typ = u64;
+            counts = new u16[nitems];
+            values = new typ[nitems];
+            RleEncodeTemplated((u16 *)counts, (typ *)values, count);
+            break;
+        };
+        case SrcType::DBL:
+        {
+            using typ = double;
+            counts = new u16[nitems];
+            values = new typ[nitems];
+            RleEncodeTemplated((u16 *)counts, (typ *)values, count);
+            break;
+        }
+        default:
+            throw std::runtime_error("invalid type not supported");
+        }
+    }
+
+    template <typename T>
+    void RleEncodeTemplated(u16 *counts, T *values, u32 &count)
+    {
+        RleEncodedRes<T> result{
+            .values = values,
+            .counts = counts,
+            .count = 0};
+        auto castSrc = reinterpret_cast<const T *>(src);
+        RleEncoder::Encode(&result, castSrc, nullmap, nitems);
+        count = result.count;
     }
 
     u32 Visit(RleNode &node) override
     {
-        // compress
+        std::cout << "rle visited" << std::endl;
+        header.push_back(SchemeAlgorythm::Rle);
 
-        // drop to next node
+        // TODO should take from pool
+        void *counts;
+        void *values;
+        u32 count;
+        SwitchRleTypes(counts, values, count);
+
+        // Collect stats again
+
+        // Compare w estimated stats
+
+        src = values;
+        u32 val1 = node.values_node->Accept(*this);
+
+        src = counts;
+        nitems = count;
+        src_type = SrcType::U16;
+        u32 val2 = node.lens_node->Accept(*this);
+
+        return val1 + val2;
     }
 };

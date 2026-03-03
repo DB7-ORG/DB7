@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/mman.h>
 
-void DictionaryValueEncoder::EstimateCompression(const u32 nunique, const u32 nitems, const u8 sizeOfType, u32 codeSize, u32 valueSize)
+void DictionaryValueEncoder::EstimateCompression(const u32 nunique, const u32 nitems, const u8 sizeOfType, u32 &codeSize, u32 &valueSize)
 {
     codeSize = nitems * sizeOfType;
     valueSize = nunique * sizeOfType;

@@ -1323,15 +1323,22 @@ void test_tree_building()
 
     for (int i = 0; i < tuple_num; i++)
     {
-        data[i] = i % (222);
+        data[i] = (i % 222) + 1;
     }
 
     ValidityMask validity(tuple_num);
     NumberStats *stats = new NumberStats();
     stats->GenerateStats(data, &validity, tuple_num);
+    stats->Print();
     auto estimator = EstimateCostVisitor(stats);
     auto node = NumberNode();
-    node.Accept(estimator);
+    u32 estimatedSize = node.Accept(estimator);
+    std::cout << "Estimated size " << estimatedSize << std::endl;
+    std::cout << "Real size " << tuple_num * sizeof(type) << std::endl;
+
+    auto out = (u32 *)malloc(tuple_num * sizeof(u32));
+    auto compressor = CompressVisitor(stats, SrcType::U32, data, &validity, tuple_num, out);
+    node.Accept(compressor);
 }
 
 int main()
@@ -1350,7 +1357,7 @@ int main()
     // test_freq();
 
     // test_generate_samples();
-    test_stats_generation();
+    // test_stats_generation();
     // test_stats_generation_string();
 
     // benchmark_pfor_estimate();
@@ -1362,7 +1369,7 @@ int main()
     // test_templated_bitpacking_scalar();
 
     // benchmark_pfor_estimate();
-    // test_tree_building();
+    test_tree_building();
 
     // test_stats_generation();
 
