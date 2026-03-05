@@ -1317,6 +1317,7 @@ void test_templated_bitpacking_temp()
 void test_tree_building()
 {
     using type = u32;
+    auto srcType = SrcType::U32;
 
     constexpr long tuple_num = AlignUp(120'000, 256);
     auto data = (type *)malloc(tuple_num * sizeof(type));
@@ -1338,14 +1339,25 @@ void test_tree_building()
     std::cout << "Estimated size " << estimatedSize << std::endl;
     std::cout << "Real size " << tuple_num * sizeof(type) << std::endl;
 
-    auto out = (u8 *)malloc(tuple_num * sizeof(u32));
-    auto compressor = CompressVisitor(stats, SrcType::U32, data, &validity, tuple_num, out);
+    auto out = (u8 *)malloc(tuple_num * sizeof(type));
+    auto compressor = CompressVisitor(stats, srcType, data, &validity, tuple_num, out);
     u64 t2 = now_ns();
     node.Accept(compressor);
     u64 t3 = now_ns();
 
-    printf("search:      %.3f ms\n", (t1 - t0) / 1e6);
-    printf("compress:    %.3f ms\n", (t3 - t2) / 1e6);
+    auto decoded = (u8 *)malloc(tuple_num * sizeof(type));
+    u64 t4 = now_ns();
+    auto decompressor = DecompressVisitor(srcType, &validity, tuple_num, out, compressor.header, compressor.offsets);
+    u64 t5 = now_ns();
+
+    for (int i = 0; i < tuple_num; i++)
+    {
+        assert(decoded[i] == data[i]);
+    }
+
+    printf("search:        %.3f ms\n", (t1 - t0) / 1e6);
+    printf("compress:      %.3f ms\n", (t3 - t2) / 1e6);
+    printf("decompress:    %.3f ms\n", (t5 - t4) / 1e6);
 }
 
 int main()

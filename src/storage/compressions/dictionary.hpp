@@ -32,7 +32,7 @@ struct DictionaryStringEncoder
 template <typename ValueType>
 struct DictionaryValueEncodedRes
 {
-    ValueType *codes;
+    u32 *codes;
     ValueType *values;
     u32 valCount;
 };
@@ -82,14 +82,14 @@ template <typename ValueType>
 void DictionaryValueEncoder::Decode(
     ValueType *out,
     const DictionaryValueEncodedRes<ValueType> *in,
-    const u32 count)
+    const u32 count) // TODO remove count use from in
 {
-    const ValueType *codes = in->codes;
+    const u32 *codes = in->codes;
     const ValueType *values = in->values;
 
     for (u32 i = 0; i < count; i++)
     {
-        ValueType idx = codes[i];
+        u32 idx = codes[i];
         ValueType value = values[idx];
         out[i] = value;
     }

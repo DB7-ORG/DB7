@@ -56,6 +56,7 @@ struct IVisitor
 struct INode
 {
     u8 depth;
+    void *buf;
     virtual u32 Accept(IVisitor &visitor) = 0;
 };
 
@@ -395,7 +396,6 @@ static u32 TypeSize(SrcType t)
     std::terminate();
 }
 
-// template <typename ValueType>
 struct CompressVisitor : IVisitor
 {
     const IStats *stats;
@@ -423,9 +423,9 @@ struct CompressVisitor : IVisitor
     inline void Write(const void *buf, u32 size)
     { // TODO align data
         memcpy(data, buf, size);
+        data += size;
         *(offsets++) = data - init_data;
         offcount++;
-        data += size;
     }
 
     inline void WriteHeader(u8 val)
@@ -458,14 +458,14 @@ struct CompressVisitor : IVisitor
     void SwitchDictTypes(void *&codes, void *&values, u32 &valCount)
     {
         DispatchType(src_type, [&]<typename T>() { // TODO pool
-            codes = new T[nitems];
+            codes = new u32[nitems];
             values = new T[nitems];
-            DictEncodeTemplated((T *)codes, (T *)values, valCount);
+            DictEncodeTemplated((u32 *)codes, (T *)values, valCount);
         });
     }
 
     template <typename T>
-    void DictEncodeTemplated(T *codes, T *values, u32 &valCount)
+    void DictEncodeTemplated(u32 *codes, T *values, u32 &valCount)
     {
         DictionaryValueEncodedRes<T> result{
             .codes = codes,
@@ -546,5 +546,127 @@ struct CompressVisitor : IVisitor
         u32 val2 = node.lens_node->Accept(*this);
 
         return val1 + val2;
+    }
+};
+
+struct DecompressVisitor : IVisitor
+{
+    SrcType src_type;
+    ValidityMask *nullmap;
+    u32 nitems;
+    u8 *data;
+    u8 *header;
+    u32 *offsets;
+    u32 last_off;
+
+    DecompressVisitor(SrcType src_type, ValidityMask *nullmap, u32 nitems, u8 *data, u8 *header, u32 *offsets)
+        : src_type(src_type), nullmap(nullmap), nitems(nitems), data(data), header(header), offsets(offsets), last_off(0)
+    {
+    }
+
+    inline u8 PopHeader()
+    {
+        return *(header++);
+    }
+
+    inline u32 PopOffset()
+    {
+        return *(offsets++);
+    }
+
+    inline u32 SizeOfType()
+    {
+        return TypeSize(src_type) * nitems;
+    }
+
+    u32 Visit(NumberNode &node) override
+    {
+        std::cout << "num visited" << std::endl;
+
+        u8 alg = PopHeader();
+
+        INode *cur = node.children[alg];
+        u32 buf_size = cur->Accept(*this);
+
+        node.buf = cur->buf;
+
+        return buf_size;
+    }
+
+    u32 Visit(UncompressedNode &node) override
+    {
+        std::cout << "uncom visited" << std::endl;
+
+        u32 offset = PopOffset();
+
+        // TODO pool
+        u32 buf_size = offset - last_off;
+        node.buf = new u8[buf_size];
+
+        last_off = offset;
+
+        return buf_size;
+    }
+
+    template <typename T>
+    void DictDecodeTemplated(u32 *codes, T *values, u32 &valCount, T *out)
+    {
+        DictionaryValueEncodedRes<T> result{
+            .codes = codes,
+            .values = values,
+            .valCount = nitems};
+        DictionaryValueEncoder::Decode(out, &result, nitems);
+        valCount = result.valCount;
+    }
+
+    u32 Visit(DictionaryNode &node) override
+    {
+        std::cout << "dict visited" << std::endl;
+
+        node.codes_node->Accept(*this);
+        auto codes = node.codes_node->buf;
+
+        node.values_node->Accept(*this);
+        auto values = node.values_node->buf;
+
+        // TODO pool
+        node.buf = new u8[nitems * sizeof(u32)]; // TODO
+
+        DispatchType(src_type, [&]<typename T>() { //
+            DictDecodeTemplated((u32 *)codes, (T *)values, nitems, (T *)node.buf);
+        });
+
+        return last_off;
+    }
+
+    template <typename T>
+    void RleDecodeTemplated(u16 *counts, T *values, u32 &count, T *out)
+    {
+        RleEncodedRes<T> result{
+            .values = values,
+            .counts = counts,
+            .count = count};
+        RleEncoder::Decode(out, &result);
+        count = result.count;
+    }
+
+    u32 Visit(RleNode &node) override
+    {
+        std::cout << "rle visited" << std::endl;
+
+        node.values_node->Accept(*this);
+        void *values = node.values_node->buf;
+
+        node.lens_node->Accept(*this);
+        void *lens = node.lens_node->buf;
+
+        // TODO pool
+        node.buf = new u8[nitems * sizeof(u32)]; // TODO
+
+        DispatchType(src_type, [&]<typename T>() { //
+            RleDecodeTemplated((u16 *)lens, (T *)values, nitems, (T *)node.buf);
+        });
+
+        return 0;
     }
 };

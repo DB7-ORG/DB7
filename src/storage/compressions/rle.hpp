@@ -72,9 +72,9 @@ template <typename ValueType>
 void RleEncoder::Decode(ValueType *out, const RleEncodedRes<ValueType> *in)
 {
     constexpr u32 itemsInVec = 32 / sizeof(ValueType);
-    const u32 *values = in->values;
+    const ValueType *values = in->values;
     const u16 *counts = in->counts;
-    const u32 size = in->size;
+    const u32 size = in->count;
 
     for (u32 i = 0; i < size; i++)
     {
