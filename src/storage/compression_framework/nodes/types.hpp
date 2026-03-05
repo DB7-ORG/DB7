@@ -12,11 +12,11 @@ enum SchemaType
 enum SchemeAlgorythm
 {
     Uncompressed,
-    Bitpacking,
     Dictionary,
+    Rle,
+    Bitpacking,
     FastPFor,
     Frequency,
     Fsst,
-    Oneval,
-    Rle
+    Oneval
 };

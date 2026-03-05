@@ -1323,7 +1323,7 @@ void test_tree_building()
 
     for (int i = 0; i < tuple_num; i++)
     {
-        data[i] = (i % 222) + 1;
+        data[i] = (i / 222) + 1;
     }
 
     ValidityMask validity(tuple_num);
@@ -1332,13 +1332,20 @@ void test_tree_building()
     stats->Print();
     auto estimator = EstimateCostVisitor(stats);
     auto node = NumberNode();
+    u64 t0 = now_ns();
     u32 estimatedSize = node.Accept(estimator);
+    u64 t1 = now_ns();
     std::cout << "Estimated size " << estimatedSize << std::endl;
     std::cout << "Real size " << tuple_num * sizeof(type) << std::endl;
 
-    auto out = (u32 *)malloc(tuple_num * sizeof(u32));
+    auto out = (u8 *)malloc(tuple_num * sizeof(u32));
     auto compressor = CompressVisitor(stats, SrcType::U32, data, &validity, tuple_num, out);
+    u64 t2 = now_ns();
     node.Accept(compressor);
+    u64 t3 = now_ns();
+
+    printf("search:      %.3f ms\n", (t1 - t0) / 1e6);
+    printf("compress:    %.3f ms\n", (t3 - t2) / 1e6);
 }
 
 int main()

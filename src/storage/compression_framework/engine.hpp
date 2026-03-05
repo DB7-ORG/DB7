@@ -206,6 +206,7 @@ public:
         u32 newBitFreq[MAX_HIST_SIZE] = {};
         ScaleBitFreq(stats->bitFreq, stats->num_items, nitems, newBitFreq);
 
+        // TODODODODODODODODODO 120000;
         u32 lensRunLen = (u32)std::max(1.0f, (float)nitems / avgRunLen);
 
         return NumberStats(
@@ -257,6 +258,7 @@ struct EstimateCostVisitor : IVisitor
 
         u32 local_best = UINT32_MAX;
         u32 idx = 0;
+        IStats *stats = current_stats;
         for (auto *child : node.children)
         {
             if (!child)
@@ -264,6 +266,7 @@ struct EstimateCostVisitor : IVisitor
                 idx++;
                 continue;
             }
+            current_stats = stats;
             u32 cost = child->Accept(*this);
             if (cost < local_best)
             {
@@ -291,8 +294,8 @@ struct EstimateCostVisitor : IVisitor
         {
             NumberStats *stats = static_cast<NumberStats *>(current_stats);
 
-            u32 codeSize, valueSize;
-            DictionaryValueEncoder::EstimateCompression(stats->count_distinct, stats->num_items, stats->size_of_type, codeSize, valueSize);
+            // u32 codeSize, valueSize;
+            // DictionaryValueEncoder::EstimateCompression(stats->count_distinct, stats->num_items, stats->size_of_type, codeSize, valueSize);
 
             NumberStats values_stats = StatsAproxTransformer::DictionaryValuesTransform(stats);
             NumberStats codes_stats = StatsAproxTransformer::DictionaryCodesTransform(stats);
@@ -324,8 +327,8 @@ struct EstimateCostVisitor : IVisitor
 
         const NumberStats *stats = static_cast<NumberStats *>(current_stats);
 
-        u32 len_size, val_size;
-        RleEncoder::EstimateCompression(stats->count_run_len, stats->size_of_type, len_size, val_size);
+        // u32 len_size, val_size;
+        // RleEncoder::EstimateCompression(stats->count_run_len, stats->size_of_type, len_size, val_size);
 
         NumberStats len_stats = StatsAproxTransformer::RleLensTransform(stats);
         NumberStats val_stats = StatsAproxTransformer::RleValsTransform(stats);
@@ -349,6 +352,49 @@ enum struct SrcType
     DBL
 };
 
+template <typename Func>
+static void DispatchType(SrcType type, Func &&f)
+{
+    switch (type)
+    {
+    case SrcType::U8:
+        f.template operator()<u8>();
+        break;
+    case SrcType::U16:
+        f.template operator()<u16>();
+        break;
+    case SrcType::U32:
+        f.template operator()<u32>();
+        break;
+    case SrcType::U64:
+        f.template operator()<u64>();
+        break;
+    case SrcType::DBL:
+        f.template operator()<double>();
+        break;
+    default:
+        throw std::runtime_error("unsupported type");
+    }
+}
+
+static u32 TypeSize(SrcType t)
+{
+    switch (t)
+    {
+    case SrcType::U8:
+        return sizeof(u8);
+    case SrcType::U16:
+        return sizeof(u16);
+    case SrcType::U32:
+        return sizeof(u32);
+    case SrcType::U64:
+        return sizeof(u64);
+    case SrcType::DBL:
+        return sizeof(double);
+    }
+    std::terminate();
+}
+
 // template <typename ValueType>
 struct CompressVisitor : IVisitor
 {
@@ -358,17 +404,39 @@ struct CompressVisitor : IVisitor
     ValidityMask *nullmap;
     u32 nitems;
 
-    u32 *data;
-    std::vector<u8> header;
+    u8 *init_data;
+    u8 *data;
+    u8 *header;
+    u32 *offsets;
+    u8 hcount;
+    u8 offcount;
 
-    CompressVisitor(IStats *stats, SrcType src_type, void *src, ValidityMask *nullmap, u32 nitems, u32 *out)
-        : stats(stats), src(src), src_type(src_type), nullmap(nullmap), nitems(nitems), data(out)
-    {
+    CompressVisitor(IStats *stats, SrcType src_type, void *src, ValidityMask *nullmap, u32 nitems, u8 *out)
+        : stats(stats), src(src), src_type(src_type), nullmap(nullmap), nitems(nitems), init_data(out), data(out)
+    { // TODO pool it and make values scale based on depth
+        hcount = 0;
+        offcount = 0;
+        header = (u8 *)malloc(64);
+        offsets = (u32 *)malloc(32 * sizeof(u32));
     }
 
-    void Write(const void *buf, u32 size)
+    inline void Write(const void *buf, u32 size)
     { // TODO align data
         memcpy(data, buf, size);
+        *(offsets++) = data - init_data;
+        offcount++;
+        data += size;
+    }
+
+    inline void WriteHeader(u8 val)
+    {
+        *(header++) = val;
+        hcount++;
+    }
+
+    inline u32 SizeOfType()
+    {
+        return TypeSize(src_type) * nitems;
     }
 
     u32 Visit(NumberNode &node) override
@@ -378,80 +446,22 @@ struct CompressVisitor : IVisitor
         return cur->Accept(*this);
     }
 
-    static constexpr u32 TypeSize(SrcType t)
-    {
-        switch (t)
-        {
-        case SrcType::U8:
-            return sizeof(u8);
-        case SrcType::U16:
-            return sizeof(u16);
-        case SrcType::U32:
-            return sizeof(u32);
-        case SrcType::U64:
-            return sizeof(u64);
-        case SrcType::DBL:
-            return sizeof(double);
-        }
-        std::terminate();
-    }
-
     u32 Visit(UncompressedNode &) override
     {
         std::cout << "uncom visited" << std::endl;
-        header.push_back(SchemeAlgorythm::Uncompressed);
-        u32 size = TypeSize(src_type) * nitems;
+        WriteHeader(SchemeAlgorythm::Uncompressed);
+        u32 size = SizeOfType();
         Write(src, size);
         return size;
     }
 
     void SwitchDictTypes(void *&codes, void *&values, u32 &valCount)
     {
-        switch (src_type)
-        {
-        case SrcType::U8:
-        {
-            using typ = u8;
-            codes = new typ[nitems];
-            values = new typ[nitems];
-            DictEncodeTemplated((typ *)codes, (typ *)values, valCount);
-            break;
-        }
-        case SrcType::U16:
-        {
-            using typ = u16;
-            codes = new typ[nitems];
-            values = new typ[nitems];
-            DictEncodeTemplated((typ *)codes, (typ *)values, valCount);
-            break;
-        }
-        case SrcType::U32:
-        {
-            using typ = u32;
-            codes = new typ[nitems];
-            values = new typ[nitems];
-            DictEncodeTemplated((typ *)codes, (typ *)values, valCount);
-            break;
-        }
-        case SrcType::U64:
-        {
-            using typ = u64;
-            codes = new typ[nitems];
-            values = new typ[nitems];
-            DictEncodeTemplated((typ *)codes, (typ *)values, valCount);
-            break;
-        }
-        case SrcType::DBL:
-        {
-            using typ = double;
-            codes = new typ[nitems];
-            values = new typ[nitems];
-            DictEncodeTemplated((typ *)codes, (typ *)values, valCount);
-            break;
-        }
-        default:
-            throw std::runtime_error("invalid type not supported");
-        }
+        DispatchType(src_type, [&]<typename T>() { // TODO pool
+            codes = new T[nitems];
+            values = new T[nitems];
+            DictEncodeTemplated((T *)codes, (T *)values, valCount);
+        });
     }
 
     template <typename T>
@@ -469,7 +479,7 @@ struct CompressVisitor : IVisitor
     u32 Visit(DictionaryNode &node) override
     {
         std::cout << "dict visited" << std::endl;
-        header.push_back(SchemeAlgorythm::Dictionary);
+        WriteHeader(SchemeAlgorythm::Dictionary);
 
         // TODO should take from pool
         void *codes;
@@ -493,51 +503,11 @@ struct CompressVisitor : IVisitor
 
     void SwitchRleTypes(void *&counts, void *&values, u32 &count)
     {
-        switch (src_type)
-        {
-        case SrcType::U8:
-        {
-            using typ = u8;
+        DispatchType(src_type, [&]<typename T>() { // TODO pool
             counts = new u16[nitems];
-            values = new typ[nitems];
-            RleEncodeTemplated((u16 *)counts, (typ *)values, count);
-            break;
-        }
-        case SrcType::U16:
-        {
-            using typ = u16;
-            counts = new u16[nitems];
-            values = new typ[nitems];
-            RleEncodeTemplated((u16 *)counts, (typ *)values, count);
-            break;
-        }
-        case SrcType::U32:
-        {
-            using typ = u32;
-            counts = new u16[nitems];
-            values = new typ[nitems];
-            RleEncodeTemplated((u16 *)counts, (typ *)values, count);
-            break;
-        }
-        case SrcType::U64:
-        {
-            using typ = u64;
-            counts = new u16[nitems];
-            values = new typ[nitems];
-            RleEncodeTemplated((u16 *)counts, (typ *)values, count);
-            break;
-        };
-        case SrcType::DBL:
-        {
-            using typ = double;
-            counts = new u16[nitems];
-            values = new typ[nitems];
-            RleEncodeTemplated((u16 *)counts, (typ *)values, count);
-            break;
-        }
-        default:
-            throw std::runtime_error("invalid type not supported");
-        }
+            values = new T[nitems];
+            RleEncodeTemplated((u16 *)counts, (T *)values, count);
+        });
     }
 
     template <typename T>
@@ -555,7 +525,7 @@ struct CompressVisitor : IVisitor
     u32 Visit(RleNode &node) override
     {
         std::cout << "rle visited" << std::endl;
-        header.push_back(SchemeAlgorythm::Rle);
+        WriteHeader(SchemeAlgorythm::Rle);
 
         // TODO should take from pool
         void *counts;
