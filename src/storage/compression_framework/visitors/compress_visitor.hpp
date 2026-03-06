@@ -3,8 +3,8 @@
 #include "common.hpp"
 #include "../nodes/types.hpp"
 #include "../nodes/nodes.hpp"
-#include "../../stats/number_stats.hpp"
-#include "../../stats/string_stats.hpp"
+#include "../stats/number_stats.hpp"
+#include "../stats/string_stats.hpp"
 #include "nullbitmap.hpp"
 
 #include <cstring>

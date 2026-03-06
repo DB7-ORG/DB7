@@ -3,8 +3,8 @@
 #include "common.hpp"
 #include "../nodes/types.hpp"
 #include "../nodes/nodes.hpp"
-#include "../../stats/number_stats.hpp"
-#include "../../stats/string_stats.hpp"
+#include "../stats/number_stats.hpp"
+#include "../stats/string_stats.hpp"
 
 inline constexpr u32 EstimateUncompressed(const u32 nitems, const u32 sizeof_type)
 {

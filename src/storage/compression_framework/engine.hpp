@@ -3,8 +3,8 @@
 #include "common.hpp"
 
 #include "nodes/types.hpp"
-#include "../stats/number_stats.hpp"
-#include "../stats/string_stats.hpp"
+#include "stats/number_stats.hpp"
+#include "stats/string_stats.hpp"
 #include "../compressions/compression.hpp"
 
 #include <vector>
