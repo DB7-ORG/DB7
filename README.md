@@ -3,7 +3,11 @@ g++ -O3 -march=native -S -masm=intel atest.cpp -o template.s -fverbose-asm
 
 # DB7 ✅ ❌
 
-add a pool TODO in engine
+engine implementation ❌
+- add a pool TODO in engine ❌
+- save nullmap(consider compressing it) ❌
+- make header maloc and offset scale based on depth ❌
+- ❌
 
 implement compression schemes ❌
 - dictionary encoding ✅
@@ -14,7 +18,7 @@ implement compression schemes ❌
 - frequency encoding ✅
 - add floating point compressions ❌
 - support for NULLS ✅
-- patched FOR ❌
+- patched FOR ✅
 
 check out todo template for decode single in bitpacking ❌
 check out todos and fix them before there is too many ❌
@@ -31,13 +35,13 @@ improvements to existing decompressions
 - python code generation that manually writes bitpacking code for all uX types ✅// TODO replace w common
 
 - refactor code for compression so function caller does the allocations and alignment ✅
-- single value compression probably sucks try block decompression ❌
+- single value compression probably sucks try block decompression (this is depending on is it vectorised or compiled excecution engine) ✅
 
 - add __restrict to all compressions ❌
 
 framework
 - should always bitpack codes after dictionary encoding (check out sorted dict alternatives) ❌
-- templated pfor version ❌ 
+- templated pfor version ✅ 
 - i might want to apply something else on exceptions in pfor (might be a bad idea because its shifted bits which is semi random values) ❌
 - add a dictionary that is a single bitmap so collisions are less punishable (might be a bad idea) ❌
 - estimate pfor size and evaluate that to see how well does the estimate predict ✅

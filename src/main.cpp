@@ -1351,6 +1351,7 @@ void test_tree_building()
     u64 t5 = now_ns();
 
     auto decoded = (type *)node.buf;
+    (void)decoded;
     for (int i = 0; i < tuple_num; i++)
     {
         assert(decoded[i] == data[i]);

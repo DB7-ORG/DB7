@@ -396,6 +396,18 @@ static u32 TypeSize(SrcType t)
     std::terminate();
 }
 
+inline u32 SizeOfBuffer(SrcType type, u32 nitems)
+{
+    return TypeSize(type) * nitems;
+}
+
+struct CompressVisitorState
+{
+    const void *src;
+    u32 nitems;
+    SrcType src_type;
+};
+
 struct CompressVisitor : IVisitor
 {
     const IStats *stats;
@@ -406,18 +418,16 @@ struct CompressVisitor : IVisitor
 
     u8 *init_data;
     u8 *data;
-    u8 *header;
-    u32 *offsets;
-    u8 hcount;
-    u8 offcount;
+
     u8 *init_header;
+    u8 *header;
+
     u32 *init_offsets;
+    u32 *offsets;
 
     CompressVisitor(IStats *stats, SrcType src_type, void *src, ValidityMask *nullmap, u32 nitems, u8 *out)
         : stats(stats), src(src), src_type(src_type), nullmap(nullmap), nitems(nitems), init_data(out), data(out)
     { // TODO pool it and make values scale based on depth
-        hcount = 0;
-        offcount = 0;
         init_header = (u8 *)malloc(64);
         header = init_header;
         init_offsets = (u32 *)malloc(32 * sizeof(u32));
@@ -428,49 +438,58 @@ struct CompressVisitor : IVisitor
     { // TODO align data
         memcpy(data, buf, size);
         data += size;
-        WriteOffset(data - init_data);
+        PushOffset(data - init_data);
     }
 
-    inline void WriteOffset(u32 off)
+    inline void PushOffset(u32 off)
     {
         *(offsets++) = off;
-        offcount++;
     }
 
-    inline void WriteHeader(u8 val)
+    inline void PushHeader(u8 val)
     {
         *(header++) = val;
-        hcount++;
     }
 
-    inline u32 SizeOfType()
+    inline CompressVisitorState SaveState()
     {
-        return TypeSize(src_type) * nitems;
+        return {src, nitems, src_type};
+    }
+
+    inline void RestoreState(const CompressVisitorState &state)
+    {
+        src = state.src;
+        src_type = state.src_type;
+        nitems = state.nitems;
+    }
+
+    inline void PrepState(const void *new_src, SrcType new_type, u32 new_nitems)
+    {
+        src = new_src;
+        src_type = new_type;
+        nitems = new_nitems;
     }
 
     u32 Visit(NumberNode &node) override
     {
         std::cout << "num visited" << std::endl;
+
         INode *cur = node.children[node.best_node_idx];
-        WriteHeader(node.best_node_idx);
+
+        PushHeader(node.best_node_idx);
+
         return cur->Accept(*this);
     }
 
     u32 Visit(UncompressedNode &) override
     {
         std::cout << "uncom visited" << std::endl;
-        u32 size = SizeOfType();
-        Write(src, size);
-        return size;
-    }
 
-    void SwitchDictTypes(void *&codes, void *&values, u32 &valCount)
-    {
-        DispatchType(src_type, [&]<typename T>() { // TODO pool
-            codes = new u32[nitems];
-            values = new T[nitems];
-            DictEncodeTemplated((u32 *)codes, (T *)values, valCount);
-        });
+        u32 size = SizeOfBuffer(src_type, nitems);
+
+        Write(src, size);
+
+        return size;
     }
 
     template <typename T>
@@ -490,44 +509,39 @@ struct CompressVisitor : IVisitor
         std::cout << "dict visited" << std::endl;
 
         // TODO should take from pool
-        void *codes;
-        void *values;
+
         u32 valCount;
-        SwitchDictTypes(codes, values, valCount);
+        void *codes, *values;
+
+        DispatchType(src_type, [&]<typename T>() { // TODO pool
+            codes = new u32[nitems];
+            values = new T[nitems];
+            DictEncodeTemplated((u32 *)codes, (T *)values, valCount);
+        });
+
+        // SwitchDictTypes(codes, values, valCount);
 
         // Collect stats again
 
         // Compare w estimated stats
 
-        u32 old_items = nitems;
-        SrcType prev_type = src_type;
+        auto state = SaveState();
 
-        src = codes;
-        src_type = SrcType::U32;
+        PrepState(codes, SrcType::U32, state.nitems);
+
         u32 val1 = node.codes_node->Accept(*this);
 
-        src = values;
-        nitems = valCount;
-        src_type = prev_type;
+        PrepState(values, state.src_type, valCount);
+
         u32 val2 = node.values_node->Accept(*this);
 
-        src_type = prev_type;
-        nitems = old_items;
+        RestoreState(state); // This is just a guard if i add something after left/right node search
 
         return val1 + val2;
     }
 
-    void SwitchRleTypes(void *&counts, void *&values, u32 &count)
-    {
-        DispatchType(src_type, [&]<typename T>() { // TODO pool
-            counts = new u16[nitems];
-            values = new T[nitems];
-            RleEncodeTemplated((u16 *)counts, (T *)values, count);
-        });
-    }
-
     template <typename T>
-    void RleEncodeTemplated(u16 *counts, T *values, u32 &count)
+    inline void RleEncodeTemplated(u16 *counts, T *values, u32 &count)
     {
         RleEncodedRes<T> result{
             .values = values,
@@ -543,31 +557,39 @@ struct CompressVisitor : IVisitor
         std::cout << "rle visited" << std::endl;
 
         // TODO should take from pool
-        void *counts;
-        void *values;
+
+        void *counts, *values;
         u32 count;
-        SwitchRleTypes(counts, values, count);
+        DispatchType(src_type, [&]<typename T>()
+                     { 
+            counts = new u16[nitems];
+            values = new T[nitems];
+            RleEncodeTemplated((u16 *)counts, (T *)values, count); });
 
         // Collect stats again
 
         // Compare w estimated stats
 
-        u32 old_items = nitems;
-        SrcType prev_type = src_type;
+        auto state = SaveState();
 
-        src = values;
+        PrepState(values, state.src_type, state.nitems);
+
         u32 val1 = node.values_node->Accept(*this);
 
-        src = counts;
-        nitems = count;
-        src_type = SrcType::U16;
+        PrepState(counts, SrcType::U16, count);
+
         u32 val2 = node.lens_node->Accept(*this);
 
-        src_type = prev_type;
-        nitems = old_items;
+        RestoreState(state); // This is just a guard if i add something after left/right node search
 
         return val1 + val2;
     }
+};
+
+struct DecompressVisitorState
+{
+    u32 nitems;
+    SrcType src_type;
 };
 
 struct DecompressVisitor : IVisitor
@@ -595,9 +617,21 @@ struct DecompressVisitor : IVisitor
         return *(offsets++);
     }
 
-    inline u32 SizeOfType()
+    inline DecompressVisitorState SaveState()
     {
-        return TypeSize(src_type) * nitems;
+        return {nitems, src_type};
+    }
+
+    inline void RestoreState(const DecompressVisitorState &state)
+    {
+        src_type = state.src_type;
+        nitems = state.nitems;
+    }
+
+    inline void PrepState(SrcType new_type, u32 new_nitems)
+    {
+        src_type = new_type;
+        nitems = new_nitems;
     }
 
     u32 Visit(NumberNode &node) override
@@ -607,6 +641,7 @@ struct DecompressVisitor : IVisitor
         u8 alg = PopHeader();
 
         INode *cur = node.children[alg];
+
         u32 buf_size = cur->Accept(*this);
 
         node.buf = cur->buf;
@@ -621,12 +656,12 @@ struct DecompressVisitor : IVisitor
         u32 offset = PopOffset();
 
         // TODO pool
-        u32 buf_size = offset - last_off;
+        // u32 buf_size = offset - last_off;
         node.buf = &data[last_off];
 
         last_off = offset;
 
-        return buf_size;
+        return 0;
     }
 
     template <typename T>
@@ -644,26 +679,25 @@ struct DecompressVisitor : IVisitor
     {
         std::cout << "dict visited" << std::endl;
 
-        u32 old_items = nitems;
-        SrcType prev_type = src_type;
+        auto state = SaveState();
 
-        src_type = SrcType::U32;
-        u32 code_size = node.codes_node->Accept(*this);
+        PrepState(SrcType::U32, state.nitems);
+
+        node.codes_node->Accept(*this);
+
+        PrepState(state.src_type, state.nitems);
+
+        node.values_node->Accept(*this);
+
+        RestoreState(state);
+
+        node.buf = new u8[nitems * sizeof(u32)]; // TODO pool
+
         auto codes = node.codes_node->buf;
-
-        src_type = prev_type;
-        u32 value_size = node.values_node->Accept(*this);
         auto values = node.values_node->buf;
-
-        src_type = prev_type;
-        // TODO pool
-        node.buf = new u8[nitems * sizeof(u32)]; // TODO
-
         DispatchType(src_type, [&]<typename T>() { //
             DictDecodeTemplated((u32 *)codes, (T *)values, nitems, (T *)node.buf);
         });
-
-        nitems = old_items;
 
         return last_off;
     }
@@ -683,25 +717,25 @@ struct DecompressVisitor : IVisitor
     {
         std::cout << "rle visited" << std::endl;
 
-        u32 old_items = nitems;
-        SrcType prev_type = src_type;
+        auto state = SaveState();
 
-        u32 value_size = node.values_node->Accept(*this);
+        PrepState(state.src_type, state.nitems);
+
+        node.values_node->Accept(*this);
+
+        PrepState(SrcType::U16, state.nitems);
+
+        node.lens_node->Accept(*this);
+
+        RestoreState(state);
+
+        node.buf = new u8[nitems * sizeof(u32)]; // TODO pool
+
         void *values = node.values_node->buf;
-
-        src_type = SrcType::U16;
-        u32 len_size = node.lens_node->Accept(*this);
         void *lens = node.lens_node->buf;
-
-        src_type = prev_type;
-        // TODO pool
-        node.buf = new u8[nitems * sizeof(u32)]; // TODO
-
         DispatchType(src_type, [&]<typename T>() { //
             RleDecodeTemplated((u16 *)lens, (T *)values, nitems, (T *)node.buf);
         });
-
-        nitems = old_items;
 
         return 0;
     }
