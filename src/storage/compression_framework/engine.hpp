@@ -62,7 +62,7 @@ struct INode
 
 struct NumberNode : INode
 {
-    u32 best_node_idx;
+    u8 best_node_idx;
     INode *children[3];
 
     NumberNode(u8 depth = 0);
@@ -410,21 +410,30 @@ struct CompressVisitor : IVisitor
     u32 *offsets;
     u8 hcount;
     u8 offcount;
+    u8 *init_header;
+    u32 *init_offsets;
 
     CompressVisitor(IStats *stats, SrcType src_type, void *src, ValidityMask *nullmap, u32 nitems, u8 *out)
         : stats(stats), src(src), src_type(src_type), nullmap(nullmap), nitems(nitems), init_data(out), data(out)
     { // TODO pool it and make values scale based on depth
         hcount = 0;
         offcount = 0;
-        header = (u8 *)malloc(64);
-        offsets = (u32 *)malloc(32 * sizeof(u32));
+        init_header = (u8 *)malloc(64);
+        header = init_header;
+        init_offsets = (u32 *)malloc(32 * sizeof(u32));
+        offsets = init_offsets;
     }
 
     inline void Write(const void *buf, u32 size)
     { // TODO align data
         memcpy(data, buf, size);
         data += size;
-        *(offsets++) = data - init_data;
+        WriteOffset(data - init_data);
+    }
+
+    inline void WriteOffset(u32 off)
+    {
+        *(offsets++) = off;
         offcount++;
     }
 
@@ -443,13 +452,13 @@ struct CompressVisitor : IVisitor
     {
         std::cout << "num visited" << std::endl;
         INode *cur = node.children[node.best_node_idx];
+        WriteHeader(node.best_node_idx);
         return cur->Accept(*this);
     }
 
     u32 Visit(UncompressedNode &) override
     {
         std::cout << "uncom visited" << std::endl;
-        WriteHeader(SchemeAlgorythm::Uncompressed);
         u32 size = SizeOfType();
         Write(src, size);
         return size;
@@ -479,7 +488,6 @@ struct CompressVisitor : IVisitor
     u32 Visit(DictionaryNode &node) override
     {
         std::cout << "dict visited" << std::endl;
-        WriteHeader(SchemeAlgorythm::Dictionary);
 
         // TODO should take from pool
         void *codes;
@@ -491,12 +499,20 @@ struct CompressVisitor : IVisitor
 
         // Compare w estimated stats
 
+        u32 old_items = nitems;
+        SrcType prev_type = src_type;
+
         src = codes;
+        src_type = SrcType::U32;
         u32 val1 = node.codes_node->Accept(*this);
 
         src = values;
         nitems = valCount;
+        src_type = prev_type;
         u32 val2 = node.values_node->Accept(*this);
+
+        src_type = prev_type;
+        nitems = old_items;
 
         return val1 + val2;
     }
@@ -525,7 +541,6 @@ struct CompressVisitor : IVisitor
     u32 Visit(RleNode &node) override
     {
         std::cout << "rle visited" << std::endl;
-        WriteHeader(SchemeAlgorythm::Rle);
 
         // TODO should take from pool
         void *counts;
@@ -537,6 +552,9 @@ struct CompressVisitor : IVisitor
 
         // Compare w estimated stats
 
+        u32 old_items = nitems;
+        SrcType prev_type = src_type;
+
         src = values;
         u32 val1 = node.values_node->Accept(*this);
 
@@ -544,6 +562,9 @@ struct CompressVisitor : IVisitor
         nitems = count;
         src_type = SrcType::U16;
         u32 val2 = node.lens_node->Accept(*this);
+
+        src_type = prev_type;
+        nitems = old_items;
 
         return val1 + val2;
     }
@@ -601,7 +622,7 @@ struct DecompressVisitor : IVisitor
 
         // TODO pool
         u32 buf_size = offset - last_off;
-        node.buf = new u8[buf_size];
+        node.buf = &data[last_off];
 
         last_off = offset;
 
@@ -623,18 +644,26 @@ struct DecompressVisitor : IVisitor
     {
         std::cout << "dict visited" << std::endl;
 
-        node.codes_node->Accept(*this);
+        u32 old_items = nitems;
+        SrcType prev_type = src_type;
+
+        src_type = SrcType::U32;
+        u32 code_size = node.codes_node->Accept(*this);
         auto codes = node.codes_node->buf;
 
-        node.values_node->Accept(*this);
+        src_type = prev_type;
+        u32 value_size = node.values_node->Accept(*this);
         auto values = node.values_node->buf;
 
+        src_type = prev_type;
         // TODO pool
         node.buf = new u8[nitems * sizeof(u32)]; // TODO
 
         DispatchType(src_type, [&]<typename T>() { //
             DictDecodeTemplated((u32 *)codes, (T *)values, nitems, (T *)node.buf);
         });
+
+        nitems = old_items;
 
         return last_off;
     }
@@ -654,18 +683,25 @@ struct DecompressVisitor : IVisitor
     {
         std::cout << "rle visited" << std::endl;
 
-        node.values_node->Accept(*this);
+        u32 old_items = nitems;
+        SrcType prev_type = src_type;
+
+        u32 value_size = node.values_node->Accept(*this);
         void *values = node.values_node->buf;
 
-        node.lens_node->Accept(*this);
+        src_type = SrcType::U16;
+        u32 len_size = node.lens_node->Accept(*this);
         void *lens = node.lens_node->buf;
 
+        src_type = prev_type;
         // TODO pool
         node.buf = new u8[nitems * sizeof(u32)]; // TODO
 
         DispatchType(src_type, [&]<typename T>() { //
             RleDecodeTemplated((u16 *)lens, (T *)values, nitems, (T *)node.buf);
         });
+
+        nitems = old_items;
 
         return 0;
     }

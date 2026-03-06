@@ -1339,17 +1339,18 @@ void test_tree_building()
     std::cout << "Estimated size " << estimatedSize << std::endl;
     std::cout << "Real size " << tuple_num * sizeof(type) << std::endl;
 
-    auto out = (u8 *)malloc(tuple_num * sizeof(type));
+    auto out = (u8 *)malloc(tuple_num * 10 * sizeof(type));
     auto compressor = CompressVisitor(stats, srcType, data, &validity, tuple_num, out);
     u64 t2 = now_ns();
     node.Accept(compressor);
     u64 t3 = now_ns();
 
-    auto decoded = (u8 *)malloc(tuple_num * sizeof(type));
+    auto decoder = DecompressVisitor(srcType, &validity, tuple_num, out, compressor.init_header, compressor.init_offsets);
     u64 t4 = now_ns();
-    auto decompressor = DecompressVisitor(srcType, &validity, tuple_num, out, compressor.header, compressor.offsets);
+    node.Accept(decoder);
     u64 t5 = now_ns();
 
+    auto decoded = (type *)node.buf;
     for (int i = 0; i < tuple_num; i++)
     {
         assert(decoded[i] == data[i]);

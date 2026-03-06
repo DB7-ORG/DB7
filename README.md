@@ -3,7 +3,7 @@ g++ -O3 -march=native -S -masm=intel atest.cpp -o template.s -fverbose-asm
 
 # DB7 ✅ ❌
 
-TODO dictionary and rle aprox is awfull (probably rle ruins it then dict does something stupid)
+add a pool TODO in engine
 
 implement compression schemes ❌
 - dictionary encoding ✅
