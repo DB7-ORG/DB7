@@ -13,6 +13,8 @@
 #include "storage/stats/number_stats.hpp"
 #include "storage/stats/string_stats.hpp"
 #include "storage/compression_framework/engine.hpp"
+#include "storage/compression_framework/nodes/nodes.hpp"
+#include "storage/compression_framework/visitors/visitor.hpp"
 
 static inline u64 now_ns()
 {
