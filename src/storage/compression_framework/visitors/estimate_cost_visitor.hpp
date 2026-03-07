@@ -6,11 +6,6 @@
 #include "../stats/number_stats.hpp"
 #include "../stats/string_stats.hpp"
 
-inline constexpr u32 EstimateUncompressed(const u32 nitems, const u32 sizeof_type)
-{
-    return nitems * sizeof_type;
-}
-
 struct StatsAproxTransformer
 {
 private:
@@ -152,7 +147,7 @@ struct EstimateCostVisitor : IVisitor
     {
         std::cout << "uncompressed visited" << std::endl;
 
-        return EstimateUncompressed(current_stats->num_items, current_stats->size_of_type);
+        return current_stats->num_items * current_stats->size_of_type;
     }
 
     u32 Visit(DictionaryNode &node) override
@@ -209,5 +204,12 @@ struct EstimateCostVisitor : IVisitor
         u32 val_cost = node.values_node->Accept(*this);
 
         return len_cost + val_cost;
+    }
+
+    u32 Visit(BitpackNode &) override
+    {
+        std::cout << "bp visited" << std::endl;
+        auto stats = reinterpret_cast<NumberStats *>(current_stats);
+        return BitPackEncoder<u8>::EstimateCompression(stats->max, stats->num_items);
     }
 };

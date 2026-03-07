@@ -8,6 +8,7 @@ struct NumberNode;
 struct UncompressedNode;
 struct DictionaryNode;
 struct RleNode;
+struct Bitpacknode;
 
 struct IVisitor
 {
@@ -15,6 +16,7 @@ struct IVisitor
     virtual u32 Visit(UncompressedNode &node) = 0;
     virtual u32 Visit(DictionaryNode &node) = 0;
     virtual u32 Visit(RleNode &node) = 0;
+    virtual u32 Visit(BitpackNode &node) = 0;
 };
 
 struct INode

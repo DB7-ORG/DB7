@@ -86,7 +86,9 @@ template <typename ValueType>
 u32 BitPackEncoder<ValueType>::EstimateCompression(const u64 max, const u32 nitems)
 {
     u32 usedBits = CountBitsUsed(max);
-    return RoundUp(nitems * usedBits, sizeof(ValueType));
+    u32 bitsPerWord = sizeof(ValueType) * 8;
+    u32 totalBits = RoundUp(nitems * usedBits, bitsPerWord);
+    return totalBits / 8;
 }
 
 template <typename ValueType>

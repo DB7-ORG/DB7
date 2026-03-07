@@ -192,4 +192,36 @@ struct CompressVisitor : IVisitor
 
         return val1 + val2;
     }
+
+    template <typename T>
+    inline void BitpackEncodeTemplated(T *out, T *in, u32 nitems, u32 &size)
+    {
+        static_assert(!std::is_floating_point_v<T>, "Bitpacking not supported for floating point types");
+
+        T max = 0;
+        for (u32 i = 0; i < nitems; i++)
+            max |= in[i];
+
+        u32 usedBits = CountBitsUsed(max);
+
+        T *newOut = BitPackEncoder<T>::Encode(out, in, nitems, usedBits);
+        size = (newOut - out) * sizeof(T);
+
+        // TODO
+        data = reinterpret_cast<u8 *>(newOut);
+    }
+
+    u32 Visit(BitpackNode &) override
+    {
+        std::cout << "bitpack visited" << std::endl;
+
+        u32 size = 0;
+        DispatchType(src_type, [&]<typename T>()
+                     { if constexpr (!std::is_floating_point_v<T>)
+                        BitpackEncodeTemplated((T *)data, (T *)src, nitems, size); });
+
+        PushOffset(size);
+
+        return size;
+    }
 };

@@ -6,7 +6,7 @@
 struct NumberNode : INode
 {
     u8 best_node_idx;
-    INode *children[3];
+    INode *children[4];
 
     NumberNode(u8 depth = 0);
     u32 Accept(IVisitor &visitor) override { return visitor.Visit(*this); }
@@ -36,6 +36,12 @@ struct RleNode : INode
     u32 Accept(IVisitor &visitor) override { return visitor.Visit(*this); }
 };
 
+struct BitpackNode : INode
+{
+    BitpackNode(u8 depth);
+    u32 Accept(IVisitor &visitor) override { return visitor.Visit(*this); }
+};
+
 inline NumberNode::NumberNode(u8 depth)
 {
     this->depth = depth;
@@ -45,6 +51,7 @@ inline NumberNode::NumberNode(u8 depth)
         children[0] = new UncompressedNode(depth);
         children[1] = nullptr;
         children[2] = nullptr;
+        children[3] = nullptr;
         return;
     }
 
@@ -52,12 +59,12 @@ inline NumberNode::NumberNode(u8 depth)
     children[0] = new UncompressedNode(depth);
     children[1] = new DictionaryNode(depth);
     children[2] = new RleNode(depth);
+    children[3] = new BitpackNode(depth);
 }
 
 inline UncompressedNode::UncompressedNode(u8 depth)
 {
     this->depth = depth;
-    return;
 }
 
 inline DictionaryNode::DictionaryNode(u8 depth)
@@ -74,4 +81,9 @@ inline RleNode::RleNode(u8 depth)
     u8 newDepth = depth + 1;
     values_node = new NumberNode(newDepth);
     lens_node = new NumberNode(newDepth);
+}
+
+inline BitpackNode::BitpackNode(u8 depth)
+{
+    this->depth = depth;
 }
