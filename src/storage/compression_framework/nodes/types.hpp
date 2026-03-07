@@ -8,7 +8,7 @@ struct NumberNode;
 struct UncompressedNode;
 struct DictionaryNode;
 struct RleNode;
-struct Bitpacknode;
+struct BitpackNode;
 
 struct IVisitor
 {

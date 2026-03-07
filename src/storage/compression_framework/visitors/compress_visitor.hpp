@@ -194,9 +194,10 @@ struct CompressVisitor : IVisitor
     }
 
     template <typename T>
-    inline void BitpackEncodeTemplated(T *out, T *in, u32 nitems, u32 &size)
+    inline u32 BitpackEncodeTemplated(T *out, T *in, u32 nitems) // TODO what if nitems is not 256 aligned
     {
         static_assert(!std::is_floating_point_v<T>, "Bitpacking not supported for floating point types");
+        static_assert(!std::is_same_v<T, u8>, "Bitpacking not supported for u8");
 
         T max = 0;
         for (u32 i = 0; i < nitems; i++)
@@ -205,10 +206,14 @@ struct CompressVisitor : IVisitor
         u32 usedBits = CountBitsUsed(max);
 
         T *newOut = BitPackEncoder<T>::Encode(out, in, nitems, usedBits);
-        size = (newOut - out) * sizeof(T);
 
         // TODO
-        data = reinterpret_cast<u8 *>(newOut);
+
+        u32 size = (newOut - out) * sizeof(T);
+        Write(out, size);
+        PushOffset(usedBits);
+
+        return size;
     }
 
     u32 Visit(BitpackNode &) override
@@ -217,10 +222,8 @@ struct CompressVisitor : IVisitor
 
         u32 size = 0;
         DispatchType(src_type, [&]<typename T>()
-                     { if constexpr (!std::is_floating_point_v<T>)
-                        BitpackEncodeTemplated((T *)data, (T *)src, nitems, size); });
-
-        PushOffset(size);
+                     { if constexpr (!std::is_floating_point_v<T> && !std::is_same_v<T,u8>)
+                        size = BitpackEncodeTemplated((T *)data, (T *)src, nitems); });
 
         return size;
     }

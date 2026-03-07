@@ -158,4 +158,29 @@ struct DecompressVisitor : IVisitor
 
         return 0;
     }
+
+    template <typename T>
+    inline void BitpackDecodeTemplated(T *out, T *in, u32 nitems, u32 usedBits) // TODO what if nitems is not 256 aligned
+    {
+        static_assert(!std::is_floating_point_v<T>, "Bitpacking not supported for floating point types");
+        static_assert(!std::is_same_v<T, u8>, "Bitpacking not supported for u8");
+
+        BitPackEncoder<T>::Decode(out, in, nitems, usedBits);
+    }
+
+    u32 Visit(BitpackNode &node) override
+    {
+        u32 offset = PopOffset();
+        u32 usedBits = PopOffset();
+        auto tmp = &data[last_off];
+
+        DispatchType(src_type, [&]<typename T>()
+                     { if constexpr (!std::is_floating_point_v<T> && !std::is_same_v<T,u8>){
+                        node.buf = new T[nitems]; // TODO pool
+                        BitpackDecodeTemplated((T *)node.buf, (T *)tmp, nitems, usedBits);
+                    } });
+
+        last_off = offset;
+        return 0;
+    }
 };

@@ -6,8 +6,8 @@ g++ -O3 -march=native -S -masm=intel atest.cpp -o template.s -fverbose-asm
 engine implementation ❌
 - add a pool TODO in engine ❌
 - save nullmap(consider compressing it) ❌
-- make header maloc and offset scale based on depth ❌
-- ❌
+- make header malloc and offset scale based on depth ❌
+- handle the case when bp nitems is not 256 aligned ❌
 
 implement compression schemes ❌
 - dictionary encoding ✅
