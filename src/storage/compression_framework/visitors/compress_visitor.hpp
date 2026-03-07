@@ -6,6 +6,7 @@
 #include "../stats/number_stats.hpp"
 #include "../stats/string_stats.hpp"
 #include "nullbitmap.hpp"
+#include "slab_arena.hpp"
 
 #include <cstring>
 
@@ -33,12 +34,21 @@ struct CompressVisitor : IVisitor
     u32 *init_offsets;
     u32 *offsets;
 
-    CompressVisitor(IStats *stats, SrcType src_type, void *src, ValidityMask *nullmap, u32 nitems, u8 *out)
-        : stats(stats), src(src), src_type(src_type), nullmap(nullmap), nitems(nitems), init_data(out), data(out)
-    { // TODO pool it and make values scale based on depth
-        init_header = (u8 *)malloc(64);
+    SlabArena *arena;
+
+    CompressVisitor(IStats *stats, SrcType src_type, void *src, ValidityMask *nullmap, u32 nitems, u8 *out, SlabArena *arena)
+        : stats(stats),
+          src(src),
+          src_type(src_type),
+          nullmap(nullmap),
+          nitems(nitems),
+          init_data(out),
+          data(out),
+          arena(arena)
+    { // TODO make values scale based on depth
+        init_header = arena->Alloc<u8>(64);
         header = init_header;
-        init_offsets = (u32 *)malloc(32 * sizeof(u32));
+        init_offsets = arena->Alloc<u32>(32);
         offsets = init_offsets;
     }
 
@@ -116,14 +126,12 @@ struct CompressVisitor : IVisitor
     {
         std::cout << "dict visited" << std::endl;
 
-        // TODO should take from pool
-
         u32 valCount;
         void *codes, *values;
 
-        DispatchType(src_type, [&]<typename T>() { // TODO pool
-            codes = new u32[nitems];
-            values = new T[nitems];
+        DispatchType(src_type, [&]<typename T>() { //
+            codes = arena->Alloc<u32>(nitems);
+            values = arena->Alloc<T>(nitems);
             DictEncodeTemplated((u32 *)codes, (T *)values, valCount);
         });
 
@@ -164,14 +172,12 @@ struct CompressVisitor : IVisitor
     {
         std::cout << "rle visited" << std::endl;
 
-        // TODO should take from pool
-
         void *counts, *values;
         u32 count;
         DispatchType(src_type, [&]<typename T>()
                      { 
-            counts = new u16[nitems];
-            values = new T[nitems];
+            counts = arena->Alloc<u16>(nitems);
+            values = arena->Alloc<T>(nitems);
             RleEncodeTemplated((u16 *)counts, (T *)values, count); });
 
         // Collect stats again

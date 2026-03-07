@@ -12,15 +12,15 @@ protected:
     void roundtrip(ValueType *input, u32 count, u32 expectedDistinct)
     {
         ValidityMask validity(count);
-        encoded.codes = (ValueType *)malloc(count * sizeof(ValueType));
+        encoded.codes = (u32 *)malloc(count * sizeof(u32));
         encoded.values = (ValueType *)malloc(count * sizeof(ValueType));
         encoded.valCount = 0;
 
-        DictionaryValueEncoder<ValueType>::Encode(&encoded, input, &validity, count);
+        DictionaryValueEncoder::Encode<ValueType>(&encoded, input, &validity, count);
         ASSERT_EQ(encoded.valCount, expectedDistinct);
 
         decoded = (ValueType *)malloc(count * sizeof(ValueType));
-        DictionaryValueEncoder<ValueType>::Decode(decoded, &encoded, count);
+        DictionaryValueEncoder::Decode<ValueType>(decoded, &encoded, count);
 
         for (u32 i = 0; i < count; i++)
         {

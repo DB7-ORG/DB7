@@ -15,6 +15,7 @@
 #include "storage/compression_framework/engine.hpp"
 #include "storage/compression_framework/nodes/nodes.hpp"
 #include "storage/compression_framework/visitors/visitor.hpp"
+#include "slab_arena.hpp"
 
 static inline u64 now_ns()
 {
@@ -1329,12 +1330,14 @@ void test_tree_building()
         data[i] = (i / 222) + 1;
     }
 
+    SlabArena arena(10'000'000); // TODO test this aight
+
     ValidityMask validity(tuple_num);
     NumberStats *stats = new NumberStats();
     stats->GenerateStats(data, &validity, tuple_num);
     stats->Print();
     auto estimator = EstimateCostVisitor(stats);
-    auto node = NumberNode();
+    auto node = NumberNode(arena);
     u64 t0 = now_ns();
     u32 estimatedSize = node.Accept(estimator);
     u64 t1 = now_ns();
@@ -1342,12 +1345,12 @@ void test_tree_building()
     std::cout << "Real size " << tuple_num * sizeof(type) << std::endl;
 
     auto out = (u8 *)malloc(tuple_num * 10 * sizeof(type));
-    auto compressor = CompressVisitor(stats, srcType, data, &validity, tuple_num, out);
+    auto compressor = CompressVisitor(stats, srcType, data, &validity, tuple_num, out, &arena);
     u64 t2 = now_ns();
     node.Accept(compressor);
     u64 t3 = now_ns();
 
-    auto decoder = DecompressVisitor(srcType, &validity, tuple_num, out, compressor.init_header, compressor.init_offsets);
+    auto decoder = DecompressVisitor(srcType, &validity, tuple_num, out, compressor.init_header, compressor.init_offsets, &arena);
     u64 t4 = now_ns();
     node.Accept(decoder);
     u64 t5 = now_ns();

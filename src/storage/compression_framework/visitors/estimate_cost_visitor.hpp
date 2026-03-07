@@ -158,9 +158,6 @@ struct EstimateCostVisitor : IVisitor
         {
             NumberStats *stats = static_cast<NumberStats *>(current_stats);
 
-            // u32 codeSize, valueSize;
-            // DictionaryValueEncoder::EstimateCompression(stats->count_distinct, stats->num_items, stats->size_of_type, codeSize, valueSize);
-
             NumberStats values_stats = StatsAproxTransformer::DictionaryValuesTransform(stats);
             NumberStats codes_stats = StatsAproxTransformer::DictionaryCodesTransform(stats);
 
@@ -190,9 +187,6 @@ struct EstimateCostVisitor : IVisitor
         std::cout << "rle visited" << std::endl;
 
         const NumberStats *stats = static_cast<NumberStats *>(current_stats);
-
-        // u32 len_size, val_size;
-        // RleEncoder::EstimateCompression(stats->count_run_len, stats->size_of_type, len_size, val_size);
 
         NumberStats len_stats = StatsAproxTransformer::RleLensTransform(stats);
         NumberStats val_stats = StatsAproxTransformer::RleValsTransform(stats);

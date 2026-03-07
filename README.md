@@ -8,6 +8,7 @@ engine implementation ❌
 - save nullmap(consider compressing it) ❌
 - make header malloc and offset scale based on depth ❌
 - handle the case when bp nitems is not 256 aligned ❌
+- test slab alloc ❌
 
 implement compression schemes ❌
 - dictionary encoding ✅

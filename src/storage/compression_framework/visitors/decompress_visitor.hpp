@@ -4,6 +4,7 @@
 #include "common.hpp"
 #include "nullbitmap.hpp"
 #include "../nodes/nodes.hpp"
+#include "slab_arena.hpp"
 
 struct DecompressVisitorState
 {
@@ -21,8 +22,24 @@ struct DecompressVisitor : IVisitor
     u32 *offsets;
     u32 last_off;
 
-    DecompressVisitor(SrcType src_type, ValidityMask *nullmap, u32 nitems, u8 *data, u8 *header, u32 *offsets)
-        : src_type(src_type), nullmap(nullmap), nitems(nitems), data(data), header(header), offsets(offsets), last_off(0)
+    SlabArena *arena;
+
+    DecompressVisitor(
+        SrcType src_type,
+        ValidityMask *nullmap,
+        u32 nitems,
+        u8 *data,
+        u8 *header,
+        u32 *offsets,
+        SlabArena *arena)
+        : src_type(src_type),
+          nullmap(nullmap),
+          nitems(nitems),
+          data(data),
+          header(header),
+          offsets(offsets),
+          last_off(0),
+          arena(arena)
     {
     }
 
@@ -74,8 +91,6 @@ struct DecompressVisitor : IVisitor
 
         u32 offset = PopOffset();
 
-        // TODO pool
-        // u32 buf_size = offset - last_off;
         node.buf = &data[last_off];
 
         last_off = offset;
@@ -110,7 +125,7 @@ struct DecompressVisitor : IVisitor
 
         RestoreState(state);
 
-        node.buf = new u8[nitems * sizeof(u32)]; // TODO pool
+        node.buf = arena->Alloc<u8>(nitems * sizeof(u32)); // TODO size calc
 
         auto codes = node.codes_node->buf;
         auto values = node.values_node->buf;
@@ -148,7 +163,7 @@ struct DecompressVisitor : IVisitor
 
         RestoreState(state);
 
-        node.buf = new u8[nitems * sizeof(u32)]; // TODO pool
+        node.buf = arena->Alloc<u8>(nitems * sizeof(u32)); // TODO size calc
 
         void *values = node.values_node->buf;
         void *lens = node.lens_node->buf;
@@ -176,7 +191,7 @@ struct DecompressVisitor : IVisitor
 
         DispatchType(src_type, [&]<typename T>()
                      { if constexpr (!std::is_floating_point_v<T> && !std::is_same_v<T,u8>){
-                        node.buf = new T[nitems]; // TODO pool
+                        node.buf = arena->Alloc<T>(nitems); // TODO size calc
                         BitpackDecodeTemplated((T *)node.buf, (T *)tmp, nitems, usedBits);
                     } });
 
