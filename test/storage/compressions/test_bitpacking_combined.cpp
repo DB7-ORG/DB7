@@ -25,7 +25,7 @@ TYPED_TEST_SUITE(BitpackCombinedTest, BitpackTypes);
 
 TYPED_TEST(BitpackCombinedTest, SingleElement)
 {
-    this->RoundTrip({42}, GetBitsUsed((TypeParam)42));
+    this->RoundTrip({42}, CountBitsUsed((TypeParam)42));
 }
 
 TYPED_TEST(BitpackCombinedTest, AllZeros)
@@ -39,7 +39,7 @@ TYPED_TEST(BitpackCombinedTest, AllZeros)
 TYPED_TEST(BitpackCombinedTest, AllSame)
 {
     TypeParam val = 7;
-    this->RoundTrip(std::vector<TypeParam>(256, val), GetBitsUsed(val));
+    this->RoundTrip(std::vector<TypeParam>(256, val), CountBitsUsed(val));
 }
 
 // ----------------------------------------------------------------
@@ -54,7 +54,7 @@ TYPED_TEST(BitpackCombinedTest, ExactBlock)
         data[i] = i % 100;
         max = std::max(max, data[i]);
     }
-    this->RoundTrip(data, GetBitsUsed(max));
+    this->RoundTrip(data, CountBitsUsed(max));
 }
 
 // ----------------------------------------------------------------
@@ -69,7 +69,7 @@ TYPED_TEST(BitpackCombinedTest, MultipleBlocks)
         data[i] = i % 1000;
         max = std::max(max, data[i]);
     }
-    this->RoundTrip(data, GetBitsUsed(max));
+    this->RoundTrip(data, CountBitsUsed(max));
 }
 
 // ----------------------------------------------------------------
@@ -85,7 +85,7 @@ TYPED_TEST(BitpackCombinedTest, WithLeftover)
         data[i] = i % 50;
         max = std::max(max, data[i]);
     }
-    this->RoundTrip(data, GetBitsUsed(max));
+    this->RoundTrip(data, CountBitsUsed(max));
 }
 
 // ----------------------------------------------------------------
@@ -112,5 +112,5 @@ TYPED_TEST(BitpackCombinedTest, LargeDataset)
         data[i] = i % 10000;
         max = std::max(max, data[i]);
     }
-    this->RoundTrip(data, GetBitsUsed(max));
+    this->RoundTrip(data, CountBitsUsed(max));
 }

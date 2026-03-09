@@ -219,6 +219,9 @@ struct CompressVisitor : IVisitor
 
         T *newOut = BitPackCombinedEncoder<T>::Encode(out, in, nitems, usedBits);
 
+        auto buffi = (T *)malloc(nitems * sizeof(T));
+        BitPackCombinedEncoder<T>::Decode(buffi, out, nitems, usedBits);
+
         size = (newOut - out) * sizeof(T);
     }
 

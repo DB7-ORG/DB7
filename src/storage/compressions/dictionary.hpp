@@ -5,19 +5,7 @@
 #include "nullbitmap.hpp"
 #include "bit_utils.hpp"
 #include "align_utils.hpp"
-
 #include <string.h>
-
-template <typename ValueType>
-inline int GetBitsUsed(ValueType value)
-{
-    if (value == 0)
-        return 0;
-    if constexpr (sizeof(ValueType) <= 4)
-        return 32 - __builtin_clz((u32)value);
-    else
-        return 64 - __builtin_clzll((u64)value);
-}
 
 struct DictionaryStringEncodedRes
 {
