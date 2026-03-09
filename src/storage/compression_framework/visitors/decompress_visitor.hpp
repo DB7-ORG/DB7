@@ -153,22 +153,26 @@ struct DecompressVisitor : IVisitor
 
         auto state = SaveState();
 
-        PrepState(state.src_type, state.nitems);
+        u32 count = PopOffset();
+
+        PrepState(state.src_type, count);
 
         node.values_node->Accept(*this);
 
-        PrepState(SrcType::U16, state.nitems);
+        PrepState(SrcType::U16, count);
 
         node.lens_node->Accept(*this);
 
         RestoreState(state);
 
-        node.buf = arena->Alloc<u8>(nitems * sizeof(u32)); // TODO size calc
-
         void *values = node.values_node->buf;
         void *lens = node.lens_node->buf;
         DispatchType(src_type, [&]<typename T>() { //
-            RleDecodeTemplated((u16 *)lens, (T *)values, nitems, (T *)node.buf);
+            constexpr u32 SIMD_PAD = 32;
+
+            node.buf = arena->Alloc<u8>(nitems * sizeof(u32) + SIMD_PAD); // TODO size calc
+
+            RleDecodeTemplated((u16 *)lens, (T *)values, count, (T *)node.buf);
         });
 
         return 0;

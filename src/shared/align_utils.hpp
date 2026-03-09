@@ -15,7 +15,7 @@ inline bool IsPow2(u32 val)
 }
 
 template <typename T>
-inline T *AlignUp(T *ptr)
+inline T *AlignUp(void *ptr)
 {
     auto alignment = alignof(T);
     uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);

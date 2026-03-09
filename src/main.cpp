@@ -1330,7 +1330,7 @@ void test_tree_building()
         data[i] = (i / 222) + 1;
     }
 
-    SlabArena arena(10'000'000); // TODO test this aight
+    SlabArena arena(100'000);
 
     ValidityMask validity(tuple_num);
     NumberStats *stats = new NumberStats();

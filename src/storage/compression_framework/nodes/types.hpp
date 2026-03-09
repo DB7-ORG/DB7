@@ -21,8 +21,9 @@ struct IVisitor
 
 struct INode
 {
-    u8 depth;
     void *buf;
+    u8 depth;
+
     virtual u32 Accept(IVisitor &visitor) = 0;
 };
 

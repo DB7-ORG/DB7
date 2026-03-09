@@ -201,7 +201,7 @@ struct EstimateCostVisitor : IVisitor
     }
 
     u32 Visit(BitpackNode &) override
-    {
+    { // TODO it can bitpack double types
         std::cout << "bp visited" << std::endl;
         auto stats = reinterpret_cast<NumberStats *>(current_stats);
         return BitPackEncoder<u8>::EstimateCompression(stats->max, stats->num_items);

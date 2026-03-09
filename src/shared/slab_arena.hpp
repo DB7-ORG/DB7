@@ -43,18 +43,21 @@ public:
     T *Alloc(u32 count)
     {
         u32 needed = sizeof(T) * count;
-        u8 *worstCase = reinterpret_cast<u8 *>(AlignUp(current->ptr));
+        u8 *aligned = reinterpret_cast<u8 *>(AlignUp<T>(current->ptr));
 
-        if (worstCase + needed > current->base + current->size)
+        if (aligned + needed > current->base + current->size)
         {
-            u32 newSize = current->size;
+            u32 newSize = std::max(current->size, (u32)(needed + alignof(T)));
+            std::cout << "new block " << newSize << std::endl;
             ArenaBlock *block = ArenaBlock::AllocBlock(newSize);
             block->next = current;
             current = block;
+
+            aligned = reinterpret_cast<u8 *>(AlignUp<T>(current->ptr));
         }
 
-        T *result = AlignUp(reinterpret_cast<T *>(current->ptr));
-        current->ptr = reinterpret_cast<u8 *>(result) + needed;
+        T *result = reinterpret_cast<T *>(aligned);
+        current->ptr = aligned + needed;
         return result;
     }
 
@@ -78,9 +81,9 @@ public:
     }
 };
 
-// static constexpr u32 ArenaSize(u32 nitems)
-// {
-//     constexpr u32 MAX_ELEMENT_SIZE = 8;  // sizeof(f64/i64)
-//     constexpr u32 MAX_ALIGN_PADDING = 8; // alignof(f64) - 1, rounded up
-//     return nitems * (MAX_ELEMENT_SIZE * MAX_COMPRESSION_DEPTH + MAX_ALIGN_PADDING);
-// }
+static constexpr u32 ArenaSize(u32 nitems)
+{
+    constexpr u32 MAX_ELEMENT_SIZE = 8;  // sizeof(f64/i64)
+    constexpr u32 MAX_ALIGN_PADDING = 8; // alignof(f64) - 1, rounded up
+    return nitems * (MAX_ELEMENT_SIZE * MAX_COMPRESSION_DEPTH + MAX_ALIGN_PADDING);
+}

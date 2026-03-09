@@ -56,7 +56,6 @@ struct CompressVisitor : IVisitor
     { // TODO align data
         memcpy(data, buf, size);
         data += size;
-        PushOffset(data - init_data);
     }
 
     inline void PushOffset(u32 off)
@@ -106,6 +105,7 @@ struct CompressVisitor : IVisitor
         u32 size = SizeOfBuffer(src_type, nitems);
 
         Write(src, size);
+        PushOffset(data - init_data);
 
         return size;
     }
@@ -180,13 +180,15 @@ struct CompressVisitor : IVisitor
             values = arena->Alloc<T>(nitems);
             RleEncodeTemplated((u16 *)counts, (T *)values, count); });
 
+        PushOffset(count);
+
         // Collect stats again
 
         // Compare w estimated stats
 
         auto state = SaveState();
 
-        PrepState(values, state.src_type, state.nitems);
+        PrepState(values, state.src_type, count);
 
         u32 val1 = node.values_node->Accept(*this);
 
@@ -216,7 +218,8 @@ struct CompressVisitor : IVisitor
         // TODO
 
         u32 size = (newOut - out) * sizeof(T);
-        Write(out, size);
+        data = reinterpret_cast<u8 *>(newOut);
+        PushOffset(data - init_data);
         PushOffset(usedBits);
 
         return size;
