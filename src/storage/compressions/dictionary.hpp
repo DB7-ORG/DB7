@@ -48,9 +48,9 @@ struct DictionaryValueEncoder
 
 template <typename ValueType>
 void DictionaryValueEncoder::Encode(
-    DictionaryValueEncodedRes<ValueType> *out,
-    const ValueType *in,
-    const ValidityMask *nullmap,
+    DictionaryValueEncodedRes<ValueType> *__restrict out,
+    const ValueType *__restrict in,
+    const ValidityMask *__restrict nullmap,
     const u32 count)
 {
     AppendOnlyHMap<ValueType> map(count);
@@ -80,8 +80,8 @@ void DictionaryValueEncoder::Encode(
 
 template <typename ValueType>
 void DictionaryValueEncoder::Decode(
-    ValueType *out,
-    const DictionaryValueEncodedRes<ValueType> *in,
+    ValueType *__restrict out,
+    const DictionaryValueEncodedRes<ValueType> *__restrict in,
     const u32 count) // TODO remove count use from in
 {
     const u32 *codes = in->codes;

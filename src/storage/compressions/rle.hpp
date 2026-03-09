@@ -28,7 +28,7 @@ inline void RleEncoder::EstimateCompression(const u32 count_run_len, const u8 si
 };
 
 template <typename ValueType>
-void RleEncoder::Encode(RleEncodedRes<ValueType> *out, const ValueType *in, const ValidityMask *nullmap, const u32 nitems)
+void RleEncoder::Encode(RleEncodedRes<ValueType> *__restrict out, const ValueType *__restrict in, const ValidityMask *__restrict nullmap, const u32 nitems)
 {
     assert(nitems >= 1);
 
@@ -69,7 +69,7 @@ void RleEncoder::Encode(RleEncodedRes<ValueType> *out, const ValueType *in, cons
 // otherwise there might be memory corruption
 // ...
 template <typename ValueType>
-void RleEncoder::Decode(ValueType *out, const RleEncodedRes<ValueType> *in)
+void RleEncoder::Decode(ValueType *__restrict out, const RleEncodedRes<ValueType> *__restrict in)
 {
     constexpr u32 itemsInVec = 32 / sizeof(ValueType);
     const ValueType *values = in->values;

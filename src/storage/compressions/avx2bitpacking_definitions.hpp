@@ -103,7 +103,7 @@ static inline auto GetScalarUnPackDef(u32 bit) -> T *(*)(T * out, const T *in, c
 }
 
 template <typename T, bool USE_MASK = false>
-inline T *AvxPack(const T *in, __m256i *out, const u32 number, const u32 bit)
+inline T *AvxPack(const T *__restrict in, __m256i *__restrict out, const u32 number, const u32 bit)
 {
     assert(reinterpret_cast<uintptr_t>(in) % alignof(T) == 0 && "Input not aligned");
     assert(reinterpret_cast<uintptr_t>(out) % 4 == 0 && "Output not 4-byte aligned");
@@ -124,7 +124,7 @@ inline T *AvxPack(const T *in, __m256i *out, const u32 number, const u32 bit)
 }
 
 template <typename T>
-inline T *AvxUnPack(const __m256i *in, T *out, const u32 number, const u32 bit)
+inline T *AvxUnPack(const __m256i *__restrict in, T *__restrict out, const u32 number, const u32 bit)
 {
     constexpr int MAX_BITS = sizeof(T) * 8;
 
@@ -153,7 +153,7 @@ inline auto AvxUnPackSingleFun(const u32 bit) -> T (*)(const T *, u32)
 }
 
 template <typename T>
-inline T *ScalarPack(T *out, const T *in, const u32 nitems, const u32 bit)
+inline T *ScalarPack(T *__restrict out, const T *__restrict in, const u32 nitems, const u32 bit)
 
 {
     constexpr int MAX_BITS = sizeof(T) * 8;
@@ -166,7 +166,7 @@ inline T *ScalarPack(T *out, const T *in, const u32 nitems, const u32 bit)
 }
 
 template <typename T>
-inline T *ScalarUnPack(T *out, const T *in, const u32 nitems, const u32 bit)
+inline T *ScalarUnPack(T *__restrict out, const T *__restrict in, const u32 nitems, const u32 bit)
 {
     constexpr int MAX_BITS = sizeof(T) * 8;
 

@@ -1,255 +1,178 @@
 #include <gtest/gtest.h>
 #include "../src/storage/compressions/compression.hpp"
 
-// // ── Helpers ───────────────────────────────────────────────────────────────────
+// Helper to allocate RleEncodedRes buffers
+template <typename T>
+RleEncodedRes<T> AllocEncoded(u32 maxRuns)
+{
+    RleEncodedRes<T> res;
+    res.values = new T[maxRuns];
+    res.counts = new u16[maxRuns];
+    res.count = 0;
+    return res;
+}
 
-// template <typename T>
-// struct RleBuffers
-// {
-//     std::vector<T> values;
-//     std::vector<u16> counts;
-//     RleEncodedRes<T> res;
+template <typename T>
+void FreeEncoded(RleEncodedRes<T> &res)
+{
+    delete[] res.values;
+    delete[] res.counts;
+}
 
-//     RleBuffers(u32 nitems)
-//         : values(nitems), counts(nitems)
-//     {
-//         res.values = values.data();
-//         res.counts = counts.data();
-//         res.count = 0;
-//     }
-// };
+TEST(RleEncode, SingleElement)
+{
+    ValidityMask nullmap;
+    u32 in[] = {42};
+    auto out = AllocEncoded<u32>(1);
 
-// static ValidityMask AllValidMask(u32 nitems)
-// {
-//     ValidityMask mask(nitems);
-//     // assume default is all valid
-//     return mask;
-// }
+    RleEncoder::Encode(&out, in, &nullmap, 1);
 
-// template <typename T>
-// std::vector<T> DecodeBuffer(const RleEncodedRes<T> &res, u32 nitems)
-// {
-//     // +32 bytes extra as required by Decode contract
-//     std::vector<T> out(nitems + 32 / sizeof(T), T{});
-//     RleEncoder::Decode(out.data(), &res);
-//     out.resize(nitems);
-//     return out;
-// }
+    EXPECT_EQ(out.count, 1);
+    EXPECT_EQ(out.values[0], 42u);
+    EXPECT_EQ(out.counts[0], 1);
 
-// // ── Encode: basic ─────────────────────────────────────────────────────────────
+    FreeEncoded(out);
+}
 
-// TEST(RleEncode, SingleElement)
-// {
-//     std::vector<u32> in = {42};
-//     ValidityMask mask = AllValidMask(1);
-//     RleBuffers<u32> buf(1);
+TEST(RleDecode, SingleElement)
+{
+    RleEncodedRes<u32> in;
+    u32 values[] = {42};
+    u16 counts[] = {1};
+    in.values = values;
+    in.counts = counts;
+    in.count = 1;
 
-//     RleEncoder::Encode(&buf.res, in.data(), &mask, 1);
+    // +8 extra for the 256-bit overwrite safety margin
+    u32 out[1 + 8] = {};
+    RleEncoder::Decode(out, &in);
 
-//     EXPECT_EQ(buf.res.count, 1u);
-//     EXPECT_EQ(buf.values[0], 42u);
-//     EXPECT_EQ(buf.counts[0], 1u);
-// }
+    EXPECT_EQ(out[0], 42u);
+}
 
-// TEST(RleEncode, AllSameValue)
-// {
-//     std::vector<u32> in(100, 7u);
-//     ValidityMask mask = AllValidMask(100);
-//     RleBuffers<u32> buf(100);
+TEST(RleEncode, OverflowSplitsRun)
+{
+    ValidityMask nullmap;
+    const u32 nitems = (u32)UINT16_MAX + 1;
+    u32 *in = new u32[nitems];
+    std::fill(in, in + nitems, 99u);
 
-//     RleEncoder::Encode(&buf.res, in.data(), &mask, 100);
+    auto out = AllocEncoded<u32>(2); // must split into 2 runs
 
-//     EXPECT_EQ(buf.res.count, 1u);
-//     EXPECT_EQ(buf.values[0], 7u);
-//     EXPECT_EQ(buf.counts[0], 100u);
-// }
+    RleEncoder::Encode(&out, in, &nullmap, nitems);
 
-// TEST(RleEncode, AllDistinct)
-// {
-//     std::vector<u32> in = {1, 2, 3, 4, 5};
-//     ValidityMask mask = AllValidMask(5);
-//     RleBuffers<u32> buf(5);
+    EXPECT_EQ(out.count, 2);
+    EXPECT_EQ(out.values[0], 99u);
+    EXPECT_EQ(out.counts[0], UINT16_MAX);
+    EXPECT_EQ(out.values[1], 99u);
+    EXPECT_EQ(out.counts[1], 1);
 
-//     RleEncoder::Encode(&buf.res, in.data(), &mask, 5);
+    delete[] in;
+    FreeEncoded(out);
+}
 
-//     EXPECT_EQ(buf.res.count, 5u);
-//     for (u32 i = 0; i < 5; i++)
-//     {
-//         EXPECT_EQ(buf.values[i], i + 1);
-//         EXPECT_EQ(buf.counts[i], 1u);
-//     }
-// }
+TEST(RleDecode, OverflowRoundtrip)
+{
+    const u32 nitems = (u32)UINT16_MAX + 1;
+    RleEncodedRes<u32> in;
+    u32 values[] = {99, 99};
+    u16 counts[] = {UINT16_MAX, 1};
+    in.values = values;
+    in.counts = counts;
+    in.count = 2;
 
-// TEST(RleEncode, AlternatingValues)
-// {
-//     std::vector<u32> in = {1, 2, 1, 2, 1, 2};
-//     ValidityMask mask = AllValidMask(6);
-//     RleBuffers<u32> buf(6);
+    u32 *out = new u32[nitems + 8]();
+    RleEncoder::Decode(out, &in);
 
-//     RleEncoder::Encode(&buf.res, in.data(), &mask, 6);
+    for (u32 i = 0; i < nitems; i++)
+        EXPECT_EQ(out[i], 99u) << "at index " << i;
 
-//     EXPECT_EQ(buf.res.count, 6u);
-// }
+    delete[] out;
+}
 
-// TEST(RleEncode, MultipleRuns)
-// {
-//     // 3x1, 2x2, 4x3
-//     std::vector<u32> in = {1, 1, 1, 2, 2, 3, 3, 3, 3};
-//     ValidityMask mask = AllValidMask(9);
-//     RleBuffers<u32> buf(9);
+TEST(RleEncode, VariableRuns)
+{
+    constexpr u32 NITEMS = 20000;
+    ValidityMask nullmap;
 
-//     RleEncoder::Encode(&buf.res, in.data(), &mask, 9);
+    // Build input: runs of varying lengths cycling through values 1-10
+    u32 in[NITEMS];
+    // expected runs: (value, count) pairs
+    struct Run
+    {
+        u32 value;
+        u16 count;
+    };
+    std::vector<Run> expectedRuns;
 
-//     EXPECT_EQ(buf.res.count, 3u);
-//     EXPECT_EQ(buf.values[0], 1u);
-//     EXPECT_EQ(buf.counts[0], 3u);
-//     EXPECT_EQ(buf.values[1], 2u);
-//     EXPECT_EQ(buf.counts[1], 2u);
-//     EXPECT_EQ(buf.values[2], 3u);
-//     EXPECT_EQ(buf.counts[2], 4u);
-// }
+    u32 runLengths[] = {1, 5, 3, 100, 7, 50, 2, 200, 1, 10};
+    u32 runValues[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    constexpr u32 PATTERN_SIZE = 10;
 
-// TEST(RleEncode, Uint16Type)
-// {
-//     std::vector<u16> in = {10, 10, 20, 20, 20};
-//     ValidityMask mask = AllValidMask(5);
-//     RleBuffers<u16> buf(5);
+    u32 pos = 0;
+    u32 patIdx = 0;
+    while (pos < NITEMS)
+    {
+        u32 val = runValues[patIdx % PATTERN_SIZE];
+        u32 len = std::min((u32)runLengths[patIdx % PATTERN_SIZE], NITEMS - pos);
+        std::fill(in + pos, in + pos + len, val);
+        expectedRuns.push_back({val, (u16)len});
+        pos += len;
+        patIdx++;
+    }
 
-//     RleEncoder::Encode(&buf.res, in.data(), &mask, 5);
+    auto out = AllocEncoded<u32>(NITEMS);
+    RleEncoder::Encode(&out, in, &nullmap, NITEMS);
 
-//     EXPECT_EQ(buf.res.count, 2u);
-//     EXPECT_EQ(buf.values[0], 10u);
-//     EXPECT_EQ(buf.counts[0], 2u);
-//     EXPECT_EQ(buf.values[1], 20u);
-//     EXPECT_EQ(buf.counts[1], 3u);
-// }
+    EXPECT_EQ(out.count, expectedRuns.size());
+    for (u32 i = 0; i < out.count; i++)
+    {
+        EXPECT_EQ(out.values[i], expectedRuns[i].value) << "at run " << i;
+        EXPECT_EQ(out.counts[i], expectedRuns[i].count) << "at run " << i;
+    }
 
-// TEST(RleEncode, Uint64Type)
-// {
-//     std::vector<u64> in = {0xDEADBEEFull, 0xDEADBEEFull, 0xCAFEull};
-//     ValidityMask mask = AllValidMask(3);
-//     RleBuffers<u64> buf(3);
+    FreeEncoded(out);
+}
 
-//     RleEncoder::Encode(&buf.res, in.data(), &mask, 3);
+TEST(RleDecode, VariableRuns)
+{
+    constexpr u32 NITEMS = 20000;
 
-//     EXPECT_EQ(buf.res.count, 2u);
-//     EXPECT_EQ(buf.values[0], 0xDEADBEEFull);
-//     EXPECT_EQ(buf.counts[0], 2u);
-//     EXPECT_EQ(buf.values[1], 0xCAFEull);
-// }
+    struct Run
+    {
+        u32 value;
+        u16 count;
+    };
+    u32 runLengths[] = {1, 5, 3, 100, 7, 50, 2, 200, 1, 10};
+    u32 runValues[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    constexpr u32 PATTERN_SIZE = 10;
 
-// // ── Encode: UINT16_MAX run cap ────────────────────────────────────────────────
+    std::vector<u32> encodedValues;
+    std::vector<u16> encodedCounts;
+    std::vector<u32> expected;
 
-// TEST(RleEncode, RunCapAtUint16Max)
-// {
-//     u32 nitems = (u32)UINT16_MAX + 4;
-//     std::vector<u32> in(nitems, 99u);
-//     ValidityMask mask = AllValidMask(nitems);
-//     RleBuffers<u32> buf(nitems);
+    u32 pos = 0;
+    u32 patIdx = 0;
+    while (pos < NITEMS)
+    {
+        u32 val = runValues[patIdx % PATTERN_SIZE];
+        u32 len = std::min((u32)runLengths[patIdx % PATTERN_SIZE], NITEMS - pos);
+        encodedValues.push_back(val);
+        encodedCounts.push_back((u16)len);
+        for (u32 i = 0; i < len; i++)
+            expected.push_back(val);
+        pos += len;
+        patIdx++;
+    }
 
-//     RleEncoder::Encode(&buf.res, in.data(), &mask, nitems);
+    RleEncodedRes<u32> in;
+    in.values = encodedValues.data();
+    in.counts = encodedCounts.data();
+    in.count = encodedValues.size();
 
-//     // Must have split into at least 2 runs
-//     EXPECT_GE(buf.res.count, 2u);
-//     // All counts must be <= UINT16_MAX
-//     u32 total = 0;
-//     for (u32 i = 0; i < buf.res.count; i++)
-//     {
-//         EXPECT_LE(buf.counts[i], (u16)UINT16_MAX);
-//         EXPECT_EQ(buf.values[i], 99u);
-//         total += buf.counts[i];
-//     }
-//     EXPECT_EQ(total, nitems);
-// }
+    std::vector<u32> out(NITEMS + 8, 0);
+    RleEncoder::Decode(out.data(), &in);
 
-// // ── Encode: nullmap ───────────────────────────────────────────────────────────
-
-// TEST(RleEncode, NullRowBreaksRun)
-// {
-//     std::vector<u32> in = {5, 5, 5, 5, 5};
-//     ValidityMask mask(5);
-//     mask.SetInvalid(2); // null in the middle
-
-//     RleBuffers<u32> buf(5);
-//     RleEncoder::Encode(&buf.res, in.data(), &mask, 5);
-
-//     // null breaks the run of 5s into at least 2 runs
-//     EXPECT_GE(buf.res.count, 2u);
-// }
-
-// // ── Decode: basic ─────────────────────────────────────────────────────────────
-
-// TEST(RleDecode, SingleRun)
-// {
-//     std::vector<u32> values = {42};
-//     std::vector<u16> counts = {5};
-//     RleEncodedRes<u32> res{values.data(), counts.data(), 1};
-
-//     auto out = DecodeBuffer(res, 5);
-
-//     for (u32 i = 0; i < 5; i++)
-//         EXPECT_EQ(out[i], 42u);
-// }
-
-// TEST(RleDecode, MultipleRuns)
-// {
-//     std::vector<u32> values = {1, 2, 3};
-//     std::vector<u16> counts = {3, 2, 4};
-//     RleEncodedRes<u32> res{values.data(), counts.data(), 3};
-
-//     auto out = DecodeBuffer(res, 9);
-
-//     std::vector<u32> expected = {1, 1, 1, 2, 2, 3, 3, 3, 3};
-//     EXPECT_EQ(out, expected);
-// }
-
-// TEST(RleDecode, Uint16Type)
-// {
-//     std::vector<u16> values = {10, 20};
-//     std::vector<u16> counts = {2, 3};
-//     RleEncodedRes<u16> res{values.data(), counts.data(), 2};
-
-//     auto out = DecodeBuffer(res, 5);
-
-//     std::vector<u16> expected = {10, 10, 20, 20, 20};
-//     EXPECT_EQ(out, expected);
-// }
-
-// // ── Roundtrip ─────────────────────────────────────────────────────────────────
-
-// template <typename T>
-// void RoundtripTest(const std::vector<T> &in)
-// {
-//     u32 nitems = in.size();
-//     ValidityMask mask = AllValidMask(nitems);
-//     RleBuffers<T> buf(nitems);
-
-//     RleEncoder::Encode(&buf.res, in.data(), &mask, nitems);
-//     auto out = DecodeBuffer(buf.res, nitems);
-
-//     EXPECT_EQ(out, in);
-// }
-
-// TEST(RleRoundtrip, AllSame) { RoundtripTest<u32>({5, 5, 5, 5, 5}); }
-// TEST(RleRoundtrip, AllDistinct) { RoundtripTest<u32>({1, 2, 3, 4, 5}); }
-// TEST(RleRoundtrip, MultipleRuns) { RoundtripTest<u32>({1, 1, 2, 2, 2, 3}); }
-// TEST(RleRoundtrip, SingleElement) { RoundtripTest<u32>({99}); }
-// TEST(RleRoundtrip, Uint16) { RoundtripTest<u16>({10, 10, 20, 30, 30, 30}); }
-// TEST(RleRoundtrip, Uint64) { RoundtripTest<u64>({0xABCDull, 0xABCDull, 0x1234ull}); }
-
-// TEST(RleRoundtrip, LargeInput)
-// {
-//     std::vector<u32> in;
-//     in.reserve(120'000);
-//     for (u32 i = 0; i < 120'000; i++)
-//         in.push_back((i / 222) + 1); // same pattern as your test data
-//     RoundtripTest<u32>(in);
-// }
-
-// TEST(RleRoundtrip, Alternating)
-// {
-//     std::vector<u32> in;
-//     for (u32 i = 0; i < 1000; i++)
-//         in.push_back(i % 2);
-//     RoundtripTest<u32>(in);
-// }
+    for (u32 i = 0; i < NITEMS; i++)
+        EXPECT_EQ(out[i], expected[i]) << "at index " << i;
+}

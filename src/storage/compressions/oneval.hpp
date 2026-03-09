@@ -25,13 +25,13 @@ u32 OneValEncoder<ValueType>::EstimateCompression(const u32 nunique)
 };
 
 template <typename ValueType>
-void OneValEncoder<ValueType>::Encode(ValueType *out, const ValueType *in)
+void OneValEncoder<ValueType>::Encode(ValueType *__restrict out, const ValueType *__restrict in)
 {
     out[0] = in[0];
 }
 
 template <typename ValueType>
-void OneValEncoder<ValueType>::Decode(ValueType *out, const ValueType value, u32 nitems)
+void OneValEncoder<ValueType>::Decode(ValueType *__restrict out, const ValueType value, u32 nitems)
 {
     std::fill_n(out, nitems, value);
 }

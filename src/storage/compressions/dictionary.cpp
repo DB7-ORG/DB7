@@ -11,7 +11,12 @@ void DictionaryValueEncoder::EstimateCompression(const u32 nunique, const u32 ni
     valueSize = nunique * sizeOfType;
 };
 
-void DictionaryStringEncoder::Encode(DictionaryStringEncodedRes *out, u8 **in, const u32 *lenIn, const ValidityMask *nullmap, const u32 count)
+void DictionaryStringEncoder::Encode(
+    DictionaryStringEncodedRes *__restrict out,
+    u8 **__restrict in,
+    const u32 *__restrict lenIn,
+    const ValidityMask *__restrict nullmap,
+    const u32 count)
 {
     u8 *strings = out->strings;
     u32 *indexes = out->indexes;
@@ -48,7 +53,7 @@ void DictionaryStringEncoder::Encode(DictionaryStringEncodedRes *out, u8 **in, c
     }
 }
 
-void DictionaryStringEncoder::Decode(u8 **out, u32 *lenOut, const DictionaryStringEncodedRes *in, u32 count)
+void DictionaryStringEncoder::Decode(u8 **__restrict out, u32 *__restrict lenOut, const DictionaryStringEncodedRes *__restrict in, u32 count)
 {
     const u32 *indexes = in->indexes;
     const u32 *codes = in->codes;

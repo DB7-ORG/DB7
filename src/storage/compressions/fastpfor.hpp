@@ -126,7 +126,7 @@ void FastPForEncoder::GetBestB(const ValueType *in, u8 &bestb, u8 &bestcexcept, 
 }
 
 template <typename ValueType>
-u32 FastPForEncoder::Encode(u32 *out, const ValueType *in, u32 nitems)
+u32 FastPForEncoder::Encode(u32 *__restrict out, const ValueType *__restrict in, u32 nitems)
 {
     assert(nitems % BlockSize == 0);
 
@@ -208,7 +208,7 @@ u32 FastPForEncoder::Encode(u32 *out, const ValueType *in, u32 nitems)
 }
 
 template <typename ValueType>
-u32 FastPForEncoder::Decode(ValueType *out, const u32 *in, u32 nitems)
+u32 FastPForEncoder::Decode(ValueType *__restrict out, const u32 *__restrict in, u32 nitems)
 {
     constexpr u32 ValueTypeBits = sizeof(ValueType) * 8;
 

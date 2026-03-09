@@ -40,13 +40,13 @@ improvements to existing decompressions
 - refactor code for compression so function caller does the allocations and alignment ✅
 - single value compression probably sucks try block decompression (this is depending on is it vectorised or compiled excecution engine) ✅
 
-- add __restrict to all compressions ❌
+- add __restrict to all compressions ✅
 
 framework
-- should always bitpack codes after dictionary encoding (check out sorted dict alternatives) ❌
+- should always bitpack codes after dictionary encoding (check out sorted dict alternatives) ✅ (decided not do do this)
 - templated pfor version ✅ 
 - i might want to apply something else on exceptions in pfor (might be a bad idea because its shifted bits which is semi random values) ❌
-- add a dictionary that is a single bitmap so collisions are less punishable (might be a bad idea) ❌
+- add a dictionary that is a single bitmap so collisions are less punishable ✅ (might be a bad idea)
 - estimate pfor size and evaluate that to see how well does the estimate predict ✅
 - move all compressions to coresponding hpp file ✅
 - validate other compression estimates and move estimate functions to compressions ✅
