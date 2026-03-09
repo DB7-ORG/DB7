@@ -1,5 +1,6 @@
 sudo apt-get install libabsl-dev
 g++ -O3 -march=native -S -masm=intel atest.cpp -o template.s -fverbose-asm
+valgrind --tool=memcheck --leak-check=full --track-origins=yes --show-leak-kinds=all ./bin/app 
 
 # DB7 ✅ ❌
 

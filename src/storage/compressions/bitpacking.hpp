@@ -27,6 +27,13 @@ struct BitPackScalarEncoder
     static u32 EstimateCompression(const u64 max, const u32 nitems);
 };
 
+template <typename ValueType>
+struct BitPackCombinedEncoder
+{
+    static ValueType *Encode(void *out, const ValueType *in, u32 nitems, u32 usedBits);
+    static ValueType *Decode(ValueType *out, const void *in, u32 nitems, u32 usedBits);
+};
+
 inline void CheckIsDivisibleBy(u32 a, u32 x)
 {
     if (a % x != 0)
@@ -105,4 +112,34 @@ u32 BitPackScalarEncoder<ValueType>::DecodeSingle(const void *compressed, u32 id
     // TODO scalar decode single
     std::cout << compressed << idx << usedBits;
     return 0;
+}
+
+template <typename ValueType>
+ValueType *BitPackCombinedEncoder<ValueType>::Encode(void *out, const ValueType *in, u32 nitems, u32 usedBits)
+{
+    const u32 aligned_num = (nitems / 256) * 256;
+    const u32 leftover_num = nitems - aligned_num;
+    auto newOut = AvxPack<ValueType, true>(in, (__m256i *)out, aligned_num, usedBits);
+    if (leftover_num == 0)
+    {
+        return newOut;
+    }
+    return ScalarPack<ValueType>(newOut, in + aligned_num, leftover_num, usedBits);
+}
+
+template <typename ValueType>
+ValueType *BitPackCombinedEncoder<ValueType>::Decode(ValueType *out, const void *in, u32 nitems, u32 usedBits)
+{
+    const u32 block_num = nitems / 256;
+    const u32 aligned_num = block_num * 256;
+    const u32 leftover_num = nitems - aligned_num;
+    __m256i *input = (__m256i *)in;
+
+    auto newOut = AvxUnPack(input, out, aligned_num, usedBits);
+    if (leftover_num == 0)
+    {
+        return newOut;
+    }
+    auto leftoverInput = reinterpret_cast<ValueType *>(input + block_num * usedBits);
+    return ScalarUnPack<ValueType>(newOut, leftoverInput, leftover_num, usedBits);
 }

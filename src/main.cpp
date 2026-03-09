@@ -1333,7 +1333,8 @@ void test_tree_building()
     SlabArena arena(100'000);
 
     ValidityMask validity(tuple_num);
-    NumberStats *stats = new NumberStats();
+    NumberStats s = NumberStats();
+    auto stats = &s;
     stats->GenerateStats(data, &validity, tuple_num);
     stats->Print();
     auto estimator = EstimateCostVisitor(stats);
@@ -1365,6 +1366,35 @@ void test_tree_building()
     printf("search:        %.3f ms\n", (t1 - t0) / 1e6);
     printf("compress:      %.3f ms\n", (t3 - t2) / 1e6);
     printf("decompress:    %.3f ms\n", (t5 - t4) / 1e6);
+
+    free(data);
+    free(out);
+}
+
+void test_combined_bp()
+{
+    using type = u32;
+    // auto srcType = SrcType::U32;
+
+    constexpr long tuple_num = 400; // AlignUp(120'000, 256);
+    auto data = (type *)malloc(tuple_num * sizeof(type));
+    auto out = (type *)malloc(tuple_num * sizeof(type));
+    auto newData = (type *)malloc(tuple_num * sizeof(type));
+
+    for (int i = 0; i < tuple_num; i++)
+    {
+        data[i] = i % 4;
+    }
+
+    BitPackCombinedEncoder<type>::Encode(out, data, tuple_num, 2);
+    BitPackCombinedEncoder<type>::Decode(newData, out, tuple_num, 2);
+
+    for (int i = 0; i < tuple_num; i++)
+    {
+        assert(newData[i] == data[i]);
+    }
+
+    return;
 }
 
 int main()
@@ -1395,6 +1425,9 @@ int main()
     // test_templated_bitpacking_scalar();
 
     // benchmark_pfor_estimate();
+
+    // test_combined_bp();
+
     test_tree_building();
 
     // test_stats_generation();

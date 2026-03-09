@@ -105,6 +105,7 @@ struct CompressVisitor : IVisitor
         u32 size = SizeOfBuffer(src_type, nitems);
 
         Write(src, size);
+
         PushOffset(data - init_data);
 
         return size;
@@ -128,14 +129,11 @@ struct CompressVisitor : IVisitor
 
         u32 valCount;
         void *codes, *values;
-
         DispatchType(src_type, [&]<typename T>() { //
             codes = arena->Alloc<u32>(nitems);
             values = arena->Alloc<T>(nitems);
             DictEncodeTemplated((u32 *)codes, (T *)values, valCount);
         });
-
-        // SwitchDictTypes(codes, values, valCount);
 
         // Collect stats again
 
@@ -174,11 +172,11 @@ struct CompressVisitor : IVisitor
 
         void *counts, *values;
         u32 count;
-        DispatchType(src_type, [&]<typename T>()
-                     { 
+        DispatchType(src_type, [&]<typename T>() { //
             counts = arena->Alloc<u16>(nitems);
             values = arena->Alloc<T>(nitems);
-            RleEncodeTemplated((u16 *)counts, (T *)values, count); });
+            RleEncodeTemplated((u16 *)counts, (T *)values, count);
+        });
 
         PushOffset(count);
 
@@ -202,7 +200,7 @@ struct CompressVisitor : IVisitor
     }
 
     template <typename T>
-    inline u32 BitpackEncodeTemplated(T *out, T *in, u32 nitems) // TODO what if nitems is not 256 aligned
+    inline void BitpackEncodeTemplated(T *out, T *in, u32 nitems, u32 &size, u32 &usedBits) // TODO what if nitems is not 256 aligned
     {
         static_assert(!std::is_floating_point_v<T>, "Bitpacking not supported for floating point types");
         static_assert(!std::is_same_v<T, u8>, "Bitpacking not supported for u8");
@@ -211,18 +209,11 @@ struct CompressVisitor : IVisitor
         for (u32 i = 0; i < nitems; i++)
             max |= in[i];
 
-        u32 usedBits = CountBitsUsed(max);
+        usedBits = CountBitsUsed(max);
 
-        T *newOut = BitPackEncoder<T>::Encode(out, in, nitems, usedBits);
+        T *newOut = BitPackCombinedEncoder<T>::Encode(out, in, nitems, usedBits);
 
-        // TODO
-
-        u32 size = (newOut - out) * sizeof(T);
-        data = reinterpret_cast<u8 *>(newOut);
-        PushOffset(data - init_data);
-        PushOffset(usedBits);
-
-        return size;
+        size = (newOut - out) * sizeof(T);
     }
 
     u32 Visit(BitpackNode &) override
@@ -230,9 +221,15 @@ struct CompressVisitor : IVisitor
         std::cout << "bitpack visited" << std::endl;
 
         u32 size = 0;
+        u32 usedBits = 0;
         DispatchType(src_type, [&]<typename T>()
                      { if constexpr (!std::is_floating_point_v<T> && !std::is_same_v<T,u8>)
-                        size = BitpackEncodeTemplated((T *)data, (T *)src, nitems); });
+                        BitpackEncodeTemplated((T *)data, (T *)src, nitems, size, usedBits);
+                       else throw std::runtime_error("bitpack floating point err"); });
+
+        data += size;
+        PushOffset(data - init_data);
+        PushOffset(usedBits);
 
         return size;
     }

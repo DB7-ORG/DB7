@@ -80,7 +80,6 @@ public:
         u32 newBitFreq[MAX_HIST_SIZE] = {};
         ScaleBitFreq(stats->bitFreq, stats->num_items, nitems, newBitFreq);
 
-        // TODODODODODODODODODO 120000;
         u32 lensRunLen = (u32)std::max(1.0f, (float)nitems / avgRunLen);
 
         return NumberStats(
@@ -139,7 +138,7 @@ struct EstimateCostVisitor : IVisitor
             }
             idx++;
         }
-        std::cout << local_best << std::endl;
+        // std::cout << local_best << std::endl;
         return local_best;
     }
 

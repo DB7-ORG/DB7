@@ -78,11 +78,11 @@ struct DecompressVisitor : IVisitor
 
         INode *cur = node.children[alg];
 
-        u32 buf_size = cur->Accept(*this);
+        cur->Accept(*this);
 
         node.buf = cur->buf;
 
-        return buf_size;
+        return 0;
     }
 
     u32 Visit(UncompressedNode &node) override
@@ -133,7 +133,7 @@ struct DecompressVisitor : IVisitor
             DictDecodeTemplated((u32 *)codes, (T *)values, nitems, (T *)node.buf);
         });
 
-        return last_off;
+        return 0;
     }
 
     template <typename T>
@@ -151,9 +151,9 @@ struct DecompressVisitor : IVisitor
     {
         std::cout << "rle visited" << std::endl;
 
-        auto state = SaveState();
-
         u32 count = PopOffset();
+
+        auto state = SaveState();
 
         PrepState(state.src_type, count);
 
@@ -169,8 +169,7 @@ struct DecompressVisitor : IVisitor
         void *lens = node.lens_node->buf;
         DispatchType(src_type, [&]<typename T>() { //
             constexpr u32 SIMD_PAD = 32;
-
-            node.buf = arena->Alloc<u8>(nitems * sizeof(u32) + SIMD_PAD); // TODO size calc
+            node.buf = arena->Alloc<u8>(nitems * sizeof(T) + SIMD_PAD);
 
             RleDecodeTemplated((u16 *)lens, (T *)values, count, (T *)node.buf);
         });
@@ -179,12 +178,12 @@ struct DecompressVisitor : IVisitor
     }
 
     template <typename T>
-    inline void BitpackDecodeTemplated(T *out, T *in, u32 nitems, u32 usedBits) // TODO what if nitems is not 256 aligned
+    inline void BitpackDecodeTemplated(T *out, T *in, u32 nitems, u32 usedBits)
     {
         static_assert(!std::is_floating_point_v<T>, "Bitpacking not supported for floating point types");
         static_assert(!std::is_same_v<T, u8>, "Bitpacking not supported for u8");
 
-        BitPackEncoder<T>::Decode(out, in, nitems, usedBits);
+        BitPackCombinedEncoder<T>::Decode(out, in, nitems, usedBits);
     }
 
     u32 Visit(BitpackNode &node) override
@@ -195,9 +194,10 @@ struct DecompressVisitor : IVisitor
 
         DispatchType(src_type, [&]<typename T>()
                      { if constexpr (!std::is_floating_point_v<T> && !std::is_same_v<T,u8>){
-                        node.buf = arena->Alloc<T>(nitems); // TODO size calc
+                        node.buf = arena->Alloc<T>(nitems); 
                         BitpackDecodeTemplated((T *)node.buf, (T *)tmp, nitems, usedBits);
-                    } });
+                    } else 
+                        throw std::runtime_error("bitpacking floating point unsupported"); });
 
         last_off = offset;
         return 0;
