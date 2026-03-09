@@ -91,6 +91,10 @@ struct DecompressVisitor : IVisitor
 
         u32 offset = PopOffset();
 
+        DispatchType(src_type, [&]<typename T>() { //
+            last_off += GetAlignment<T>(last_off);
+        });
+
         node.buf = &data[last_off];
 
         last_off = offset;
@@ -190,10 +194,13 @@ struct DecompressVisitor : IVisitor
     {
         u32 offset = PopOffset();
         u32 usedBits = PopOffset();
-        auto tmp = &data[last_off];
 
         DispatchType(src_type, [&]<typename T>()
                      { if constexpr (!std::is_floating_point_v<T> && !std::is_same_v<T,u8>){
+                        
+                        last_off += GetAlignment<T>(last_off);
+                        auto tmp = &data[last_off];
+
                         node.buf = arena->Alloc<T>(nitems); 
                         BitpackDecodeTemplated((T *)node.buf, (T *)tmp, nitems, usedBits);
                     } else 

@@ -22,3 +22,20 @@ inline T *AlignUp(void *ptr)
     uintptr_t new_addr = (addr + alignment - 1) & ~(alignment - 1);
     return reinterpret_cast<T *>(new_addr);
 }
+
+template <typename T>
+inline uintptr_t GetAlignment(void *ptr)
+{
+    auto alignment = alignof(T);
+    uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
+    uintptr_t new_addr = (addr + alignment - 1) & ~(alignment - 1);
+    return new_addr - addr;
+}
+
+template <typename T>
+inline uintptr_t GetAlignment(uintptr_t addr)
+{
+    auto alignment = alignof(T);
+    uintptr_t new_addr = (addr + alignment - 1) & ~(alignment - 1);
+    return new_addr - addr;
+}

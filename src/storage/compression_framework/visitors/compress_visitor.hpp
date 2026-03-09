@@ -7,6 +7,7 @@
 #include "../stats/string_stats.hpp"
 #include "nullbitmap.hpp"
 #include "slab_arena.hpp"
+#include "align_utils.hpp"
 
 #include <cstring>
 
@@ -103,6 +104,10 @@ struct CompressVisitor : IVisitor
         std::cout << "uncom visited" << std::endl;
 
         u32 size = SizeOfBuffer(src_type, nitems);
+
+        DispatchType(src_type, [&]<typename T>() { //
+            data += GetAlignment<T>(data);
+        });
 
         Write(src, size);
 
@@ -223,9 +228,11 @@ struct CompressVisitor : IVisitor
         u32 size = 0;
         u32 usedBits = 0;
         DispatchType(src_type, [&]<typename T>()
-                     { if constexpr (!std::is_floating_point_v<T> && !std::is_same_v<T,u8>)
+                     { if constexpr (!std::is_floating_point_v<T> && !std::is_same_v<T,u8>){
+                        data += GetAlignment<T>(data);
                         BitpackEncodeTemplated((T *)data, (T *)src, nitems, size, usedBits);
-                       else throw std::runtime_error("bitpack floating point err"); });
+                     } else 
+                        throw std::runtime_error("bitpack floating point err"); });
 
         data += size;
         PushOffset(data - init_data);

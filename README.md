@@ -8,9 +8,9 @@ engine implementation ❌
 - add a pool TODO in engine ✅
 - save nullmap(consider compressing it) ❌
 - make header malloc and offset scale based on depth ❌
-- handle the case when bp nitems is not 256 aligned ❌
+- handle the case when bp nitems is not 256 aligned ✅
 - test slab alloc ✅
-- estimate bp can operate on double ❌ ✅
+- estimate bp can operate on double ✅
 
 implement compression schemes ❌
 - dictionary encoding ✅
