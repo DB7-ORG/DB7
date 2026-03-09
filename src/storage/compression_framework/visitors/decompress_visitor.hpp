@@ -5,6 +5,7 @@
 #include "nullbitmap.hpp"
 #include "../nodes/nodes.hpp"
 #include "slab_arena.hpp"
+#include "../../compressions/compression.hpp"
 
 struct DecompressVisitorState
 {

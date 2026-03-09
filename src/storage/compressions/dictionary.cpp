@@ -15,7 +15,7 @@ void DictionaryStringEncoder::Encode(
     DictionaryStringEncodedRes *__restrict out,
     u8 **__restrict in,
     const u32 *__restrict lenIn,
-    const ValidityMask *__restrict nullmap,
+    const ValidityMask *nullmap,
     const u32 count)
 {
     u8 *strings = out->strings;

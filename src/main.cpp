@@ -1325,10 +1325,22 @@ void test_tree_building()
     constexpr long tuple_num = AlignUp(120'000, 256);
     auto data = (type *)malloc(tuple_num * sizeof(type));
 
-    for (int i = 0; i < tuple_num; i++)
+    // for (int i = 0; i < tuple_num; i++)
+    // {
+    //     data[i] = (i / 222) + 1;
+    // }
+
+    std::vector<type> vec(10);
+    type idx = 5'000'000;
+    for (auto &item : vec)
     {
-        data[i] = (i / 222) + 1;
+        item = ++idx;
     }
+
+    srand(42);
+
+    for (int i = 0; i < tuple_num; i++)
+        data[i] = vec[rand() % 10];
 
     SlabArena arena(100'000);
 

@@ -8,6 +8,7 @@
 #include "nullbitmap.hpp"
 #include "slab_arena.hpp"
 #include "align_utils.hpp"
+#include "../../compressions/compression.hpp"
 
 #include <cstring>
 
@@ -205,7 +206,7 @@ struct CompressVisitor : IVisitor
     }
 
     template <typename T>
-    inline void BitpackEncodeTemplated(T *out, T *in, u32 nitems, u32 &size, u32 &usedBits) // TODO what if nitems is not 256 aligned
+    inline void BitpackEncodeTemplated(T *out, T *in, u32 nitems, u32 &size, u32 &usedBits)
     {
         static_assert(!std::is_floating_point_v<T>, "Bitpacking not supported for floating point types");
         static_assert(!std::is_same_v<T, u8>, "Bitpacking not supported for u8");

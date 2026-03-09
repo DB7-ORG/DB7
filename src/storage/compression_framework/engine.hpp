@@ -2,15 +2,10 @@
 
 #include "common.hpp"
 
-#include "nodes/types.hpp"
 #include "stats/number_stats.hpp"
 #include "stats/string_stats.hpp"
-#include "../compressions/compression.hpp"
-
-#include <vector>
-#include <cstring>
-#include <unordered_set>
-#include <array>
+#include "nodes/nodes.hpp"
+#include "visitors/visitor.hpp"
 
 // static u32 EstimateCompression(SchemaType type, NumberStats<T> &stats)
 // {
@@ -32,13 +27,3 @@
 //         throw std::runtime_error("Unsupported type in CompressSample");
 //     }
 // }
-
-enum struct UnknownStats
-{
-    NumItems,
-    BitFreq,
-    CountRunLen,
-    CountDistinct,
-    Min,
-    Max
-};

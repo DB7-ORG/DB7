@@ -13,7 +13,10 @@ inline int GetBitsUsed(ValueType value)
 {
     if (value == 0)
         return 0;
-    return sizeof(ValueType) * 8 - __builtin_clz(value);
+    if constexpr (sizeof(ValueType) <= 4)
+        return 32 - __builtin_clz((u32)value);
+    else
+        return 64 - __builtin_clzll((u64)value);
 }
 
 struct DictionaryStringEncodedRes
@@ -50,7 +53,7 @@ template <typename ValueType>
 void DictionaryValueEncoder::Encode(
     DictionaryValueEncodedRes<ValueType> *__restrict out,
     const ValueType *__restrict in,
-    const ValidityMask *__restrict nullmap,
+    const ValidityMask *nullmap,
     const u32 count)
 {
     AppendOnlyHMap<ValueType> map(count);

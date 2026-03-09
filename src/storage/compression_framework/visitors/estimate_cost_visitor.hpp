@@ -5,6 +5,7 @@
 #include "../nodes/nodes.hpp"
 #include "../stats/number_stats.hpp"
 #include "../stats/string_stats.hpp"
+#include "../../compressions/compression.hpp"
 
 struct StatsAproxTransformer
 {
