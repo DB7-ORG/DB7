@@ -118,13 +118,15 @@ struct DecompressVisitor : IVisitor
     {
         std::cout << "dict visited" << std::endl;
 
+        u32 valCount = PopOffset();
+
         auto state = SaveState();
 
         PrepState(SrcType::U32, state.nitems);
 
         node.codes_node->Accept(*this);
 
-        PrepState(state.src_type, state.nitems);
+        PrepState(state.src_type, valCount);
 
         node.values_node->Accept(*this);
 

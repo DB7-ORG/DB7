@@ -141,6 +141,8 @@ struct CompressVisitor : IVisitor
             DictEncodeTemplated((u32 *)codes, (T *)values, valCount);
         });
 
+        PushOffset(valCount);
+
         // Collect stats again
 
         // Compare w estimated stats
@@ -218,9 +220,6 @@ struct CompressVisitor : IVisitor
         usedBits = CountBitsUsed(max);
 
         T *newOut = BitPackCombinedEncoder<T>::Encode(out, in, nitems, usedBits);
-
-        auto buffi = (T *)malloc(nitems * sizeof(T));
-        BitPackCombinedEncoder<T>::Decode(buffi, out, nitems, usedBits);
 
         size = (newOut - out) * sizeof(T);
     }
