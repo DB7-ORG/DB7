@@ -35,7 +35,13 @@ public:
     static NumberStats DictionaryValuesTransform(const NumberStats *stats)
     {
         u32 newBitFreq[MAX_HIST_SIZE] = {};
+
         ScaleBitFreq(stats->bitFreq, stats->num_items, stats->count_distinct, newBitFreq);
+
+        bool unknown[UnknownNumberStats::_COUNT];
+        std::memcpy(unknown, stats->unknown_stats, sizeof(unknown));
+        unknown[UnknownNumberStats::BIT_FREQ] = true;
+
         return NumberStats(
             newBitFreq,                                  // bitFreq
             stats->count_distinct,                       // num_items
@@ -44,11 +50,15 @@ public:
             stats->count_distinct,                       // count_distinct
             stats->min,                                  // min
             stats->max,                                  // max
-            stats->size_of_type);                        // size_of_type
+            stats->size_of_type,                         // size_of_type
+            unknown);
     }
 
     static NumberStats DictionaryCodesTransform(const NumberStats *stats)
     {
+        bool unknown[UnknownNumberStats::_COUNT];
+        std::memcpy(unknown, stats->unknown_stats, sizeof(unknown));
+
         return NumberStats(
             nullptr,                                // bitFreq //TODO (should be INF)
             stats->num_items,                       // num_items
@@ -57,7 +67,8 @@ public:
             stats->count_distinct,                  // count_distinct
             0,                                      // min
             stats->count_distinct - 1,              // max
-            stats->size_of_type);                   // size_of_type
+            stats->size_of_type,                    // size_of_type
+            unknown);
     }
 
     static const StringStats *DictionaryTransform(const StringStats *stats)
@@ -83,6 +94,13 @@ public:
 
         u32 lensRunLen = (u32)std::max(1.0f, (float)nitems / avgRunLen);
 
+        bool unknown[UnknownNumberStats::_COUNT];
+        std::memcpy(unknown, stats->unknown_stats, sizeof(unknown));
+        unknown[UnknownNumberStats::BIT_FREQ] = true;
+        unknown[UnknownNumberStats::COUNT_DISTINCT] = true;
+        unknown[UnknownNumberStats::MIN] = true;
+        unknown[UnknownNumberStats::MAX] = true;
+
         return NumberStats(
             newBitFreq,        // bitFreq
             nitems,            // num_items
@@ -91,13 +109,20 @@ public:
             distinct,          // count_distinct
             min,               // min
             max,               // max
-            typeSize);         // size_of_type
+            typeSize,          // size_of_type
+            unknown);
     }
 
     static NumberStats RleValsTransform(const NumberStats *stats)
     {
         u32 newBitFreq[MAX_HIST_SIZE] = {};
+
         ScaleBitFreq(stats->bitFreq, stats->num_items, stats->count_run_len, newBitFreq);
+
+        bool unknown[UnknownNumberStats::_COUNT];
+        std::memcpy(unknown, stats->unknown_stats, sizeof(unknown));
+        unknown[UnknownNumberStats::BIT_FREQ] = true;
+
         return NumberStats(
             newBitFreq,                                 // bitFreq
             stats->count_run_len,                       // num_items
@@ -106,7 +131,8 @@ public:
             stats->count_distinct,                      // count_distinct
             stats->min,                                 // min
             stats->max,                                 // max
-            stats->size_of_type);
+            stats->size_of_type,                        // size_of_type
+            unknown);
     }
 };
 

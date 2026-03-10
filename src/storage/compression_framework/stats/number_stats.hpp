@@ -28,6 +28,17 @@ struct SampleStats
     }
 };
 
+enum UnknownNumberStats
+{
+    TOTAL_SIZE,
+    BIT_FREQ,
+    COUNT_RUN_LEN,
+    COUNT_DISTINCT,
+    MIN,
+    MAX,
+    _COUNT // always last
+};
+
 struct NumberStats : IStats
 {
     u32 total_size;
@@ -36,8 +47,9 @@ struct NumberStats : IStats
     u32 count_distinct;
     u64 min;
     u64 max;
+    bool unknown_stats[UnknownNumberStats::_COUNT];
 
-    NumberStats() : bitFreq{}
+    NumberStats() : bitFreq{}, unknown_stats{}
     {
         type = StatsType::Number;
         size_of_type = 0;
@@ -57,12 +69,14 @@ struct NumberStats : IStats
         u32 count_distinct,
         u64 min,
         u64 max,
-        u8 size_of_type)
+        u8 size_of_type,
+        bool unknown_stats[UnknownNumberStats::_COUNT])
         : total_size(total_size),
           count_run_len(count_run_len),
           count_distinct(count_distinct),
           min(min),
-          max(max)
+          max(max),
+          unknown_stats(unknown_stats)
     {
         this->num_items = num_items;
         this->type = StatsType::Number;
@@ -84,6 +98,7 @@ struct NumberStats : IStats
         size_of_type = other.size_of_type;
         min = other.min;
         max = other.max;
+        std::memcpy(unknown_stats, other.unknown_stats, sizeof(unknown_stats));
     }
 
     NumberStats(const NumberStats *other) : NumberStats(*other) {}

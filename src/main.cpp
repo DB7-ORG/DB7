@@ -1347,7 +1347,9 @@ void test_tree_building()
     ValidityMask validity(tuple_num);
     NumberStats s = NumberStats();
     auto stats = &s;
+    u64 t6 = now_ns();
     stats->GenerateStats(data, &validity, tuple_num);
+    u64 t7 = now_ns();
     stats->Print();
     auto estimator = EstimateCostVisitor(stats);
     auto node = NumberNode(arena);
@@ -1375,6 +1377,7 @@ void test_tree_building()
         assert(decoded[i] == data[i]);
     }
 
+    printf("stats:         %.3f ms\n", (t7 - t6) / 1e6);
     printf("search:        %.3f ms\n", (t1 - t0) / 1e6);
     printf("compress:      %.3f ms\n", (t3 - t2) / 1e6);
     printf("decompress:    %.3f ms\n", (t5 - t4) / 1e6);
