@@ -21,11 +21,12 @@ struct CompressVisitorState
 
 struct CompressVisitor : IVisitor
 {
-    const IStats *stats;
+    const IStats *current_stats;
     const void *src;
     SrcType src_type;
     ValidityMask *nullmap;
     u32 nitems;
+    bool volatileStats[_COUNT];
 
     u8 *init_data;
     u8 *data;
@@ -39,11 +40,12 @@ struct CompressVisitor : IVisitor
     SlabArena *arena;
 
     CompressVisitor(IStats *stats, SrcType src_type, void *src, ValidityMask *nullmap, u32 nitems, u8 *out, SlabArena *arena)
-        : stats(stats),
+        : current_stats(stats),
           src(src),
           src_type(src_type),
           nullmap(nullmap),
           nitems(nitems),
+          volatileStats{},
           init_data(out),
           data(out),
           arena(arena)
@@ -89,11 +91,42 @@ struct CompressVisitor : IVisitor
         nitems = new_nitems;
     }
 
+    void ValidateStats(IStats *s, u8 best)
+    {
+        NumberStats *predicted_stats = (NumberStats *)s;
+        NumberStats *real_stats = (NumberStats *)current_stats;
+        auto unknown_stats = real_stats->unknown_stats;
+
+        bool flag = false;
+        for (u32 i = 0; i < _COUNT; i++)
+        {
+            flag |= unknown_stats[i];
+        }
+
+        if (flag)
+        {
+            ValidityMask bitmap;
+            DispatchType(src_type, [&]<typename T>() { //
+                real_stats->GenerateUnknownStats((T *)src, &bitmap, nitems);
+            });
+
+            double score = NumberStats::ChangedStats(real_stats, predicted_stats, unknown_stats);
+
+            if (score > 0.2)
+            {
+                std::cout << "wrong stats" << std::endl;
+                // TODO do estimation again
+            }
+        }
+    }
+
     u32 Visit(NumberNode &node) override
     {
         std::cout << "num visited" << std::endl;
 
         INode *cur = node.children[node.best_node_idx];
+
+        ValidateStats(node.stats, node.best_node_idx);
 
         PushHeader(node.best_node_idx);
 
@@ -147,13 +180,19 @@ struct CompressVisitor : IVisitor
 
         // Compare w estimated stats
 
+        bool vol[_COUNT] = {};
+        memcpy(vol, volatileStats, sizeof(vol));
+
         auto state = SaveState();
 
         PrepState(codes, SrcType::U32, state.nitems);
+        memcpy(volatileStats, vol, sizeof(vol));
 
         u32 val1 = node.codes_node->Accept(*this);
 
         PrepState(values, state.src_type, valCount);
+        memcpy(volatileStats, vol, sizeof(vol));
+        volatileStats[BIT_FREQ] = true;
 
         u32 val2 = node.values_node->Accept(*this);
 
@@ -192,13 +231,23 @@ struct CompressVisitor : IVisitor
 
         // Compare w estimated stats
 
+        bool vol[_COUNT] = {};
+        memcpy(vol, volatileStats, sizeof(vol));
+
         auto state = SaveState();
 
         PrepState(values, state.src_type, count);
+        memcpy(volatileStats, vol, sizeof(vol));
+        volatileStats[UnknownNumberStats::BIT_FREQ] = true;
 
         u32 val1 = node.values_node->Accept(*this);
 
         PrepState(counts, SrcType::U16, count);
+        memcpy(volatileStats, vol, sizeof(vol));
+        volatileStats[UnknownNumberStats::BIT_FREQ] = true;
+        volatileStats[UnknownNumberStats::COUNT_DISTINCT] = true;
+        volatileStats[UnknownNumberStats::MIN] = true;
+        volatileStats[UnknownNumberStats::MAX] = true;
 
         u32 val2 = node.lens_node->Accept(*this);
 

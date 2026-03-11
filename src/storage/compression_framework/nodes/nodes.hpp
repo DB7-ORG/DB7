@@ -8,6 +8,7 @@ struct NumberNode : INode
 {
     u8 best_node_idx;
     INode *children[4];
+    IStats *stats;
 
     NumberNode(SlabArena &arena, u8 depth = 0);
     u32 Accept(IVisitor &visitor) override { return visitor.Visit(*this); }

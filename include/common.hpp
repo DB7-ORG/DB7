@@ -16,5 +16,5 @@ using i32 = int32_t;
 using i64 = int64_t;
 
 constexpr u64 STANDARD_VECTOR_SIZE = 2048;
-constexpr u32 MAX_COMPRESSION_DEPTH = 2;
+constexpr u32 MAX_COMPRESSION_DEPTH = 4;
 constexpr u32 MAX_HIST_SIZE = 65;

@@ -148,7 +148,7 @@ struct EstimateCostVisitor : IVisitor
 
         u32 local_best = UINT32_MAX;
         u32 idx = 0;
-        IStats *stats = current_stats;
+        node.stats = current_stats;
         for (auto *child : node.children)
         {
             if (!child)
@@ -156,8 +156,10 @@ struct EstimateCostVisitor : IVisitor
                 idx++;
                 continue;
             }
-            current_stats = stats;
+
             u32 cost = child->Accept(*this);
+            current_stats = node.stats;
+
             if (cost < local_best)
             {
                 local_best = cost;
@@ -185,6 +187,7 @@ struct EstimateCostVisitor : IVisitor
             NumberStats *stats = static_cast<NumberStats *>(current_stats);
 
             NumberStats values_stats = StatsAproxTransformer::DictionaryValuesTransform(stats);
+
             NumberStats codes_stats = StatsAproxTransformer::DictionaryCodesTransform(stats);
 
             current_stats = &values_stats;
@@ -215,6 +218,7 @@ struct EstimateCostVisitor : IVisitor
         const NumberStats *stats = static_cast<NumberStats *>(current_stats);
 
         NumberStats len_stats = StatsAproxTransformer::RleLensTransform(stats);
+
         NumberStats val_stats = StatsAproxTransformer::RleValsTransform(stats);
 
         current_stats = &len_stats;

@@ -7,6 +7,7 @@
 #include "count_hset.hpp"
 #include "hyperloglog.hpp"
 #include "types.hpp"
+#include "bit_utils.hpp"
 
 #include <limits>
 #include <vector>
@@ -47,7 +48,7 @@ struct NumberStats : IStats
     u32 count_distinct;
     u64 min;
     u64 max;
-    bool unknown_stats[UnknownNumberStats::_COUNT];
+    bool unknown_stats[UnknownNumberStats::_COUNT]; // TODO should be a bitmap
 
     NumberStats() : bitFreq{}, unknown_stats{}
     {
@@ -59,6 +60,19 @@ struct NumberStats : IStats
         count_distinct = 0;
         min = UINT64_MAX;
         max = 0;
+    }
+
+    NumberStats(bool *unknown_stats) : bitFreq{}
+    {
+        type = StatsType::Number;
+        size_of_type = 0;
+        num_items = 0;
+        total_size = 0;
+        count_run_len = 0;
+        count_distinct = 0;
+        min = UINT64_MAX;
+        max = 0;
+        std::memcpy(this->unknown_stats, unknown_stats, _COUNT);
     }
 
     NumberStats(
@@ -159,6 +173,79 @@ struct NumberStats : IStats
         count_run_len = rle_count;
     }
 
+    template <typename T>
+    void GenerateUnknownStats(const T *src, const ValidityMask *bitmap, const u32 nitems)
+    {
+        size_of_type = sizeof(T);
+        num_items = nitems;
+        bool allValid = bitmap->AllValid();
+
+        // determine which stats need to be collected
+        bool need_total_size = unknown_stats[UnknownNumberStats::TOTAL_SIZE];
+        bool need_bit_freq = unknown_stats[UnknownNumberStats::BIT_FREQ];
+        bool need_rle = unknown_stats[UnknownNumberStats::COUNT_RUN_LEN];
+        bool need_distinct = unknown_stats[UnknownNumberStats::COUNT_DISTINCT];
+        bool need_min = unknown_stats[UnknownNumberStats::MIN];
+        bool need_max = unknown_stats[UnknownNumberStats::MAX];
+
+        // pre-compute what we can outside the loop
+        if (need_total_size)
+            total_size = nitems * sizeof(T);
+
+        CountHSet<T> distinct_values(nitems, 2);
+        T rle_last_seen = src[0];
+        u32 rle_count = 1;
+
+        if (need_min)
+            min = rle_last_seen;
+        if (need_max)
+            max = rle_last_seen;
+        if (need_bit_freq)
+            bitFreq[CountBitsUsed(rle_last_seen)]++;
+
+        for (u32 i = 1; i < nitems; i++)
+        {
+            if (!allValid && !bitmap->RowIsValid(i))
+            {
+                if (need_bit_freq)
+                    bitFreq[0]++;
+                continue;
+            }
+
+            T value = src[i];
+
+            if (need_bit_freq)
+            {
+                u32 usedBits = CountBitsUsed(value);
+                bitFreq[usedBits]++;
+            }
+
+            if (need_distinct)
+                distinct_values.Push(value);
+
+            if (need_min)
+                min = std::min(u64(value), min);
+            if (need_max)
+                max = std::max(u64(value), max);
+
+            if (need_rle)
+            {
+                rle_count += (value != rle_last_seen);
+                rle_last_seen = value;
+            }
+        }
+
+        if (need_distinct)
+            count_distinct = distinct_values.Size();
+        if (need_rle)
+            count_run_len = rle_count;
+
+        for (u32 i = 0; i < _COUNT; i++)
+        {
+            unknown_stats[i] = false;
+        }
+    }
+
     // inline void ChooseSamplingParams(u32 &sample_target, u32 &num_runs, u32 &run_len, u32 &interval_len)
     // {
     //     if (nitems >= 10'000)
@@ -203,6 +290,58 @@ struct NumberStats : IStats
 
     //     return SampleStats<T>(std::move(samples), nullptr);
     // }
+
+    template <typename T>
+    static double CalcError(T real, T predicted)
+    {
+        double diff = predicted > real
+                          ? double(predicted - real)
+                          : double(real - predicted);
+
+        return diff / (real + 1);
+    }
+
+    static u32 ChangedStats(const NumberStats &real, const NumberStats &predicted, bool *unknown)
+    {
+        double score = 0.0;
+        u32 count = 0;
+
+        if (unknown[MIN])
+        {
+            score += CalcError(real.min, predicted.min); // TODO for now works on unsigned only
+            count++;
+        }
+        if (unknown[MAX])
+        {
+            score += CalcError(real.max, predicted.max); // TODO for now works on unsigned only
+            count++;
+        }
+        if (unknown[COUNT_DISTINCT])
+        {
+            score += CalcError(real.count_distinct, predicted.count_distinct);
+            count++;
+        }
+        if (unknown[COUNT_RUN_LEN])
+        {
+            score += CalcError(real.count_run_len, predicted.count_run_len);
+            count++;
+        }
+        if (unknown[BIT_FREQ])
+        {
+            u32 sum = 0;
+            for (u32 i = 0; i < MAX_HIST_SIZE; i++)
+            {
+                double diff = predicted.bitFreq[i] > real.bitFreq[i]
+                                  ? double(predicted.bitFreq[i] - real.bitFreq[i])
+                                  : double(real.bitFreq[i] - predicted.bitFreq[i]);
+                sum += diff;
+            }
+            score += sum / MAX_HIST_SIZE;
+            count++;
+        }
+
+        return score / count;
+    }
 
     void Print()
     {
