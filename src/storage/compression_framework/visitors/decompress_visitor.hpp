@@ -73,7 +73,7 @@ struct DecompressVisitor : IVisitor
 
     u32 Visit(NumberNode &node) override
     {
-        std::cout << "num visited" << std::endl;
+        // std::cout << "num visited" << std::endl;
 
         u8 alg = PopHeader();
 
@@ -88,7 +88,7 @@ struct DecompressVisitor : IVisitor
 
     u32 Visit(UncompressedNode &node) override
     {
-        std::cout << "uncom visited" << std::endl;
+        // std::cout << "uncom visited" << std::endl;
 
         u32 offset = PopOffset();
 
@@ -116,7 +116,7 @@ struct DecompressVisitor : IVisitor
 
     u32 Visit(DictionaryNode &node) override
     {
-        std::cout << "dict visited" << std::endl;
+        // std::cout << "dict visited" << std::endl;
 
         u32 valCount = PopOffset();
 
@@ -156,7 +156,7 @@ struct DecompressVisitor : IVisitor
 
     u32 Visit(RleNode &node) override
     {
-        std::cout << "rle visited" << std::endl;
+        // std::cout << "rle visited" << std::endl;
 
         u32 count = PopOffset();
 
@@ -206,6 +206,35 @@ struct DecompressVisitor : IVisitor
 
                         node.buf = arena->Alloc<T>(nitems); 
                         BitpackDecodeTemplated((T *)node.buf, (T *)tmp, nitems, usedBits);
+                    } else 
+                        throw std::runtime_error("bitpacking floating point unsupported"); });
+
+        last_off = offset;
+        return 0;
+    }
+
+    template <typename T>
+    inline void FastPForDecodeTemplated(T *out, u32 *in, u32 nitems)
+    {
+        static_assert(!std::is_floating_point_v<T>, "Bitpacking not supported for floating point types");
+        static_assert(!std::is_same_v<T, u8>, "Bitpacking not supported for u8");
+
+        FastPForEncoder encoder; // TODO make this stateless (static encode and decode)
+        encoder.Decode(out, in, nitems);
+    }
+
+    u32 Visit(FastPForNode &node) override
+    {
+        u32 offset = PopOffset();
+
+        DispatchType(src_type, [&]<typename T>()
+                     { if constexpr (!std::is_floating_point_v<T> && !std::is_same_v<T,u8>){
+                        
+                        last_off += GetAlignment<T>(last_off);
+                        auto tmp = &data[last_off];
+
+                        node.buf = arena->Alloc<T>(nitems); 
+                        FastPForDecodeTemplated((T *)node.buf, (u32 *)tmp, nitems);
                     } else 
                         throw std::runtime_error("bitpacking floating point unsupported"); });
 

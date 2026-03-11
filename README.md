@@ -4,6 +4,8 @@ valgrind --tool=memcheck --leak-check=full --track-origins=yes --show-leak-kinds
 
 # DB7 ✅ ❌
 
+- make fast pfor static
+
 engine implementation ❌
 - add a pool TODO in engine ✅
 - save nullmap(consider compressing it) ❌

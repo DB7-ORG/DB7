@@ -44,50 +44,8 @@ public:
     u32 Encode(u32 *out, const ValueType *in, u32 nitems);
     template <typename ValueType>
     u32 Decode(ValueType *out, const u32 *in, u32 nitems);
-    template <typename ValueType>
-    static u32 EstimateCompression(const u32 *freqs, const u32 size);
+    static u32 EstimateCompression(const u32 *freqs, const u32 nitems, u32 typeBits);
 };
-
-template <typename ValueType>
-u32 FastPForEncoder::EstimateCompression(const u32 *freqs, const u32 nitems)
-{
-    constexpr u32 bitmapSize = std::is_same_v<ValueType, u64> ? sizeof(u64) * 8 : sizeof(u32) * 8;
-    const u32 numOfBlocks = nitems / BlockSize;
-    const u32 numExcBlocks = numOfBlocks;     // TODO should be better aprox
-    const u32 metaDataSize = 16 * numOfBlocks // bestcexcept and bestb in bytescontainer
-                             + 2 * 32         // len prefixes for packed data and bytescontainer
-                             + 3 * 8          // len of padding (max 3 bytes)
-                             + bitmapSize;    // bitmap
-
-    constexpr u32 ValueTypeBits = sizeof(ValueType) * 8;
-    u32 bestb = ValueTypeBits;
-    while (freqs[bestb] == 0)
-        bestb--;
-
-    u32 cexcept = 0;
-    u32 nonZeroCount = 0;
-    u32 cpackExcept = 0;
-
-    u32 bestcost = bestb * nitems + metaDataSize;
-
-    for (u32 b = bestb - 1; b < ValueTypeBits; --b)
-    {
-        cexcept += freqs[b + 1];
-        nonZeroCount += (freqs[b + 1] != 0);
-        cpackExcept += freqs[b + 1] * ValueTypeBits; //((freqs[b + 1] * (b + 1) + 63) / 64) * 64; // TODO chnage scalar compression
-
-        u32 thiscost = cexcept * overheadofeachexcept // overhead of and index that points to an exception
-                       + cpackExcept                  // calculation for packing exceptions
-                       + b * nitems                   // packed data with best bit size
-                       + 8 * numExcBlocks             // maxb stored for each block that contains exceptions
-                       + nonZeroCount * 32            // size prefix when padding exceptions
-                       + metaDataSize;                // metadata
-
-        bestcost = std::min(thiscost, bestcost);
-    }
-
-    return bestcost;
-}
 
 template <typename ValueType>
 void FastPForEncoder::GetBestB(const ValueType *in, u8 &bestb, u8 &bestcexcept, u8 &maxb)

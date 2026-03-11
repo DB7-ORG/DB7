@@ -91,7 +91,7 @@ struct CompressVisitor : IVisitor
 
     u32 Visit(NumberNode &node) override
     {
-        std::cout << "num visited" << std::endl;
+        // std::cout << "num visited" << std::endl;
 
         INode *cur = node.children[node.best_node_idx];
 
@@ -102,7 +102,7 @@ struct CompressVisitor : IVisitor
 
     u32 Visit(UncompressedNode &) override
     {
-        std::cout << "uncom visited" << std::endl;
+        // std::cout << "uncom visited" << std::endl;
 
         u32 size = SizeOfBuffer(src_type, nitems);
 
@@ -131,7 +131,7 @@ struct CompressVisitor : IVisitor
 
     u32 Visit(DictionaryNode &node) override
     {
-        std::cout << "dict visited" << std::endl;
+        // std::cout << "dict visited" << std::endl;
 
         u32 valCount;
         void *codes, *values;
@@ -176,7 +176,7 @@ struct CompressVisitor : IVisitor
 
     u32 Visit(RleNode &node) override
     {
-        std::cout << "rle visited" << std::endl;
+        // std::cout << "rle visited" << std::endl;
 
         void *counts, *values;
         u32 count;
@@ -226,7 +226,7 @@ struct CompressVisitor : IVisitor
 
     u32 Visit(BitpackNode &) override
     {
-        std::cout << "bitpack visited" << std::endl;
+        // std::cout << "bitpack visited" << std::endl;
 
         u32 size = 0;
         u32 usedBits = 0;
@@ -240,6 +240,35 @@ struct CompressVisitor : IVisitor
         data += size;
         PushOffset(data - init_data);
         PushOffset(usedBits);
+
+        return size;
+    }
+
+    template <typename T>
+    inline void FastPForEncodeTemplated(u32 *out, T *in, u32 nitems, u32 &size)
+    {
+        static_assert(!std::is_floating_point_v<T>, "Bitpacking not supported for floating point types");
+        static_assert(!std::is_same_v<T, u8>, "Bitpacking not supported for u8");
+
+        FastPForEncoder encoder; // TODO make this stateless (static encode and decode)
+        size = encoder.Encode<T>(out, in, nitems) * sizeof(u32);
+    }
+
+    u32 Visit(FastPForNode &) override
+    {
+        // std::cout << "bitpack visited" << std::endl;
+
+        u32 size = 0;
+
+        DispatchType(src_type, [&]<typename T>()
+                     { if constexpr (!std::is_floating_point_v<T> && !std::is_same_v<T,u8>){
+                        data += GetAlignment<T>(data);
+                        FastPForEncodeTemplated((u32 *)data, (T *)src, nitems, size);
+                     } else 
+                        throw std::runtime_error("bitpack floating point err"); });
+
+        data += size;
+        PushOffset(data - init_data);
 
         return size;
     }

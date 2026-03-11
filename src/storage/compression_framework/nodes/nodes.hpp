@@ -7,7 +7,7 @@
 struct NumberNode : INode
 {
     u8 best_node_idx;
-    INode *children[4];
+    INode *children[5];
 
     NumberNode(SlabArena &arena, u8 depth = 0);
     u32 Accept(IVisitor &visitor) override { return visitor.Visit(*this); }
@@ -43,6 +43,12 @@ struct BitpackNode : INode
     u32 Accept(IVisitor &visitor) override { return visitor.Visit(*this); }
 };
 
+struct FastPForNode : INode
+{
+    FastPForNode(u8 depth);
+    u32 Accept(IVisitor &visitor) override { return visitor.Visit(*this); }
+};
+
 inline NumberNode::NumberNode(SlabArena &arena, u8 depth)
 {
     this->depth = depth;
@@ -53,6 +59,7 @@ inline NumberNode::NumberNode(SlabArena &arena, u8 depth)
         children[1] = nullptr;
         children[2] = nullptr;
         children[3] = nullptr;
+        children[4] = nullptr;
         return;
     }
 
@@ -61,6 +68,7 @@ inline NumberNode::NumberNode(SlabArena &arena, u8 depth)
     children[1] = arena.New<DictionaryNode>(arena, depth);
     children[2] = arena.New<RleNode>(arena, depth);
     children[3] = arena.New<BitpackNode>(depth);
+    children[4] = arena.New<FastPForNode>(depth);
 }
 
 inline UncompressedNode::UncompressedNode(u8 depth)
@@ -85,6 +93,11 @@ inline RleNode::RleNode(SlabArena &arena, u8 depth)
 }
 
 inline BitpackNode::BitpackNode(u8 depth)
+{
+    this->depth = depth;
+}
+
+inline FastPForNode::FastPForNode(u8 depth)
 {
     this->depth = depth;
 }

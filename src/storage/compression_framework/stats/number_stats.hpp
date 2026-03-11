@@ -50,7 +50,7 @@ struct NumberStats : IStats
     }
 
     NumberStats(
-        const u32 bitFreq[MAX_HIST_SIZE],
+        const u32 *bitFreq,
         u32 num_items,
         u32 total_size,
         u32 count_run_len,
@@ -70,6 +70,10 @@ struct NumberStats : IStats
         if (bitFreq != nullptr)
         {
             std::memcpy(this->bitFreq, bitFreq, MAX_HIST_SIZE * sizeof(u32));
+        }
+        else
+        {
+            this->bitFreq[0] = UINT32_MAX;
         }
     }
 

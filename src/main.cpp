@@ -988,27 +988,27 @@ void test_stats_generation()
 // // }
 
 #include <iomanip>
-#define RUN_TEST(name, ValueType)                                                                 \
-    {                                                                                             \
-        encoder.ResetTable();                                                                     \
-        u64 t0 = now_ns();                                                                        \
-        u32 sizeInBytes = encoder.Encode(coded, data, tuple_num) * sizeof(u32);                   \
-        u64 t1 = now_ns();                                                                        \
-        NumberStats stats;                                                                        \
-        stats.GenerateStats(data, &nullmap, tuple_num);                                           \
-        u32 estimate = FastPForEncoder::EstimateCompression<ValueType>(stats.bitFreq, tuple_num); \
-        u32 estimateBytes = ((estimate + 31) / 32) * 4;                                           \
-        int diff = int(estimateBytes) - int(sizeInBytes);                                         \
-        double errorPct = sizeInBytes == 0 ? 0.0 : (double(diff) * 100.0) / double(sizeInBytes);  \
-        std::cout << std::fixed << std::setprecision(2)                                           \
-                  << "[" name "] estimate=" << estimateBytes                                      \
-                  << " real=" << sizeInBytes                                                      \
-                  << " diff=" << diff                                                             \
-                  << " (" << errorPct << "%)"                                                     \
-                  << (diff < 0 ? " *** UNDERESTIMATE ***" : "")                                   \
-                  << "\n";                                                                        \
-        printf("  time: %.3f ms\n", (t1 - t0) / 1e6);                                             \
-        encoder.ResetTable();                                                                     \
+#define RUN_TEST(name, ValueType)                                                                         \
+    {                                                                                                     \
+        encoder.ResetTable();                                                                             \
+        u64 t0 = now_ns();                                                                                \
+        u32 sizeInBytes = encoder.Encode(coded, data, tuple_num) * sizeof(u32);                           \
+        u64 t1 = now_ns();                                                                                \
+        NumberStats stats;                                                                                \
+        stats.GenerateStats(data, &nullmap, tuple_num);                                                   \
+        u32 estimate = FastPForEncoder::EstimateCompression(stats.bitFreq, tuple_num, sizeof(ValueType)); \
+        u32 estimateBytes = ((estimate + 31) / 32) * 4;                                                   \
+        int diff = int(estimateBytes) - int(sizeInBytes);                                                 \
+        double errorPct = sizeInBytes == 0 ? 0.0 : (double(diff) * 100.0) / double(sizeInBytes);          \
+        std::cout << std::fixed << std::setprecision(2)                                                   \
+                  << "[" name "] estimate=" << estimateBytes                                              \
+                  << " real=" << sizeInBytes                                                              \
+                  << " diff=" << diff                                                                     \
+                  << " (" << errorPct << "%)"                                                             \
+                  << (diff < 0 ? " *** UNDERESTIMATE ***" : "")                                           \
+                  << "\n";                                                                                \
+        printf("  time: %.3f ms\n", (t1 - t0) / 1e6);                                                     \
+        encoder.ResetTable();                                                                             \
     }
 
 void benchmark_pfor_estimate()
@@ -1330,25 +1330,48 @@ void test_tree_building()
     //     data[i] = (i / 222) + 1;
     // }
 
-    std::vector<type> vec(10);
-    type idx = 5'000'000;
-    for (auto &item : vec)
+    // std::vector<type> vec(10);
+    // type idx = 5'000'000;
+    // for (auto &item : vec)
+    // {
+    //     item = ++idx;
+    // }
+
+    // srand(42);
+
+    // for (int i = 0; i < tuple_num; i++)
+    //     data[i] = vec[rand() % 10];
+
+    int idx = 0;
+
+    // few very long runs
+    for (int i = 0; i < 50000; i++)
+        data[idx++] = 1; // run of 50000
+    for (int i = 0; i < 40000; i++)
+        data[idx++] = 2; // run of 40000
+
+    // many very short runs - alternating
+    for (int i = 0; i < 30000; i++)
     {
-        item = ++idx;
+        data[idx++] = (i % 10) + 3; // run of 1 each
     }
 
-    srand(42);
+    for (int i = idx; i < tuple_num; i++)
+    {
+        data[idx++] = 5; // run of 1 each
+    }
 
-    for (int i = 0; i < tuple_num; i++)
-        data[i] = vec[rand() % 10];
-
-    SlabArena arena(100'000);
+    SlabArena arena(1'000'000);
 
     ValidityMask validity(tuple_num);
     NumberStats s = NumberStats();
     auto stats = &s;
+    u64 t6 = now_ns();
     stats->GenerateStats(data, &validity, tuple_num);
-    stats->Print();
+    u64 t7 = now_ns();
+
+    // stats->Print();
+
     auto estimator = EstimateCostVisitor(stats);
     auto node = NumberNode(arena);
     u64 t0 = now_ns();
@@ -1360,8 +1383,10 @@ void test_tree_building()
     auto out = (u8 *)malloc(tuple_num * 10 * sizeof(type));
     auto compressor = CompressVisitor(stats, srcType, data, &validity, tuple_num, out, &arena);
     u64 t2 = now_ns();
-    node.Accept(compressor);
+    u32 compressed_size = node.Accept(compressor);
     u64 t3 = now_ns();
+
+    std::cout << "Compressed size " << compressed_size << std::endl;
 
     auto decoder = DecompressVisitor(srcType, &validity, tuple_num, out, compressor.init_header, compressor.init_offsets, &arena);
     u64 t4 = now_ns();
@@ -1375,6 +1400,7 @@ void test_tree_building()
         assert(decoded[i] == data[i]);
     }
 
+    printf("stats:         %.3f ms\n", (t7 - t6) / 1e6);
     printf("search:        %.3f ms\n", (t1 - t0) / 1e6);
     printf("compress:      %.3f ms\n", (t3 - t2) / 1e6);
     printf("decompress:    %.3f ms\n", (t5 - t4) / 1e6);

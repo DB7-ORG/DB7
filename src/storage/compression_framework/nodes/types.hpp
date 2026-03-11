@@ -9,6 +9,7 @@ struct UncompressedNode;
 struct DictionaryNode;
 struct RleNode;
 struct BitpackNode;
+struct FastPForNode;
 
 struct IVisitor
 {
@@ -17,6 +18,7 @@ struct IVisitor
     virtual u32 Visit(DictionaryNode &node) = 0;
     virtual u32 Visit(RleNode &node) = 0;
     virtual u32 Visit(BitpackNode &node) = 0;
+    virtual u32 Visit(FastPForNode &node) = 0;
 };
 
 struct INode

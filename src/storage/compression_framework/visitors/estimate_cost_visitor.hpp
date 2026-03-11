@@ -14,6 +14,12 @@ private:
     {
         (void)nitems; // TODO unused
 
+        if (bitFreq[0] == UINT32_MAX)
+        {
+            outFreq[0] = bitFreq[0];
+            return; // this is a flag that is uded to represent infinite values
+        }
+
         u32 distinctPerBucket[MAX_HIST_SIZE] = {};
         u32 total = 0;
         for (u32 i = 0; i < MAX_HIST_SIZE; i++)
@@ -24,10 +30,11 @@ private:
             total += capped;
         }
 
-        float ratio = (float)ndistinct / std::max(total, 1u);
+        // float ratio = (float)ndistinct / std::max(total, 1u);
         for (u32 i = 0; i < MAX_HIST_SIZE; i++)
         {
-            outFreq[i] = (u32)(distinctPerBucket[i] * ratio);
+            // outFreq[i] = (u32)(distinctPerBucket[i] * ratio);
+            outFreq[i] = (distinctPerBucket[i] * ndistinct + total / 2) / std::max(total, 1u);
         }
     }
 
@@ -118,7 +125,7 @@ struct EstimateCostVisitor : IVisitor
 
     u32 Visit(NumberNode &node) override
     {
-        std::cout << "num visited" << std::endl;
+        // std::cout << "num visited" << std::endl;
 
         u32 local_best = UINT32_MAX;
         u32 idx = 0;
@@ -139,26 +146,27 @@ struct EstimateCostVisitor : IVisitor
             }
             idx++;
         }
-        // std::cout << local_best << std::endl;
+        // // std::cout << local_best << std::endl;
         return local_best;
     }
 
     u32 Visit(UncompressedNode &) override
     {
-        std::cout << "uncompressed visited" << std::endl;
+        // std::cout << "uncompressed visited" << std::endl;
 
         return current_stats->num_items * current_stats->size_of_type;
     }
 
     u32 Visit(DictionaryNode &node) override
     {
-        std::cout << "dict visited" << std::endl;
+        // std::cout << "dict visited" << std::endl;
 
         if (current_stats->type == StatsType::Number)
         {
             NumberStats *stats = static_cast<NumberStats *>(current_stats);
 
             NumberStats values_stats = StatsAproxTransformer::DictionaryValuesTransform(stats);
+
             NumberStats codes_stats = StatsAproxTransformer::DictionaryCodesTransform(stats);
 
             current_stats = &values_stats;
@@ -184,11 +192,12 @@ struct EstimateCostVisitor : IVisitor
 
     u32 Visit(RleNode &node) override
     {
-        std::cout << "rle visited" << std::endl;
+        // std::cout << "rle visited" << std::endl;
 
         const NumberStats *stats = static_cast<NumberStats *>(current_stats);
 
         NumberStats len_stats = StatsAproxTransformer::RleLensTransform(stats);
+
         NumberStats val_stats = StatsAproxTransformer::RleValsTransform(stats);
 
         current_stats = &len_stats;
@@ -202,8 +211,16 @@ struct EstimateCostVisitor : IVisitor
 
     u32 Visit(BitpackNode &) override
     {
-        std::cout << "bp visited" << std::endl;
+        // std::cout << "bp visited" << std::endl;
         auto stats = reinterpret_cast<NumberStats *>(current_stats);
         return BitPackEncoder<u8>::EstimateCompression(stats->max, stats->num_items);
+    }
+
+    u32 Visit(FastPForNode &) override
+    {
+        // std::cout << "pfor visited" << std::endl;
+
+        auto stats = reinterpret_cast<NumberStats *>(current_stats);
+        return FastPForEncoder::EstimateCompression(stats->bitFreq, stats->num_items, stats->size_of_type * 8);
     }
 };
