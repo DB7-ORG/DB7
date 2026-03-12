@@ -1330,36 +1330,17 @@ void test_tree_building()
     //     data[i] = (i / 222) + 1;
     // }
 
-    // std::vector<type> vec(10);
-    // type idx = 5'000'000;
-    // for (auto &item : vec)
-    // {
-    //     item = ++idx;
-    // }
-
-    // srand(42);
-
-    // for (int i = 0; i < tuple_num; i++)
-    //     data[i] = vec[rand() % 10];
-
-    int idx = 0;
-
-    // few very long runs
-    for (int i = 0; i < 50000; i++)
-        data[idx++] = 1; // run of 50000
-    for (int i = 0; i < 40000; i++)
-        data[idx++] = 2; // run of 40000
-
-    // many very short runs - alternating
-    for (int i = 0; i < 30000; i++)
+    std::vector<type> vec(10);
+    type idx = 5'000'000;
+    for (auto &item : vec)
     {
-        data[idx++] = (i % 10) + 3; // run of 1 each
+        item = ++idx;
     }
 
-    for (int i = idx; i < tuple_num; i++)
-    {
-        data[idx++] = 5; // run of 1 each
-    }
+    srand(42);
+
+    for (int i = 0; i < tuple_num; i++)
+        data[i] = vec[rand() % 10];
 
     SlabArena arena(1'000'000);
 
@@ -1435,11 +1416,40 @@ void test_combined_bp()
     return;
 }
 
+void test(u32 nitems)
+{
+    using T = u32;
+    // aligned input buffer
+    auto src = (T *)malloc(nitems * sizeof(T));
+    auto encoded = (T *)malloc(nitems * sizeof(T));
+    auto decoded = (T *)malloc(nitems * sizeof(T));
+
+    T min_val = 100;
+    for (u32 i = 0; i < nitems; i++)
+        src[i] = min_val + (T)(i % 20);
+
+    ForEncoder::Encode<T>(encoded, (const __m256i *)src, nitems, min_val);
+    ForEncoder::Decode<T>(decoded, (const __m256i *)encoded, nitems, min_val);
+
+    bool ok = true;
+    for (u32 i = 0; i < nitems; i++)
+    {
+        if (decoded[i] != src[i])
+        {
+            ok = false;
+            break;
+        }
+    }
+
+    printf("nitems=%-4u  %s\n", nitems, ok ? "PASS" : "FAIL");
+}
+
 int main()
 {
-    //  test_huge_dict_values();
-    //  test_huge_dict();
-    //  test_oneval_encoder();
+    // test(120'064);
+    //   test_huge_dict_values();
+    //   test_huge_dict();
+    //   test_oneval_encoder();
 
     // u8 data[256];
     // for (int i = 0; i < 256; i++)

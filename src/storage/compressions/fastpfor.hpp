@@ -33,7 +33,7 @@ private:
     u32 *PackExceptionBlocks(u32 *out, cachealignedvector &in, u8 bit);
 
     template <typename ValueType>
-    static void GetBestB(const ValueType *in, u8 &bestb, u8 &bestcexcept, u8 &maxb);
+    static void GetBestB(const ValueType *in, u8 &bestb, u8 &bestcexcept, u8 &maxb, u32 blk_size = BlockSize);
 
 public:
     FastPForEncoder();
@@ -48,7 +48,7 @@ public:
 };
 
 template <typename ValueType>
-void FastPForEncoder::GetBestB(const ValueType *in, u8 &bestb, u8 &bestcexcept, u8 &maxb)
+void FastPForEncoder::GetBestB(const ValueType *in, u8 &bestb, u8 &bestcexcept, u8 &maxb, u32 blk_size)
 {
     constexpr u32 ValueTypeBits = sizeof(ValueType) * 8;
 
@@ -56,7 +56,7 @@ void FastPForEncoder::GetBestB(const ValueType *in, u8 &bestb, u8 &bestcexcept, 
     for (u32 k = 0; k <= ValueTypeBits; ++k)
         freqs[k] = 0;
 
-    for (u32 k = 0; k < BlockSize; ++k)
+    for (u32 k = 0; k < blk_size; ++k)
     {
         auto pos = CountBitsUsed(in[k]);
         freqs[pos]++;
@@ -67,13 +67,13 @@ void FastPForEncoder::GetBestB(const ValueType *in, u8 &bestb, u8 &bestcexcept, 
         bestb--;
 
     maxb = bestb;
-    u32 bestcost = bestb * BlockSize;
+    u32 bestcost = bestb * blk_size;
     u32 cexcept = 0;
     bestcexcept = static_cast<u8>(cexcept);
     for (u32 b = bestb - 1; b < ValueTypeBits; --b)
     {
         cexcept += freqs[b + 1];
-        u32 thiscost = cexcept * overheadofeachexcept + cexcept * (maxb - b) + b * BlockSize + 8; // the  extra 8 is the cost of storing maxbits
+        u32 thiscost = cexcept * overheadofeachexcept + cexcept * (maxb - b) + b * blk_size + 8; // the  extra 8 is the cost of storing maxbits
         if (thiscost < bestcost)
         {
             bestcost = thiscost;
@@ -86,7 +86,7 @@ void FastPForEncoder::GetBestB(const ValueType *in, u8 &bestb, u8 &bestcexcept, 
 template <typename ValueType>
 u32 FastPForEncoder::Encode(u32 *__restrict out, const ValueType *__restrict in, u32 nitems)
 {
-    assert(nitems % BlockSize == 0);
+    // assert(nitems % BlockSize == 0);
 
     constexpr u32 ValueTypeBits = sizeof(ValueType) * 8;
 
@@ -97,7 +97,8 @@ u32 FastPForEncoder::Encode(u32 *__restrict out, const ValueType *__restrict in,
 
     u8 *bc = &bytescontainer[0];
 
-    for (const ValueType *const final = in + nitems; (in + BlockSize <= final); in += BlockSize)
+    const ValueType *const final = in + nitems;
+    for (; (in + BlockSize <= final); in += BlockSize)
     {
         u8 bestb, bestcexcept, maxb;
         GetBestB(in, bestb, bestcexcept, maxb);
@@ -124,6 +125,35 @@ u32 FastPForEncoder::Encode(u32 *__restrict out, const ValueType *__restrict in,
             out = reinterpret_cast<u32 *>(BitPackEncoder<ValueType>::EncodeWithoutMask(out, in, BlockSize, bestb)); // TODO executed once per loop
         }
     }
+
+    ///////////////
+
+    u32 items_left = final - in;
+    if (items_left != 0)
+    {
+        u8 bestb, bestcexcept, maxb;
+        GetBestB(in, bestb, bestcexcept, maxb, items_left);
+        *bc++ = bestb;
+        *bc++ = bestcexcept;
+        if (bestcexcept > 0)
+        {
+            *bc++ = maxb;
+            auto &thisexceptioncontainer = datatobepacked[maxb - bestb];
+            const ValueType maxval = 1ull << bestb;
+            for (u32 k = 0; k < items_left; ++k) // TODO this for sure can be optimized
+            {
+                if (in[k] >= maxval)
+                {
+                    // we have an exception
+                    thisexceptioncontainer.push_back(in[k] >> bestb);
+                    *bc++ = static_cast<u8>(k);
+                }
+            }
+        }
+        out = reinterpret_cast<u32 *>(BitPackScalarEncoder<ValueType>::Encode((ValueType *)out, in, items_left, bestb));
+    }
+
+    ///////////////
 
     headerout[0] = static_cast<u32>(out - headerout);
     const u32 bytescontainersize = static_cast<u32>(bc - &bytescontainer[0]);
@@ -219,6 +249,37 @@ u32 FastPForEncoder::Decode(ValueType *__restrict out, const u32 *__restrict in,
         const u8 cexcept = *bytep++;
         auto newOut = BitPackEncoder<ValueType>::Decode(out, in, BlockSize, b);
         in += 8 * b * BlockSize / 256;
+
+        if (cexcept > 0)
+        {
+            const u8 maxbits = *bytep++;
+            if (maxbits - b == 1)
+            {
+                for (u32 k = 0; k < cexcept; ++k)
+                {
+                    const u8 pos = *(bytep++);
+                    out[pos] |= static_cast<ValueType>(1) << b;
+                }
+            }
+            else
+            {
+                cachealignedvector::const_iterator &exceptionsptr = unpackpointers[maxbits - b];
+                for (u32 k = 0; k < cexcept; ++k)
+                {
+                    const u8 pos = *(bytep++);
+                    out[pos] |= (*(exceptionsptr++)) << b;
+                }
+            }
+        }
+        out = newOut;
+    }
+
+    u32 items_left = nitems - (nitems / BlockSize) * BlockSize;
+    if (items_left != 0)
+    {
+        const u8 b = *bytep++;
+        const u8 cexcept = *bytep++;
+        auto newOut = BitPackScalarEncoder<ValueType>::Decode(out, (ValueType *)in, items_left, b);
 
         if (cexcept > 0)
         {

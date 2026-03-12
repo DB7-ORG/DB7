@@ -40,15 +40,17 @@ TYPED_TEST(FastPForTest, BlockSizeAssertions)
 
 TYPED_TEST(FastPForTest, EncodeDecodeAllZeros)
 {
-    std::vector<TypeParam> data(BlockSize, 0);
+    size_t nitems = BlockSize + rand() % 250;
+    std::vector<TypeParam> data(nitems, 0);
     this->EncodeAndDecode(data);
     EXPECT_EQ(this->decoded, this->input);
 }
 
 TYPED_TEST(FastPForTest, EncodeDecodeSmallValues)
 {
-    std::vector<TypeParam> data(BlockSize);
-    for (size_t i = 0; i < BlockSize; i++)
+    size_t nitems = BlockSize + rand() % 250;
+    std::vector<TypeParam> data(nitems);
+    for (size_t i = 0; i < nitems; i++)
     {
         data[i] = i % 16; // Values 0-15 (4 bits)
     }
@@ -58,17 +60,19 @@ TYPED_TEST(FastPForTest, EncodeDecodeSmallValues)
 
 TYPED_TEST(FastPForTest, EncodeDecodeMaxValues)
 {
-    std::vector<TypeParam> data(BlockSize, 5000);
+    size_t nitems = BlockSize + rand() % 250;
+    std::vector<TypeParam> data(nitems, 5000);
     this->EncodeAndDecode(data);
     EXPECT_EQ(this->decoded, this->input);
 }
 
 TYPED_TEST(FastPForTest, EncodeDecodeWithExceptions)
 {
-    std::vector<TypeParam> data(BlockSize, 15); // Most values are small
-    data[0] = 1000;                             // Exception
-    data[127] = 5000;                           // Exception
-    data[255] = 9999;                           // Exception
+    size_t nitems = BlockSize + rand() % 250;
+    std::vector<TypeParam> data(nitems, 15); // Most values are small
+    data[0] = 1000;                          // Exception
+    data[127] = 5000;                        // Exception
+    data[255] = 9999;                        // Exception
 
     this->EncodeAndDecode(data);
     EXPECT_EQ(this->decoded, this->input);
@@ -76,7 +80,8 @@ TYPED_TEST(FastPForTest, EncodeDecodeWithExceptions)
 
 TYPED_TEST(FastPForTest, EncodeDecodeMultipleBlocks)
 {
-    std::vector<TypeParam> data(BlockSize * 4); // 4 blocks
+    size_t nitems = BlockSize + rand() % 250;
+    std::vector<TypeParam> data(nitems * 4); // 4 blocks
     for (size_t i = 0; i < data.size(); i++)
     {
         data[i] = i % 1000;
@@ -87,10 +92,11 @@ TYPED_TEST(FastPForTest, EncodeDecodeMultipleBlocks)
 
 TYPED_TEST(FastPForTest, EncodeDecodeRandomData)
 {
+    size_t nitems = BlockSize + rand() % 250;
     std::mt19937 rng(42);
     std::uniform_int_distribution<u32> dist(0, 1000);
 
-    std::vector<TypeParam> data(BlockSize * 2);
+    std::vector<TypeParam> data(nitems * 2);
     for (auto &val : data)
     {
         val = dist(rng);
@@ -102,8 +108,9 @@ TYPED_TEST(FastPForTest, EncodeDecodeRandomData)
 
 TYPED_TEST(FastPForTest, EncodeDecodeSkewedDistribution)
 {
+    size_t nitems = BlockSize + rand() % 250;
     std::mt19937 rng(123);
-    std::vector<TypeParam> data(BlockSize * 3);
+    std::vector<TypeParam> data(nitems * 3);
 
     // 90% small values, 10% large values
     for (size_t i = 0; i < data.size(); i++)
@@ -124,8 +131,9 @@ TYPED_TEST(FastPForTest, EncodeDecodeSkewedDistribution)
 
 TYPED_TEST(FastPForTest, EncodeDecode1BitValues)
 {
-    std::vector<TypeParam> data(BlockSize);
-    for (size_t i = 0; i < BlockSize; i++)
+    size_t nitems = BlockSize + rand() % 250;
+    std::vector<TypeParam> data(nitems);
+    for (size_t i = 0; i < nitems; i++)
     {
         data[i] = i % 2; // Only 0 or 1
     }
@@ -135,8 +143,9 @@ TYPED_TEST(FastPForTest, EncodeDecode1BitValues)
 
 TYPED_TEST(FastPForTest, EncodeDecodePowerOfTwo)
 {
-    std::vector<TypeParam> data(BlockSize);
-    for (size_t i = 0; i < BlockSize; i++)
+    size_t nitems = BlockSize + rand() % 250;
+    std::vector<TypeParam> data(nitems);
+    for (size_t i = 0; i < nitems; i++)
     {
         data[i] = 1u << (i % 16); // Powers of 2
     }
@@ -146,7 +155,8 @@ TYPED_TEST(FastPForTest, EncodeDecodePowerOfTwo)
 
 TYPED_TEST(FastPForTest, CompressionRatioSmallValues)
 {
-    std::vector<TypeParam> data(BlockSize, 7); // 3 bits needed
+    size_t nitems = BlockSize + rand() % 250;
+    std::vector<TypeParam> data(nitems, 7); // 3 bits needed
 
     u32 encoded_size = this->encoder.Encode(this->encoded.data(), data.data(), data.size());
     u32 original_size = data.size() * sizeof(TypeParam);

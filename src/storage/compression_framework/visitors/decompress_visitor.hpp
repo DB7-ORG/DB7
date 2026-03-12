@@ -241,4 +241,28 @@ struct DecompressVisitor : IVisitor
         last_off = offset;
         return 0;
     }
+
+    u32 Visit(ForNode &node) override
+    {
+        // std::cout << "rle visited" << std::endl;
+
+        u32 delta = PopOffset();
+
+        auto state = SaveState();
+
+        PrepState(state.src_type, state.nitems);
+
+        node.values_node->Accept(*this);
+
+        RestoreState(state);
+
+        void *values = node.values_node->buf;
+        DispatchType(src_type, [&]<typename T>() { //
+            node.buf = arena->Alloc<T>(nitems);
+
+            ForEncoder::Decode((T *)node.buf, (__m256i *)values, nitems, (T)delta);
+        });
+
+        return 0;
+    }
 };

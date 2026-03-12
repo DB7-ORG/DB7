@@ -272,4 +272,38 @@ struct CompressVisitor : IVisitor
 
         return size;
     }
+
+    u32 Visit(ForNode &node) override
+    {
+        // std::cout << "for visited" << std::endl;
+
+        void *values;
+        DispatchType(src_type, [&]<typename T>() { //
+            values = arena->Alloc<T>(nitems);
+
+            T *in = (T *)src;
+
+            T min = in[0];
+            for (u32 i = 1; i < nitems; i++)
+                min = std::min(min, in[i]);
+
+            ForEncoder::Encode((T *)values, (__m256i *)src, nitems, min);
+
+            PushOffset(min);
+        });
+
+        // Collect stats again
+
+        // Compare w estimated stats
+
+        auto state = SaveState();
+
+        PrepState(values, state.src_type, state.nitems);
+
+        u32 val = node.values_node->Accept(*this);
+
+        RestoreState(state); // This is just a guard if i add something after left/right node search
+
+        return val;
+    }
 };

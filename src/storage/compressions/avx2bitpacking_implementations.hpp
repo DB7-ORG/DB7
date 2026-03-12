@@ -369,34 +369,37 @@ T *ScalarPackDef(T *__restrict out, const T *__restrict in, const u32 nitems)
         // skip
         return out;
     }
-
-    ptype *result = reinterpret_cast<ptype *>(out);
-    i8 shift = MAX_USED_BITS - Bits;
-    ptype pack = 0;
-    for (u32 i = 0; i < nitems; i++, shift -= Bits)
+    else
     {
-        ptype item = (ptype)in[i];
-
-        if (shift < 0)
+        const ptype mask = (ptype(1) << Bits) - 1;
+        ptype *result = reinterpret_cast<ptype *>(out);
+        i8 shift = MAX_USED_BITS - Bits;
+        ptype pack = 0;
+        for (u32 i = 0; i < nitems; i++, shift -= Bits)
         {
-            i8 pos_shift = -1 * shift;
-            ptype hi = item >> (pos_shift);
-            ptype lo = item & ((1ull << pos_shift) - 1);
+            ptype item = ((ptype)in[i]) & mask;
 
-            pack |= hi;
-            *(result++) = pack;
+            if (shift < 0)
+            {
+                i8 pos_shift = -1 * shift;
+                ptype hi = item >> (pos_shift);
+                ptype lo = item & ((1ull << pos_shift) - 1);
 
-            shift = MAX_USED_BITS - pos_shift;
-            pack = lo << shift;
-            continue;
+                pack |= hi;
+                *(result++) = pack;
+
+                shift = MAX_USED_BITS - pos_shift;
+                pack = lo << shift;
+                continue;
+            }
+
+            pack |= item << shift;
         }
 
-        pack |= item << shift;
+        *(result++) = pack;
+
+        return reinterpret_cast<T *>(result);
     }
-
-    *(result++) = pack;
-
-    return reinterpret_cast<T *>(result);
 }
 
 template <typename T, u32 Bits>

@@ -87,6 +87,37 @@ public:
 
         u32 newBitFreq[MAX_HIST_SIZE] = {};
         ScaleBitFreq(stats->bitFreq, stats->num_items, nitems, newBitFreq);
+        // float mean = avgRunLen;
+        // float stddev = avgRunLen * 0.5f;
+
+        // u32 total = 0;
+        // float maxFraction = 0;
+        // u32 peakBucket = 1;
+
+        // for (u32 i = 1; i <= sizeof(u16) * 8; i++)
+        // {
+        //     float bucketMin = (i == 1) ? 1.0f : (float)(1u << (i - 1));
+        //     float bucketMax = (float)((1u << i) - 1);
+
+        //     float lo = 0.5f * (1.0f + std::erf((bucketMin - mean) / (stddev * 1.41421356f)));
+        //     float hi = 0.5f * (1.0f + std::erf((bucketMax - mean) / (stddev * 1.41421356f)));
+
+        //     float fraction = hi - lo;
+        //     newBitFreq[i] = (u32)std::round(fraction * nitems);
+        //     total += newBitFreq[i];
+
+        //     if (fraction > maxFraction)
+        //     {
+        //         maxFraction = fraction;
+        //         peakBucket = i;
+        //     }
+        // }
+
+        // fix rounding remainder at peak
+        // if (total < nitems)
+        //     newBitFreq[peakBucket] += nitems - total;
+        // else if (total > nitems)
+        //     newBitFreq[peakBucket] -= total - nitems;
 
         u32 lensRunLen = (u32)std::max(1.0f, (float)nitems / avgRunLen);
 
@@ -114,6 +145,22 @@ public:
             stats->min,                                 // min
             stats->max,                                 // max
             stats->size_of_type);
+    }
+
+    static NumberStats ForTransform(const NumberStats *stats)
+    {
+        u32 newBitFreq[MAX_HIST_SIZE] = {};
+        (void)newBitFreq;
+        // ScaleBitFreq(stats->bitFreq, stats->num_items, stats->count_run_len, newBitFreq); //TODO
+        return NumberStats(
+            nullptr,                                // bitFreq //TODO (should be INF)
+            stats->num_items,                       // num_items
+            stats->num_items * stats->size_of_type, // total_size
+            stats->count_run_len,                   // count_run_len
+            stats->count_distinct,                  // count_distinct
+            0,                                      // min
+            stats->max - stats->min,                // max
+            stats->size_of_type);                   // size_of_type
     }
 };
 
@@ -219,8 +266,22 @@ struct EstimateCostVisitor : IVisitor
     u32 Visit(FastPForNode &) override
     {
         // std::cout << "pfor visited" << std::endl;
-
+        return UINT32_MAX;
         auto stats = reinterpret_cast<NumberStats *>(current_stats);
         return FastPForEncoder::EstimateCompression(stats->bitFreq, stats->num_items, stats->size_of_type * 8);
+    }
+
+    u32 Visit(ForNode &node) override
+    {
+        // std::cout << "pfor visited" << std::endl;
+
+        auto stats = reinterpret_cast<NumberStats *>(current_stats);
+
+        NumberStats for_stats = StatsAproxTransformer::ForTransform(stats);
+
+        current_stats = &for_stats;
+        u32 cost = node.values_node->Accept(*this);
+
+        return cost;
     }
 };

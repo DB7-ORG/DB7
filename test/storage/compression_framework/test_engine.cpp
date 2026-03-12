@@ -28,7 +28,7 @@ void BASE_TEST(type *data, SrcType srcType)
 
     type *decoded = (type *)node.buf;
     for (int i = 0; i < tuple_num; i++)
-        ASSERT_EQ(decoded[i], data[i]) << "mismatch at index " << i;
+        EXPECT_EQ(decoded[i], data[i]) << "mismatch at index " << i;
 
     free(out);
 }

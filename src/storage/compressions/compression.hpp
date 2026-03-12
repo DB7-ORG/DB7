@@ -7,3 +7,4 @@
 #include "fsst.hpp"
 #include "oneval.hpp"
 #include "rle.hpp"
+#include "for.hpp"
