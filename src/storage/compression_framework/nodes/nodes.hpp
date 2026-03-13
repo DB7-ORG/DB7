@@ -22,6 +22,15 @@ struct DoubleNode : INode
     u32 Accept(IVisitor &visitor) override { return visitor.Visit(*this); }
 };
 
+struct StringNode : INode
+{
+    u8 best_node_idx;
+    INode *children[3];
+
+    StringNode(SlabArena &arena, u8 depth = 0);
+    u32 Accept(IVisitor &visitor) override { return visitor.Visit(*this); }
+};
+
 struct UncompressedNode : INode
 {
     UncompressedNode(u8 depth);
@@ -107,9 +116,6 @@ inline DoubleNode::DoubleNode(SlabArena &arena, u8 depth)
         children[0] = arena.New<UncompressedNode>(depth);
         children[1] = nullptr;
         children[2] = nullptr;
-        // children[3] = nullptr;
-        //  children[4] = nullptr;
-        //  children[5] = nullptr;
         return;
     }
 
@@ -117,9 +123,24 @@ inline DoubleNode::DoubleNode(SlabArena &arena, u8 depth)
     children[0] = arena.New<UncompressedNode>(depth);
     children[1] = arena.New<DictionaryNode>(arena, depth, SrcType::DBL);
     children[2] = arena.New<RleNode>(arena, depth, SrcType::DBL);
-    // children[3] = arena.New<FrequencyNode>(arena, depth);
-    //  children[4] = arena.New<FastPForNode>(depth);
-    //  children[5] = arena.New<ForNode>(arena, depth);
+}
+
+inline StringNode::StringNode(SlabArena &arena, u8 depth)
+{
+    this->depth = depth;
+
+    if (depth >= MAX_COMPRESSION_DEPTH)
+    {
+        children[0] = arena.New<UncompressedNode>(depth);
+        children[1] = nullptr;
+        children[2] = nullptr;
+        return;
+    }
+
+    best_node_idx = 0;
+    children[0] = arena.New<UncompressedNode>(depth);
+    children[1] = nullptr; // arena.New<DictionaryNode>(arena, depth, SrcType::DBL);
+    children[2] = nullptr; // arena.New<RleNode>(arena, depth, SrcType::DBL);
 }
 
 inline UncompressedNode::UncompressedNode(u8 depth)

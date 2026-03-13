@@ -111,6 +111,17 @@ struct CompressVisitor : IVisitor
         return cur->Accept(*this);
     }
 
+    u32 Visit(StringNode &node) override
+    {
+        // std::cout << "dbl visited" << std::endl;
+
+        INode *cur = node.children[node.best_node_idx];
+
+        PushHeader(node.best_node_idx);
+
+        return cur->Accept(*this);
+    }
+
     u32 Visit(UncompressedNode &) override
     {
         // std::cout << "uncom visited" << std::endl;
@@ -143,33 +154,41 @@ struct CompressVisitor : IVisitor
     {
         // std::cout << "dict visited" << std::endl;
 
-        u32 valCount;
-        void *codes, *values;
-        DispatchType(src_type, [&]<typename T>() { //
-            codes = arena->Alloc<u32>(nitems);
-            values = arena->Alloc<T>(nitems);
-            DictEncodeTemplated((u32 *)codes, (T *)values, valCount);
-        });
+        if (src_type == SrcType::STR)
+        {
+            // TODO add str compress
+            return 0;
+        }
+        else
+        {
+            u32 valCount;
+            void *codes, *values;
+            DispatchType(src_type, [&]<typename T>() { //
+                codes = arena->Alloc<u32>(nitems);
+                values = arena->Alloc<T>(nitems);
+                DictEncodeTemplated((u32 *)codes, (T *)values, valCount);
+            });
 
-        PushOffset(valCount);
+            PushOffset(valCount);
 
-        // Collect stats again
+            // Collect stats again
 
-        // Compare w estimated stats
+            // Compare w estimated stats
 
-        auto state = SaveState();
+            auto state = SaveState();
 
-        PrepState(codes, SrcType::U32, state.nitems);
+            PrepState(codes, SrcType::U32, state.nitems);
 
-        u32 val1 = node.codes_node->Accept(*this);
+            u32 val1 = node.codes_node->Accept(*this);
 
-        PrepState(values, state.src_type, valCount);
+            PrepState(values, state.src_type, valCount);
 
-        u32 val2 = node.values_node->Accept(*this);
+            u32 val2 = node.values_node->Accept(*this);
 
-        RestoreState(state); // This is just a guard if i add something after left/right node search
+            RestoreState(state); // This is just a guard if i add something after left/right node search
 
-        return val1 + val2;
+            return val1 + val2;
+        }
     }
 
     template <typename T>

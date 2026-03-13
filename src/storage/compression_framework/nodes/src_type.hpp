@@ -8,7 +8,8 @@ enum struct SrcType
     U16,
     U32,
     U64,
-    DBL
+    DBL,
+    STR
 };
 
 template <typename Func>
@@ -50,8 +51,9 @@ inline u32 TypeSize(SrcType t)
         return sizeof(u64);
     case SrcType::DBL:
         return sizeof(double);
+    default:
+        throw std::runtime_error("unsupported type");
     }
-    std::terminate();
 }
 
 inline u32 SizeOfBuffer(SrcType type, u32 nitems)

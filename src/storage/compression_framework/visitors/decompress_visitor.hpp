@@ -101,6 +101,21 @@ struct DecompressVisitor : IVisitor
         return 0;
     }
 
+    u32 Visit(StringNode &node) override
+    {
+        // std::cout << "dbl visited" << std::endl;
+
+        u8 alg = PopHeader();
+
+        INode *cur = node.children[alg];
+
+        cur->Accept(*this);
+
+        node.buf = cur->buf;
+
+        return 0;
+    }
+
     u32 Visit(UncompressedNode &node) override
     {
         // std::cout << "uncom visited" << std::endl;
@@ -133,26 +148,33 @@ struct DecompressVisitor : IVisitor
     {
         // std::cout << "dict visited" << std::endl;
 
-        u32 valCount = PopOffset();
+        if (src_type == SrcType::STR)
+        {
+            // TODO add dict decode
+        }
+        else
+        {
+            u32 valCount = PopOffset();
 
-        auto state = SaveState();
+            auto state = SaveState();
 
-        PrepState(SrcType::U32, state.nitems);
+            PrepState(SrcType::U32, state.nitems);
 
-        node.codes_node->Accept(*this);
+            node.codes_node->Accept(*this);
 
-        PrepState(state.src_type, valCount);
+            PrepState(state.src_type, valCount);
 
-        node.values_node->Accept(*this);
+            node.values_node->Accept(*this);
 
-        RestoreState(state);
+            RestoreState(state);
 
-        auto codes = node.codes_node->buf;
-        auto values = node.values_node->buf;
-        DispatchType(src_type, [&]<typename T>() { //
-            node.buf = arena->Alloc<T>(nitems);
-            DictDecodeTemplated((u32 *)codes, (T *)values, nitems, (T *)node.buf);
-        });
+            auto codes = node.codes_node->buf;
+            auto values = node.values_node->buf;
+            DispatchType(src_type, [&]<typename T>() { //
+                node.buf = arena->Alloc<T>(nitems);
+                DictDecodeTemplated((u32 *)codes, (T *)values, nitems, (T *)node.buf);
+            });
+        }
 
         return 0;
     }

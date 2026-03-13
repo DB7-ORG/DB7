@@ -4,7 +4,8 @@ valgrind --tool=memcheck --leak-check=full --track-origins=yes --show-leak-kinds
 
 # DB7 ✅ ❌
 
-- make fast pfor static
+- make fast pfor static ❌
+- consider adding compression for index for strings considering its sorted and made for delta ❌
 
 engine implementation ❌
 - add a pool TODO in engine ✅

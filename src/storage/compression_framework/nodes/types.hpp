@@ -6,6 +6,7 @@
 // Forward declare all node types so IVisitor can reference them
 struct IntegerNode;
 struct DoubleNode;
+struct StringNode;
 struct UncompressedNode;
 struct DictionaryNode;
 struct RleNode;
@@ -18,6 +19,7 @@ struct IVisitor
 {
     virtual u32 Visit(IntegerNode &node) = 0;
     virtual u32 Visit(DoubleNode &node) = 0;
+    virtual u32 Visit(StringNode &node) = 0;
     virtual u32 Visit(UncompressedNode &node) = 0;
     virtual u32 Visit(DictionaryNode &node) = 0;
     virtual u32 Visit(RleNode &node) = 0;

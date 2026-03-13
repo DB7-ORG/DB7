@@ -16,8 +16,8 @@ struct DictionaryStringEncodedRes
 
 struct DictionaryStringEncoder
 {
-    static void Encode(DictionaryStringEncodedRes *out, u8 **in, const u32 *lenIn, const ValidityMask *nullmap, const u32 count);
-    static void Decode(u8 **out, u32 *lenOut, const DictionaryStringEncodedRes *in, u32 count);
+    static void Encode(DictionaryStringEncodedRes *__restrict out, u8 **__restrict in, const u32 *__restrict lenIn, const ValidityMask *nullmap, const u32 count);
+    static void Decode(u8 **__restrict out, u32 *__restrict lenOut, const DictionaryStringEncodedRes *__restrict in, u32 count);
 };
 
 template <typename ValueType>
@@ -31,9 +31,9 @@ struct DictionaryValueEncodedRes
 struct DictionaryValueEncoder
 {
     template <typename ValueType>
-    static void Encode(DictionaryValueEncodedRes<ValueType> *out, const ValueType *in, const ValidityMask *nullmap, const u32 count);
+    static void Encode(DictionaryValueEncodedRes<ValueType> *__restrict out, const ValueType *__restrict in, const ValidityMask *nullmap, const u32 count);
     template <typename ValueType>
-    static void Decode(ValueType *out, const DictionaryValueEncodedRes<ValueType> *in, const u32 count);
+    static void Decode(ValueType *__restrict out, const DictionaryValueEncodedRes<ValueType> *__restrict in, const u32 count);
     static void EstimateCompression(const u32 nunique, const u32 nitems, const u8 sizeOfType, u32 &codeSize, u32 &valueSize);
 };
 

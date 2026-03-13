@@ -69,9 +69,14 @@ public:
             stats->size_of_type);                   // size_of_type
     }
 
-    static const StringStats *DictionaryTransform(const StringStats *stats)
+    static StringStats DictionaryValuesTransform(const StringStats *stats)
     {
-        return stats;
+        return *stats;
+    }
+
+    static StringStats DictionaryCodesTransform(const StringStats *stats)
+    {
+        return *stats;
     }
 
     static NumberStats RleLensTransform(const NumberStats *stats)
@@ -230,6 +235,13 @@ struct EstimateCostVisitor : IVisitor
         return VisitCompressionNodes(node.children, node.best_node_idx);
     }
 
+    u32 Visit(StringNode &node) override
+    {
+        // std::cout << "str visited" << std::endl;
+
+        return VisitCompressionNodes(node.children, node.best_node_idx);
+    }
+
     u32 Visit(UncompressedNode &) override
     {
         // std::cout << "uncompressed visited" << std::endl;
@@ -259,8 +271,21 @@ struct EstimateCostVisitor : IVisitor
         }
         else if (current_stats->type == StatsType::String)
         {
-            // TODO
-            node.values_node->Accept(*this);
+            StringStats *stats = static_cast<StringStats *>(current_stats);
+
+            StringStats values_stats = StatsAproxTransformer::DictionaryValuesTransform(stats);
+
+            StringStats codes_stats = StatsAproxTransformer::DictionaryCodesTransform(stats);
+
+            current_stats = &values_stats;
+            u32 val_cost = node.values_node->Accept(*this);
+
+            // TODO consider adding idx ptr
+
+            current_stats = &codes_stats;
+            u32 code_cost = node.codes_node->Accept(*this);
+
+            return val_cost + code_cost;
         }
         else
         {
