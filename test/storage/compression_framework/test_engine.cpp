@@ -14,7 +14,7 @@ void BASE_TEST(type *data, SrcType srcType)
     s.GenerateStats(data, &validity, tuple_num);
 
     auto estimator = EstimateCostVisitor(&s);
-    auto node = NumberNode(arena);
+    auto node = IntegerNode(arena);
     u32 estimatedSize = node.Accept(estimator);
     EXPECT_GT(estimatedSize, 0u);
     EXPECT_LT(estimatedSize, tuple_num * sizeof(type));

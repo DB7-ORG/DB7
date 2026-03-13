@@ -103,11 +103,13 @@ struct NumberStats : IStats
         CountHSet<T> distinct_values(nitems, 2);
         u32 rle_count = 1;
         T rle_last_seen = src[0];
-        min = rle_last_seen;
-        max = rle_last_seen;
+        T lmin = rle_last_seen;
+        T lmax = rle_last_seen;
         bool allValid = bitmap->AllValid();
-        u32 used = CountBitsUsed(rle_last_seen);
-        bitFreq[used]++;
+
+        // u32 used = CountBitsUsed(rle_last_seen);
+        // bitFreq[used]++;
+
         // bool stopDict = false;
         // const u32 half_nitems = nitems / 2;
         for (u32 i = 1; i < nitems; i++)
@@ -119,8 +121,8 @@ struct NumberStats : IStats
             }
 
             T value = src[i];
-            u32 usedBits = CountBitsUsed(value);
-            bitFreq[usedBits]++;
+            // u32 usedBits = CountBitsUsed(value);
+            // bitFreq[usedBits]++;
 
             // distinct_values.Inc(value); // TODO Replace this with a map that is using bits instead of bytes
 
@@ -136,13 +138,14 @@ struct NumberStats : IStats
 
             // hll.add(value);
 
-            min = std::min(u64(value), min);
-            max = std::max(u64(value), max);
+            lmin = std::min(value, lmin);
+            lmax = std::max(value, lmax);
 
             rle_count += (value != rle_last_seen);
             rle_last_seen = value;
         }
-
+        min = ToU64Bits(lmin);
+        max = ToU64Bits(lmax);
         // std::cout << hll.estimate() << std::endl;
         count_distinct = distinct_values.Size(); // stopDict ? nitems : distinct_values.Size();
         count_run_len = rle_count;

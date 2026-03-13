@@ -48,7 +48,7 @@ public:
         if (aligned + needed > current->base + current->size)
         {
             u32 newSize = std::max(current->size, (u32)(needed + alignof(T)));
-            // std::cout << "new block " << newSize << std::endl;
+            std::cout << "new block " << newSize << std::endl;
             ArenaBlock *block = ArenaBlock::AllocBlock(newSize);
             block->next = current;
             current = block;

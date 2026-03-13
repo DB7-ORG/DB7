@@ -71,9 +71,24 @@ struct DecompressVisitor : IVisitor
         nitems = new_nitems;
     }
 
-    u32 Visit(NumberNode &node) override
+    u32 Visit(IntegerNode &node) override
     {
-        // std::cout << "num visited" << std::endl;
+        // std::cout << "int visited" << std::endl;
+
+        u8 alg = PopHeader();
+
+        INode *cur = node.children[alg];
+
+        cur->Accept(*this);
+
+        node.buf = cur->buf;
+
+        return 0;
+    }
+
+    u32 Visit(DoubleNode &node) override
+    {
+        // std::cout << "dbl visited" << std::endl;
 
         u8 alg = PopHeader();
 
@@ -132,11 +147,10 @@ struct DecompressVisitor : IVisitor
 
         RestoreState(state);
 
-        node.buf = arena->Alloc<u8>(nitems * sizeof(u32)); // TODO size calc
-
         auto codes = node.codes_node->buf;
         auto values = node.values_node->buf;
         DispatchType(src_type, [&]<typename T>() { //
+            node.buf = arena->Alloc<T>(nitems);
             DictDecodeTemplated((u32 *)codes, (T *)values, nitems, (T *)node.buf);
         });
 

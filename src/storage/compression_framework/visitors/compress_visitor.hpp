@@ -89,9 +89,20 @@ struct CompressVisitor : IVisitor
         nitems = new_nitems;
     }
 
-    u32 Visit(NumberNode &node) override
+    u32 Visit(IntegerNode &node) override
     {
-        // std::cout << "num visited" << std::endl;
+        // std::cout << "int visited" << std::endl;
+
+        INode *cur = node.children[node.best_node_idx];
+
+        PushHeader(node.best_node_idx);
+
+        return cur->Accept(*this);
+    }
+
+    u32 Visit(DoubleNode &node) override
+    {
+        // std::cout << "dbl visited" << std::endl;
 
         INode *cur = node.children[node.best_node_idx];
 
@@ -108,9 +119,8 @@ struct CompressVisitor : IVisitor
 
         DispatchType(src_type, [&]<typename T>() { //
             data += GetAlignment<T>(data);
+            Write(src, size);
         });
-
-        Write(src, size);
 
         PushOffset(data - init_data);
 

@@ -4,23 +4,27 @@
 #include "src_type.hpp"
 
 // Forward declare all node types so IVisitor can reference them
-struct NumberNode;
+struct IntegerNode;
+struct DoubleNode;
 struct UncompressedNode;
 struct DictionaryNode;
 struct RleNode;
 struct BitpackNode;
 struct FastPForNode;
 struct ForNode;
+struct FrequencyNode;
 
 struct IVisitor
 {
-    virtual u32 Visit(NumberNode &node) = 0;
+    virtual u32 Visit(IntegerNode &node) = 0;
+    virtual u32 Visit(DoubleNode &node) = 0;
     virtual u32 Visit(UncompressedNode &node) = 0;
     virtual u32 Visit(DictionaryNode &node) = 0;
     virtual u32 Visit(RleNode &node) = 0;
     virtual u32 Visit(BitpackNode &node) = 0;
     virtual u32 Visit(FastPForNode &node) = 0;
     virtual u32 Visit(ForNode &node) = 0;
+    // virtual u32 Visit(FrequencyNode &node) = 0;
 };
 
 struct INode

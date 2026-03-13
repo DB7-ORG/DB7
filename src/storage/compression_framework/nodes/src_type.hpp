@@ -28,9 +28,9 @@ inline void DispatchType(SrcType type, Func &&f)
     case SrcType::U64:
         f.template operator()<u64>();
         break;
-    // case SrcType::DBL: //TODO comented because stats dont work for double
-    //     f.template operator()<double>();
-    //     break;
+    case SrcType::DBL:
+        f.template operator()<double>();
+        break;
     default:
         throw std::runtime_error("unsupported type");
     }

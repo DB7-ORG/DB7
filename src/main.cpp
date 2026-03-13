@@ -1354,7 +1354,87 @@ void test_tree_building()
     // stats->Print();
 
     auto estimator = EstimateCostVisitor(stats);
-    auto node = NumberNode(arena);
+    auto node = IntegerNode(arena);
+    u64 t0 = now_ns();
+    u32 estimatedSize = node.Accept(estimator);
+    u64 t1 = now_ns();
+    std::cout << "Estimated size " << estimatedSize << std::endl;
+    std::cout << "Real size " << tuple_num * sizeof(type) << std::endl;
+
+    auto out = (u8 *)malloc(tuple_num * 10 * sizeof(type));
+    auto compressor = CompressVisitor(stats, srcType, data, &validity, tuple_num, out, &arena);
+    u64 t2 = now_ns();
+    u32 compressed_size = node.Accept(compressor);
+    u64 t3 = now_ns();
+
+    std::cout << "Compressed size " << compressed_size << std::endl;
+
+    auto decoder = DecompressVisitor(srcType, &validity, tuple_num, out, compressor.init_header, compressor.init_offsets, &arena);
+    u64 t4 = now_ns();
+    node.Accept(decoder);
+    u64 t5 = now_ns();
+
+    auto decoded = (type *)node.buf;
+    (void)decoded;
+    for (int i = 0; i < tuple_num; i++)
+    {
+        assert(decoded[i] == data[i]);
+    }
+
+    printf("stats:         %.3f ms\n", (t7 - t6) / 1e6);
+    printf("search:        %.3f ms\n", (t1 - t0) / 1e6);
+    printf("compress:      %.3f ms\n", (t3 - t2) / 1e6);
+    printf("decompress:    %.3f ms\n", (t5 - t4) / 1e6);
+
+    free(data);
+    free(out);
+}
+
+void test_tree_building_dbl()
+{
+    using type = double;
+    auto srcType = SrcType::DBL;
+
+    constexpr long tuple_num = AlignUp(120'000, 256);
+    auto data = (type *)malloc(tuple_num * sizeof(type));
+
+    // for (int i = 0; i < tuple_num; i++)
+    // {
+    //     data[i] = (i / 222) + 1;
+    // }
+
+    std::vector<type> vec(10);
+    type idx = 5'000'000;
+    for (auto &item : vec)
+    {
+        item = ++idx;
+    }
+
+    srand(42);
+
+    for (int i = 0; i < tuple_num; i++)
+        data[i] = vec[rand() % 10];
+
+    // auto data2 = (type *)malloc(tuple_num * sizeof(type));
+    // u64 t8 = now_ns();
+    // memcpy(data2, data, tuple_num * sizeof(type));
+    // u64 t9 = now_ns();
+
+    // printf("sss:         %.3f ms\n", (t9 - t8) / 1e6);
+
+    SlabArena arena(1'000'000);
+
+    ValidityMask validity(tuple_num);
+    NumberStats s = NumberStats();
+    auto stats = &s;
+    u64 t6 = now_ns();
+    stats->GenerateStats(data, &validity, tuple_num);
+    u64 t7 = now_ns();
+
+    // stats->Print();
+
+    auto estimator = EstimateCostVisitor(stats);
+    auto node = DoubleNode(arena);
     u64 t0 = now_ns();
     u32 estimatedSize = node.Accept(estimator);
     u64 t1 = now_ns();
@@ -1416,33 +1496,33 @@ void test_combined_bp()
     return;
 }
 
-void test(u32 nitems)
-{
-    using T = u32;
-    // aligned input buffer
-    auto src = (T *)malloc(nitems * sizeof(T));
-    auto encoded = (T *)malloc(nitems * sizeof(T));
-    auto decoded = (T *)malloc(nitems * sizeof(T));
+// void test(u32 nitems)
+// {
+//     using T = u32;
+//     // aligned input buffer
+//     auto src = (T *)malloc(nitems * sizeof(T));
+//     auto encoded = (T *)malloc(nitems * sizeof(T));
+//     auto decoded = (T *)malloc(nitems * sizeof(T));
 
-    T min_val = 100;
-    for (u32 i = 0; i < nitems; i++)
-        src[i] = min_val + (T)(i % 20);
+//     T min_val = 100;
+//     for (u32 i = 0; i < nitems; i++)
+//         src[i] = min_val + (T)(i % 20);
 
-    ForEncoder::Encode<T>(encoded, (const __m256i *)src, nitems, min_val);
-    ForEncoder::Decode<T>(decoded, (const __m256i *)encoded, nitems, min_val);
+//     ForEncoder::Encode<T>(encoded, (const __m256i *)src, nitems, min_val);
+//     ForEncoder::Decode<T>(decoded, (const __m256i *)encoded, nitems, min_val);
 
-    bool ok = true;
-    for (u32 i = 0; i < nitems; i++)
-    {
-        if (decoded[i] != src[i])
-        {
-            ok = false;
-            break;
-        }
-    }
+//     bool ok = true;
+//     for (u32 i = 0; i < nitems; i++)
+//     {
+//         if (decoded[i] != src[i])
+//         {
+//             ok = false;
+//             break;
+//         }
+//     }
 
-    printf("nitems=%-4u  %s\n", nitems, ok ? "PASS" : "FAIL");
-}
+//     printf("nitems=%-4u  %s\n", nitems, ok ? "PASS" : "FAIL");
+// }
 
 int main()
 {
@@ -1476,7 +1556,7 @@ int main()
 
     // test_combined_bp();
 
-    test_tree_building();
+    test_tree_building_dbl();
 
     // test_stats_generation();
 

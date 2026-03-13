@@ -7,6 +7,8 @@
 #include "../stats/string_stats.hpp"
 #include "../../compressions/compression.hpp"
 
+#include <span>
+
 struct StatsAproxTransformer
 {
 private:
@@ -151,6 +153,7 @@ public:
     {
         u32 newBitFreq[MAX_HIST_SIZE] = {};
         (void)newBitFreq;
+
         // ScaleBitFreq(stats->bitFreq, stats->num_items, stats->count_run_len, newBitFreq); //TODO
         return NumberStats(
             nullptr,                                // bitFreq //TODO (should be INF)
@@ -162,6 +165,23 @@ public:
             stats->max - stats->min,                // max
             stats->size_of_type);                   // size_of_type
     }
+
+    // static NumberStats FreqTransform(const NumberStats *stats)
+    // {
+    //     u32 newBitFreq[MAX_HIST_SIZE] = {};
+    //     (void)newBitFreq;
+
+    //     // ScaleBitFreq(stats->bitFreq, stats->num_items, stats->count_run_len, newBitFreq); //TODO
+    //     return NumberStats(
+    //         nullptr,                                // bitFreq //TODO (should be INF)
+    //         stats->num_items,                       // num_items
+    //         stats->num_items * stats->size_of_type, // total_size
+    //         stats->count_run_len,                   // count_run_len
+    //         stats->count_distinct,                  // count_distinct
+    //         0,                                      // min
+    //         stats->max - stats->min,                // max
+    //         stats->size_of_type);                   // size_of_type
+    // }
 };
 
 struct EstimateCostVisitor : IVisitor
@@ -170,14 +190,12 @@ struct EstimateCostVisitor : IVisitor
 
     EstimateCostVisitor(IStats *stats) : current_stats(stats) {}
 
-    u32 Visit(NumberNode &node) override
+    u32 VisitCompressionNodes(std::span<INode *> children, u8 &best_node_idx)
     {
-        // std::cout << "num visited" << std::endl;
-
         u32 local_best = UINT32_MAX;
         u32 idx = 0;
         IStats *stats = current_stats;
-        for (auto *child : node.children)
+        for (auto *child : children)
         {
             if (!child)
             {
@@ -189,12 +207,27 @@ struct EstimateCostVisitor : IVisitor
             if (cost < local_best)
             {
                 local_best = cost;
-                node.best_node_idx = idx;
+                best_node_idx = idx;
             }
             idx++;
         }
         // // std::cout << local_best << std::endl;
+
         return local_best;
+    }
+
+    u32 Visit(IntegerNode &node) override
+    {
+        // std::cout << "int visited" << std::endl;
+
+        return VisitCompressionNodes(node.children, node.best_node_idx);
+    }
+
+    u32 Visit(DoubleNode &node) override
+    {
+        // std::cout << "double visited" << std::endl;
+
+        return VisitCompressionNodes(node.children, node.best_node_idx);
     }
 
     u32 Visit(UncompressedNode &) override
@@ -284,4 +317,18 @@ struct EstimateCostVisitor : IVisitor
 
         return cost;
     }
+
+    // u32 Visit(FrequencyNode &node) override
+    // {
+    //     // std::cout << "pfor visited" << std::endl;
+
+    //     auto stats = reinterpret_cast<NumberStats *>(current_stats);
+
+    //     NumberStats freq_stats = StatsAproxTransformer::FreqTransform(stats);
+
+    //     current_stats = &freq_stats;
+    //     u32 cost = node.values_node->Accept(*this);
+
+    //     return cost;
+    // }
 };
