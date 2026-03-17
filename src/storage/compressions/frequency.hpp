@@ -8,6 +8,7 @@ struct FreqEncodedRes
     double *exceptions;
     u8 *bitmap;
     double topval;
+    u32 count;
 };
 
 struct FreqEncoder

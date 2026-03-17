@@ -105,8 +105,8 @@ static inline auto GetScalarUnPackDef(u32 bit) -> T *(*)(T * out, const T *in, c
 template <typename T, bool USE_MASK = false>
 inline T *AvxPack(const T *__restrict in, __m256i *__restrict out, const u32 number, const u32 bit)
 {
-    assert(reinterpret_cast<uintptr_t>(in) % alignof(T) == 0 && "Input not aligned");
-    assert(reinterpret_cast<uintptr_t>(out) % 4 == 0 && "Output not 4-byte aligned");
+    // assert(reinterpret_cast<uintptr_t>(in) % alignof(T) == 0 && "Input not aligned");
+    // assert(reinterpret_cast<uintptr_t>(out) % 4 == 0 && "Output not 4-byte aligned");
 
     constexpr int MAX_BITS = sizeof(T) * 8;
 

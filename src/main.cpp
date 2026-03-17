@@ -1524,6 +1524,62 @@ void test_combined_bp()
 //     printf("nitems=%-4u  %s\n", nitems, ok ? "PASS" : "FAIL");
 // }
 
+void test_sampling()
+{
+    using type = u32;
+    auto srcType = SrcType::U32;
+
+    constexpr long tuple_num = AlignUp(120'000, 256) * 0.02;
+    auto data = (type *)malloc(tuple_num * sizeof(type));
+
+    // for (int i = 0; i < tuple_num; i++)
+    // {
+    //     data[i] = (i / 222) + 1;
+    // }
+
+    std::vector<type> vec(10);
+    type idx = 5'000'000;
+    for (auto &item : vec)
+    {
+        item = ++idx;
+    }
+
+    srand(42);
+
+    for (int i = 0; i < tuple_num; i++)
+        data[i] = vec[rand() % 10];
+
+    SlabArena arena(10'000'000);
+
+    ValidityMask validity(tuple_num);
+
+    // auto estimator = EstimateSamplingVisitor(srcType, data, (u32)tuple_num, &arena, &validity);
+    // auto node = IntegerNode(arena);
+
+    u64 t0 = now_ns();
+    // u32 estimatedSize = node.Accept(estimator);
+    auto inp = EstimateData(data, tuple_num, &validity);
+    u32 estimatedSize = EstimateInteger(inp, &arena);
+    u64 t1 = now_ns();
+
+    std::cout << "Estimated size " << estimatedSize << std::endl;
+    std::cout << "Real size " << tuple_num * sizeof(type) << std::endl;
+
+    // auto decoded = (type *)node.buf;
+    // (void)decoded;
+    // for (int i = 0; i < tuple_num; i++)
+    // {
+    //     assert(decoded[i] == data[i]);
+    // }
+
+    printf("search:        %.3f ms\n", (t1 - t0) / 1e6);
+    // printf("compress:      %.3f ms\n", (t3 - t2) / 1e6);
+    // printf("decompress:    %.3f ms\n", (t5 - t4) / 1e6);
+
+    free(data);
+    // free(out);
+}
+
 int main()
 {
     // test(120'064);
@@ -1556,9 +1612,9 @@ int main()
 
     // test_combined_bp();
 
-    test_tree_building_dbl();
-
     // test_stats_generation();
+
+    test_sampling();
 
     return 0;
 }

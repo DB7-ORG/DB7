@@ -25,6 +25,7 @@ void FreqEncoder::Encode(FreqEncodedRes *__restrict out, const double *__restric
     exceptions_bitmap.setCopyOnWrite(true);
     exceptions_bitmap.write(reinterpret_cast<char *>(bitmap), false);
     out->topval = topval;
+    out->count = offset;
 }
 
 void FreqEncoder::Decode(double *__restrict out, FreqEncodedRes *__restrict in, u32 nitems)
