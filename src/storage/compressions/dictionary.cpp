@@ -40,8 +40,7 @@ void DictionaryStringEncoder::Encode(
 
         auto key = StringKey{
             in[i],
-            (u16)lenIn[i], // TODO
-        };
+            (u16)lenIn[i]}; // TODO
         u32 item = map.GetInsert(key, idx);
         codes[i] = item;
         if (item == idx)

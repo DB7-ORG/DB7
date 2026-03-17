@@ -55,6 +55,7 @@ u32 EstimateInteger(EstimateData<T> data, SlabArena *arena)
 template <typename T>
 u32 EstimateDictionary(EstimateData<T> data, SlabArena *arena)
 {
+
     DictionaryValueEncodedRes<T> result{
         .codes = arena->Alloc<u32>(data.nitems),
         .values = arena->Alloc<T>(data.nitems),
@@ -119,39 +120,86 @@ u32 EstimateDouble(EstimateData<T> data, SlabArena *arena)
 
     return std::min({EstimateDictionary(data, arena),
                      EstimateRle(data, arena),
-                     EstimateBp(data),
                      EstimateFrequency(data, arena)});
 }
 
 template <typename T>
 u32 EstimateFrequency(EstimateData<T> data, SlabArena *arena)
-{
-    if constexpr (std::is_floating_point_v<T>) // TODO hack should work on all types
+{ // TODO this is omega slow
+
+    AppendOnlyHMap<T> dict(data.nitems, 2);
+
+    T topVal = data.src[0];
+    u32 topCount = 0;
+
+    for (u32 i = 1; i < data.nitems; i++)
     {
-        AppendOnlyHMap<T> dict(data.nitems, 2);
-
-        T topVal = data.src[0];
-        u32 topCount = 0;
-
-        for (u32 i = 1; i < data.nitems; i++)
+        u32 res = dict.Inc(data.src[i]);
+        if (res > topCount) // TODO do this properly
         {
-            u32 res = dict.Inc(data.src[i]);
-            if (res > topCount) // TODO do this properly
-            {
-                topCount++;
-                topVal = data.src[i];
-            }
+            topCount++;
+            topVal = data.src[i];
         }
-
-        // FreqEncodedRes{
-        //     .bitmap =
-        // }
-
-        // auto exceptions = arena->Alloc<T>(data.nitems);
-        // FreqEncoder::Encode(exceptions, data.src, data.nullmap, data.nitems, topVal)
     }
 
-    return UINT32_MAX;
+    auto result = FreqEncodedRes<T>{
+        .exceptions = arena->Alloc<T>(data.nitems),
+        .bitmap = arena->Alloc<u8>(data.nitems),
+        .topval = topVal,
+        .exception_count = 0,
+        .bitmap_size = 0};
+    FreqEncoder::Encode(&result, data.src, data.nullmap, data.nitems, topVal);
+
+    auto exception = EstimateData(result.exceptions, result.exception_count, data.nullmap, data.depth);
+
+    u32 val1 = EstimateNext(exception, arena);
+
+    return val1 + result.bitmap_size;
+}
+
+template <typename T>
+u32 EstimateString(EstimateData<T> data, SlabArena *arena)
+{
+    if (data.depth > MAX_COMPRESSION_DEPTH)
+    {
+        return data.nitems * sizeof(T);
+    }
+
+    data.depth++;
+
+    return std::min({0, 0});
+}
+
+template <typename T>
+struct EstimateStringData
+{
+    u8 **src;
+    u32 *lenSrc;
+    u32 nitems;
+    ValidityMask *nullmap;
+    u8 depth;
+
+    EstimateStringData(T *src, u32 nitems, ValidityMask *nullmap, u8 depth = 0) : src(src), nitems(nitems), nullmap(nullmap), depth(depth) {}
+};
+
+template <typename T>
+u32 EstimateStringDictionary(EstimateStringData<T> data, SlabArena *arena)
+{
+    auto result = DictionaryStringEncodedRes{
+        .codes = arena->Alloc<u32>(data.nitems),
+        .indexes = arena->Alloc<u32>(data.nitems + 1),
+        .strings = arena->Alloc<u8>(data.nitems)};
+    DictionaryStringEncoder::Encode(&result, data.src, data.lenSrc, data.nullmap, data.nitems);
+
+    auto codes = EstimateData(result.codes, data.nitems, data.nullmap, data.depth);
+
+    u32 val1 = EstimateNext(codes, arena);
+
+    auto values = EstimateData(result.values, result.valCount, data.nullmap, data.depth);
+
+    u32 val2 = EstimateNext(values, arena);
+
+    return val1 + val2;
 }
 
 struct EstimateSamplingVisitorState

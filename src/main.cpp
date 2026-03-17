@@ -1526,8 +1526,7 @@ void test_combined_bp()
 
 void test_sampling()
 {
-    using type = u32;
-    auto srcType = SrcType::U32;
+    using type = double;
 
     constexpr long tuple_num = AlignUp(120'000, 256) * 0.02;
     auto data = (type *)malloc(tuple_num * sizeof(type));
@@ -1559,7 +1558,7 @@ void test_sampling()
     u64 t0 = now_ns();
     // u32 estimatedSize = node.Accept(estimator);
     auto inp = EstimateData(data, tuple_num, &validity);
-    u32 estimatedSize = EstimateInteger(inp, &arena);
+    u32 estimatedSize = EstimateNext(inp, &arena);
     u64 t1 = now_ns();
 
     std::cout << "Estimated size " << estimatedSize << std::endl;

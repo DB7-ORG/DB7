@@ -6,6 +6,7 @@ valgrind --tool=memcheck --leak-check=full --track-origins=yes --show-leak-kinds
 
 - make fast pfor static ❌
 - consider adding compression for index for strings considering its sorted and made for delta ❌
+- optimize frequency collecting top val ❌
 
 engine implementation ❌
 - add a pool TODO in engine ✅
