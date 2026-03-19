@@ -3,7 +3,7 @@ g++ -O3 -march=native -S -masm=intel atest.cpp -o template.s -fverbose-asm
 valgrind --tool=memcheck --leak-check=full --track-origins=yes --show-leak-kinds=all ./bin/app 
 
 # DB7 ✅ ❌
-
+- DNONOPT_FSST fix ❌
 - make fast pfor static ❌
 - consider adding compression for index for strings considering its sorted and made for delta ❌
 - optimize frequency collecting top val ❌

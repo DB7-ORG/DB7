@@ -1317,158 +1317,158 @@ void test_templated_bitpacking_temp()
     printf("total:    %.3f ms\n", (t2 - t0) / 1e6);
 }
 
-void test_tree_building()
-{
-    using type = u32;
-    auto srcType = SrcType::U32;
+// void test_tree_building()
+// {
+//     using type = u32;
+//     auto srcType = SrcType::U32;
 
-    constexpr long tuple_num = AlignUp(120'000, 256);
-    auto data = (type *)malloc(tuple_num * sizeof(type));
+//     constexpr long tuple_num = AlignUp(120'000, 256);
+//     auto data = (type *)malloc(tuple_num * sizeof(type));
 
-    // for (int i = 0; i < tuple_num; i++)
-    // {
-    //     data[i] = (i / 222) + 1;
-    // }
+//     // for (int i = 0; i < tuple_num; i++)
+//     // {
+//     //     data[i] = (i / 222) + 1;
+//     // }
 
-    std::vector<type> vec(10);
-    type idx = 5'000'000;
-    for (auto &item : vec)
-    {
-        item = ++idx;
-    }
+//     std::vector<type> vec(10);
+//     type idx = 5'000'000;
+//     for (auto &item : vec)
+//     {
+//         item = ++idx;
+//     }
 
-    srand(42);
+//     srand(42);
 
-    for (int i = 0; i < tuple_num; i++)
-        data[i] = vec[rand() % 10];
+//     for (int i = 0; i < tuple_num; i++)
+//         data[i] = vec[rand() % 10];
 
-    SlabArena arena(1'000'000);
+//     SlabArena arena(1'000'000);
 
-    ValidityMask validity(tuple_num);
-    NumberStats s = NumberStats();
-    auto stats = &s;
-    u64 t6 = now_ns();
-    stats->GenerateStats(data, &validity, tuple_num);
-    u64 t7 = now_ns();
+//     ValidityMask validity(tuple_num);
+//     NumberStats s = NumberStats();
+//     auto stats = &s;
+//     u64 t6 = now_ns();
+//     stats->GenerateStats(data, &validity, tuple_num);
+//     u64 t7 = now_ns();
 
-    // stats->Print();
+//     // stats->Print();
 
-    auto estimator = EstimateCostVisitor(stats);
-    auto node = IntegerNode(arena);
-    u64 t0 = now_ns();
-    u32 estimatedSize = node.Accept(estimator);
-    u64 t1 = now_ns();
-    std::cout << "Estimated size " << estimatedSize << std::endl;
-    std::cout << "Real size " << tuple_num * sizeof(type) << std::endl;
+//     auto estimator = EstimateCostVisitor(stats);
+//     auto node = IntegerNode(arena);
+//     u64 t0 = now_ns();
+//     u32 estimatedSize = node.Accept(estimator);
+//     u64 t1 = now_ns();
+//     std::cout << "Estimated size " << estimatedSize << std::endl;
+//     std::cout << "Real size " << tuple_num * sizeof(type) << std::endl;
 
-    auto out = (u8 *)malloc(tuple_num * 10 * sizeof(type));
-    auto compressor = CompressVisitor(stats, srcType, data, &validity, tuple_num, out, &arena);
-    u64 t2 = now_ns();
-    u32 compressed_size = node.Accept(compressor);
-    u64 t3 = now_ns();
+//     auto out = (u8 *)malloc(tuple_num * 10 * sizeof(type));
+//     auto compressor = CompressVisitor(stats, srcType, data, &validity, tuple_num, out, &arena);
+//     u64 t2 = now_ns();
+//     u32 compressed_size = node.Accept(compressor);
+//     u64 t3 = now_ns();
 
-    std::cout << "Compressed size " << compressed_size << std::endl;
+//     std::cout << "Compressed size " << compressed_size << std::endl;
 
-    auto decoder = DecompressVisitor(srcType, &validity, tuple_num, out, compressor.init_header, compressor.init_offsets, &arena);
-    u64 t4 = now_ns();
-    node.Accept(decoder);
-    u64 t5 = now_ns();
+//     auto decoder = DecompressVisitor(srcType, &validity, tuple_num, out, compressor.init_header, compressor.init_offsets, &arena);
+//     u64 t4 = now_ns();
+//     node.Accept(decoder);
+//     u64 t5 = now_ns();
 
-    auto decoded = (type *)node.buf;
-    (void)decoded;
-    for (int i = 0; i < tuple_num; i++)
-    {
-        assert(decoded[i] == data[i]);
-    }
+//     auto decoded = (type *)node.buf;
+//     (void)decoded;
+//     for (int i = 0; i < tuple_num; i++)
+//     {
+//         assert(decoded[i] == data[i]);
+//     }
 
-    printf("stats:         %.3f ms\n", (t7 - t6) / 1e6);
-    printf("search:        %.3f ms\n", (t1 - t0) / 1e6);
-    printf("compress:      %.3f ms\n", (t3 - t2) / 1e6);
-    printf("decompress:    %.3f ms\n", (t5 - t4) / 1e6);
+//     printf("stats:         %.3f ms\n", (t7 - t6) / 1e6);
+//     printf("search:        %.3f ms\n", (t1 - t0) / 1e6);
+//     printf("compress:      %.3f ms\n", (t3 - t2) / 1e6);
+//     printf("decompress:    %.3f ms\n", (t5 - t4) / 1e6);
 
-    free(data);
-    free(out);
-}
+//     free(data);
+//     free(out);
+// }
 
-void test_tree_building_dbl()
-{
-    using type = double;
-    auto srcType = SrcType::DBL;
+// void test_tree_building_dbl()
+// {
+//     using type = double;
+//     auto srcType = SrcType::DBL;
 
-    constexpr long tuple_num = AlignUp(120'000, 256);
-    auto data = (type *)malloc(tuple_num * sizeof(type));
+//     constexpr long tuple_num = AlignUp(120'000, 256);
+//     auto data = (type *)malloc(tuple_num * sizeof(type));
 
-    // for (int i = 0; i < tuple_num; i++)
-    // {
-    //     data[i] = (i / 222) + 1;
-    // }
+//     // for (int i = 0; i < tuple_num; i++)
+//     // {
+//     //     data[i] = (i / 222) + 1;
+//     // }
 
-    std::vector<type> vec(10);
-    type idx = 5'000'000;
-    for (auto &item : vec)
-    {
-        item = ++idx;
-    }
+//     std::vector<type> vec(10);
+//     type idx = 5'000'000;
+//     for (auto &item : vec)
+//     {
+//         item = ++idx;
+//     }
 
-    srand(42);
+//     srand(42);
 
-    for (int i = 0; i < tuple_num; i++)
-        data[i] = vec[rand() % 10];
+//     for (int i = 0; i < tuple_num; i++)
+//         data[i] = vec[rand() % 10];
 
-    // auto data2 = (type *)malloc(tuple_num * sizeof(type));
-    // u64 t8 = now_ns();
-    // memcpy(data2, data, tuple_num * sizeof(type));
-    // u64 t9 = now_ns();
+//     // auto data2 = (type *)malloc(tuple_num * sizeof(type));
+//     // u64 t8 = now_ns();
+//     // memcpy(data2, data, tuple_num * sizeof(type));
+//     // u64 t9 = now_ns();
 
-    // printf("sss:         %.3f ms\n", (t9 - t8) / 1e6);
+//     // printf("sss:         %.3f ms\n", (t9 - t8) / 1e6);
 
-    SlabArena arena(1'000'000);
+//     SlabArena arena(1'000'000);
 
-    ValidityMask validity(tuple_num);
-    NumberStats s = NumberStats();
-    auto stats = &s;
-    u64 t6 = now_ns();
-    stats->GenerateStats(data, &validity, tuple_num);
-    u64 t7 = now_ns();
+//     ValidityMask validity(tuple_num);
+//     NumberStats s = NumberStats();
+//     auto stats = &s;
+//     u64 t6 = now_ns();
+//     stats->GenerateStats(data, &validity, tuple_num);
+//     u64 t7 = now_ns();
 
-    // stats->Print();
+//     // stats->Print();
 
-    auto estimator = EstimateCostVisitor(stats);
-    auto node = DoubleNode(arena);
-    u64 t0 = now_ns();
-    u32 estimatedSize = node.Accept(estimator);
-    u64 t1 = now_ns();
-    std::cout << "Estimated size " << estimatedSize << std::endl;
-    std::cout << "Real size " << tuple_num * sizeof(type) << std::endl;
+//     auto estimator = EstimateCostVisitor(stats);
+//     auto node = DoubleNode(arena);
+//     u64 t0 = now_ns();
+//     u32 estimatedSize = node.Accept(estimator);
+//     u64 t1 = now_ns();
+//     std::cout << "Estimated size " << estimatedSize << std::endl;
+//     std::cout << "Real size " << tuple_num * sizeof(type) << std::endl;
 
-    auto out = (u8 *)malloc(tuple_num * 10 * sizeof(type));
-    auto compressor = CompressVisitor(stats, srcType, data, &validity, tuple_num, out, &arena);
-    u64 t2 = now_ns();
-    u32 compressed_size = node.Accept(compressor);
-    u64 t3 = now_ns();
+//     auto out = (u8 *)malloc(tuple_num * 10 * sizeof(type));
+//     auto compressor = CompressVisitor(stats, srcType, data, &validity, tuple_num, out, &arena);
+//     u64 t2 = now_ns();
+//     u32 compressed_size = node.Accept(compressor);
+//     u64 t3 = now_ns();
 
-    std::cout << "Compressed size " << compressed_size << std::endl;
+//     std::cout << "Compressed size " << compressed_size << std::endl;
 
-    auto decoder = DecompressVisitor(srcType, &validity, tuple_num, out, compressor.init_header, compressor.init_offsets, &arena);
-    u64 t4 = now_ns();
-    node.Accept(decoder);
-    u64 t5 = now_ns();
+//     auto decoder = DecompressVisitor(srcType, &validity, tuple_num, out, compressor.init_header, compressor.init_offsets, &arena);
+//     u64 t4 = now_ns();
+//     node.Accept(decoder);
+//     u64 t5 = now_ns();
 
-    auto decoded = (type *)node.buf;
-    (void)decoded;
-    for (int i = 0; i < tuple_num; i++)
-    {
-        assert(decoded[i] == data[i]);
-    }
+//     auto decoded = (type *)node.buf;
+//     (void)decoded;
+//     for (int i = 0; i < tuple_num; i++)
+//     {
+//         assert(decoded[i] == data[i]);
+//     }
 
-    printf("stats:         %.3f ms\n", (t7 - t6) / 1e6);
-    printf("search:        %.3f ms\n", (t1 - t0) / 1e6);
-    printf("compress:      %.3f ms\n", (t3 - t2) / 1e6);
-    printf("decompress:    %.3f ms\n", (t5 - t4) / 1e6);
+//     printf("stats:         %.3f ms\n", (t7 - t6) / 1e6);
+//     printf("search:        %.3f ms\n", (t1 - t0) / 1e6);
+//     printf("compress:      %.3f ms\n", (t3 - t2) / 1e6);
+//     printf("decompress:    %.3f ms\n", (t5 - t4) / 1e6);
 
-    free(data);
-    free(out);
-}
+//     free(data);
+//     free(out);
+// }
 
 void test_combined_bp()
 {
@@ -1557,15 +1557,13 @@ void test_sampling()
 
     u64 t0 = now_ns();
     // u32 estimatedSize = node.Accept(estimator);
-    auto inp = EstimateData(data, tuple_num, &validity);
-    auto queue = AppliedSchemesQueue(MAX_COMPRESSION_DEPTH * 4);
+    auto inp = NumberData(data, tuple_num, &validity);
+    auto queue = FixedDeque<SchemeAlgorithm>(MAX_COMPRESSION_DEPTH * 4);
     u32 estimatedSize = EstimateNext(inp, &arena, &queue);
     u64 t1 = now_ns();
 
     std::cout << "Estimated size " << estimatedSize << std::endl;
     std::cout << "Real size " << tuple_num * sizeof(type) << std::endl;
-
-    queue.Print();
 
     // auto decoded = (type *)node.buf;
     // (void)decoded;
@@ -1633,15 +1631,26 @@ void test_string_estimate()
     }
 
     u64 t0 = now_ns();
-    auto queue = AppliedSchemesQueue(64);
-    auto data = EstimateStringData(src, lens, totalLen, tuple_num, &validity);
+    auto queue = FixedDeque<SchemeAlgorithm>(64);
+    auto data = StringData(src, lens, totalLen, tuple_num * 0.02, &validity);
     u32 estimatedSize = EstimateString(data, &arena, &queue);
     u64 t1 = now_ns();
 
-    std::cout << "Estimated size " << estimatedSize << std::endl;
-    std::cout << "Real size " << totalLen << std::endl;
+    PrintScheme(queue.GetPtrRaw(), queue.Size());
 
-    queue.Print();
+    std::cout << "Uncompressed size " << totalLen * 0.02 << std::endl;
+    std::cout << "Estimated size " << estimatedSize << std::endl;
+
+    auto compressed = (u8 *)malloc(totalLen);
+
+    u64 t2 = now_ns();
+    CompressVisitor compress(&arena, &queue, compressed);
+    StringData realData = StringData(src, lens, totalLen, tuple_num, &validity);
+    auto compressedSize = compress.CompressNext(realData);
+    u64 t3 = now_ns();
+
+    std::cout << "Uncompressed size " << totalLen << std::endl;
+    std::cout << "Compressed size " << compressedSize << std::endl;
 
     // auto decoded = (type *)node.buf;
     // (void)decoded;
@@ -1650,7 +1659,8 @@ void test_string_estimate()
     //     assert(decoded[i] == data[i]);
     // }
 
-    printf("search:        %.3f ms\n", (t1 - t0) / 1e6);
+    printf("search:             %.3f ms\n", (t1 - t0) / 1e6);
+    printf("compression:        %.3f ms\n", (t3 - t2) / 1e6);
 }
 
 int main()

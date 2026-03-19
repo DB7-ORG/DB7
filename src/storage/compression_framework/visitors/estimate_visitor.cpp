@@ -1,4 +1,4 @@
-#include "estimate_sampling_visitor.hpp"
+#include "estimate_visitor.hpp"
 
 inline void TransformStrings(DictionaryStringEncodedRes result, u8 **strPtrs, u32 *lens)
 {
@@ -11,7 +11,7 @@ inline void TransformStrings(DictionaryStringEncodedRes result, u8 **strPtrs, u3
     }
 }
 
-u32 EstimateStringDictionary(EstimateStringData data, SlabArena *arena, AppliedSchemesQueue *queue)
+u32 EstimateStringDictionary(StringData data, SlabArena *arena, FixedDeque<SchemeAlgorithm> *queue)
 {
     auto result = DictionaryStringEncodedRes{
         .codes = arena->Alloc<u32>(data.nitems),
@@ -21,21 +21,21 @@ u32 EstimateStringDictionary(EstimateStringData data, SlabArena *arena, AppliedS
         .strCount = 0};
     DictionaryStringEncoder::Encode(&result, data.src, data.lenSrc, data.nullmap, data.nitems);
 
-    auto codes = EstimateData(result.codes, data.nitems, data.nullmap, data.depth);
+    auto codes = NumberData(result.codes, data.nitems, data.nullmap, data.depth);
 
     u32 val1 = EstimateNext(codes, arena, queue);
 
     u8 **strPtrs = arena->Alloc<u8 *>(result.strCount); // TODO test one block w single len
     u32 *lens = arena->Alloc<u32>(result.strCount);
     TransformStrings(result, strPtrs, lens);
-    auto strings = EstimateStringData(strPtrs, lens, result.totalStrLen, result.strCount, data.nullmap, data.depth);
+    auto strings = StringData(strPtrs, lens, result.totalStrLen, result.strCount, data.nullmap, data.depth);
 
     u32 val2 = EstimateString(strings, arena, queue);
 
     return val1 + val2;
 }
 
-u32 EstimateFsst(EstimateStringData data, SlabArena *arena)
+u32 EstimateFsst(StringData data, SlabArena *arena)
 {
     size_t *lens64 = arena->Alloc<size_t>(data.nitems); // TODO this is a hack
     for (u32 i = 0; i < data.nitems; i++)
@@ -62,7 +62,7 @@ u32 EstimateFsst(EstimateStringData data, SlabArena *arena)
     return totalSize;
 }
 
-u32 EstimateString(EstimateStringData data, SlabArena *arena, AppliedSchemesQueue *queue)
+u32 EstimateString(StringData data, SlabArena *arena, FixedDeque<SchemeAlgorithm> *queue)
 {
     if (data.depth > MAX_COMPRESSION_DEPTH)
     {
