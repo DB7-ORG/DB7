@@ -11,7 +11,10 @@ struct DictionaryStringEncodedRes
 {
     u32 *codes;
     u32 *indexes;
-    u8 *strings;
+    u8 *stringBuf;
+    // u8 **strings;
+    u32 totalStrLen;
+    u32 strCount;
 };
 
 struct DictionaryStringEncoder

@@ -18,7 +18,7 @@ void DictionaryStringEncoder::Encode(
     const ValidityMask *nullmap,
     const u32 count)
 {
-    u8 *strings = out->strings;
+    u8 *stringBuf = out->stringBuf;
     u32 *indexes = out->indexes;
     u32 *codes = out->codes;
 
@@ -46,17 +46,20 @@ void DictionaryStringEncoder::Encode(
         if (item == idx)
         {
             indexes[idx] = indexes[idx - 1] + key.len;
-            memcpy(strings + indexes[idx - 1], key.ptr, key.len);
+            memcpy(stringBuf + indexes[idx - 1], key.ptr, key.len);
             idx++;
         }
     }
+
+    out->totalStrLen = indexes[idx - 1];
+    out->strCount = idx;
 }
 
 void DictionaryStringEncoder::Decode(u8 **__restrict out, u32 *__restrict lenOut, const DictionaryStringEncodedRes *__restrict in, u32 count)
 {
     const u32 *indexes = in->indexes;
     const u32 *codes = in->codes;
-    u8 *strings = in->strings;
+    u8 *strings = in->stringBuf;
 
     for (u32 i = 0; i < count; i++)
     {

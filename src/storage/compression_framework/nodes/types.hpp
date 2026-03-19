@@ -44,7 +44,7 @@ enum SchemaType
     String
 };
 
-enum SchemeAlgorythm
+enum SchemeAlgorithm : u8
 {
     Uncompressed,
     Dictionary,

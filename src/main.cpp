@@ -1558,11 +1558,14 @@ void test_sampling()
     u64 t0 = now_ns();
     // u32 estimatedSize = node.Accept(estimator);
     auto inp = EstimateData(data, tuple_num, &validity);
-    u32 estimatedSize = EstimateNext(inp, &arena);
+    auto queue = AppliedSchemesQueue(MAX_COMPRESSION_DEPTH * 4);
+    u32 estimatedSize = EstimateNext(inp, &arena, &queue);
     u64 t1 = now_ns();
 
     std::cout << "Estimated size " << estimatedSize << std::endl;
     std::cout << "Real size " << tuple_num * sizeof(type) << std::endl;
+
+    queue.Print();
 
     // auto decoded = (type *)node.buf;
     // (void)decoded;
@@ -1577,6 +1580,77 @@ void test_sampling()
 
     free(data);
     // free(out);
+}
+
+void test_string_estimate()
+{
+    constexpr long tuple_num = AlignUp(120'000, 256);
+
+    SlabArena arena(10'000'000);
+
+    ValidityMask validity(tuple_num);
+
+    // sample urls - realistic, variable length
+    static const char *sample_urls[] = {
+        "https://www.google.com/search?q=database+compression",
+        "https://github.com/duckdb/duckdb/issues/1234",
+        "https://stackoverflow.com/questions/12345678/how-to-use-fsst",
+        "https://en.wikipedia.org/wiki/Column-oriented_DBMS",
+        "https://www.amazon.com/dp/B08N5WRWNW?ref=ppx_yo2ov_dt_b_fed_asin_title",
+        "https://news.ycombinator.com/item?id=38291847",
+        "https://reddit.com/r/programming/comments/abc123/fast_string_compression",
+        "https://docs.aws.amazon.com/s3/latest/userguide/bucketnamingrules.html",
+        "https://api.stripe.com/v1/customers/cus_abc123/subscriptions",
+        "https://cdn.cloudflare.com/assets/js/bundle.min.js?v=2.3.1",
+    };
+
+    constexpr u32 url_count = sizeof(sample_urls) / sizeof(sample_urls[0]);
+
+    u32 *lens = new u32[tuple_num];
+
+    // compute total size
+    u32 totalLen = 0;
+    for (long i = 0; i < tuple_num; i++)
+    {
+        lens[i] = strlen(sample_urls[i % url_count]);
+        totalLen += lens[i];
+    }
+
+    u8 *block = (u8 *)malloc(totalLen);
+    u8 **src = new u8 *[tuple_num];
+
+    u32 offset = 0;
+    for (long i = 0; i < tuple_num; i++)
+    {
+        memcpy(block + offset, sample_urls[i % url_count], lens[i]);
+        src[i] = block + offset;
+        offset += lens[i];
+    }
+
+    for (int i = 0; i < 10; i++)
+    {
+        printf("[%d] %.*s\n", i, lens[i], src[i]);
+    }
+
+    u64 t0 = now_ns();
+    auto queue = AppliedSchemesQueue(64);
+    auto data = EstimateStringData(src, lens, totalLen, tuple_num, &validity);
+    u32 estimatedSize = EstimateString(data, &arena, &queue);
+    u64 t1 = now_ns();
+
+    std::cout << "Estimated size " << estimatedSize << std::endl;
+    std::cout << "Real size " << totalLen << std::endl;
+
+    queue.Print();
+
+    // auto decoded = (type *)node.buf;
+    // (void)decoded;
+    // for (int i = 0; i < tuple_num; i++)
+    // {
+    //     assert(decoded[i] == data[i]);
+    // }
+
+    printf("search:        %.3f ms\n", (t1 - t0) / 1e6);
 }
 
 int main()
@@ -1613,7 +1687,9 @@ int main()
 
     // test_stats_generation();
 
-    test_sampling();
+    // test_sampling();
+
+    test_string_estimate();
 
     return 0;
 }
