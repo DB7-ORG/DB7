@@ -18,6 +18,15 @@ template <typename T>
 struct DictionaryNode;
 template <typename T>
 struct RleNode;
+template <typename T>
+struct FsstNode;
+template <typename T>
+struct FrequencyNode;
+
+template <typename T>
+struct DoubleNode;
+template <typename T>
+struct IntegerNode;
 
 template <typename T>
 struct IntegerNode
@@ -62,9 +71,9 @@ struct DoubleNode
     SlabArena *arena;
 
     UncompressedNode<T> *unc;
-    // DictionaryNode<u32> *dict;
-    // RleNode<u32> *rle;
-    // BitpackNode *bp;
+    DictionaryNode<T> *dict;
+    RleNode<T> *rle;
+    FrequencyNode<T> *freq;
 
     u8 depth;
     SchemeAlgorithm best_alg;
@@ -74,6 +83,53 @@ struct DoubleNode
         this->depth = depth;
 
         unc = arena->New<UncompressedNode<T>>();
+
+        if (depth >= MAX_COMPRESSION_DEPTH)
+        {
+            dict = nullptr;
+            rle = nullptr;
+            freq = nullptr;
+        }
+        else
+        {
+            dict = arena->New<DictionaryNode<T>>(arena, depth);
+            rle = arena->New<RleNode<T>>(arena, depth);
+            freq = arena->New<FrequencyNode<T>>();
+        }
+    }
+
+    template <typename Visitor>
+    u32 Accept(Visitor &visitor) { return visitor.Visit(*this); }
+};
+
+template <typename T>
+struct StringNode
+{
+    SlabArena *arena;
+
+    UncompressedNode<T> *unc;
+    DictionaryNode<T> *dict;
+    FsstNode<T> *fsst;
+
+    u8 depth;
+    SchemeAlgorithm best_alg;
+
+    StringNode(SlabArena *arena, u8 depth = 0) : arena(arena), depth(depth), best_alg(Uncompressed)
+    {
+        this->depth = depth;
+
+        unc = arena->New<UncompressedNode<T>>();
+
+        if (depth >= MAX_COMPRESSION_DEPTH)
+        {
+            dict = nullptr;
+            fsst = nullptr;
+        }
+        else
+        {
+            dict = arena->New<DictionaryNode<T>>(arena, depth);
+            fsst = arena->New<FsstNode<T>>();
+        }
     }
 
     template <typename Visitor>
@@ -149,6 +205,24 @@ template <typename T>
 struct BitpackNode
 {
     BitpackNode() {};
+
+    template <typename Visitor>
+    u32 Accept(Visitor &visitor) { return visitor.Visit(*this); }
+};
+
+template <typename T>
+struct FsstNode
+{
+    FsstNode() {};
+
+    template <typename Visitor>
+    u32 Accept(Visitor &visitor) { return visitor.Visit(*this); }
+};
+
+template <typename T>
+struct FrequencyNode
+{
+    FrequencyNode() {};
 
     template <typename Visitor>
     u32 Accept(Visitor &visitor) { return visitor.Visit(*this); }

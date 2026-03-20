@@ -60,10 +60,12 @@ struct EstimateVisitor
     {
         std::cout << "integer\n";
 
-        auto best = node.unc->Accept(*this);
+        auto unc = node.unc->Accept(*this);
+        auto best = unc;
         node.best_alg = SchemeAlgorithm::Uncompressed;
 
-        auto try_better = [&](u32 val, SchemeAlgorithm alg) { //* UNCOMPRESSED_FAVOR / 100
+        auto try_better = [&](u32 val, SchemeAlgorithm alg)
+        {
             if (val < best)
             {
                 best = val;
@@ -78,7 +80,75 @@ struct EstimateVisitor
         if (node.bp)
             try_better(node.bp->Accept(*this), SchemeAlgorithm::Bitpacking);
 
+        if (unc * UNCOMPRESSED_FAVOR / 100 <= best)
+            node.best_alg = SchemeAlgorithm::Uncompressed;
+
         std::cout << "ret\n";
+
+        return best;
+    }
+
+    template <typename T>
+    u32 Visit(DoubleNode<T> &node)
+    {
+        std::cout << "double\n";
+
+        auto unc = node.unc->Accept(*this);
+        auto best = unc;
+        node.best_alg = SchemeAlgorithm::Uncompressed;
+
+        auto try_better = [&](u32 val, SchemeAlgorithm alg)
+        {
+            if (val < best)
+            {
+                best = val;
+                node.best_alg = alg;
+            }
+        };
+
+        if (node.dict)
+            try_better(node.dict->Accept(*this), SchemeAlgorithm::Dictionary);
+        if (node.rle)
+            try_better(node.rle->Accept(*this), SchemeAlgorithm::Rle);
+        if (node.freq)
+            try_better(node.freq->Accept(*this), SchemeAlgorithm::Fsst);
+
+        if (unc * UNCOMPRESSED_FAVOR / 100 <= best)
+            node.best_alg = SchemeAlgorithm::Uncompressed;
+
+        std::cout << "ret\n";
+
+        return best;
+    }
+
+    template <typename T>
+    u32 Visit(StringNode<T> &node)
+    {
+        std::cout << "string\n";
+
+        auto unc = node.unc->Accept(*this);
+        auto best = unc;
+        node.best_alg = SchemeAlgorithm::Uncompressed;
+
+        auto try_better = [&](u32 val, SchemeAlgorithm alg)
+        {
+            if (val < best)
+            {
+                best = val;
+                node.best_alg = alg;
+            }
+        };
+
+        if (node.dict)
+            try_better(node.dict->Accept(*this), SchemeAlgorithm::Dictionary);
+        if (node.fsst)
+            try_better(node.fsst->Accept(*this), SchemeAlgorithm::Fsst);
+
+        if (unc * UNCOMPRESSED_FAVOR / 100 <= best)
+            node.best_alg = SchemeAlgorithm::Uncompressed;
+
+        std::cout << "ret\n";
+
         return best;
     }
 
@@ -200,6 +270,43 @@ struct EstimateVisitor
         }
         else
             throw std::runtime_error("bitpack floating point err");
+    }
+
+    template <typename T>
+    u32 Visit(FsstNode<T> &)
+    {
+        std::cout << "fsst\n";
+
+        size_t *lens64 = arena->Alloc<size_t>(nitems); // TODO this is a hack
+        auto lens = (u32 *)lenSrc;
+        for (u32 i = 0; i < nitems; i++)
+            lens64[i] = lens[i];
+
+        auto encoder = fsst_create(nitems, lens64, (const u8 **)src, 0);
+
+        u32 outSize = 7 + 4 * totalLen;
+        auto strBuffer = arena->Alloc<u8>(outSize);
+        auto strLens = arena->Alloc<size_t>(outSize);
+        auto strings = arena->Alloc<u8 *>(outSize);
+        auto src = (const u8 **)src;
+
+        u32 nstrings = fsst_compress(encoder, nitems, lens64, src, outSize, strBuffer, strLens, strings);
+        if (nstrings != nitems)
+        {
+            throw std::runtime_error("fsst failed");
+        }
+
+        u32 totalSize = 0;
+        for (u32 i = 0; i < nstrings; i++)
+            totalSize += strLens[i];
+
+        return totalSize;
+    }
+
+    template <typename T>
+    u32 Visit(FrequencyNode<T> &)
+    {
+        return UINT32_MAX;
     }
 };
 
