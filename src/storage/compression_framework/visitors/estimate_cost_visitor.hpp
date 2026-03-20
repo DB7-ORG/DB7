@@ -9,351 +9,351 @@
 
 #include <span>
 
-struct StatsAproxTransformer
-{
-private:
-    static void ScaleBitFreq(const u32 bitFreq[MAX_HIST_SIZE], const u32 nitems, const u32 ndistinct, u32 outFreq[MAX_HIST_SIZE])
-    {
-        (void)nitems; // TODO unused
-
-        if (bitFreq[0] == UINT32_MAX)
-        {
-            outFreq[0] = bitFreq[0];
-            return; // this is a flag that is uded to represent infinite values
-        }
-
-        u32 distinctPerBucket[MAX_HIST_SIZE] = {};
-        u32 total = 0;
-        for (u32 i = 0; i < MAX_HIST_SIZE; i++)
-        {
-            u64 capacity = (i == 0) ? 1 : (1ULL << i); // 2^i possible values
-            u32 capped = (u32)std::min((u64)bitFreq[i], capacity);
-            distinctPerBucket[i] = capped;
-            total += capped;
-        }
-
-        // float ratio = (float)ndistinct / std::max(total, 1u);
-        for (u32 i = 0; i < MAX_HIST_SIZE; i++)
-        {
-            // outFreq[i] = (u32)(distinctPerBucket[i] * ratio);
-            outFreq[i] = (distinctPerBucket[i] * ndistinct + total / 2) / std::max(total, 1u);
-        }
-    }
-
-public:
-    static NumberStats DictionaryValuesTransform(const NumberStats *stats)
-    {
-        u32 newBitFreq[MAX_HIST_SIZE] = {};
-        ScaleBitFreq(stats->bitFreq, stats->num_items, stats->count_distinct, newBitFreq);
-        return NumberStats(
-            newBitFreq,                                  // bitFreq
-            stats->count_distinct,                       // num_items
-            stats->count_distinct * stats->size_of_type, // total_size
-            stats->count_distinct,                       // count_run_len
-            stats->count_distinct,                       // count_distinct
-            stats->min,                                  // min
-            stats->max,                                  // max
-            stats->size_of_type);                        // size_of_type
-    }
-
-    static NumberStats DictionaryCodesTransform(const NumberStats *stats)
-    {
-        return NumberStats(
-            nullptr,                                // bitFreq //TODO (should be INF)
-            stats->num_items,                       // num_items
-            stats->num_items * stats->size_of_type, // total_size
-            stats->count_run_len,                   // count_run_len
-            stats->count_distinct,                  // count_distinct
-            0,                                      // min
-            stats->count_distinct - 1,              // max
-            stats->size_of_type);                   // size_of_type
-    }
-
-    static StringStats DictionaryValuesTransform(const StringStats *stats)
-    {
-        return *stats;
-    }
-
-    static StringStats DictionaryCodesTransform(const StringStats *stats)
-    {
-        return *stats;
-    }
-
-    static NumberStats RleLensTransform(const NumberStats *stats)
-    {
-        u32 typeSize = sizeof(u16);
-        u32 nitems = stats->count_run_len;
-
-        float avgRunLen = (float)stats->num_items / (float)stats->count_run_len;
-        u64 min = 1;
-        u64 max = (u64)(2 * avgRunLen);
-
-        // count_distinct: run lengths are values in [1, 2*avgRunLen]
-        // in average case, distinct lengths ~ sqrt(n) or min(n, 2*avgRunLen)
-        u32 distinct = (u32)std::min((float)nitems, 2 * avgRunLen);
-
-        u32 newBitFreq[MAX_HIST_SIZE] = {};
-        ScaleBitFreq(stats->bitFreq, stats->num_items, nitems, newBitFreq);
-        // float mean = avgRunLen;
-        // float stddev = avgRunLen * 0.5f;
-
-        // u32 total = 0;
-        // float maxFraction = 0;
-        // u32 peakBucket = 1;
-
-        // for (u32 i = 1; i <= sizeof(u16) * 8; i++)
-        // {
-        //     float bucketMin = (i == 1) ? 1.0f : (float)(1u << (i - 1));
-        //     float bucketMax = (float)((1u << i) - 1);
-
-        //     float lo = 0.5f * (1.0f + std::erf((bucketMin - mean) / (stddev * 1.41421356f)));
-        //     float hi = 0.5f * (1.0f + std::erf((bucketMax - mean) / (stddev * 1.41421356f)));
-
-        //     float fraction = hi - lo;
-        //     newBitFreq[i] = (u32)std::round(fraction * nitems);
-        //     total += newBitFreq[i];
-
-        //     if (fraction > maxFraction)
-        //     {
-        //         maxFraction = fraction;
-        //         peakBucket = i;
-        //     }
-        // }
-
-        // fix rounding remainder at peak
-        // if (total < nitems)
-        //     newBitFreq[peakBucket] += nitems - total;
-        // else if (total > nitems)
-        //     newBitFreq[peakBucket] -= total - nitems;
-
-        u32 lensRunLen = (u32)std::max(1.0f, (float)nitems / avgRunLen);
-
-        return NumberStats(
-            newBitFreq,        // bitFreq
-            nitems,            // num_items
-            nitems * typeSize, // total_size
-            lensRunLen,        // count_run_len
-            distinct,          // count_distinct
-            min,               // min
-            max,               // max
-            typeSize);         // size_of_type
-    }
-
-    static NumberStats RleValsTransform(const NumberStats *stats)
-    {
-        u32 newBitFreq[MAX_HIST_SIZE] = {};
-        ScaleBitFreq(stats->bitFreq, stats->num_items, stats->count_run_len, newBitFreq);
-        return NumberStats(
-            newBitFreq,                                 // bitFreq
-            stats->count_run_len,                       // num_items
-            stats->count_run_len * stats->size_of_type, // total_size
-            stats->count_run_len,                       // count_run_len
-            stats->count_distinct,                      // count_distinct
-            stats->min,                                 // min
-            stats->max,                                 // max
-            stats->size_of_type);
-    }
-
-    static NumberStats ForTransform(const NumberStats *stats)
-    {
-        u32 newBitFreq[MAX_HIST_SIZE] = {};
-        (void)newBitFreq;
-
-        // ScaleBitFreq(stats->bitFreq, stats->num_items, stats->count_run_len, newBitFreq); //TODO
-        return NumberStats(
-            nullptr,                                // bitFreq //TODO (should be INF)
-            stats->num_items,                       // num_items
-            stats->num_items * stats->size_of_type, // total_size
-            stats->count_run_len,                   // count_run_len
-            stats->count_distinct,                  // count_distinct
-            0,                                      // min
-            stats->max - stats->min,                // max
-            stats->size_of_type);                   // size_of_type
-    }
-
-    // static NumberStats FreqTransform(const NumberStats *stats)
-    // {
-    //     u32 newBitFreq[MAX_HIST_SIZE] = {};
-    //     (void)newBitFreq;
-
-    //     // ScaleBitFreq(stats->bitFreq, stats->num_items, stats->count_run_len, newBitFreq); //TODO
-    //     return NumberStats(
-    //         nullptr,                                // bitFreq //TODO (should be INF)
-    //         stats->num_items,                       // num_items
-    //         stats->num_items * stats->size_of_type, // total_size
-    //         stats->count_run_len,                   // count_run_len
-    //         stats->count_distinct,                  // count_distinct
-    //         0,                                      // min
-    //         stats->max - stats->min,                // max
-    //         stats->size_of_type);                   // size_of_type
-    // }
-};
-
-struct EstimateCostVisitor : IVisitor
-{
-    IStats *current_stats;
-
-    EstimateCostVisitor(IStats *stats) : current_stats(stats) {}
-
-    u32 VisitCompressionNodes(std::span<INode *> children, u8 &best_node_idx)
-    {
-        u32 local_best = UINT32_MAX;
-        u32 idx = 0;
-        IStats *stats = current_stats;
-        for (auto *child : children)
-        {
-            if (!child)
-            {
-                idx++;
-                continue;
-            }
-            current_stats = stats;
-            u32 cost = child->Accept(*this);
-            if (cost < local_best)
-            {
-                local_best = cost;
-                best_node_idx = idx;
-            }
-            idx++;
-        }
-        // // std::cout << local_best << std::endl;
-
-        return local_best;
-    }
-
-    u32 Visit(IntegerNode &node) override
-    {
-        // std::cout << "int visited" << std::endl;
-
-        return VisitCompressionNodes(node.children, node.best_node_idx);
-    }
-
-    u32 Visit(DoubleNode &node) override
-    {
-        // std::cout << "double visited" << std::endl;
-
-        return VisitCompressionNodes(node.children, node.best_node_idx);
-    }
-
-    u32 Visit(StringNode &node) override
-    {
-        // std::cout << "str visited" << std::endl;
-
-        return VisitCompressionNodes(node.children, node.best_node_idx);
-    }
-
-    u32 Visit(UncompressedNode &) override
-    {
-        // std::cout << "uncompressed visited" << std::endl;
-
-        return current_stats->num_items * current_stats->size_of_type;
-    }
-
-    u32 Visit(DictionaryNode &node) override
-    {
-        // std::cout << "dict visited" << std::endl;
-
-        if (current_stats->type == StatsType::Number)
-        {
-            NumberStats *stats = static_cast<NumberStats *>(current_stats);
-
-            NumberStats values_stats = StatsAproxTransformer::DictionaryValuesTransform(stats);
-
-            NumberStats codes_stats = StatsAproxTransformer::DictionaryCodesTransform(stats);
-
-            current_stats = &values_stats;
-            u32 val_cost = node.values_node->Accept(*this);
-
-            current_stats = &codes_stats;
-            u32 code_cost = node.codes_node->Accept(*this);
-
-            return val_cost + code_cost;
-        }
-        else if (current_stats->type == StatsType::String)
-        {
-            StringStats *stats = static_cast<StringStats *>(current_stats);
-
-            StringStats values_stats = StatsAproxTransformer::DictionaryValuesTransform(stats);
-
-            StringStats codes_stats = StatsAproxTransformer::DictionaryCodesTransform(stats);
-
-            current_stats = &values_stats;
-            u32 val_cost = node.values_node->Accept(*this);
-
-            // TODO consider adding idx ptr
-
-            current_stats = &codes_stats;
-            u32 code_cost = node.codes_node->Accept(*this);
-
-            return val_cost + code_cost;
-        }
-        else
-        {
-            throw std::runtime_error("Unhandled StatsType");
-        }
-
-        return UINT32_MAX;
-    }
-
-    u32 Visit(RleNode &node) override
-    {
-        // std::cout << "rle visited" << std::endl;
-
-        const NumberStats *stats = static_cast<NumberStats *>(current_stats);
-
-        NumberStats len_stats = StatsAproxTransformer::RleLensTransform(stats);
-
-        NumberStats val_stats = StatsAproxTransformer::RleValsTransform(stats);
-
-        current_stats = &len_stats;
-        u32 len_cost = node.lens_node->Accept(*this);
-
-        current_stats = &val_stats;
-        u32 val_cost = node.values_node->Accept(*this);
-
-        return len_cost + val_cost;
-    }
-
-    u32 Visit(BitpackNode &) override
-    {
-        // std::cout << "bp visited" << std::endl;
-        auto stats = reinterpret_cast<NumberStats *>(current_stats);
-        return BitPackEncoder<u8>::EstimateCompression(stats->max, stats->num_items);
-    }
-
-    u32 Visit(FastPForNode &) override
-    {
-        // std::cout << "pfor visited" << std::endl;
-        return UINT32_MAX;
-        auto stats = reinterpret_cast<NumberStats *>(current_stats);
-        return FastPForEncoder::EstimateCompression(stats->bitFreq, stats->num_items, stats->size_of_type * 8);
-    }
-
-    u32 Visit(ForNode &node) override
-    {
-        // std::cout << "pfor visited" << std::endl;
-
-        auto stats = reinterpret_cast<NumberStats *>(current_stats);
-
-        NumberStats for_stats = StatsAproxTransformer::ForTransform(stats);
-
-        current_stats = &for_stats;
-        u32 cost = node.values_node->Accept(*this);
-
-        return cost;
-    }
-
-    // u32 Visit(FrequencyNode &node) override
-    // {
-    //     // std::cout << "pfor visited" << std::endl;
-
-    //     auto stats = reinterpret_cast<NumberStats *>(current_stats);
-
-    //     NumberStats freq_stats = StatsAproxTransformer::FreqTransform(stats);
-
-    //     current_stats = &freq_stats;
-    //     u32 cost = node.values_node->Accept(*this);
-
-    //     return cost;
-    // }
-};
+// struct StatsAproxTransformer
+// {
+// private:
+//     static void ScaleBitFreq(const u32 bitFreq[MAX_HIST_SIZE], const u32 nitems, const u32 ndistinct, u32 outFreq[MAX_HIST_SIZE])
+//     {
+//         (void)nitems; // TODO unused
+
+//         if (bitFreq[0] == UINT32_MAX)
+//         {
+//             outFreq[0] = bitFreq[0];
+//             return; // this is a flag that is uded to represent infinite values
+//         }
+
+//         u32 distinctPerBucket[MAX_HIST_SIZE] = {};
+//         u32 total = 0;
+//         for (u32 i = 0; i < MAX_HIST_SIZE; i++)
+//         {
+//             u64 capacity = (i == 0) ? 1 : (1ULL << i); // 2^i possible values
+//             u32 capped = (u32)std::min((u64)bitFreq[i], capacity);
+//             distinctPerBucket[i] = capped;
+//             total += capped;
+//         }
+
+//         // float ratio = (float)ndistinct / std::max(total, 1u);
+//         for (u32 i = 0; i < MAX_HIST_SIZE; i++)
+//         {
+//             // outFreq[i] = (u32)(distinctPerBucket[i] * ratio);
+//             outFreq[i] = (distinctPerBucket[i] * ndistinct + total / 2) / std::max(total, 1u);
+//         }
+//     }
+
+// public:
+//     static NumberStats DictionaryValuesTransform(const NumberStats *stats)
+//     {
+//         u32 newBitFreq[MAX_HIST_SIZE] = {};
+//         ScaleBitFreq(stats->bitFreq, stats->num_items, stats->count_distinct, newBitFreq);
+//         return NumberStats(
+//             newBitFreq,                                  // bitFreq
+//             stats->count_distinct,                       // num_items
+//             stats->count_distinct * stats->size_of_type, // total_size
+//             stats->count_distinct,                       // count_run_len
+//             stats->count_distinct,                       // count_distinct
+//             stats->min,                                  // min
+//             stats->max,                                  // max
+//             stats->size_of_type);                        // size_of_type
+//     }
+
+//     static NumberStats DictionaryCodesTransform(const NumberStats *stats)
+//     {
+//         return NumberStats(
+//             nullptr,                                // bitFreq //TODO (should be INF)
+//             stats->num_items,                       // num_items
+//             stats->num_items * stats->size_of_type, // total_size
+//             stats->count_run_len,                   // count_run_len
+//             stats->count_distinct,                  // count_distinct
+//             0,                                      // min
+//             stats->count_distinct - 1,              // max
+//             stats->size_of_type);                   // size_of_type
+//     }
+
+//     static StringStats DictionaryValuesTransform(const StringStats *stats)
+//     {
+//         return *stats;
+//     }
+
+//     static StringStats DictionaryCodesTransform(const StringStats *stats)
+//     {
+//         return *stats;
+//     }
+
+//     static NumberStats RleLensTransform(const NumberStats *stats)
+//     {
+//         u32 typeSize = sizeof(u16);
+//         u32 nitems = stats->count_run_len;
+
+//         float avgRunLen = (float)stats->num_items / (float)stats->count_run_len;
+//         u64 min = 1;
+//         u64 max = (u64)(2 * avgRunLen);
+
+//         // count_distinct: run lengths are values in [1, 2*avgRunLen]
+//         // in average case, distinct lengths ~ sqrt(n) or min(n, 2*avgRunLen)
+//         u32 distinct = (u32)std::min((float)nitems, 2 * avgRunLen);
+
+//         u32 newBitFreq[MAX_HIST_SIZE] = {};
+//         ScaleBitFreq(stats->bitFreq, stats->num_items, nitems, newBitFreq);
+//         // float mean = avgRunLen;
+//         // float stddev = avgRunLen * 0.5f;
+
+//         // u32 total = 0;
+//         // float maxFraction = 0;
+//         // u32 peakBucket = 1;
+
+//         // for (u32 i = 1; i <= sizeof(u16) * 8; i++)
+//         // {
+//         //     float bucketMin = (i == 1) ? 1.0f : (float)(1u << (i - 1));
+//         //     float bucketMax = (float)((1u << i) - 1);
+
+//         //     float lo = 0.5f * (1.0f + std::erf((bucketMin - mean) / (stddev * 1.41421356f)));
+//         //     float hi = 0.5f * (1.0f + std::erf((bucketMax - mean) / (stddev * 1.41421356f)));
+
+//         //     float fraction = hi - lo;
+//         //     newBitFreq[i] = (u32)std::round(fraction * nitems);
+//         //     total += newBitFreq[i];
+
+//         //     if (fraction > maxFraction)
+//         //     {
+//         //         maxFraction = fraction;
+//         //         peakBucket = i;
+//         //     }
+//         // }
+
+//         // fix rounding remainder at peak
+//         // if (total < nitems)
+//         //     newBitFreq[peakBucket] += nitems - total;
+//         // else if (total > nitems)
+//         //     newBitFreq[peakBucket] -= total - nitems;
+
+//         u32 lensRunLen = (u32)std::max(1.0f, (float)nitems / avgRunLen);
+
+//         return NumberStats(
+//             newBitFreq,        // bitFreq
+//             nitems,            // num_items
+//             nitems * typeSize, // total_size
+//             lensRunLen,        // count_run_len
+//             distinct,          // count_distinct
+//             min,               // min
+//             max,               // max
+//             typeSize);         // size_of_type
+//     }
+
+//     static NumberStats RleValsTransform(const NumberStats *stats)
+//     {
+//         u32 newBitFreq[MAX_HIST_SIZE] = {};
+//         ScaleBitFreq(stats->bitFreq, stats->num_items, stats->count_run_len, newBitFreq);
+//         return NumberStats(
+//             newBitFreq,                                 // bitFreq
+//             stats->count_run_len,                       // num_items
+//             stats->count_run_len * stats->size_of_type, // total_size
+//             stats->count_run_len,                       // count_run_len
+//             stats->count_distinct,                      // count_distinct
+//             stats->min,                                 // min
+//             stats->max,                                 // max
+//             stats->size_of_type);
+//     }
+
+//     static NumberStats ForTransform(const NumberStats *stats)
+//     {
+//         u32 newBitFreq[MAX_HIST_SIZE] = {};
+//         (void)newBitFreq;
+
+//         // ScaleBitFreq(stats->bitFreq, stats->num_items, stats->count_run_len, newBitFreq); //TODO
+//         return NumberStats(
+//             nullptr,                                // bitFreq //TODO (should be INF)
+//             stats->num_items,                       // num_items
+//             stats->num_items * stats->size_of_type, // total_size
+//             stats->count_run_len,                   // count_run_len
+//             stats->count_distinct,                  // count_distinct
+//             0,                                      // min
+//             stats->max - stats->min,                // max
+//             stats->size_of_type);                   // size_of_type
+//     }
+
+//     // static NumberStats FreqTransform(const NumberStats *stats)
+//     // {
+//     //     u32 newBitFreq[MAX_HIST_SIZE] = {};
+//     //     (void)newBitFreq;
+
+//     //     // ScaleBitFreq(stats->bitFreq, stats->num_items, stats->count_run_len, newBitFreq); //TODO
+//     //     return NumberStats(
+//     //         nullptr,                                // bitFreq //TODO (should be INF)
+//     //         stats->num_items,                       // num_items
+//     //         stats->num_items * stats->size_of_type, // total_size
+//     //         stats->count_run_len,                   // count_run_len
+//     //         stats->count_distinct,                  // count_distinct
+//     //         0,                                      // min
+//     //         stats->max - stats->min,                // max
+//     //         stats->size_of_type);                   // size_of_type
+//     // }
+// };
+
+// struct EstimateCostVisitor : IVisitor
+// {
+//     IStats *current_stats;
+
+//     EstimateCostVisitor(IStats *stats) : current_stats(stats) {}
+
+//     u32 VisitCompressionNodes(std::span<INode *> children, u8 &best_node_idx)
+//     {
+//         u32 local_best = UINT32_MAX;
+//         u32 idx = 0;
+//         IStats *stats = current_stats;
+//         for (auto *child : children)
+//         {
+//             if (!child)
+//             {
+//                 idx++;
+//                 continue;
+//             }
+//             current_stats = stats;
+//             u32 cost = child->Accept(*this);
+//             if (cost < local_best)
+//             {
+//                 local_best = cost;
+//                 best_node_idx = idx;
+//             }
+//             idx++;
+//         }
+//         // // std::cout << local_best << std::endl;
+
+//         return local_best;
+//     }
+
+//     u32 Visit(IntegerNode &node) override
+//     {
+//         // std::cout << "int visited" << std::endl;
+
+//         return VisitCompressionNodes(node.children, node.best_node_idx);
+//     }
+
+//     u32 Visit(DoubleNode &node) override
+//     {
+//         // std::cout << "double visited" << std::endl;
+
+//         return VisitCompressionNodes(node.children, node.best_node_idx);
+//     }
+
+//     u32 Visit(StringNode &node) override
+//     {
+//         // std::cout << "str visited" << std::endl;
+
+//         return VisitCompressionNodes(node.children, node.best_node_idx);
+//     }
+
+//     u32 Visit(UncompressedNode &) override
+//     {
+//         // std::cout << "uncompressed visited" << std::endl;
+
+//         return current_stats->num_items * current_stats->size_of_type;
+//     }
+
+//     u32 Visit(DictionaryNode &node) override
+//     {
+//         // std::cout << "dict visited" << std::endl;
+
+//         if (current_stats->type == StatsType::Number)
+//         {
+//             NumberStats *stats = static_cast<NumberStats *>(current_stats);
+
+//             NumberStats values_stats = StatsAproxTransformer::DictionaryValuesTransform(stats);
+
+//             NumberStats codes_stats = StatsAproxTransformer::DictionaryCodesTransform(stats);
+
+//             current_stats = &values_stats;
+//             u32 val_cost = node.values_node->Accept(*this);
+
+//             current_stats = &codes_stats;
+//             u32 code_cost = node.codes_node->Accept(*this);
+
+//             return val_cost + code_cost;
+//         }
+//         else if (current_stats->type == StatsType::String)
+//         {
+//             StringStats *stats = static_cast<StringStats *>(current_stats);
+
+//             StringStats values_stats = StatsAproxTransformer::DictionaryValuesTransform(stats);
+
+//             StringStats codes_stats = StatsAproxTransformer::DictionaryCodesTransform(stats);
+
+//             current_stats = &values_stats;
+//             u32 val_cost = node.values_node->Accept(*this);
+
+//             // TODO consider adding idx ptr
+
+//             current_stats = &codes_stats;
+//             u32 code_cost = node.codes_node->Accept(*this);
+
+//             return val_cost + code_cost;
+//         }
+//         else
+//         {
+//             throw std::runtime_error("Unhandled StatsType");
+//         }
+
+//         return UINT32_MAX;
+//     }
+
+//     u32 Visit(RleNode &node) override
+//     {
+//         // std::cout << "rle visited" << std::endl;
+
+//         const NumberStats *stats = static_cast<NumberStats *>(current_stats);
+
+//         NumberStats len_stats = StatsAproxTransformer::RleLensTransform(stats);
+
+//         NumberStats val_stats = StatsAproxTransformer::RleValsTransform(stats);
+
+//         current_stats = &len_stats;
+//         u32 len_cost = node.lens_node->Accept(*this);
+
+//         current_stats = &val_stats;
+//         u32 val_cost = node.values_node->Accept(*this);
+
+//         return len_cost + val_cost;
+//     }
+
+//     u32 Visit(BitpackNode &) override
+//     {
+//         // std::cout << "bp visited" << std::endl;
+//         auto stats = reinterpret_cast<NumberStats *>(current_stats);
+//         return BitPackEncoder<u8>::EstimateCompression(stats->max, stats->num_items);
+//     }
+
+//     u32 Visit(FastPForNode &) override
+//     {
+//         // std::cout << "pfor visited" << std::endl;
+//         return UINT32_MAX;
+//         auto stats = reinterpret_cast<NumberStats *>(current_stats);
+//         return FastPForEncoder::EstimateCompression(stats->bitFreq, stats->num_items, stats->size_of_type * 8);
+//     }
+
+//     u32 Visit(ForNode &node) override
+//     {
+//         // std::cout << "pfor visited" << std::endl;
+
+//         auto stats = reinterpret_cast<NumberStats *>(current_stats);
+
+//         NumberStats for_stats = StatsAproxTransformer::ForTransform(stats);
+
+//         current_stats = &for_stats;
+//         u32 cost = node.values_node->Accept(*this);
+
+//         return cost;
+//     }
+
+//     // u32 Visit(FrequencyNode &node) override
+//     // {
+//     //     // std::cout << "pfor visited" << std::endl;
+
+//     //     auto stats = reinterpret_cast<NumberStats *>(current_stats);
+
+//     //     NumberStats freq_stats = StatsAproxTransformer::FreqTransform(stats);
+
+//     //     current_stats = &freq_stats;
+//     //     u32 cost = node.values_node->Accept(*this);
+
+//     //     return cost;
+//     // }
+// };

@@ -13,7 +13,7 @@
 #include "storage/compression_framework/stats/number_stats.hpp"
 #include "storage/compression_framework/stats/string_stats.hpp"
 #include "storage/compression_framework/engine.hpp"
-#include "storage/compression_framework/nodes/nodes.hpp"
+#include "storage/compression_framework/nodes/tree_nodes.hpp"
 #include "storage/compression_framework/visitors/visitor.hpp"
 #include "slab_arena.hpp"
 
@@ -1526,7 +1526,7 @@ void test_combined_bp()
 
 void test_sampling()
 {
-    using type = double;
+    using type = u32;
 
     constexpr long tuple_num = AlignUp(120'000, 256) * 0.02;
     auto data = (type *)malloc(tuple_num * sizeof(type));
@@ -1557,9 +1557,11 @@ void test_sampling()
 
     u64 t0 = now_ns();
     // u32 estimatedSize = node.Accept(estimator);
-    auto inp = NumberData(data, tuple_num, &validity);
-    auto queue = FixedDeque<SchemeAlgorithm>(MAX_COMPRESSION_DEPTH * 4);
-    u32 estimatedSize = EstimateNext(inp, &arena, &queue);
+    // auto inp = NumberData(data, tuple_num, &validity);
+    // auto queue = FixedDeque<SchemeAlgorithm>(MAX_COMPRESSION_DEPTH * 4);
+    IntegerNode<type> node(&arena);
+    EstimateVisitor visitor(&arena, data, &validity, (u32)tuple_num);
+    u32 estimatedSize = node.Accept(visitor); // EstimateNext(inp, &arena, &queue);
     u64 t1 = now_ns();
 
     std::cout << "Estimated size " << estimatedSize << std::endl;
@@ -1631,26 +1633,26 @@ void test_string_estimate()
     }
 
     u64 t0 = now_ns();
-    auto queue = FixedDeque<SchemeAlgorithm>(64);
-    auto data = StringData(src, lens, totalLen, tuple_num * 0.02, &validity);
-    u32 estimatedSize = EstimateString(data, &arena, &queue);
+    // auto queue = FixedDeque<SchemeAlgorithm>(64);
+    // auto data = StringData(src, lens, totalLen, tuple_num * 0.02, &validity);
+    u32 estimatedSize = 0; // EstimateString(data, &arena, &queue);
     u64 t1 = now_ns();
 
-    PrintScheme(queue.GetPtrRaw(), queue.Size());
+    // PrintScheme(queue.GetPtrRaw(), queue.Size());
 
     std::cout << "Uncompressed size " << totalLen * 0.02 << std::endl;
     std::cout << "Estimated size " << estimatedSize << std::endl;
 
-    auto compressed = (u8 *)malloc(totalLen);
+    // auto compressed = (u8 *)malloc(totalLen);
 
     u64 t2 = now_ns();
-    CompressVisitor compress(&arena, &queue, compressed);
-    StringData realData = StringData(src, lens, totalLen, tuple_num, &validity);
-    auto compressedSize = compress.CompressNext(realData);
+    // CompressVisitor compress(&arena, &queue, compressed);
+    // StringData realData = StringData(src, lens, totalLen, tuple_num, &validity);
+    // auto compressedSize = compress.CompressNext(realData);
     u64 t3 = now_ns();
 
-    std::cout << "Uncompressed size " << totalLen << std::endl;
-    std::cout << "Compressed size " << compressedSize << std::endl;
+    // std::cout << "Uncompressed size " << totalLen << std::endl;
+    // std::cout << "Compressed size " << compressedSize << std::endl;
 
     // auto decoded = (type *)node.buf;
     // (void)decoded;
@@ -1697,9 +1699,9 @@ int main()
 
     // test_stats_generation();
 
-    // test_sampling();
+    test_sampling();
 
-    test_string_estimate();
+    // test_string_estimate();
 
     return 0;
 }
