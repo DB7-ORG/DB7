@@ -128,7 +128,7 @@ struct StringNode
         else
         {
             dict = arena->New<DictionaryNode<T>>(arena, depth);
-            fsst = arena->New<FsstNode<T>>();
+            fsst = nullptr; // arena->New<FsstNode<T>>();
         }
     }
 
@@ -148,8 +148,11 @@ struct UncompressedNode
 template <typename T>
 struct DictionaryNode
 {
-    std::conditional_t<std::is_floating_point_v<T>, DoubleNode<T>, IntegerNode<T>> *values_node;
-    IntegerNode<T> *codes_node;
+    std::conditional_t<
+        std::is_pointer_v<T>,
+        StringNode<T>,
+        std::conditional_t<std::is_floating_point_v<T>, DoubleNode<T>, IntegerNode<T>>> *values_node;
+    IntegerNode<u32> *codes_node;
     u8 depth;
 
     DictionaryNode(SlabArena *arena, u8 depth)
@@ -157,7 +160,11 @@ struct DictionaryNode
         this->depth = depth;
         u8 newDepth = depth + 1;
 
-        if constexpr (std::is_floating_point_v<T>)
+        if constexpr (std::is_pointer_v<T>)
+        {
+            values_node = arena->New<StringNode<T>>(arena, newDepth);
+        }
+        else if constexpr (std::is_floating_point_v<T>)
         {
             values_node = arena->New<DoubleNode<T>>(arena, newDepth);
         }
@@ -166,7 +173,7 @@ struct DictionaryNode
             values_node = arena->New<IntegerNode<T>>(arena, newDepth);
         }
 
-        codes_node = arena->New<IntegerNode<T>>(arena, newDepth);
+        codes_node = arena->New<IntegerNode<u32>>(arena, newDepth);
     }
 
     template <typename Visitor>

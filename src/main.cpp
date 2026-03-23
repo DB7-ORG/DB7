@@ -1560,7 +1560,7 @@ void test_sampling()
     // auto inp = NumberData(data, tuple_num, &validity);
     // auto queue = FixedDeque<SchemeAlgorithm>(MAX_COMPRESSION_DEPTH * 4);
     IntegerNode<type> node(&arena);
-    EstimateVisitor visitor(&arena, data, &validity, (u32)tuple_num);
+    EstimateVisitor visitor(&arena, data, &validity, 0, (u32)tuple_num);
     u32 estimatedSize = node.Accept(visitor); // EstimateNext(inp, &arena, &queue);
     u64 t1 = now_ns();
 
@@ -1635,7 +1635,10 @@ void test_string_estimate()
     u64 t0 = now_ns();
     // auto queue = FixedDeque<SchemeAlgorithm>(64);
     // auto data = StringData(src, lens, totalLen, tuple_num * 0.02, &validity);
-    u32 estimatedSize = 0; // EstimateString(data, &arena, &queue);
+    // u32 estimatedSize = 0; // EstimateString(data, &arena, &queue);
+    StringNode<u8 *> node(&arena);
+    EstimateVisitor visitor(&arena, src, &validity, 0, (u32)tuple_num * 0.02, totalLen * 0.03, lens);
+    u32 estimatedSize = node.Accept(visitor);
     u64 t1 = now_ns();
 
     // PrintScheme(queue.GetPtrRaw(), queue.Size());
@@ -1645,14 +1648,23 @@ void test_string_estimate()
 
     // auto compressed = (u8 *)malloc(totalLen);
 
+    auto out = arena.Alloc<u8>(totalLen);
+    auto schemes = arena.Alloc<SchemeAlgorithm>(64);
+    auto offsets = arena.Alloc<u32>(64);
+
     u64 t2 = now_ns();
     // CompressVisitor compress(&arena, &queue, compressed);
     // StringData realData = StringData(src, lens, totalLen, tuple_num, &validity);
     // auto compressedSize = compress.CompressNext(realData);
+
+    CompressVisitorState state(src, &validity, tuple_num, totalLen, lens);
+    CompressVisitorResult res(out, schemes, offsets);
+    CompressVisitor compVisitor(&arena, res, state);
+    u32 compressedSize = node.Accept(compVisitor);
     u64 t3 = now_ns();
 
-    // std::cout << "Uncompressed size " << totalLen << std::endl;
-    // std::cout << "Compressed size " << compressedSize << std::endl;
+    std::cout << "Uncompressed size " << totalLen << std::endl;
+    std::cout << "Compressed size " << compressedSize << std::endl;
 
     // auto decoded = (type *)node.buf;
     // (void)decoded;
@@ -1699,9 +1711,9 @@ int main()
 
     // test_stats_generation();
 
-    test_sampling();
+    // test_sampling();
 
-    // test_string_estimate();
+    test_string_estimate();
 
     return 0;
 }

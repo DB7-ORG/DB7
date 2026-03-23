@@ -3,7 +3,8 @@ g++ -O3 -march=native -S -masm=intel atest.cpp -o template.s -fverbose-asm
 valgrind --tool=memcheck --leak-check=full --track-origins=yes --show-leak-kinds=all ./bin/app 
 
 # DB7 ✅ ❌
-- need to test estimate for fsst ❌
+- implement buffer reuse when estimating compression(when return happens that buffer can be returned back to arena and reused again which will bump up perf) ❌
+- need to test estimate for fsst ✅
 - DNONOPT_FSST fix ❌
 - make fast pfor static ❌
 - consider adding compression for index for strings considering its sorted and made for delta ❌

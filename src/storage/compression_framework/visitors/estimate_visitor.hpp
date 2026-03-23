@@ -20,45 +20,56 @@ struct EstimateVisitorState
     void *src;
     void *lenSrc;
     ValidityMask *nullmap;
+    u32 skipFlags;
     u32 nitems;
     u32 totalLen;
 
-    EstimateVisitorState(void *src, u32 nitems, u32 totalLen = 0, void *lenSrc = nullptr)
-        : src(src), lenSrc(lenSrc), nitems(nitems), totalLen(totalLen) {}
+    EstimateVisitorState(void *src, ValidityMask *nullmap, u32 nitems, u32 skipFlags, u32 totalLen = 0, void *lenSrc = nullptr)
+        : src(src), lenSrc(lenSrc), nullmap(nullmap), skipFlags(skipFlags), nitems(nitems), totalLen(totalLen) {}
+
+    EstimateVisitorState(const EstimateVisitorState &other) = default;
 };
 
 struct EstimateVisitor
 {
     SlabArena *arena;
-    void *src;
-    void *lenSrc;
-    ValidityMask *nullmap;
-    u32 nitems;
-    u32 totalLen;
+    EstimateVisitorState mainState;
 
-    EstimateVisitor(SlabArena *arena, void *src, ValidityMask *nullmap, u32 nitems, u32 totalLen = 0, void *lenSrc = nullptr)
-        : arena(arena), src(src), lenSrc(lenSrc), nullmap(nullmap), nitems(nitems), totalLen(totalLen) {}
+    EstimateVisitor(SlabArena *arena, void *src, ValidityMask *nullmap, u32 skipFlags, u32 nitems, u32 totalLen = 0, void *lenSrc = nullptr)
+        : arena(arena), mainState(src, nullmap, nitems, skipFlags, totalLen, lenSrc) {}
 
     void RestoreState(EstimateVisitorState &state)
     {
-        src = state.src;
-        lenSrc = state.lenSrc;
-        nitems = state.nitems;
-        totalLen = state.totalLen;
+        mainState.src = state.src;
+        mainState.lenSrc = state.lenSrc;
+        mainState.skipFlags = state.skipFlags;
+        mainState.nitems = state.nitems;
+        mainState.totalLen = state.totalLen;
     }
 
-    void Modify(void *src, u32 nitems, u32 totalLen = 0, void *lenSrc = nullptr)
+    void Modify(void *src, u32 nitems, u32 skipFlags, u32 totalLen = 0, void *lenSrc = nullptr)
     {
-        this->src = src;
-        this->lenSrc = lenSrc;
-        this->nitems = nitems;
-        this->totalLen = totalLen;
+        mainState.src = src;
+        mainState.lenSrc = lenSrc;
+        mainState.skipFlags = skipFlags;
+        mainState.nitems = nitems;
+        mainState.totalLen = totalLen;
+    }
+
+    bool ReadSkipFlags(SchemeAlgorithm alg)
+    {
+        return ((mainState.skipFlags >> alg) & 1) == 0;
+    }
+
+    void WriteSkipFlags(SchemeAlgorithm alg)
+    {
+        mainState.skipFlags |= (u32(1) << alg);
     }
 
     template <typename T>
     u32 Visit(IntegerNode<T> &node)
     {
-        std::cout << "integer\n";
+        // std::cout << "integer\n";
 
         auto unc = node.unc->Accept(*this);
         auto best = unc;
@@ -73,17 +84,17 @@ struct EstimateVisitor
             }
         };
 
-        if (node.dict)
+        if (node.dict && ReadSkipFlags(SchemeAlgorithm::Dictionary))
             try_better(node.dict->Accept(*this), SchemeAlgorithm::Dictionary);
-        if (node.rle)
+        if (node.rle && ReadSkipFlags(SchemeAlgorithm::Rle))
             try_better(node.rle->Accept(*this), SchemeAlgorithm::Rle);
-        if (node.bp)
+        if (node.bp && ReadSkipFlags(SchemeAlgorithm::Bitpacking))
             try_better(node.bp->Accept(*this), SchemeAlgorithm::Bitpacking);
 
         if (unc * UNCOMPRESSED_FAVOR / 100 <= best)
             node.best_alg = SchemeAlgorithm::Uncompressed;
 
-        std::cout << "ret\n";
+        // std::cout << "ret\n";
 
         return best;
     }
@@ -91,7 +102,7 @@ struct EstimateVisitor
     template <typename T>
     u32 Visit(DoubleNode<T> &node)
     {
-        std::cout << "double\n";
+        // std::cout << "double\n";
 
         auto unc = node.unc->Accept(*this);
         auto best = unc;
@@ -106,17 +117,17 @@ struct EstimateVisitor
             }
         };
 
-        if (node.dict)
+        if (node.dict && ReadSkipFlags(SchemeAlgorithm::Dictionary))
             try_better(node.dict->Accept(*this), SchemeAlgorithm::Dictionary);
-        if (node.rle)
+        if (node.rle && ReadSkipFlags(SchemeAlgorithm::Rle))
             try_better(node.rle->Accept(*this), SchemeAlgorithm::Rle);
-        if (node.freq)
-            try_better(node.freq->Accept(*this), SchemeAlgorithm::Fsst);
+        if (node.freq && ReadSkipFlags(SchemeAlgorithm::Frequency))
+            try_better(node.freq->Accept(*this), SchemeAlgorithm::Frequency);
 
         if (unc * UNCOMPRESSED_FAVOR / 100 <= best)
             node.best_alg = SchemeAlgorithm::Uncompressed;
 
-        std::cout << "ret\n";
+        // std::cout << "ret\n";
 
         return best;
     }
@@ -124,7 +135,7 @@ struct EstimateVisitor
     template <typename T>
     u32 Visit(StringNode<T> &node)
     {
-        std::cout << "string\n";
+        // std::cout << "string\n";
 
         auto unc = node.unc->Accept(*this);
         auto best = unc;
@@ -139,15 +150,15 @@ struct EstimateVisitor
             }
         };
 
-        if (node.dict)
+        if (node.dict && ReadSkipFlags(SchemeAlgorithm::Dictionary))
             try_better(node.dict->Accept(*this), SchemeAlgorithm::Dictionary);
-        if (node.fsst)
+        if (node.fsst && ReadSkipFlags(SchemeAlgorithm::Fsst))
             try_better(node.fsst->Accept(*this), SchemeAlgorithm::Fsst);
 
         if (unc * UNCOMPRESSED_FAVOR / 100 <= best)
             node.best_alg = SchemeAlgorithm::Uncompressed;
 
-        std::cout << "ret\n";
+        // std::cout << "ret\n";
 
         return best;
     }
@@ -155,29 +166,34 @@ struct EstimateVisitor
     template <typename T>
     u32 Visit(UncompressedNode<T> &)
     {
-        std::cout << "uncom\n";
+        // std::cout << "uncom\n";
 
-        return sizeof(T) * nitems; // TODO string
+        if constexpr (std::is_same_v<T, u8 *>)
+            return mainState.totalLen;
+        else
+            return sizeof(T) * mainState.nitems;
     }
 
     template <typename T>
     u32 Visit(DictionaryNode<T> &node)
     {
-        std::cout << "dict\n";
+        // std::cout << "dict\n";
 
         if constexpr (std::is_same_v<T, u8 *>)
         {
-            auto state = EstimateVisitorState(src, nitems, totalLen, lenSrc);
+            auto state = EstimateVisitorState(mainState);
 
             auto result = DictionaryStringEncodedRes{
-                .codes = arena->Alloc<u32>(nitems),
-                .indexes = arena->Alloc<u32>(nitems + 1),
-                .stringBuf = arena->Alloc<u8>(totalLen),
+                .codes = arena->Alloc<u32>(state.nitems),
+                .indexes = arena->Alloc<u32>(state.nitems + 1),
+                .stringBuf = arena->Alloc<u8>(state.totalLen),
                 .totalStrLen = 0,
                 .strCount = 0};
-            DictionaryStringEncoder::Encode(&result, (u8 **)src, (u32 *)lenSrc, nullmap, nitems);
+            DictionaryStringEncoder::Encode(&result, (u8 **)state.src, (u32 *)state.lenSrc, state.nullmap, state.nitems);
 
-            Modify(result.codes, state.nitems, state.totalLen, state.lenSrc);
+            WriteSkipFlags(SchemeAlgorithm::Dictionary);
+
+            Modify(result.codes, state.nitems, mainState.skipFlags, state.totalLen, state.lenSrc);
 
             auto val1 = node.codes_node->Accept(*this);
 
@@ -185,7 +201,7 @@ struct EstimateVisitor
             u32 *lens = arena->Alloc<u32>(result.strCount);
             TransformStrings(result, strPtrs, lens);
 
-            Modify(strPtrs, result.strCount, result.totalStrLen, lens);
+            Modify(strPtrs, result.strCount, mainState.skipFlags, result.totalStrLen, lens);
 
             auto val2 = node.values_node->Accept(*this);
 
@@ -195,19 +211,21 @@ struct EstimateVisitor
         }
         else
         {
-            auto state = EstimateVisitorState(src, nitems);
+            auto state = EstimateVisitorState(mainState);
 
             DictionaryValueEncodedRes<T> result{
-                .codes = arena->Alloc<u32>(nitems),
-                .values = arena->Alloc<T>(nitems),
+                .codes = arena->Alloc<u32>(state.nitems),
+                .values = arena->Alloc<T>(state.nitems),
                 .valCount = 0};
-            DictionaryValueEncoder::Encode(&result, (T *)src, nullmap, nitems);
+            DictionaryValueEncoder::Encode(&result, (T *)state.src, state.nullmap, state.nitems);
 
-            Modify(result.codes, state.nitems);
+            WriteSkipFlags(SchemeAlgorithm::Dictionary);
+
+            Modify(result.codes, state.nitems, mainState.skipFlags);
 
             auto val1 = node.codes_node->Accept(*this);
 
-            Modify(result.values, result.valCount);
+            Modify(result.values, result.valCount, mainState.skipFlags);
 
             auto val2 = node.values_node->Accept(*this);
 
@@ -231,21 +249,23 @@ struct EstimateVisitor
     template <typename T>
     u32 Visit(RleNode<T> &node)
     {
-        std::cout << "rle\n";
+        // std::cout << "rle\n";
 
-        auto state = EstimateVisitorState(src, nitems);
+        auto state = EstimateVisitorState(mainState);
 
         RleEncodedRes<T> result{
-            .values = arena->Alloc<T>(nitems),
-            .counts = arena->Alloc<u16>(nitems),
+            .values = arena->Alloc<T>(state.nitems),
+            .counts = arena->Alloc<u16>(state.nitems),
             .count = 0};
-        RleEncoder::Encode(&result, (T *)src, nullmap, nitems);
+        RleEncoder::Encode(&result, (T *)state.src, state.nullmap, state.nitems);
 
-        Modify(result.values, result.count);
+        WriteSkipFlags(SchemeAlgorithm::Rle);
+
+        Modify(result.values, result.count, mainState.skipFlags);
 
         auto val1 = node.values_node->Accept(*this);
 
-        Modify(result.counts, result.count);
+        Modify(result.counts, result.count, state.skipFlags);
 
         auto val2 = node.lens_node->Accept(*this);
 
@@ -257,16 +277,16 @@ struct EstimateVisitor
     template <typename T>
     u32 Visit(BitpackNode<T> &)
     {
-        std::cout << "bp\n";
+        // std::cout << "bp\n";
 
         if constexpr (!std::is_floating_point_v<T> && !std::is_same_v<T, u8>)
         {
             T max = 0;
-            T *data = (T *)src;
-            for (u32 i = 0; i < nitems; i++)
+            T *data = (T *)mainState.src;
+            for (u32 i = 0; i < mainState.nitems; i++)
                 max |= data[i];
 
-            return BitPackEncoder<T>::EstimateCompression(max, nitems);
+            return BitPackEncoder<T>::EstimateCompression(max, mainState.nitems);
         }
         else
             throw std::runtime_error("bitpack floating point err");
@@ -275,23 +295,24 @@ struct EstimateVisitor
     template <typename T>
     u32 Visit(FsstNode<T> &)
     {
-        std::cout << "fsst\n";
+        // std::cout << "fsst\n";
 
-        size_t *lens64 = arena->Alloc<size_t>(nitems); // TODO this is a hack
-        auto lens = (u32 *)lenSrc;
-        for (u32 i = 0; i < nitems; i++)
+        size_t *lens64 = arena->Alloc<size_t>(mainState.nitems); // TODO this is a hack
+        auto lens = (u32 *)mainState.lenSrc;
+        for (u32 i = 0; i < mainState.nitems; i++)
             lens64[i] = lens[i];
 
-        auto encoder = fsst_create(nitems, lens64, (const u8 **)src, 0);
+        auto newsrc = (const u8 **)mainState.src;
 
-        u32 outSize = 7 + 4 * totalLen;
+        auto encoder = fsst_create(mainState.nitems, lens64, newsrc, 0);
+
+        u32 outSize = 7 + 4 * mainState.totalLen;
         auto strBuffer = arena->Alloc<u8>(outSize);
         auto strLens = arena->Alloc<size_t>(outSize);
         auto strings = arena->Alloc<u8 *>(outSize);
-        auto src = (const u8 **)src;
 
-        u32 nstrings = fsst_compress(encoder, nitems, lens64, src, outSize, strBuffer, strLens, strings);
-        if (nstrings != nitems)
+        u32 nstrings = fsst_compress(encoder, mainState.nitems, lens64, newsrc, outSize, strBuffer, strLens, strings);
+        if (nstrings != mainState.nitems)
         {
             throw std::runtime_error("fsst failed");
         }

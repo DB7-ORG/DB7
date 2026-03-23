@@ -3,6 +3,16 @@
 #include "common.hpp"
 #include "nullbitmap.hpp"
 
+struct CompressVisitorResult
+{
+    u8 *out;
+    SchemeAlgorithm *schemes;
+    u32 *offsets;
+
+    CompressVisitorResult(u8 *out, SchemeAlgorithm *schemes, u32 *offsets)
+        : out(out), schemes(schemes), offsets(offsets) {}
+};
+
 struct StringData
 {
     u8 **src;
