@@ -16,6 +16,7 @@
 #include "storage/compression_framework/nodes/tree_nodes.hpp"
 #include "storage/compression_framework/visitors/visitor.hpp"
 #include "slab_arena.hpp"
+#include "excecution/test_compilation.hpp"
 
 static inline u64 now_ns()
 {
@@ -1677,6 +1678,56 @@ void test_string_estimate()
     printf("compression:        %.3f ms\n", (t3 - t2) / 1e6);
 }
 
+std::unique_ptr<llvm::orc::LLJIT> SetupJit()
+{
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+    return exitOnError(llvm::orc::LLJITBuilder().create(), "Failed to create LLJIT");
+}
+
+int test_compilation()
+{
+    auto jit = SetupJit();
+
+    // Build our IR module
+    auto ctx = std::make_unique<llvm::LLVMContext>();
+    auto mod = buildModule(*ctx);
+
+    // ── Print the IR so you can see what we generated ──
+    std::cout << "=== Generated LLVM IR ===\n";
+    mod->print(llvm::outs(), nullptr);
+    std::cout << "=========================\n\n";
+
+    if (auto err = jit->addIRModule(llvm::orc::ThreadSafeModule(std::move(mod), std::move(ctx))))
+    {
+        llvm::errs() << "Failed to add module: " << err << "\n";
+        return 1;
+    }
+
+    auto addSym = exitOnError(jit->lookup("add"), "Failed to look up 'add'");
+    using AddFuncTy = int64_t (*)(int64_t, int64_t);
+    auto addFunc = addSym.toPtr<AddFuncTy>();
+
+    // Call it!
+    int64_t a = 17, b = 25;
+    int64_t result = addFunc(a, b);
+
+    std::cout << "add(" << a << ", " << b << ") = " << result << "\n";
+
+    // ── Try a few more calls to prove it's real compiled code ──
+    std::cout << "add(100, 200) = " << addFunc(100, 200) << "\n";
+    std::cout << "add(-1, 1)    = " << addFunc(-1, 1) << "\n";
+
+    return 0;
+}
+
+int test_compilation2()
+{
+    auto jit = SetupJit();
+
+    auto ctx = std::make_unique<llvm::LLVMContext>();
+}
+
 int main()
 {
     // test(120'064);
@@ -1713,7 +1764,11 @@ int main()
 
     // test_sampling();
 
-    test_string_estimate();
+    // test_string_estimate();
+
+    std::cout << add(5, 3) << std::endl;
+
+    test_compilation();
 
     return 0;
 }

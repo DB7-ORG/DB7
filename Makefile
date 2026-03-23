@@ -1,7 +1,15 @@
 MAKEFLAGS += -j$(nproc)
 CXX = g++
 BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -pedantic -Iinclude -Isrc/shared -march=native 
-LDFLAGS = -lxxhash #-larrow
+#LDFLAGS = -lxxhash #-larrow
+
+LLVM_CONFIG = llvm-config
+LLVM_CXXFLAGS := $(shell $(LLVM_CONFIG) --cxxflags)
+LLVM_LDFLAGS  := $(shell $(LLVM_CONFIG) --ldflags)
+LLVM_LIBS     := $(shell $(LLVM_CONFIG) --libs core orcjit native support irreader)
+LLVM_SYSLIBS  := $(shell $(LLVM_CONFIG) --system-libs)
+
+LDFLAGS  := $(LLVM_LDFLAGS) $(LLVM_LIBS) $(LLVM_SYSLIBS) -lxxhash
 
 # For c libs
 CC = gcc
@@ -51,6 +59,10 @@ VISITOR_ESTIMATE_OBJ := $(OBJ_DIR)/storage/compression_framework/visitors/estima
 UTILS_ROARING_SRC := src/shared/roaring/roaring.c
 UTILS_ROARING_OBJ := $(CACHE_OBJ_DIR)/shared/roaring/roaring.o
 
+
+TEST_COMPILATION_SRC := src/excecution/test_compilation.cpp
+TEST_COMPILATION_OBJ := $(OBJ_DIR)/excecution/test_compilation.o
+
 OBJS := $(MAIN_OBJ) \
 		$(DISK_MGR_OBJ) \
 		$(COMPRESSION_DICT_OBJ) \
@@ -61,7 +73,8 @@ OBJS := $(MAIN_OBJ) \
 		$(UTILS_ROARING_OBJ) \
 		$(UTILS_NULLBITMAP_OBJ) \
 		$(FRAMEWORK_COMPRESSION_ENGINE_OBJ) \
-		$(VISITOR_ESTIMATE_OBJ)
+		$(VISITOR_ESTIMATE_OBJ) \
+		$(TEST_COMPILATION_OBJ)
 		
 
 all: $(TARGET)
@@ -129,6 +142,11 @@ $(FRAMEWORK_COMPRESSION_ENGINE_OBJ): $(FRAMEWORK_COMPRESSION_ENGINE_SRC) | $(OBJ
 $(VISITOR_ESTIMATE_OBJ): $(VISITOR_ESTIMATE_SRC) | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile 
+$(TEST_COMPILATION_OBJ): $(TEST_COMPILATION_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) $(LLVM_CXXFLAGS) -c $< -o $@
 
 # Link the target
 $(TARGET): $(OBJS) | $(BIN_DIR)
