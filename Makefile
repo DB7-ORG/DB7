@@ -1,5 +1,5 @@
 MAKEFLAGS += -j$(nproc)
-CXX = g++
+CXX = clang++
 BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -pedantic -Iinclude -Isrc/shared -march=native 
 #LDFLAGS = -lxxhash #-larrow
 
@@ -12,7 +12,7 @@ LLVM_SYSLIBS  := $(shell $(LLVM_CONFIG) --system-libs)
 LDFLAGS  := $(LLVM_LDFLAGS) $(LLVM_LIBS) $(LLVM_SYSLIBS) -lxxhash
 
 # For c libs
-CC = gcc
+CC = clang
 
 # Build mode: debug or release (default: release)
 BUILD ?= release
@@ -146,7 +146,7 @@ $(VISITOR_ESTIMATE_OBJ): $(VISITOR_ESTIMATE_SRC) | $(OBJ_DIR)
 # Compile 
 $(TEST_COMPILATION_OBJ): $(TEST_COMPILATION_SRC) | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(LLVM_CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(LLVM_CXXFLAGS) -Wno-unused-parameter -c $< -o $@
 
 # Link the target
 $(TARGET): $(OBJS) | $(BIN_DIR)

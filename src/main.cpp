@@ -17,6 +17,7 @@
 #include "storage/compression_framework/visitors/visitor.hpp"
 #include "slab_arena.hpp"
 #include "excecution/test_compilation.hpp"
+#include "excecution/operators/operators.hpp"
 
 static inline u64 now_ns()
 {
@@ -1689,34 +1690,41 @@ int test_compilation()
 {
     auto jit = SetupJit();
 
-    // Build our IR module
-    auto ctx = std::make_unique<llvm::LLVMContext>();
-    auto mod = buildModule(*ctx);
+    CodeGen cg;
+    Context context;
+    auto fun = cg.createFunction("query");
+
+    Scan scan;
+    Filter filter(&scan, nullptr, nullptr);
+    Projection projection(&filter, nullptr);
+    Materialize mat(&projection);
+
+    mat.produce(cg, context);
 
     // ── Print the IR so you can see what we generated ──
     std::cout << "=== Generated LLVM IR ===\n";
-    mod->print(llvm::outs(), nullptr);
+    (cg.getModule()).print(llvm::outs(), nullptr);
     std::cout << "=========================\n\n";
 
-    if (auto err = jit->addIRModule(llvm::orc::ThreadSafeModule(std::move(mod), std::move(ctx))))
-    {
-        llvm::errs() << "Failed to add module: " << err << "\n";
-        return 1;
-    }
+    // if (auto err = jit->addIRModule(llvm::orc::ThreadSafeModule(std::move(mod), std::move(ctx))))
+    // {
+    //     llvm::errs() << "Failed to add module: " << err << "\n";
+    //     return 1;
+    // }
 
-    auto addSym = exitOnError(jit->lookup("add"), "Failed to look up 'add'");
-    using AddFuncTy = int64_t (*)(int64_t, int64_t);
-    auto addFunc = addSym.toPtr<AddFuncTy>();
+    // auto addSym = exitOnError(jit->lookup("add"), "Failed to look up 'add'");
+    // using AddFuncTy = int64_t (*)(int64_t, int64_t);
+    // auto addFunc = addSym.toPtr<AddFuncTy>();
 
-    // Call it!
-    int64_t a = 17, b = 25;
-    int64_t result = addFunc(a, b);
+    // // Call it!
+    // int64_t a = 17, b = 25;
+    // int64_t result = addFunc(a, b);
 
-    std::cout << "add(" << a << ", " << b << ") = " << result << "\n";
+    // std::cout << "add(" << a << ", " << b << ") = " << result << "\n";
 
-    // ── Try a few more calls to prove it's real compiled code ──
-    std::cout << "add(100, 200) = " << addFunc(100, 200) << "\n";
-    std::cout << "add(-1, 1)    = " << addFunc(-1, 1) << "\n";
+    // // ── Try a few more calls to prove it's real compiled code ──
+    // std::cout << "add(100, 200) = " << addFunc(100, 200) << "\n";
+    // std::cout << "add(-1, 1)    = " << addFunc(-1, 1) << "\n";
 
     return 0;
 }
@@ -1726,7 +1734,11 @@ int test_compilation2()
     auto jit = SetupJit();
 
     auto ctx = std::make_unique<llvm::LLVMContext>();
+
+    return 0;
 }
+
+#include "excecution/operators/scan.hpp"
 
 int main()
 {
@@ -1765,8 +1777,6 @@ int main()
     // test_sampling();
 
     // test_string_estimate();
-
-    std::cout << add(5, 3) << std::endl;
 
     test_compilation();
 

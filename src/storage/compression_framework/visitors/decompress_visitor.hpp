@@ -149,7 +149,7 @@ struct DecompressVisitor
     }
 
     template <typename T>
-    u32 Visit(DictionaryNode<T> &node)
+    u32 Visit(DictionaryNode<T> &)
     {
         // std::cout << "dict\n";
 

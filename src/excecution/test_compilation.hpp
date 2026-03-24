@@ -26,7 +26,7 @@ T exitOnError(llvm::Expected<T> val, const char *msg)
     return std::move(*val);
 }
 
-std::unique_ptr<llvm::Module> buildModule(llvm::LLVMContext &ctx)
+inline std::unique_ptr<llvm::Module> buildModule(llvm::LLVMContext &ctx)
 {
     auto mod = std::make_unique<llvm::Module>("phase1_module", ctx);
 
