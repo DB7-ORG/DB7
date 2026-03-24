@@ -38,6 +38,8 @@ public:
     llvm::IRBuilder<> *operator->() { return builder.get(); }
     llvm::LLVMContext &getContext() { return *llvm_context; }
     llvm::Module &getModule() { return *module; }
+    std::unique_ptr<llvm::LLVMContext> takeContext() { return std::move(llvm_context); }
+    std::unique_ptr<llvm::Module> takeModule() { return std::move(module); }
 
     llvm::Value *const64(u64 val)
     {

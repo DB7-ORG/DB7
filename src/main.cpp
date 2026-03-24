@@ -1692,39 +1692,41 @@ int test_compilation()
 
     CodeGen cg;
     Context context;
-    auto fun = cg.createFunction("query");
 
     Scan scan;
     Filter filter(&scan, nullptr, nullptr);
     Projection projection(&filter, nullptr);
     Materialize mat(&projection);
 
+    u64 t0 = now_ns();
+    cg.createFunction("query");
     mat.produce(cg, context);
+    cg->CreateRetVoid();
+    u64 t1 = now_ns();
 
     // ── Print the IR so you can see what we generated ──
     std::cout << "=== Generated LLVM IR ===\n";
     (cg.getModule()).print(llvm::outs(), nullptr);
     std::cout << "=========================\n\n";
 
-    // if (auto err = jit->addIRModule(llvm::orc::ThreadSafeModule(std::move(mod), std::move(ctx))))
-    // {
-    //     llvm::errs() << "Failed to add module: " << err << "\n";
-    //     return 1;
-    // }
+    u64 t2 = now_ns();
+    if (auto err = jit->addIRModule(llvm::orc::ThreadSafeModule(cg.takeModule(), cg.takeContext())))
+    {
+        llvm::errs() << "Failed to add module: " << err << "\n";
+        return 1;
+    }
+    auto sym = exitOnError(jit->lookup("query"), "Failed to look up 'query'");
+    u64 t3 = now_ns();
 
-    // auto addSym = exitOnError(jit->lookup("add"), "Failed to look up 'add'");
-    // using AddFuncTy = int64_t (*)(int64_t, int64_t);
-    // auto addFunc = addSym.toPtr<AddFuncTy>();
+    using FunctionType = void (*)();
+    auto func = sym.toPtr<FunctionType>();
+    func();
 
-    // // Call it!
-    // int64_t a = 17, b = 25;
-    // int64_t result = addFunc(a, b);
+    u64 t4 = now_ns();
 
-    // std::cout << "add(" << a << ", " << b << ") = " << result << "\n";
-
-    // // ── Try a few more calls to prove it's real compiled code ──
-    // std::cout << "add(100, 200) = " << addFunc(100, 200) << "\n";
-    // std::cout << "add(-1, 1)    = " << addFunc(-1, 1) << "\n";
+    printf("IR generation:      %.3f ms\n", (t1 - t0) / 1e6);
+    printf("JIT compilation:    %.3f ms\n", (t3 - t2) / 1e6);
+    printf("Execution:          %.3f ms\n", (t4 - t3) / 1e6);
 
     return 0;
 }
