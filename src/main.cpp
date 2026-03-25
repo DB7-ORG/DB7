@@ -18,6 +18,7 @@
 #include "slab_arena.hpp"
 #include "excecution/test_compilation.hpp"
 #include "excecution/operators/operators.hpp"
+#include "excecution/hashtable.hpp"
 
 static inline u64 now_ns()
 {
@@ -1694,8 +1695,8 @@ int test_compilation()
     Context context;
 
     Scan scan;
-    Filter filter(&scan, nullptr, nullptr);
-    Projection projection(&filter, nullptr);
+    Filter filter(&scan, nullptr, {"tid"});
+    Projection projection(&filter, {"tid"});
     Materialize mat(&projection);
 
     u64 t0 = now_ns();
@@ -1740,7 +1741,17 @@ int test_compilation2()
     return 0;
 }
 
-#include "excecution/operators/scan.hpp"
+void test_htable()
+{
+    SlabArena arena(1'000'000);
+    db7::HashTable<u32, u32> table(3, 1.33, &arena);
+
+    for (u32 i = 0; i < 40; i++)
+    {
+        table.add(i % 4, i);
+        table.printKeys(i % 4);
+    }
+}
 
 int main()
 {
@@ -1780,7 +1791,9 @@ int main()
 
     // test_string_estimate();
 
-    test_compilation();
+    // test_compilation();
+
+    test_htable();
 
     return 0;
 }

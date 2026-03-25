@@ -8,17 +8,18 @@ struct Filter : INode
 {
     INode *next;
     void *expression;
-    void *attributes;
+    std::vector<std::string> attributes;
 
-    Filter(INode *next, void *expression, void *attributes)
-        : next(next), expression(expression), attributes(attributes)
+    Filter(INode *next, void *expression, std::vector<std::string> attributes)
+        : next(next), expression(expression), attributes(std::move(attributes))
     {
         next->parent = this;
     }
 
     void produce(CodeGen &codegen, Context &context) const
     {
-        // TODO add which tuples scan needs
+        for (auto &attr : attributes)
+            context.add(attr, nullptr);
         next->produce(codegen, context);
     }
 

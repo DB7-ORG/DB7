@@ -7,17 +7,18 @@
 struct Projection : INode
 {
     INode *next;
-    void *attributes;
+    std::vector<std::string> attributes;
 
-    Projection(INode *next, void *attributes)
-        : next(next), attributes(attributes)
+    Projection(INode *next, std::vector<std::string> attributes)
+        : next(next), attributes(std::move(attributes))
     {
         next->parent = this;
     }
 
     void produce(CodeGen &codegen, Context &context) const
     {
-        // TODO add which tuples scan needs
+        for (auto &attr : attributes)
+            context.add(attr, nullptr);
         next->produce(codegen, context);
     }
 

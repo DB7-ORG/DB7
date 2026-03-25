@@ -33,5 +33,6 @@ struct Scan : INode
 
     void consume(CodeGen &, Context &) const
     {
+        __builtin_unreachable();
     }
 };

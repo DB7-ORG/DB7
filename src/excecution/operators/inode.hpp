@@ -72,14 +72,17 @@ public:
     }
 };
 
-class Context
+struct Context
 {
     std::unordered_map<std::string, llvm::Value *> attributes;
+    std::unordered_map<std::string, bool> state;
 
-public:
     Context() = default;
     void add(const std::string &name, llvm::Value *val) { attributes[name] = val; }
+    void remove(const std::string &name) { attributes.erase(name); }
     llvm::Value *get(const std::string &name) { return attributes.at(name); }
+    void setState(const std::string &name, bool val) { state[name] = val; }
+    bool getState(const std::string &name) { return state.at(name); }
 };
 
 struct INode
