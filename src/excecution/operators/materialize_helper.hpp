@@ -8,11 +8,37 @@
 
 struct MatHelper
 {
-    llvm::Value *calcSize(CodeGen &codegen, Context &context) const
+
+    std::vector<llvm::Value *> collectValues(CodeGen &codegen, Context &context) const
+    {
+        std::vector<llvm::Value *> fixed;
+        std::vector<llvm::Value *> strings;
+
+        for (auto &[key, val] : context.attributes)
+        {
+            if (val->getType()->isStructTy())
+                strings.push_back(val);
+            else
+                fixed.push_back(val);
+        }
+
+        std::sort(fixed.begin(), fixed.end(),
+                  [&](auto &a, auto &b)
+                  {
+                      auto sizeA = codegen.getModule().getDataLayout().getTypeAllocSize(a->getType());
+                      auto sizeB = codegen.getModule().getDataLayout().getTypeAllocSize(b->getType());
+                      return sizeA > sizeB;
+                  });
+
+        fixed.insert(fixed.end(), strings.begin(), strings.end());
+        return fixed;
+    }
+
+    llvm::Value *calcSize(CodeGen &codegen, std::vector<llvm::Value *> &values) const
     {
         llvm::Value *size = codegen.const32(8);
 
-        for (auto &[key, val] : context.attributes)
+        for (auto val : values)
         {
             if (val->getType()->isStructTy()) // string {ptr, len}
             {
@@ -67,7 +93,7 @@ struct MatHelper
         }
     }
 
-    void materialize(CodeGen &codegen, Context &context, llvm::Value *hash, llvm::Value *ptr) const
+    void materialize(CodeGen &codegen, std::vector<llvm::Value *> &values, llvm::Value *hash, llvm::Value *ptr) const
     {
         llvm::Value *hashDest = codegen->CreateBitCast(
             ptr, llvm::PointerType::getUnqual(llvm::Type::getInt64Ty(codegen.getContext())));
@@ -75,7 +101,7 @@ struct MatHelper
 
         llvm::Value *offset = codegen.const32(8);
 
-        for (auto &[key, val] : context.attributes)
+        for (auto val : values)
         {
             llvm::Value *dest = codegen->CreateGEP(
                 llvm::Type::getInt8Ty(codegen.getContext()), ptr, offset);

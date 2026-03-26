@@ -10,6 +10,17 @@ struct Scan : INode
 {
     void produce(CodeGen &codegen, Context &context) const
     {
+        llvm::Value *strPtr = codegen->CreateGlobalStringPtr("hello world");
+        llvm::Value *strLen = codegen.const32(11);
+
+        // Pack into {ptr, len} struct
+        llvm::Type *strType = llvm::StructType::get(codegen.getContext(), {llvm::PointerType::getUnqual(codegen.getContext()),
+                                                                           llvm::Type::getInt32Ty(codegen.getContext())});
+
+        llvm::Value *strVal = llvm::UndefValue::get(strType);
+        strVal = codegen->CreateInsertValue(strVal, strPtr, {0});
+        strVal = codegen->CreateInsertValue(strVal, strLen, {1});
+
         llvm::Value *tid = codegen.const64(0);
         llvm::Value *limit = codegen.const64(10);
 
@@ -23,6 +34,7 @@ struct Scan : INode
 
             tid = loop.getLoopVar(0);
             context.add("tid", tid);
+            context.add("name", strVal);
 
             parent->consume(codegen, context);
 

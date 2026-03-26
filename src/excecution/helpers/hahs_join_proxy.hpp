@@ -13,12 +13,20 @@ struct HashJoinProxy
         ptr = arena.Alloc<u64>(0);
     }
 
-    static void printTuples(u64 *ptr)
+    static void printTuples(u8 *base)
     {
-        u32 size = 5 * 2;
-        for (u32 i = 0; i < size; i++)
+        u32 count = 5;
+        u32 tupleSize = 8 + 8 + 4 + 11; // hash(u64) + tid(u64) + strlen(u32) + bytes(11)
+        for (u32 i = 0; i < count; i++)
         {
-            std::cout << ptr[i] << " ";
+            u8 *ptr = base + i * tupleSize;
+
+            u64 hash = *(uint64_t *)(ptr);
+            uint64_t tid = *(uint64_t *)(ptr + 8);
+            uint32_t len = *(uint32_t *)(ptr + 16);
+            char *str = (char *)(ptr + 20);
+
+            printf("hash: %lu, tid: %lu, str: %.*s\n", hash, tid, len, str);
         }
         std::cout << std::endl;
     }

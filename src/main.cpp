@@ -1697,7 +1697,7 @@ int test_compilation()
     Scan scan;
     Filter filter(&scan, nullptr, {"tid"});
     Projection projection(&filter, {"tid"});
-    HashJoin join(&projection, nullptr, "tid", "tid");
+    HashJoin join(&projection, nullptr, "name", "tid");
     Materialize mat(&join);
 
     u64 t0 = now_ns();
@@ -1730,7 +1730,7 @@ int test_compilation()
     printf("JIT compilation:    %.3f ms\n", (t3 - t2) / 1e6);
     printf("Execution:          %.3f ms\n", (t4 - t3) / 1e6);
 
-    HashJoinProxy::printTuples(context.test);
+    HashJoinProxy::printTuples((u8 *)context.test);
 
     return 0;
 }

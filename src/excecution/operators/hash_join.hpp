@@ -49,13 +49,15 @@ struct HashJoin : INode
         {
             state->isBuild = false;
 
+            auto values = helper.collectValues(codegen, context);
+
             llvm::Value *joinKey = context.get(leftKey);
             llvm::Value *hash = helper.calcHash(codegen, joinKey);
 
-            llvm::Value *size = helper.calcSize(codegen, context);
+            llvm::Value *size = helper.calcSize(codegen, values);
 
             llvm::Value *ptr = codegen.callBase(HashJoinProxy::allocTupleJIT, {proxyPtr, size});
-            helper.materialize(codegen, context, hash, ptr);
+            helper.materialize(codegen, values, hash, ptr);
         }
         else
         {
