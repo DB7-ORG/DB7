@@ -28,13 +28,13 @@ struct HashJoin : INode
     void produce(CodeGen &codegen, Context &context) const
     {
         {
-            AddRequired required(context, leftKeys);
-
             JoinState state;
             state.isBuild = true;
             state.inMem = true;
+            state.keep = helper.copyRequiredAttributes(context);
             context.setJoinState(this, state);
 
+            AddRequired required(context, leftKeys);
             left->produce(codegen, context);
         }
     }
@@ -51,11 +51,13 @@ struct HashJoin : INode
         {
             state->isBuild = false;
 
-            auto values = helper.sortValues(codegen, context);
-
             std::vector<llvm::Value *> leftVals = helper.collectValues(context, leftKeys);
 
             llvm::Value *hash = helper.calcHash(codegen, leftVals);
+
+            helper.filterExtraAttributes(context, state->keep);
+
+            auto values = helper.sortValues(codegen, context);
 
             llvm::Value *size = helper.calcSize(codegen, values);
 

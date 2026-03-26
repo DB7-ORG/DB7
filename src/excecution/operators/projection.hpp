@@ -6,19 +6,19 @@
 
 struct Projection : INode
 {
-    INode *next;
+    INode *input;
     std::unordered_set<std::string> attributes;
 
-    Projection(INode *next, std::unordered_set<std::string> attributes)
-        : next(next), attributes(std::move(attributes))
+    Projection(INode *input, std::unordered_set<std::string> attributes)
+        : input(input), attributes(std::move(attributes))
     {
-        next->parent = this;
+        input->parent = this;
     }
 
     void produce(CodeGen &codegen, Context &context) const
     {
         AddRequired required(context, attributes);
-        next->produce(codegen, context);
+        input->produce(codegen, context);
     }
 
     void consume(CodeGen &codegen, Context &context) const

@@ -1,30 +1,34 @@
 #pragma once
 
-#include "common.hpp"
 #include "../llvm.hpp"
 #include "inode.hpp"
 
-struct Materialize : INode
+struct Mapping
+{
+    std::string resultName;
+    void *expression;
+};
+
+struct Map : INode
 {
     INode *input;
     std::unordered_set<std::string> attributes;
+    std::vector<Mapping> mappings;
 
-    Materialize(INode *input)
-        : input(input)
+    Map(INode *input, std::vector<Mapping> mappings)
+        : input(input), mappings(std::move(mappings))
     {
         input->parent = this;
     }
 
     void produce(CodeGen &codegen, Context &context) const
     {
-        context.add("tid", nullptr);
-        context.add("name", nullptr);
+        AddRequired required(context, attributes);
         input->produce(codegen, context);
     }
 
     void consume(CodeGen &codegen, Context &context) const
     {
-        llvm::Value *val = context.get("tid");
-        codegen.callPrintf(val);
+        parent->consume(codegen, context);
     }
 };

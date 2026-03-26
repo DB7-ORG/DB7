@@ -125,6 +125,7 @@ public:
 struct JoinState
 {
     llvm::Value *hashJoinProxy;
+    std::unordered_set<std::string> keep;
     bool inMem;
     bool isBuild;
 };
@@ -145,26 +146,15 @@ struct Context
 
 struct AddRequired
 {
-    Context &context;
-    std::unordered_set<std::string> added;
-
     AddRequired(Context &context, std::unordered_set<std::string> columns)
-        : context(context)
     {
         for (auto &col : columns)
         {
             if (!context.attributes.contains(col))
             {
-                added.insert(col);
                 context.add(col, nullptr);
             }
         }
-    }
-
-    ~AddRequired()
-    {
-        for (auto &col : added)
-            context.remove(col);
     }
 };
 

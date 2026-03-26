@@ -6,20 +6,20 @@
 
 struct Filter : INode
 {
-    INode *next;
+    INode *input;
     void *expression;
     std::unordered_set<std::string> attributes;
 
-    Filter(INode *next, void *expression, std::unordered_set<std::string> attributes)
-        : next(next), expression(expression), attributes(std::move(attributes))
+    Filter(INode *input, void *expression, std::unordered_set<std::string> attributes)
+        : input(input), expression(expression), attributes(std::move(attributes))
     {
-        next->parent = this;
+        input->parent = this;
     }
 
     void produce(CodeGen &codegen, Context &context) const
     {
         AddRequired required(context, attributes);
-        next->produce(codegen, context);
+        input->produce(codegen, context);
     }
 
     void consume(CodeGen &codegen, Context &context) const

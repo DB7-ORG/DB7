@@ -6,7 +6,7 @@ valgrind --tool=memcheck --leak-check=full --track-origins=yes --show-leak-kinds
 
 # EXCECUTION
 
-- should refactor context to keep only operator needed fields ❌
+- should refactor context to keep only operator needed fields ✅
 
 
 

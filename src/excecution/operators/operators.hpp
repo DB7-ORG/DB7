@@ -5,3 +5,4 @@
 #include "scan.hpp"
 #include "filter.hpp"
 #include "hash_join.hpp"
+#include "map.hpp"

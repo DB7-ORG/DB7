@@ -8,6 +8,27 @@
 
 struct MatHelper
 {
+    std::unordered_set<std::string> copyRequiredAttributes(Context &context) const
+    {
+        std::unordered_set<std::string> collected;
+        for (auto &[key, val] : context.attributes)
+        {
+            collected.insert(key);
+        }
+        return collected;
+    }
+
+    void filterExtraAttributes(Context &context, std::unordered_set<std::string> &keep) const
+    {
+        std::vector<std::string> toRemove;
+        for (auto &[key, val] : context.attributes)
+        {
+            if (!keep.count(key))
+                toRemove.push_back(key);
+        }
+        for (auto &key : toRemove)
+            context.remove(key);
+    }
 
     std::vector<llvm::Value *> collectValues(Context &context, const std::unordered_set<std::string> &values) const
     {
