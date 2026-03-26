@@ -1697,7 +1697,8 @@ int test_compilation()
     Scan scan;
     Filter filter(&scan, nullptr, {"tid"});
     Projection projection(&filter, {"tid"});
-    Materialize mat(&projection);
+    HashJoin join(&projection, nullptr, "tid", "tid");
+    Materialize mat(&join);
 
     u64 t0 = now_ns();
     cg.createFunction("query");
@@ -1729,6 +1730,8 @@ int test_compilation()
     printf("JIT compilation:    %.3f ms\n", (t3 - t2) / 1e6);
     printf("Execution:          %.3f ms\n", (t4 - t3) / 1e6);
 
+    HashJoinProxy::printTuples(context.test);
+
     return 0;
 }
 
@@ -1741,14 +1744,26 @@ int test_compilation2()
     return 0;
 }
 
+struct SomeTest
+{
+    u32 id;
+    std::string name;
+
+    friend std::ostream &operator<<(std::ostream &os, const SomeTest &s)
+    {
+        os << s.id << " " << s.name; // print whatever you want
+        return os;
+    }
+};
+
 void test_htable()
 {
     SlabArena arena(1'000'000);
-    db7::HashTable<u32, u32> table(3, 1.33, &arena);
+    db7::HashTable<u32, SomeTest> table(3, 1.33, &arena);
 
     for (u32 i = 0; i < 40; i++)
     {
-        table.add(i % 4, i);
+        table.add(i % 4, SomeTest{i, "hej"});
         table.printKeys(i % 4);
     }
 }
@@ -1791,9 +1806,9 @@ int main()
 
     // test_string_estimate();
 
-    // test_compilation();
+    test_compilation();
 
-    test_htable();
+    // test_htable();
 
     return 0;
 }

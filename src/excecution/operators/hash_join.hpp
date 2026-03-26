@@ -3,61 +3,64 @@
 #include "common.hpp"
 
 #include "inode.hpp"
+#include "../helpers/hahs_join_proxy.hpp"
+#include "materialize_helper.hpp"
 
 #include <vector>
 
-constexpr std::string IS_BUILD_SIDE = "@IsBuildSide";
-
-class HashJoin : INode
+struct HashJoin : INode
 {
     INode *left;
     INode *right;
     std::string leftKey;
     std::string rightKey;
-    bool inMem = true;
+    MatHelper helper;
 
-    void initMem(CodeGen &codegen, Context &context) const
+    HashJoin(
+        INode *left,
+        INode *right,
+        std::string leftKey,
+        std::string rightKey)
+        : left(left), right(right), leftKey(leftKey), rightKey(rightKey), helper()
     {
-        return;
+        left->parent = this;
+        // right->parent = this;
     }
 
-    void produceLeft(CodeGen &codegen, Context &context) const
-    {
-        context.setState(IS_BUILD_SIDE, true);
-        context.add(leftKey, nullptr);
-        left->produce(codegen, context);
-    }
-
-    void produceRight(CodeGen &codegen, Context &context) const
-    {
-        context.setState(IS_BUILD_SIDE, false);
-        context.add(rightKey, nullptr);
-        right->produce(codegen, context);
-    }
-
-    void insertToHashMap(CodeGen &codegen, Context &context) const
-    {
-    }
-
-public:
     void produce(CodeGen &codegen, Context &context) const
     {
-        initMem(codegen, context); // create a htable
+        JoinState state;
+        state.isBuild = true;
+        state.inMem = true;
+        context.setJoinState(this, state);
 
-        produceLeft(codegen, context);
-
-        produceRight(codegen, context);
+        left->produce(codegen, context);
     }
 
     void consume(CodeGen &codegen, Context &context) const
     {
-        if (context.getState(IS_BUILD_SIDE))
+        JoinState *state = context.getJoinState(this);
+
+        auto *proxy = new HashJoinProxy();
+        llvm::Value *proxyPtr = codegen.ptrConst(proxy);
+        context.test = proxy->ptr; // TODO test
+
+        if (state->isBuild)
         {
-            // generate array
+            state->isBuild = false;
 
-            // store all values from context.map
+            llvm::Value *joinKey = context.get(leftKey);
+            llvm::Value *hash = helper.calcHash(codegen, joinKey);
 
-            // calc size
+            llvm::Value *size = helper.calcSize(codegen, context);
+
+            llvm::Value *ptr = codegen.callBase(HashJoinProxy::allocTupleJIT, {proxyPtr, size});
+            helper.materialize(codegen, context, hash, ptr);
         }
+        else
+        {
+        }
+
+        parent->consume(codegen, context);
     }
 };

@@ -4,6 +4,7 @@
 #include "../llvm.hpp"
 
 #include <map>
+#include <vector>
 
 class CodeGen
 {
@@ -46,6 +47,18 @@ public:
         return llvm::ConstantInt::get(llvm::Type::getInt64Ty(getContext()), val);
     }
 
+    llvm::Value *const32(u32 val)
+    {
+        return llvm::ConstantInt::get(llvm::Type::getInt32Ty(getContext()), val);
+    }
+
+    llvm::Value *ptrConst(void *ptr)
+    {
+        auto intVal = llvm::ConstantInt::get(
+            llvm::Type::getInt64Ty(getContext()), reinterpret_cast<uintptr_t>(ptr));
+        return builder->CreateIntToPtr(intVal, llvm::PointerType::getUnqual(getContext()));
+    }
+
     // TODO test
     void callPrintf(llvm::Value *val)
     {
@@ -70,19 +83,63 @@ public:
         // Call printf
         builder->CreateCall(printfFunc, {formatStr, val});
     }
+
+    template <typename T>
+    llvm::Type *getLLVMType()
+    {
+        auto &context = getContext();
+        if constexpr (std::is_same_v<T, void>)
+            return llvm::Type::getVoidTy(context);
+        else if constexpr (std::is_same_v<T, bool>)
+            return llvm::Type::getInt1Ty(context);
+        else if constexpr (std::is_same_v<T, u8>)
+            return llvm::Type::getInt8Ty(context);
+        else if constexpr (std::is_same_v<T, u32> || std::is_same_v<T, i32>)
+            return llvm::Type::getInt32Ty(context);
+        else if constexpr (std::is_same_v<T, u64> || std::is_same_v<T, i64>)
+            return llvm::Type::getInt64Ty(context);
+        else if constexpr (std::is_pointer_v<T>)
+            return llvm::PointerType::getUnqual(context);
+        else
+            static_assert(!sizeof(T), "Unsupported type for LLVM mapping");
+    }
+
+    template <typename Ret, typename... Args>
+    llvm::Value *callBase(Ret (*func)(Args...), std::vector<llvm::Value *> args)
+    {
+        llvm::Type *retType = getLLVMType<Ret>();
+        std::vector<llvm::Type *> paramTypes = {getLLVMType<Args>()...};
+        llvm::FunctionType *funcType = llvm::FunctionType::get(retType, paramTypes, false);
+
+        auto funcAddr = reinterpret_cast<uintptr_t>(func);
+        llvm::Value *funcInt = llvm::ConstantInt::get(
+            llvm::Type::getInt64Ty(getContext()), funcAddr);
+        llvm::Value *funcPtr = builder->CreateIntToPtr(
+            funcInt, llvm::PointerType::getUnqual(funcType));
+
+        return builder->CreateCall(funcType, funcPtr, args);
+    }
+};
+
+struct JoinState
+{
+    llvm::Value *hashJoinProxy;
+    bool inMem;
+    bool isBuild;
 };
 
 struct Context
 {
     std::unordered_map<std::string, llvm::Value *> attributes;
-    std::unordered_map<std::string, bool> state;
+    std::unordered_map<void *, JoinState> joinState;
+    u64 *test;
 
     Context() = default;
     void add(const std::string &name, llvm::Value *val) { attributes[name] = val; }
     void remove(const std::string &name) { attributes.erase(name); }
     llvm::Value *get(const std::string &name) { return attributes.at(name); }
-    void setState(const std::string &name, bool val) { state[name] = val; }
-    bool getState(const std::string &name) { return state.at(name); }
+    void setJoinState(const void *op, JoinState val) { joinState[(void *)op] = val; }
+    JoinState *getJoinState(const void *op) { return &joinState.at((void *)op); }
 };
 
 struct INode

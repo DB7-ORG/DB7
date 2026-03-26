@@ -9,3 +9,5 @@
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsX86.h"

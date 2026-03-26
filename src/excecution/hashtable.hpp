@@ -42,11 +42,6 @@ namespace db7
             }
         }
 
-        // HashTable(const HashTable &old)
-        //     : buckets(old.buckets), entries(old.entries),
-        //       size(old.size), capacity(old.capacity),
-        //       bucket_num(old.bucket_num), arena(old.arena) {}
-
         HashTable(const HashTable &) = default;
         HashTable &operator=(const HashTable &) = default;
 
