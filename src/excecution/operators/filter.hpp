@@ -8,9 +8,9 @@ struct Filter : INode
 {
     INode *next;
     void *expression;
-    std::vector<std::string> attributes;
+    std::unordered_set<std::string> attributes;
 
-    Filter(INode *next, void *expression, std::vector<std::string> attributes)
+    Filter(INode *next, void *expression, std::unordered_set<std::string> attributes)
         : next(next), expression(expression), attributes(std::move(attributes))
     {
         next->parent = this;
@@ -18,8 +18,7 @@ struct Filter : INode
 
     void produce(CodeGen &codegen, Context &context) const
     {
-        for (auto &attr : attributes)
-            context.add(attr, nullptr);
+        AddRequired required(context, attributes);
         next->produce(codegen, context);
     }
 

@@ -1684,7 +1684,19 @@ std::unique_ptr<llvm::orc::LLJIT> SetupJit()
 {
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmPrinter();
-    return exitOnError(llvm::orc::LLJITBuilder().create(), "Failed to create LLJIT");
+    return exitOnError(llvm::orc::LLJITBuilder()
+                           .setCompileFunctionCreator(
+                               [](llvm::orc::JITTargetMachineBuilder JTMB)
+                                   -> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>>
+                               {
+                                   JTMB.setCodeGenOptLevel(llvm::CodeGenOptLevel::None);
+                                   auto TM = JTMB.createTargetMachine();
+                                   if (!TM)
+                                       return TM.takeError();
+                                   return std::make_unique<llvm::orc::TMOwningSimpleCompiler>(std::move(*TM));
+                               })
+                           .create(),
+                       "Failed to create LLJIT");
 }
 
 int test_compilation()
@@ -1697,7 +1709,7 @@ int test_compilation()
     Scan scan;
     Filter filter(&scan, nullptr, {"tid"});
     Projection projection(&filter, {"tid"});
-    HashJoin join(&projection, nullptr, "name", "tid");
+    HashJoin join(&projection, nullptr, {"name"}, {"tid"});
     Materialize mat(&join);
 
     u64 t0 = now_ns();
@@ -1710,6 +1722,14 @@ int test_compilation()
     std::cout << "=== Generated LLVM IR ===\n";
     (cg.getModule()).print(llvm::outs(), nullptr);
     std::cout << "=========================\n\n";
+
+#ifdef DEBUG
+    if (llvm::verifyModule(cg.getModule(), &llvm::errs()))
+    {
+        llvm::errs() << "Invalid IR!\n";
+        return 1;
+    }
+#endif
 
     u64 t2 = now_ns();
     if (auto err = jit->addIRModule(llvm::orc::ThreadSafeModule(cg.takeModule(), cg.takeContext())))

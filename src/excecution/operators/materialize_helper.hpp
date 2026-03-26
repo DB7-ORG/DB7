@@ -9,7 +9,18 @@
 struct MatHelper
 {
 
-    std::vector<llvm::Value *> collectValues(CodeGen &codegen, Context &context) const
+    std::vector<llvm::Value *> collectValues(Context &context, const std::unordered_set<std::string> &values) const
+    {
+        std::vector<llvm::Value *> collected;
+        for (auto &name : values)
+        {
+            auto val = context.get(name);
+            collected.push_back(val);
+        }
+        return collected;
+    }
+
+    std::vector<llvm::Value *> sortValues(CodeGen &codegen, Context &context) const
     {
         std::vector<llvm::Value *> fixed;
         std::vector<llvm::Value *> strings;
@@ -60,37 +71,41 @@ struct MatHelper
         return size;
     }
 
-    llvm::Value *calcHash(CodeGen &codegen, llvm::Value *joinKey) const
+    llvm::Value *calcHash(CodeGen &codegen, std::vector<llvm::Value *> &joinKeys) const
     {
         llvm::Function *crc = llvm::Intrinsic::getDeclaration(
             &codegen.getModule(),
             llvm::Intrinsic::x86_sse42_crc32_64_64);
 
-        if (joinKey->getType()->isStructTy()) // hash first 8 bytes of a string (treat as i64)
+        llvm::Value *hash = codegen.const64(0);
+        for (auto joinKey : joinKeys)
         {
-            llvm::Value *strPtr = codegen->CreateExtractValue(joinKey, {0});
+            if (joinKey->getType()->isStructTy()) // hash first 8 bytes of a string (treat as i64)
+            {
+                llvm::Value *strPtr = codegen->CreateExtractValue(joinKey, {0});
 
-            llvm::Value *typedPtr = codegen->CreateBitCast(
-                strPtr, llvm::PointerType::getUnqual(llvm::Type::getInt64Ty(codegen.getContext())));
-            llvm::Value *first8 = codegen->CreateLoad(
-                llvm::Type::getInt64Ty(codegen.getContext()), typedPtr);
+                llvm::Value *typedPtr = codegen->CreateBitCast(
+                    strPtr, llvm::PointerType::getUnqual(llvm::Type::getInt64Ty(codegen.getContext())));
+                llvm::Value *first8 = codegen->CreateLoad(
+                    llvm::Type::getInt64Ty(codegen.getContext()), typedPtr);
 
-            llvm::Value *seed = codegen.const64(0);
-            return codegen->CreateCall(crc, {seed, first8});
-        }
-        else
-        {
-            llvm::Value *asInt;
-            if (joinKey->getType()->isIntegerTy(64))
-                asInt = joinKey;
-            else if (joinKey->getType()->isIntegerTy())
-                asInt = codegen->CreateZExt(joinKey, llvm::Type::getInt64Ty(codegen.getContext()));
+                hash = codegen->CreateCall(crc, {hash, first8});
+            }
             else
-                asInt = codegen->CreateBitCast(joinKey, llvm::Type::getInt64Ty(codegen.getContext()));
+            {
+                llvm::Value *asInt;
+                if (joinKey->getType()->isIntegerTy(64))
+                    asInt = joinKey;
+                else if (joinKey->getType()->isIntegerTy())
+                    asInt = codegen->CreateZExt(joinKey, llvm::Type::getInt64Ty(codegen.getContext()));
+                else
+                    asInt = codegen->CreateBitCast(joinKey, llvm::Type::getInt64Ty(codegen.getContext()));
 
-            llvm::Value *seed = codegen.const64(0);
-            return codegen->CreateCall(crc, {seed, asInt});
+                hash = codegen->CreateCall(crc, {hash, asInt});
+            }
         }
+
+        return hash;
     }
 
     void materialize(CodeGen &codegen, std::vector<llvm::Value *> &values, llvm::Value *hash, llvm::Value *ptr) const

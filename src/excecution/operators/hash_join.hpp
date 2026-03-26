@@ -6,22 +6,20 @@
 #include "../helpers/hahs_join_proxy.hpp"
 #include "materialize_helper.hpp"
 
-#include <vector>
-
 struct HashJoin : INode
 {
     INode *left;
     INode *right;
-    std::string leftKey;
-    std::string rightKey;
+    std::unordered_set<std::string> leftKeys;
+    std::unordered_set<std::string> rightKeys;
     MatHelper helper;
 
     HashJoin(
         INode *left,
         INode *right,
-        std::string leftKey,
-        std::string rightKey)
-        : left(left), right(right), leftKey(leftKey), rightKey(rightKey), helper()
+        std::unordered_set<std::string> leftKeys,
+        std::unordered_set<std::string> rightKeys)
+        : left(left), right(right), leftKeys(std::move(leftKeys)), rightKeys(std::move(rightKeys)), helper()
     {
         left->parent = this;
         // right->parent = this;
@@ -29,12 +27,16 @@ struct HashJoin : INode
 
     void produce(CodeGen &codegen, Context &context) const
     {
-        JoinState state;
-        state.isBuild = true;
-        state.inMem = true;
-        context.setJoinState(this, state);
+        {
+            AddRequired required(context, leftKeys);
 
-        left->produce(codegen, context);
+            JoinState state;
+            state.isBuild = true;
+            state.inMem = true;
+            context.setJoinState(this, state);
+
+            left->produce(codegen, context);
+        }
     }
 
     void consume(CodeGen &codegen, Context &context) const
@@ -49,10 +51,11 @@ struct HashJoin : INode
         {
             state->isBuild = false;
 
-            auto values = helper.collectValues(codegen, context);
+            auto values = helper.sortValues(codegen, context);
 
-            llvm::Value *joinKey = context.get(leftKey);
-            llvm::Value *hash = helper.calcHash(codegen, joinKey);
+            std::vector<llvm::Value *> leftVals = helper.collectValues(context, leftKeys);
+
+            llvm::Value *hash = helper.calcHash(codegen, leftVals);
 
             llvm::Value *size = helper.calcSize(codegen, values);
 
@@ -61,8 +64,13 @@ struct HashJoin : INode
         }
         else
         {
-        }
+            std::vector<llvm::Value *> rightVals = helper.collectValues(context, rightKeys);
 
+            llvm::Value *hash = helper.calcHash(codegen, rightVals);
+            (void)hash;
+
+            // TODO probe the hash table for matches
+        }
         parent->consume(codegen, context);
     }
 };

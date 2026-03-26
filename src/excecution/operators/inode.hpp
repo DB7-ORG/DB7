@@ -5,6 +5,7 @@
 
 #include <map>
 #include <vector>
+#include <unordered_set>
 
 class CodeGen
 {
@@ -140,6 +141,31 @@ struct Context
     llvm::Value *get(const std::string &name) { return attributes.at(name); }
     void setJoinState(const void *op, JoinState val) { joinState[(void *)op] = val; }
     JoinState *getJoinState(const void *op) { return &joinState.at((void *)op); }
+};
+
+struct AddRequired
+{
+    Context &context;
+    std::unordered_set<std::string> added;
+
+    AddRequired(Context &context, std::unordered_set<std::string> columns)
+        : context(context)
+    {
+        for (auto &col : columns)
+        {
+            if (!context.attributes.contains(col))
+            {
+                added.insert(col);
+                context.add(col, nullptr);
+            }
+        }
+    }
+
+    ~AddRequired()
+    {
+        for (auto &col : added)
+            context.remove(col);
+    }
 };
 
 struct INode

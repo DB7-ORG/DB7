@@ -7,9 +7,9 @@
 struct Projection : INode
 {
     INode *next;
-    std::vector<std::string> attributes;
+    std::unordered_set<std::string> attributes;
 
-    Projection(INode *next, std::vector<std::string> attributes)
+    Projection(INode *next, std::unordered_set<std::string> attributes)
         : next(next), attributes(std::move(attributes))
     {
         next->parent = this;
@@ -17,8 +17,7 @@ struct Projection : INode
 
     void produce(CodeGen &codegen, Context &context) const
     {
-        for (auto &attr : attributes)
-            context.add(attr, nullptr);
+        AddRequired required(context, attributes);
         next->produce(codegen, context);
     }
 
