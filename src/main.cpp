@@ -1705,6 +1705,7 @@ int test_compilation()
 
     CodeGen cg;
     Context context;
+    context.jit = jit.get();
 
     Scan scan;
     Filter filter(&scan, nullptr, {"tid"});

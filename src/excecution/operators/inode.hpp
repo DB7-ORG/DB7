@@ -124,8 +124,10 @@ public:
 
 struct JoinState
 {
-    llvm::Value *hashJoinProxy;
+    llvm::Value *proxyPtr;
     std::unordered_set<std::string> keep;
+    std::vector<llvm::Value *> *valuesLeft;
+    std::vector<llvm::Value *> *valuesRight;
     bool inMem;
     bool isBuild;
 };
@@ -135,6 +137,7 @@ struct Context
     std::unordered_map<std::string, llvm::Value *> attributes;
     std::unordered_map<void *, JoinState> joinState;
     u64 *test;
+    llvm::orc::LLJIT *jit;
 
     Context() = default;
     void add(const std::string &name, llvm::Value *val) { attributes[name] = val; }
@@ -157,6 +160,31 @@ struct AddRequired
         }
     }
 };
+
+// struct AddRequired
+// {
+//     Context &context;
+//     std::unordered_set<std::string> added;
+
+//     AddRequired(Context &context, std::unordered_set<std::string> columns)
+//         : context(context)
+//     {
+//         for (auto &col : columns)
+//         {
+//             if (!context.attributes.contains(col))
+//             {
+//                 added.insert(col);
+//                 context.add(col, nullptr);
+//             }
+//         }
+//     }
+
+//     ~AddRequired()
+//     {
+//         for (auto &col : added)
+//             context.remove(col);
+//     }
+// };
 
 struct INode
 {
