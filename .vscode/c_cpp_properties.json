@@ -5,7 +5,7 @@
             "includePath": [
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/src/shared",
-                "/usr/local/include//hsql"
+                "/usr/local/include/hsql"
             ],
             "defines": [
                 "__AVX2__"
