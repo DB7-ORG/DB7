@@ -2,6 +2,7 @@
 
 #include "common.hpp"
 #include "nullbitmap.hpp"
+#include "../nodes/types.hpp"
 
 struct CompressVisitorResult
 {

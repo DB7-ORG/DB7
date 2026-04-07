@@ -12,7 +12,6 @@
 #include "nullbitmap.hpp"
 #include "storage/compression_framework/stats/number_stats.hpp"
 #include "storage/compression_framework/stats/string_stats.hpp"
-#include "storage/compression_framework/engine.hpp"
 #include "storage/compression_framework/nodes/tree_nodes.hpp"
 #include "storage/compression_framework/visitors/visitor.hpp"
 #include "slab_arena.hpp"

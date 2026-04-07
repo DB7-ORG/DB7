@@ -33,8 +33,6 @@ COMPRESSION_FASTPFOR_SRC := src/storage/compressions/fastpfor.cpp
 COMPRESSION_FREQUENCY_SRC := src/storage/compressions/frequency.cpp
 UTILS_APPEND_STR_HMAP_SRC := src/shared/append_str_hmap.cpp
 UTILS_NULLBITMAP_SRC := src/shared/nullbitmap.cpp
-FRAMEWORK_COMPRESSION_ENGINE_SRC := src/storage/compression_framework/engine.cpp
-VISITOR_ESTIMATE_SRC := src/storage/compression_framework/visitors/estimate_visitor.cpp
 
 MAIN_OBJ := $(OBJ_DIR)/main.o
 DISK_MGR_OBJ := $(OBJ_DIR)/storage/disk_manager.o
@@ -44,8 +42,6 @@ COMPRESSION_FASTPFOR_OBJ := $(OBJ_DIR)/storage/compressions/fastpfor.o
 COMPRESSION_FREQUENCY_OBJ := $(OBJ_DIR)/storage/compressions/frequency.o
 UTILS_APPEND_STR_HMAP_OBJ :=  $(OBJ_DIR)/shared/append_str_hmap.o
 UTILS_NULLBITMAP_OBJ := $(OBJ_DIR)/shared/nullbitmap.o
-FRAMEWORK_COMPRESSION_ENGINE_OBJ := $(OBJ_DIR)/storage/compression_framework/engine.o
-VISITOR_ESTIMATE_OBJ := $(OBJ_DIR)/storage/compression_framework/visitors/estimate_visitor.o
 
 # Cached .o files
 UTILS_ROARING_SRC := src/shared/roaring/roaring.c
@@ -60,8 +56,7 @@ OBJS := $(MAIN_OBJ) \
 		$(UTILS_APPEND_STR_HMAP_OBJ) \
 		$(UTILS_ROARING_OBJ) \
 		$(UTILS_NULLBITMAP_OBJ) \
-		$(FRAMEWORK_COMPRESSION_ENGINE_OBJ) \
-		$(VISITOR_ESTIMATE_OBJ)
+		$(FRAMEWORK_COMPRESSION_ENGINE_OBJ)
 		
 
 all: $(TARGET)
@@ -117,11 +112,6 @@ $(UTILS_NULLBITMAP_OBJ): $(UTILS_NULLBITMAP_SRC) | $(OBJ_DIR)
 
 # Compile 
 $(COMPRESSION_FREQUENCY_OBJ): $(COMPRESSION_FREQUENCY_SRC) | $(OBJ_DIR)
-	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-# Compile 
-$(FRAMEWORK_COMPRESSION_ENGINE_OBJ): $(FRAMEWORK_COMPRESSION_ENGINE_SRC) | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
