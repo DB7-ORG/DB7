@@ -1676,8 +1676,18 @@ void test_string_estimate()
     printf("compression:        %.3f ms\n", (t3 - t2) / 1e6);
 }
 
+#include "parser/parser.hpp"
+
+void test_parser()
+{
+    Parse();
+}
+
 int main()
 {
+
+    test_parser();
+
     // test(120'064);
     //   test_huge_dict_values();
     //   test_huge_dict();
@@ -1712,7 +1722,7 @@ int main()
 
     // test_sampling();
 
-    test_string_estimate();
+    // test_string_estimate();
 
     return 0;
 }

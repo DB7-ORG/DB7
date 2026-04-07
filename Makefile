@@ -1,7 +1,7 @@
 MAKEFLAGS += -j$(nproc)
 CXX = g++
-BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -pedantic -Iinclude -Isrc/shared -march=native 
-LDFLAGS = -lxxhash #-larrow
+BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -pedantic -Iinclude -Isrc/shared -I/usr/local/include/hsql -march=native 
+LDFLAGS = -lxxhash -lsqlparser #-larrow
 
 # For c libs
 CC = gcc
@@ -33,6 +33,7 @@ COMPRESSION_FASTPFOR_SRC := src/storage/compressions/fastpfor.cpp
 COMPRESSION_FREQUENCY_SRC := src/storage/compressions/frequency.cpp
 UTILS_APPEND_STR_HMAP_SRC := src/shared/append_str_hmap.cpp
 UTILS_NULLBITMAP_SRC := src/shared/nullbitmap.cpp
+PARSER_SRC := src/parser/parser.cpp
 
 MAIN_OBJ := $(OBJ_DIR)/main.o
 DISK_MGR_OBJ := $(OBJ_DIR)/storage/disk_manager.o
@@ -42,6 +43,7 @@ COMPRESSION_FASTPFOR_OBJ := $(OBJ_DIR)/storage/compressions/fastpfor.o
 COMPRESSION_FREQUENCY_OBJ := $(OBJ_DIR)/storage/compressions/frequency.o
 UTILS_APPEND_STR_HMAP_OBJ :=  $(OBJ_DIR)/shared/append_str_hmap.o
 UTILS_NULLBITMAP_OBJ := $(OBJ_DIR)/shared/nullbitmap.o
+PARSER_OBJ := $(OBJ_DIR)/parser/parser.o
 
 # Cached .o files
 UTILS_ROARING_SRC := src/shared/roaring/roaring.c
@@ -56,7 +58,8 @@ OBJS := $(MAIN_OBJ) \
 		$(UTILS_APPEND_STR_HMAP_OBJ) \
 		$(UTILS_ROARING_OBJ) \
 		$(UTILS_NULLBITMAP_OBJ) \
-		$(FRAMEWORK_COMPRESSION_ENGINE_OBJ)
+		$(FRAMEWORK_COMPRESSION_ENGINE_OBJ) \
+		$(PARSER_SRC)
 		
 
 all: $(TARGET)
@@ -117,6 +120,11 @@ $(COMPRESSION_FREQUENCY_OBJ): $(COMPRESSION_FREQUENCY_SRC) | $(OBJ_DIR)
 
 # Compile 
 $(VISITOR_ESTIMATE_OBJ): $(VISITOR_ESTIMATE_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile 
+$(PARSER_OBJ): $(PARSER_SRC) | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
