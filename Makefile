@@ -1,6 +1,6 @@
 MAKEFLAGS += -j$(nproc)
 CXX = g++
-BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -pedantic -Iinclude -Isrc/shared -march=native 
+BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -pedantic -Iinclude -Isrc/shared -Isrc -march=native 
 LDFLAGS = -lxxhash /usr/local/lib/libpg_query.a -lstdc++ -lm
 
 # For c libs
@@ -39,6 +39,10 @@ PARSER_ABSTRACT_EXPRESSION_SRC := src/parser/expressions/abstract_expression.cpp
 UTILS_STRONG_TYPEDEF_SRC := src/shared/strong_typedef.cpp
 PARSER_AGGREGATE_EXPRESSION_SRC := src/parser/expressions/aggregate_expression.cpp
 PARSER_CASE_EXPRESSION_SRC := src/parser/expressions/case_expression.cpp
+PARSER_COLUMN_VALUE_EXPRESSION_SRC := src/parser/expressions/column_value_expression.cpp
+PARSER_COMPARISON_EXPRESSION_SRC := src/parser/expressions/comparison_expression.cpp
+PARSER_CONJUCTION_EXPRESSION_SRC := src/parser/expressions/conjuction_expression.cpp
+CATALOG_DEFS_SRC := src/catalog/catalog_defs.cpp
 
 MAIN_OBJ := $(OBJ_DIR)/main.o
 DISK_MGR_OBJ := $(OBJ_DIR)/storage/disk_manager.o
@@ -54,6 +58,10 @@ PARSER_ABSTRACT_EXPRESSION_OBJ := $(OBJ_DIR)/parser/expressions/abstract_express
 UTILS_STRONG_TYPEDEF_OBJ := $(OBJ_DIR)/shared/strong_typedef.o
 PARSER_AGGREGATE_EXPRESSION_OBJ := $(OBJ_DIR)/parser/expressions/aggregate_expression.o
 PARSER_CASE_EXPRESSION_OBJ := $(OBJ_DIR)/parser/expressions/case_expression.o
+PARSER_COLUMN_VALUE_EXPRESSION_OBJ := $(OBJ_DIR)/parser/expressions/column_value_expression.o
+PARSER_COMPARISON_EXPRESSION_OBJ := $(OBJ_DIR)/parser/expressions/comparison_expression.o
+PARSER_CONJUCTION_EXPRESSION_OBJ := $(OBJ_DIR)/parser/expressions/conjuction_expression.o
+CATALOG_DEFS_OBJ := $(OBJ_DIR)/catalog/catalog_defs.o
 
 # Cached .o files
 UTILS_ROARING_SRC := src/shared/roaring/roaring.c
@@ -73,7 +81,11 @@ OBJS := $(MAIN_OBJ) \
 		$(PARSER_ABSTRACT_EXPRESSION_OBJ) \
 		$(UTILS_STRONG_TYPEDEF_OBJ) \
 		$(PARSER_AGGREGATE_EXPRESSION_OBJ) \
-		$(PARSER_CASE_EXPRESSION_OBJ)
+		$(PARSER_CASE_EXPRESSION_OBJ) \
+		$(PARSER_COLUMN_VALUE_EXPRESSION_OBJ) \
+		$(PARSER_COMPARISON_EXPRESSION_OBJ) \
+		$(PARSER_CONJUCTION_EXPRESSION_OBJ) \
+		$(CATALOG_DEFS_OBJ)
 		
 
 all: $(TARGET)
@@ -159,6 +171,26 @@ $(PARSER_AGGREGATE_EXPRESSION_OBJ): $(PARSER_AGGREGATE_EXPRESSION_SRC) | $(OBJ_D
 	
 # Compile 
 $(PARSER_CASE_EXPRESSION_OBJ): $(PARSER_CASE_EXPRESSION_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile 
+$(PARSER_COLUMN_VALUE_EXPRESSION_OBJ): $(PARSER_COLUMN_VALUE_EXPRESSION_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile 
+$(PARSER_COMPARISON_EXPRESSION_OBJ): $(PARSER_COMPARISON_EXPRESSION_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile 
+$(PARSER_CONJUCTION_EXPRESSION_OBJ): $(PARSER_CONJUCTION_EXPRESSION_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile 
+$(CATALOG_DEFS_OBJ): $(CATALOG_DEFS_SRC) | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 

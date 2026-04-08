@@ -8,49 +8,62 @@
 
 namespace noisepage::common
 {
+
     /*
-     * A strong typedef is like a typedef, except the compiler will enforce explicit
-     * conversion for you.
-     *
-     * Usually, typedefs (or equivalent 'using' statement) are transparent to the
-     * compiler. If you declare A and B to both be int, they are interchangeable.
-     * This is not exactly ideal because then it becomes easy for you to do something
-     * like this:
-     *
-     * // some definition
-     * A foo(A a, B b);
-     *
-     * // invocation
-     * (a = 42, b = 10)
-     * foo(10, 42); // oops
-     *
-     * ... and the compiler will happily compile and run that code with no warning.
-     *
-     * With a strong typedef, you are required to explicitly convert these types,
-     * turning our example into:
-     *
-     * A a(42);
-     * B b(10);
-     * foo(a, b);
-     *
-     * Now foo(b, a) would be a type mismatch.
-     *
-     * To extract the primitive integral type that backs the strong typedef out
-     * of an instance, use the StrongTypeAlias::UnderlyingValue() member. For example:
-     *
-     * using A = StrongTypeAlias<struct SomeTag, int>
-     *
-     * A a(42)
-     * assert(a.UnderlyingValue() == 42)
-     *
-     * This mechanism works with all integral types (as defined by std::is_integral).
-     *
-     * In order to use this macro, you need to use STRONG_TYPEDEF_HEADER in the .h file, then
-     * include common/strong_typedef_body.h in the corresponding .cpp file and use
-     * STRONG_TYPEDEF_BODY with the same arguements. Finally, you need to add an explicit instantation
-     * of the template in common/strong_typedef.cpp.
-     *
+     * Using this macro also requires, using the matching macro STRONG_TYPEDEF_HEADER from strong_typedef.h.
      */
+
+#define STRONG_TYPEDEF_BODY(name, underlying_type)                                                \
+    using name = ::noisepage::common::StrongTypeAlias<tags::name##_typedef_tag, underlying_type>; \
+    namespace tags                                                                                \
+    {                                                                                             \
+        void to_json(nlohmann::json &j, const name &c) { j = c.ToJson(); }  /* NOLINT */          \
+        void from_json(const nlohmann::json &j, name &c) { c.FromJson(j); } /* NOLINT */          \
+    }
+
+/*
+ * A strong typedef is like a typedef, except the compiler will enforce explicit
+ * conversion for you.
+ *
+ * Usually, typedefs (or equivalent 'using' statement) are transparent to the
+ * compiler. If you declare A and B to both be int, they are interchangeable.
+ * This is not exactly ideal because then it becomes easy for you to do something
+ * like this:
+ *
+ * // some definition
+ * A foo(A a, B b);
+ *
+ * // invocation
+ * (a = 42, b = 10)
+ * foo(10, 42); // oops
+ *
+ * ... and the compiler will happily compile and run that code with no warning.
+ *
+ * With a strong typedef, you are required to explicitly convert these types,
+ * turning our example into:
+ *
+ * A a(42);
+ * B b(10);
+ * foo(a, b);
+ *
+ * Now foo(b, a) would be a type mismatch.
+ *
+ * To extract the primitive integral type that backs the strong typedef out
+ * of an instance, use the StrongTypeAlias::UnderlyingValue() member. For example:
+ *
+ * using A = StrongTypeAlias<struct SomeTag, int>
+ *
+ * A a(42)
+ * assert(a.UnderlyingValue() == 42)
+ *
+ * This mechanism works with all integral types (as defined by std::is_integral).
+ *
+ * In order to use this macro, you need to use STRONG_TYPEDEF_HEADER in the .h file, then
+ * include common/strong_typedef_body.h in the corresponding .cpp file and use
+ * STRONG_TYPEDEF_BODY with the same arguements. Finally, you need to add an explicit instantation
+ * of the template in common/strong_typedef.cpp.
+ *
+ */
 #define STRONG_TYPEDEF_HEADER(name, underlying_type)                                              \
     namespace tags                                                                                \
     {                                                                                             \
@@ -239,4 +252,17 @@ namespace noisepage::common
          */
         void FromJson(const nlohmann::json &j);
     };
+
+    template <class Tag, typename IntType>
+    nlohmann::json StrongTypeAlias<Tag, IntType>::ToJson() const
+    {
+        nlohmann::json j = val_;
+        return j;
+    }
+
+    template <class Tag, typename IntType>
+    void StrongTypeAlias<Tag, IntType>::FromJson(const nlohmann::json &j)
+    {
+        val_ = j.get<IntType>();
+    }
 }
