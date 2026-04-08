@@ -2,20 +2,14 @@
 
 u32 Parse()
 {
-    std::string query = "SELECT * FROM customers";
 
-    hsql::SQLParserResult result;
-    hsql::SQLParser::parse(query, &result);
+    PgQueryParseResult result;
 
-    if (result.isValid())
-    {
-        printf("Parsed successfully!\n");
-        printf("Number of statements: %lu\n", result.size());
-    }
-    else
-    {
-        printf("The SQL string is invalid!\n");
-        return -1;
-    }
+    result = pg_query_parse("SELECT * FROM customers");
+
+    printf("%s\n", result.parse_tree);
+
+    pg_query_free_parse_result(result);
+
     return 0;
 }

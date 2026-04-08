@@ -1,6 +1,6 @@
 #pragma once
 
-#include "SQLParser.h"
+#include <pg_query.h>
 #include "common.hpp"
 
 u32 Parse();

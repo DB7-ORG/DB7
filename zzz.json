@@ -1,0 +1,40 @@
+{
+    "version": 170007,
+    "stmts": [
+        {
+            "stmt": {
+                "SelectStmt": {
+                    "targetList": [
+                        {
+                            "ResTarget": {
+                                "val": {
+                                    "ColumnRef": {
+                                        "fields": [
+                                            {
+                                                "A_Star": {}
+                                            }
+                                        ],
+                                        "location": 7
+                                    }
+                                },
+                                "location": 7
+                            }
+                        }
+                    ],
+                    "fromClause": [
+                        {
+                            "RangeVar": {
+                                "relname": "customers",
+                                "inh": true,
+                                "relpersistence": "p",
+                                "location": 14
+                            }
+                        }
+                    ],
+                    "limitOption": "LIMIT_OPTION_DEFAULT",
+                    "op": "SETOP_NONE"
+                }
+            }
+        }
+    ]
+}

@@ -1,7 +1,7 @@
 MAKEFLAGS += -j$(nproc)
 CXX = g++
-BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -pedantic -Iinclude -Isrc/shared -I/usr/local/include/hsql -march=native 
-LDFLAGS = -lxxhash -lsqlparser #-larrow
+BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -pedantic -Iinclude -Isrc/shared -march=native 
+LDFLAGS = -lxxhash /usr/local/lib/libpg_query.a -lstdc++ -lm
 
 # For c libs
 CC = gcc
@@ -34,6 +34,11 @@ COMPRESSION_FREQUENCY_SRC := src/storage/compressions/frequency.cpp
 UTILS_APPEND_STR_HMAP_SRC := src/shared/append_str_hmap.cpp
 UTILS_NULLBITMAP_SRC := src/shared/nullbitmap.cpp
 PARSER_SRC := src/parser/parser.cpp
+PARSER_EXPRESSION_DEFS_SRC := src/parser/expression_defs.cpp
+PARSER_ABSTRACT_EXPRESSION_SRC := src/parser/expressions/abstract_expression.cpp
+UTILS_STRONG_TYPEDEF_SRC := src/shared/strong_typedef.cpp
+PARSER_AGGREGATE_EXPRESSION_SRC := src/parser/expressions/aggregate_expression.cpp
+PARSER_CASE_EXPRESSION_SRC := src/parser/expressions/case_expression.cpp
 
 MAIN_OBJ := $(OBJ_DIR)/main.o
 DISK_MGR_OBJ := $(OBJ_DIR)/storage/disk_manager.o
@@ -44,6 +49,11 @@ COMPRESSION_FREQUENCY_OBJ := $(OBJ_DIR)/storage/compressions/frequency.o
 UTILS_APPEND_STR_HMAP_OBJ :=  $(OBJ_DIR)/shared/append_str_hmap.o
 UTILS_NULLBITMAP_OBJ := $(OBJ_DIR)/shared/nullbitmap.o
 PARSER_OBJ := $(OBJ_DIR)/parser/parser.o
+PARSER_EXPRESSION_DEFS_OBJ := $(OBJ_DIR)/parser/expression_defs.o
+PARSER_ABSTRACT_EXPRESSION_OBJ := $(OBJ_DIR)/parser/expressions/abstract_expression.o
+UTILS_STRONG_TYPEDEF_OBJ := $(OBJ_DIR)/shared/strong_typedef.o
+PARSER_AGGREGATE_EXPRESSION_OBJ := $(OBJ_DIR)/parser/expressions/aggregate_expression.o
+PARSER_CASE_EXPRESSION_OBJ := $(OBJ_DIR)/parser/expressions/case_expression.o
 
 # Cached .o files
 UTILS_ROARING_SRC := src/shared/roaring/roaring.c
@@ -58,8 +68,12 @@ OBJS := $(MAIN_OBJ) \
 		$(UTILS_APPEND_STR_HMAP_OBJ) \
 		$(UTILS_ROARING_OBJ) \
 		$(UTILS_NULLBITMAP_OBJ) \
-		$(FRAMEWORK_COMPRESSION_ENGINE_OBJ) \
-		$(PARSER_SRC)
+		$(PARSER_OBJ) \
+		$(PARSER_EXPRESSION_DEFS_OBJ) \
+		$(PARSER_ABSTRACT_EXPRESSION_OBJ) \
+		$(UTILS_STRONG_TYPEDEF_OBJ) \
+		$(PARSER_AGGREGATE_EXPRESSION_OBJ) \
+		$(PARSER_CASE_EXPRESSION_OBJ)
 		
 
 all: $(TARGET)
@@ -119,12 +133,32 @@ $(COMPRESSION_FREQUENCY_OBJ): $(COMPRESSION_FREQUENCY_SRC) | $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Compile 
-$(VISITOR_ESTIMATE_OBJ): $(VISITOR_ESTIMATE_SRC) | $(OBJ_DIR)
+$(PARSER_OBJ): $(PARSER_SRC) | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Compile 
-$(PARSER_OBJ): $(PARSER_SRC) | $(OBJ_DIR)
+$(PARSER_EXPRESSION_DEFS_OBJ): $(PARSER_EXPRESSION_DEFS_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile 
+$(PARSER_ABSTRACT_EXPRESSION_OBJ): $(PARSER_ABSTRACT_EXPRESSION_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile 
+$(UTILS_STRONG_TYPEDEF_OBJ): $(UTILS_STRONG_TYPEDEF_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+	
+# Compile 
+$(PARSER_AGGREGATE_EXPRESSION_OBJ): $(PARSER_AGGREGATE_EXPRESSION_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+	
+# Compile 
+$(PARSER_CASE_EXPRESSION_OBJ): $(PARSER_CASE_EXPRESSION_SRC) | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
