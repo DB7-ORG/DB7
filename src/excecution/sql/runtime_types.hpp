@@ -494,4 +494,9 @@ namespace noisepage::execution::sql
         // Timestamp value -- the native type denotes the microseconds with respect to Julian time
         NativeType value_;
     };
+
+    /** Converts the provided date into a timestamp. */
+    inline Timestamp Date::ConvertToTimestamp() const { return Timestamp(value_ * K_MICRO_SECONDS_PER_DAY); }
+    /** Converts the provided timestamp into a date. */
+    inline Date Timestamp::ConvertToDate() const { return Date(value_ / K_MICRO_SECONDS_PER_DAY); }
 }

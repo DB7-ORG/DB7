@@ -51,6 +51,7 @@ namespace noisepage::parser
             std::vector<std::unique_ptr<AbstractExpression>> &&children) const override
         {
             assert(children.empty() && "DerivedValueExpression should have no children");
+            (void)children;
             return Copy();
         }
 

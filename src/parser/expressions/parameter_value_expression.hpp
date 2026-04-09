@@ -56,6 +56,7 @@ namespace noisepage::parser
             std::vector<std::unique_ptr<AbstractExpression>> &&children) const override
         {
             assert(children.empty() && "ParameterValueExpression should have 0 children");
+            (void)children;
             return Copy();
         }
 

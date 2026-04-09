@@ -46,7 +46,7 @@ namespace noisepage::execution::sql
         bool IsLeapYear(int32_t year) { return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0); }
 
         // Does the provided date fall into the Julian date range?
-        bool IsValidJulianDate(int32_t y, int32_t m, int32_t d)
+        bool IsValidJulianDate(int32_t y, int32_t m, int32_t)
         {
             return (y > K_JULIAN_MIN_YEAR || (y == K_JULIAN_MIN_YEAR && m >= K_JULIAN_MIN_MONTH)) &&
                    (y < K_JULIAN_MAX_YEAR || (y == K_JULIAN_MAX_YEAR && m < K_JULIAN_MAX_MONTH));
