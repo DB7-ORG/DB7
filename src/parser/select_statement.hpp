@@ -24,7 +24,10 @@ namespace noisepage::parser
      */
     class OrderByDescription
     {
-        // TODO(WAN): hold multiple expressions to be sorted by
+
+    private:
+        std::vector<OrderType> types_;
+        std::vector<common::ManagedPointer<AbstractExpression>> exprs_;
 
     public:
         /**
@@ -130,10 +133,6 @@ namespace noisepage::parser
          * @param j json to deserialize
          */
         std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j);
-
-    private:
-        std::vector<OrderType> types_;
-        std::vector<common::ManagedPointer<AbstractExpression>> exprs_;
     };
 
     DEFINE_JSON_HEADER_DECLARATIONS(OrderByDescription);
@@ -143,6 +142,11 @@ namespace noisepage::parser
      */
     class LimitDescription
     {
+
+    private:
+        int64_t limit_;
+        int64_t offset_;
+
     public:
         /**
          * Denotes that there is no limit.
@@ -224,10 +228,6 @@ namespace noisepage::parser
          * @param j json to deserialize
          */
         std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j);
-
-    private:
-        int64_t limit_;
-        int64_t offset_;
     };
 
     DEFINE_JSON_HEADER_DECLARATIONS(LimitDescription);
@@ -237,6 +237,10 @@ namespace noisepage::parser
      */
     class GroupByDescription
     {
+    private:
+        std::vector<common::ManagedPointer<AbstractExpression>> columns_;
+        common::ManagedPointer<AbstractExpression> having_;
+
     public:
         /**
          * @param columns group by columns
@@ -331,10 +335,6 @@ namespace noisepage::parser
          * @param j json to deserialize
          */
         std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j);
-
-    private:
-        std::vector<common::ManagedPointer<AbstractExpression>> columns_;
-        common::ManagedPointer<AbstractExpression> having_;
     };
 
     DEFINE_JSON_HEADER_DECLARATIONS(GroupByDescription);

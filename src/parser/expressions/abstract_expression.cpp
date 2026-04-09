@@ -6,6 +6,15 @@
 #include "comparison_expression.hpp"
 #include "conjuction_expression.hpp"
 #include "constant_value_expression.hpp"
+#include "default_value_expression.hpp"
+#include "derived_value_expression.hpp"
+#include "function_expression.hpp"
+#include "operator_expression.hpp"
+#include "parameter_value_expression.hpp"
+#include "star_expression.hpp"
+#include "subquery_expression.hpp"
+#include "table_star_expression.hpp"
+#include "type_cast_expression.hpp"
 
 namespace noisepage::parser
 {
@@ -202,12 +211,12 @@ namespace noisepage::parser
 
         case ExpressionType ::VALUE_DEFAULT:
         {
-            // expr = std::make_unique<DefaultValueExpression>();
+            expr = std::make_unique<DefaultValueExpression>();
             break;
         }
         case ExpressionType::FUNCTION:
         {
-            // expr = std::make_unique<FunctionExpression>();
+            expr = std::make_unique<FunctionExpression>();
             break;
         }
 
@@ -223,49 +232,49 @@ namespace noisepage::parser
         case ExpressionType::OPERATOR_IS_NOT_NULL:
         case ExpressionType::OPERATOR_EXISTS:
         {
-            // expr = std::make_unique<OperatorExpression>();
+            expr = std::make_unique<OperatorExpression>();
             break;
         }
 
         case ExpressionType::VALUE_PARAMETER:
         {
-            // expr = std::make_unique<ParameterValueExpression>();
+            expr = std::make_unique<ParameterValueExpression>();
             break;
         }
 
         case ExpressionType::STAR:
         {
-            // expr = std::make_unique<StarExpression>();
+            expr = std::make_unique<StarExpression>();
             break;
         }
 
         case ExpressionType::TABLE_STAR:
         {
-            // expr = std::make_unique<TableStarExpression>();
+            expr = std::make_unique<TableStarExpression>();
             break;
         }
 
         case ExpressionType::ROW_SUBQUERY:
         {
-            // expr = std::make_unique<SubqueryExpression>();
+            expr = std::make_unique<SubqueryExpression>();
             break;
         }
 
         case ExpressionType::VALUE_TUPLE:
         {
-            // expr = std::make_unique<DerivedValueExpression>();
+            expr = std::make_unique<DerivedValueExpression>();
             break;
         }
 
         case ExpressionType::COLUMN_VALUE:
         {
-            // expr = std::make_unique<ColumnValueExpression>();
+            expr = std::make_unique<ColumnValueExpression>();
             break;
         }
 
         case ExpressionType::OPERATOR_CAST:
         {
-            // expr = std::make_unique<TypeCastExpression>();
+            expr = std::make_unique<TypeCastExpression>();
             break;
         }
 

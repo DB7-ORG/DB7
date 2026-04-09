@@ -1676,11 +1676,11 @@ void test_string_estimate()
     printf("compression:        %.3f ms\n", (t3 - t2) / 1e6);
 }
 
-#include "parser/parser.hpp"
+#include "parser/postgres_parser.hpp"
 
 void test_parser()
 {
-    Parse();
+    noisepage::parser::PostgresParser::BuildParseTree("SELECT * FROM customer");
 }
 
 int main()

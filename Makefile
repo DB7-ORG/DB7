@@ -2,7 +2,7 @@ MAKEFLAGS += -j$(nproc)
 CXX = g++
 CC = gcc
 BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -Iinclude -Isrc/shared -Isrc -march=native
-LDFLAGS = -lxxhash /usr/local/lib/libpg_query.a -lstdc++ -lm -lfmt
+LDFLAGS = -lxxhash src/third_party/libpg_query/libpg_query.a -lstdc++ -lm -lfmt
 
 BUILD ?= release
 
@@ -20,11 +20,11 @@ CACHE_OBJ_DIR := cache
 TARGET := $(BIN_DIR)/app
 
 # Auto-discover all .cpp files under src/
-CXX_SRCS := $(shell find src -name '*.cpp')
+CXX_SRCS := $(shell find src -name '*.cpp'  -not -path '*/third_party/*')
 CXX_OBJS := $(patsubst src/%.cpp,$(OBJ_DIR)/%.o,$(CXX_SRCS))
 
 # Auto-discover all .c files under src/ (e.g. roaring)
-C_SRCS := $(shell find src -name '*.c')
+C_SRCS := $(shell find src -name '*.c'  -not -path '*/third_party/*')
 C_OBJS := $(patsubst src/%.c,$(CACHE_OBJ_DIR)/%.o,$(C_SRCS))
 
 # Files that need special flags (add more as needed)
