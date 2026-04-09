@@ -22,7 +22,7 @@ namespace noisepage::parser
          * @param children vector containing exactly two children, left then right
          */
         ComparisonExpression(const ExpressionType cmp_type, std::vector<std::unique_ptr<AbstractExpression>> &&children)
-            : AbstractExpression(cmp_type, SqlTypeId::Boolean, std::move(children)) {}
+            : AbstractExpression(cmp_type, execution::sql::SqlTypeId::Boolean, std::move(children)) {}
 
         /** Default constructor for deserialization. */
         ComparisonExpression() = default;

@@ -5,7 +5,7 @@ u32 Parse()
 
     PgQueryParseResult result;
 
-    result = pg_query_parse("SELECT * FROM customers");
+    result = pg_query_parse("SELECT * FROM customers WHERE id = 14");
 
     printf("%s\n", result.parse_tree);
 

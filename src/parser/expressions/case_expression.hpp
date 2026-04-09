@@ -69,7 +69,7 @@ namespace noisepage::parser
          * @param when_clauses list of WhenClauses
          * @param default_expr default expression for this case
          */
-        CaseExpression(const SqlTypeId return_value_type, std::vector<WhenClause> &&when_clauses,
+        CaseExpression(const execution::sql::SqlTypeId return_value_type, std::vector<WhenClause> &&when_clauses,
                        std::unique_ptr<AbstractExpression> default_expr)
             : AbstractExpression(ExpressionType::OPERATOR_CASE_EXPR, return_value_type, {}),
               when_clauses_(std::move(when_clauses)),
@@ -107,6 +107,7 @@ namespace noisepage::parser
             std::vector<std::unique_ptr<AbstractExpression>> &&children) const override
         {
             assert(children.empty() && "CaseExpression should have no children");
+            (void)children;
             return Copy();
         }
 

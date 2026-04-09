@@ -1,8 +1,8 @@
 MAKEFLAGS += -j$(nproc)
 CXX = g++
-BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -pedantic -Iinclude -Isrc/shared -Isrc -march=native 
-LDFLAGS = -lxxhash /usr/local/lib/libpg_query.a -lstdc++ -lm
-
+BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -Iinclude -Isrc/shared -Isrc -march=native 
+LDFLAGS = -lxxhash /usr/local/lib/libpg_query.a -lstdc++ -lm -lfmt
+ 
 # For c libs
 CC = gcc
 
@@ -43,6 +43,9 @@ PARSER_COLUMN_VALUE_EXPRESSION_SRC := src/parser/expressions/column_value_expres
 PARSER_COMPARISON_EXPRESSION_SRC := src/parser/expressions/comparison_expression.cpp
 PARSER_CONJUCTION_EXPRESSION_SRC := src/parser/expressions/conjuction_expression.cpp
 CATALOG_DEFS_SRC := src/catalog/catalog_defs.cpp
+PARSER_CONSTANT_EXPRESSION_SRC := src/parser/expressions/constant_expression.cpp
+EXCECUTION_SQL_VALUE_UTIL_SRC := src/excecution/sql/value_util.cpp
+EXCECUTION_SQL_RUNTIME_TYPES_SRC := src/excecution/sql/runtime_types.cpp
 
 MAIN_OBJ := $(OBJ_DIR)/main.o
 DISK_MGR_OBJ := $(OBJ_DIR)/storage/disk_manager.o
@@ -62,6 +65,9 @@ PARSER_COLUMN_VALUE_EXPRESSION_OBJ := $(OBJ_DIR)/parser/expressions/column_value
 PARSER_COMPARISON_EXPRESSION_OBJ := $(OBJ_DIR)/parser/expressions/comparison_expression.o
 PARSER_CONJUCTION_EXPRESSION_OBJ := $(OBJ_DIR)/parser/expressions/conjuction_expression.o
 CATALOG_DEFS_OBJ := $(OBJ_DIR)/catalog/catalog_defs.o
+PARSER_CONSTANT_EXPRESSION_OBJ := $(OBJ_DIR)/parser/expressions/constant_value_expression.o
+EXCECUTION_SQL_VALUE_UTIL_OBJ := $(OBJ_DIR)/excecution/sql/value_util.o
+EXCECUTION_SQL_RUNTIME_TYPES_OBJ := $(OBJ_DIR)/excecution/sql/runtime_types.o
 
 # Cached .o files
 UTILS_ROARING_SRC := src/shared/roaring/roaring.c
@@ -85,7 +91,10 @@ OBJS := $(MAIN_OBJ) \
 		$(PARSER_COLUMN_VALUE_EXPRESSION_OBJ) \
 		$(PARSER_COMPARISON_EXPRESSION_OBJ) \
 		$(PARSER_CONJUCTION_EXPRESSION_OBJ) \
-		$(CATALOG_DEFS_OBJ)
+		$(CATALOG_DEFS_OBJ) \
+		$(PARSER_CONSTANT_EXPRESSION_OBJ) \
+		$(EXCECUTION_SQL_VALUE_UTIL_OBJ) \
+		$(EXCECUTION_SQL_RUNTIME_TYPES_OBJ)
 		
 
 all: $(TARGET)
@@ -191,6 +200,21 @@ $(PARSER_CONJUCTION_EXPRESSION_OBJ): $(PARSER_CONJUCTION_EXPRESSION_SRC) | $(OBJ
 
 # Compile 
 $(CATALOG_DEFS_OBJ): $(CATALOG_DEFS_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile 
+$(PARSER_CONSTANT_EXPRESSION_OBJ): $(PARSER_CONSTANT_EXPRESSION_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile 
+$(EXCECUTION_SQL_VALUE_UTIL_OBJ): $(EXCECUTION_SQL_VALUE_UTIL_SRC) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile 
+$(EXCECUTION_SQL_RUNTIME_TYPES_OBJ): $(EXCECUTION_SQL_RUNTIME_TYPES_SRC) | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 

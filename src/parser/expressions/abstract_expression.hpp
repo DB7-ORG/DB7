@@ -5,7 +5,10 @@
 #include "../expression_defs.hpp"
 #include "json.hpp"
 #include "json_util.hpp"
+#include "excecution/sql/sql.hpp"
+
 #include <vector>
+#include <memory>
 
 namespace noisepage::parser
 {
@@ -136,24 +139,6 @@ namespace noisepage::parser
         void FromJson(const nlohmann::json &j);
     };
 
-    enum class SqlTypeId : i8
-    {
-        Invalid = -1,
-        Boolean,
-        TinyInt,   // 1-byte integer
-        SmallInt,  // 2-byte integer
-        Integer,   // 4-byte integer
-        BigInt,    // 8-byte integer
-        Real,      // 4-byte float //TODO(Matt): front-end doesn't support this, just changes REAL to DOUBLE
-        Double,    // 8-byte float
-        Decimal,   // Arbitrary-precision numeric //TODO(Matt): back-end doesn't support this. See #1434
-        Date,      // Dates
-        Timestamp, // Timestamps
-        Char,      // Fixed-length string //TODO(Matt): front-end doesn't support this
-        Varchar,   // Variable-length string
-        Varbinary  // TODO(Matt): front-end doesn't support this. See #788
-    };
-
     class AbstractExpression
     {
         // friend class optimizer::OptimizerUtil;
@@ -168,7 +153,7 @@ namespace noisepage::parser
         AliasType alias_;
         /** Type of the return value */
 
-        SqlTypeId return_value_type_;
+        execution::sql::SqlTypeId return_value_type_;
 
         /**
          * MUTABLE Sub-query depth level for the current expression.
@@ -203,7 +188,7 @@ namespace noisepage::parser
          */
         void SetChild(int index, common::ManagedPointer<AbstractExpression> expr);
 
-        AbstractExpression(const ExpressionType expression_type, const SqlTypeId return_value_type,
+        AbstractExpression(const ExpressionType expression_type, const execution::sql::SqlTypeId return_value_type,
                            std::vector<std::unique_ptr<AbstractExpression>> &&children)
             : expression_type_(expression_type), return_value_type_(return_value_type), children_(std::move(children)) {}
 
@@ -214,7 +199,7 @@ namespace noisepage::parser
          * @param alias alias of the column (used in column value expression)
          * @param children the list of children for this node
          */
-        AbstractExpression(const ExpressionType expression_type, const SqlTypeId return_value_type,
+        AbstractExpression(const ExpressionType expression_type, const execution::sql::SqlTypeId return_value_type,
                            AliasType alias, std::vector<std::unique_ptr<AbstractExpression>> &&children)
             : expression_type_(expression_type),
               alias_(std::move(alias)),
@@ -246,7 +231,7 @@ namespace noisepage::parser
         /**
          * @param return_value_type Set the return value type of the current expression
          */
-        void SetReturnValueType(SqlTypeId return_value_type) { return_value_type_ = return_value_type; }
+        void SetReturnValueType(execution::sql::SqlTypeId return_value_type) { return_value_type_ = return_value_type; }
 
         /**
          * @param depth Set the depth of the current expression
@@ -300,7 +285,7 @@ namespace noisepage::parser
          * @param children New children to be owned by the copy
          */
         virtual std::unique_ptr<AbstractExpression> CopyWithChildren(
-            std::vector<std::unique_ptr<AbstractExpression>> &&children) const = 0;
+            std::vector<std::unique_ptr<AbstractExpression>> &&) const = 0;
 
         /**
          * @return type of this expression
@@ -310,7 +295,7 @@ namespace noisepage::parser
         /**
          * @return type of the return value
          */
-        SqlTypeId GetReturnValueType() const { return return_value_type_; }
+        execution::sql::SqlTypeId GetReturnValueType() const { return return_value_type_; }
 
         /**
          * @return number of children in this abstract expression

@@ -38,7 +38,7 @@ namespace noisepage::parser
          * @param alias alias of the expression
          */
         ColumnValueExpression(AliasType table_alias, std::string col_name, AliasType alias)
-            : AbstractExpression(ExpressionType::COLUMN_VALUE, SqlTypeId::Invalid, std::move(alias), {}),
+            : AbstractExpression(ExpressionType::COLUMN_VALUE, execution::sql::SqlTypeId::Invalid, std::move(alias), {}),
               table_alias_(std::move(table_alias)),
               column_name_(std::move(col_name)) {}
 
@@ -47,7 +47,7 @@ namespace noisepage::parser
          * @param col_name column name
          */
         ColumnValueExpression(AliasType table_alias, std::string col_name)
-            : AbstractExpression(ExpressionType::COLUMN_VALUE, SqlTypeId::Invalid, {}),
+            : AbstractExpression(ExpressionType::COLUMN_VALUE, execution::sql::SqlTypeId::Invalid, {}),
               table_alias_(std::move(table_alias)),
               column_name_(std::move(col_name)) {}
 
@@ -57,7 +57,7 @@ namespace noisepage::parser
          * @param column_oid column OID
          */
         ColumnValueExpression(catalog::db_oid_t database_oid, catalog::table_oid_t table_oid, catalog::col_oid_t column_oid)
-            : AbstractExpression(ExpressionType::COLUMN_VALUE, SqlTypeId::Invalid, {}),
+            : AbstractExpression(ExpressionType::COLUMN_VALUE, execution::sql::SqlTypeId::Invalid, {}),
               database_oid_(database_oid),
               table_oid_(table_oid),
               column_oid_(column_oid) {}
@@ -67,7 +67,7 @@ namespace noisepage::parser
          * @param column_oid OID of the column.
          * @param type Type of the column.
          */
-        ColumnValueExpression(catalog::table_oid_t table_oid, catalog::col_oid_t column_oid, SqlTypeId type)
+        ColumnValueExpression(catalog::table_oid_t table_oid, catalog::col_oid_t column_oid, execution::sql::SqlTypeId type)
             : AbstractExpression(ExpressionType::COLUMN_VALUE, type, {}), table_oid_(table_oid), column_oid_(column_oid) {}
 
         /**
@@ -79,7 +79,7 @@ namespace noisepage::parser
          * @param alias Alias of the column this is referencing
          * @param column_oid Oid of the column (it should be a temp oid in this case)
          */
-        ColumnValueExpression(std::string table_name, std::string col_name, SqlTypeId type, AliasType alias,
+        ColumnValueExpression(std::string table_name, std::string col_name, execution::sql::SqlTypeId type, AliasType alias,
                               catalog::col_oid_t column_oid)
             : AbstractExpression(ExpressionType::COLUMN_VALUE, type, std::move(alias), {}),
               table_alias_(std::move(table_name)),
@@ -95,7 +95,7 @@ namespace noisepage::parser
          * @param alias Alias of the column this is referencing
          * @param column_oid Oid of the column (it should be a temp oid in this case)
          */
-        ColumnValueExpression(AliasType table_alias, std::string col_name, SqlTypeId type, AliasType alias,
+        ColumnValueExpression(AliasType table_alias, std::string col_name, execution::sql::SqlTypeId type, AliasType alias,
                               catalog::col_oid_t column_oid)
             : AbstractExpression(ExpressionType::COLUMN_VALUE, type, std::move(alias), {}),
               table_alias_(std::move(table_alias)),
@@ -111,7 +111,7 @@ namespace noisepage::parser
          * @param type Type of the column.
          */
         ColumnValueExpression(AliasType table_alias, std::string col_name, catalog::db_oid_t database_oid,
-                              catalog::table_oid_t table_oid, catalog::col_oid_t column_oid, SqlTypeId type)
+                              catalog::table_oid_t table_oid, catalog::col_oid_t column_oid, execution::sql::SqlTypeId type)
             : AbstractExpression(ExpressionType::COLUMN_VALUE, type, {}),
               table_alias_(std::move(table_alias)),
               column_name_(std::move(col_name)),
@@ -168,6 +168,7 @@ namespace noisepage::parser
             std::vector<std::unique_ptr<AbstractExpression>> &&children) const override
         {
             assert(children.empty() && "ColumnValueExpression should have no children");
+            (void)children;
             return Copy();
         }
 

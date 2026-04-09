@@ -4,31 +4,31 @@
 #include <utility>
 #include <vector>
 
-#include "json_util.hpp"
 #include "abstract_expression.hpp"
 
 namespace noisepage::parser
 {
-
     /**
-     * ComparisonExpression represents comparisons between multiple expressions like < and >.
+     * OperatorExpression represents a generic N-ary operator.
      */
-    class ConjunctionExpression : public AbstractExpression
+    class OperatorExpression : public AbstractExpression
     {
     public:
         /**
-         * Instantiates a new conjunction expression.
-         * @param cmp_type type of conjunction
-         * @param children vector containing exactly two children, left then right  TODO(WAN): wtf? tpcc_plan_delivery_test
+         * Instantiates a new operator.
+         * @param expression_type type of operator
+         * @param return_value_type return type of the operator
+         * @param children vector containing arguments to the operator, left to right
          */
-        ConjunctionExpression(const ExpressionType cmp_type, std::vector<std::unique_ptr<AbstractExpression>> &&children)
-            : AbstractExpression(cmp_type, execution::sql::SqlTypeId::Boolean, std::move(children)) {}
+        OperatorExpression(const ExpressionType expression_type, const execution::sql::SqlTypeId return_value_type,
+                           std::vector<std::unique_ptr<AbstractExpression>> &&children)
+            : AbstractExpression(expression_type, return_value_type, std::move(children)) {}
 
         /** Default constructor for deserialization. */
-        ConjunctionExpression() = default;
+        OperatorExpression() = default;
 
         /**
-         * Copies ConjunctionExpression
+         * Copies this OperatorExpression
          * @returns copy of this
          */
         std::unique_ptr<AbstractExpression> Copy() const override;
@@ -37,14 +37,16 @@ namespace noisepage::parser
          * Creates a copy of the current AbstractExpression with new children implanted.
          * The children should not be owned by any other AbstractExpression.
          * @param children New children to be owned by the copy
-         * @returns copy of this with new children
+         * @returns copy of this
          */
         std::unique_ptr<AbstractExpression> CopyWithChildren(
             std::vector<std::unique_ptr<AbstractExpression>> &&children) const override;
 
+        void DeriveReturnValueType() override;
+
         // void Accept(common::ManagedPointer<binder::SqlNodeVisitor> v) override;
     };
 
-    DEFINE_JSON_HEADER_DECLARATIONS(ConjunctionExpression);
+    DEFINE_JSON_HEADER_DECLARATIONS(OperatorExpression);
 
 } // namespace noisepage::parser

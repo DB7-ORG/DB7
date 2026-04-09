@@ -27,7 +27,7 @@ namespace noisepage::parser
         switch (expr_type)
         {
         case ExpressionType::AGGREGATE_COUNT:
-            this->SetReturnValueType(SqlTypeId::Integer);
+            this->SetReturnValueType(execution::sql::SqlTypeId::Integer);
             break;
         // keep the type of the base
         case ExpressionType::AGGREGATE_MAX:
@@ -38,11 +38,11 @@ namespace noisepage::parser
             this->SetReturnValueType(this->GetChild(0)->GetReturnValueType());
             break;
         case ExpressionType::AGGREGATE_AVG:
-            this->SetReturnValueType(SqlTypeId::Double);
+            this->SetReturnValueType(execution::sql::SqlTypeId::Double);
             break;
         case ExpressionType::AGGREGATE_TOP_K:
         case ExpressionType::AGGREGATE_HISTOGRAM:
-            this->SetReturnValueType(SqlTypeId::Varbinary);
+            this->SetReturnValueType(execution::sql::SqlTypeId::Varbinary);
             break;
         default:
             throw std::runtime_error("Not a valid aggregation expression type: " + std::to_string(static_cast<int>(expr_type)));

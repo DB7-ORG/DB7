@@ -112,3 +112,42 @@ bool operator!=(const AlignedSTLAllocator<T1, t> &, const T2 &) throw()
 }
 // typical cache line
 typedef AlignedSTLAllocator<uint32_t, 64> cacheallocator;
+
+namespace noisepage::common
+{
+    /**
+     * Static utility class for more advanced memory allocation behavior
+     */
+    struct AllocationUtil
+    {
+        AllocationUtil() = delete;
+
+        /**
+         * Allocates a chunk of memory whose start address is guaranteed to be aligned to 8 bytes
+         * @param byte_size size of the memory chunk to allocate, in bytes
+         * @return allocated memory pointer
+         */
+        static byte *AllocateAligned(u64 byte_size)
+        {
+            // This is basically allocating the chunk as a 64-bit array, which forces c++ to give back to us
+            // 8 byte-aligned addresses. + 7 / 8 is equivalent to padding up the nearest 8-byte size. We
+            // use this hack instead of std::aligned_alloc because calling delete on it does not make ASAN
+            // happy on Linux + GCC, and calling std::free on pointers obtained from new is undefined behavior.
+            // Having to support two paradigms when we liberally use byte * throughout the codebase is a
+            // maintainability nightmare.
+            return reinterpret_cast<byte *>(new u64[(byte_size + 7) / 8]);
+        }
+
+        /**
+         * Allocates an array of elements that start at an 8-byte aligned address
+         * @tparam T type of element
+         * @param size number of elements to allocate
+         * @return allocated memory pointer
+         */
+        template <class T>
+        static T *AllocateAligned(uint32_t size)
+        {
+            return reinterpret_cast<T *>(AllocateAligned(size * sizeof(T)));
+        }
+    };
+}

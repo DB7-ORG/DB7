@@ -2,6 +2,10 @@
 #include "hash_util.hpp"
 #include "aggregate_expression.hpp"
 #include "case_expression.hpp"
+#include "column_value_expression.hpp"
+#include "comparison_expression.hpp"
+#include "conjuction_expression.hpp"
+#include "constant_value_expression.hpp"
 
 namespace noisepage::parser
 {
@@ -122,7 +126,7 @@ namespace noisepage::parser
         expression_type_ = ExpressionTypeFromString(j.at("expression_type").get<std::string>());
         expression_name_ = j.at("expression_name").get<std::string>();
         alias_ = parser::AliasType(j.at("alias").get<std::string>());
-        return_value_type_ = j.at("return_value_type").get<SqlTypeId>();
+        return_value_type_ = j.at("return_value_type").get<execution::sql::SqlTypeId>();
         depth_ = j.at("depth").get<int>();
         has_subquery_ = j.at("has_subquery").get<bool>();
 
@@ -179,20 +183,20 @@ namespace noisepage::parser
         case ExpressionType::COMPARE_IN:
         case ExpressionType::COMPARE_IS_DISTINCT_FROM:
         {
-            // expr = std::make_unique<ComparisonExpression>();
+            expr = std::make_unique<ComparisonExpression>();
             break;
         }
 
         case ExpressionType::CONJUNCTION_AND:
         case ExpressionType::CONJUNCTION_OR:
         {
-            // expr = std::make_unique<ConjunctionExpression>();
+            expr = std::make_unique<ConjunctionExpression>();
             break;
         }
 
         case ExpressionType::VALUE_CONSTANT:
         {
-            // expr = std::make_unique<ConstantValueExpression>();
+            expr = std::make_unique<ConstantValueExpression>();
             break;
         }
 
