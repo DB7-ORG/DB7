@@ -1,8 +1,8 @@
 MAKEFLAGS += -j$(nproc)
 CXX = g++
 CC = gcc
-BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -Iinclude -Isrc/shared -Isrc -march=native
-LDFLAGS = -lxxhash src/third_party/libpg_query/libpg_query.a -lstdc++ -lm -lfmt
+BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -Iinclude -Isrc -march=native
+LDFLAGS = -lxxhash -lfmt
 
 BUILD ?= release
 
@@ -27,8 +27,8 @@ CXX_OBJS := $(patsubst src/%.cpp,$(OBJ_DIR)/%.o,$(CXX_SRCS))
 C_SRCS := $(shell find src -name '*.c'  -not -path '*/third_party/*')
 C_OBJS := $(patsubst src/%.c,$(CACHE_OBJ_DIR)/%.o,$(C_SRCS))
 
-# Files that need special flags (add more as needed)
-SPECIAL_FSST := $(OBJ_DIR)/storage/compressions/libfsst.o
+# # Files that need special flags (add more as needed)
+# SPECIAL_FSST := $(OBJ_DIR)/storage/compressions/libfsst.o
 
 OBJS := $(CXX_OBJS) $(C_OBJS)
 
@@ -39,10 +39,10 @@ $(OBJ_DIR)/%.o: src/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Override for files needing special flags
-$(SPECIAL_FSST): src/storage/compressions/libfsst.cpp
-	@mkdir -p $(dir $@)
-	$(CXX) $(BASE_CXXFLAGS) -O3 -DNDEBUG -DNONOPT_FSST -c $< -o $@
+# # Override for files needing special flags
+# $(SPECIAL_FSST): src/storage/compressions/libfsst.cpp
+# 	@mkdir -p $(dir $@)
+# 	$(CXX) $(BASE_CXXFLAGS) -O3 -DNDEBUG -DNONOPT_FSST -c $< -o $@
 
 # Generic C rule
 $(CACHE_OBJ_DIR)/%.o: src/%.c
@@ -63,8 +63,5 @@ clean:
 
 clean-force:
 	rm -rf $(OBJ_DIR) $(CACHE_OBJ_DIR) $(BIN_DIR)
-
-include test/mtest.mk
-include tbenchmark/mbenchmark.mk
 
 .PHONY: all clean clean-force run
