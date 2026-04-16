@@ -18,7 +18,7 @@ int main()
 
     db7::catalog::Catalog cat;
     std::string s = "sss";
-    cat.CreateDatabase(s);
+    cat.CreateDatabase(nullptr, s, true);
 
     return 0;
 }

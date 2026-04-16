@@ -2,4 +2,8 @@
 
 #include "common.hpp"
 
-using database_oid_t = u32;
+namespace db7::catalog
+{
+    using db_oid_t = u32;
+    using col_oid_t = u32;
+}
