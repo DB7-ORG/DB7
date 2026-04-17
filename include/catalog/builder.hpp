@@ -1,6 +1,12 @@
 #pragma once
 
 #include "catalog_common.hpp"
+#include "access/schema.hpp"
+
+namespace db7::storage
+{
+    class BufferPool; // forward declare, no #include needed
+}
 
 namespace db7::catalog
 {
@@ -10,6 +16,8 @@ namespace db7::catalog
     class Builder
     {
     public:
-        static DatabaseCatalog *CreateDatabaseCatalog();
+        static DatabaseCatalog *CreateDatabaseCatalog(storage::BufferPool *buffer_pool);
+
+        static access::Schema CreateDatabaseSchema();
     };
 }

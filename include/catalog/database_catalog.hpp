@@ -1,5 +1,9 @@
 #pragma once
 
+#include "access/table.hpp"
+
+#include <vector>
+
 namespace db7::catalog
 {
     /**
@@ -10,8 +14,12 @@ namespace db7::catalog
      */
     class DatabaseCatalog
     {
-    private:
-        // cached data
     public:
+        // cached data
+        access::Table *namespaces_;
+        access::Table *classes_;
+        access::Table *columns_;
+
+        DatabaseCatalog() {}
     };
 }

@@ -1,10 +1,14 @@
 #pragma once
 
 #include "storage/buffer_pool/buffer_pool.hpp"
-#include "storage/page_layout.hpp"
+#include "access/schema.hpp"
 #include "catalog/catalog_common.hpp"
+#include "storage/storage_common.hpp"
+#include "shared/macro_helper.hpp"
 
 #include <unordered_map>
+#include <memory>
+
 /**
  * Layer between storage and other components.
  * Used to implement abstractions that hide whether its working with row store or column store.
@@ -18,13 +22,22 @@ namespace db7::access
      */
     class Table
     {
+
     private:
         storage::BufferPool *buffer_;
-        storage::PageLayout *layout_;
-        std::unordered_map<catalog::col_oid_t, u32> column_map_;
+        Schema schema_;
+        catalog::rel_oid_t oid_;
 
     public:
-        Table(storage::BufferPool *buffer, storage::PageLayout *layout)
-            : buffer_(buffer), layout_(layout) {}
+        DB7_DISALLOW_COPY(Table);
+
+        Table(storage::BufferPool *buffer, Schema schema, catalog::rel_oid_t oid)
+            : buffer_(buffer), schema_(std::move(schema)), oid_(oid) {}
+
+        void Insert() {};
+
+        u32 PageCount() { return 0; };
+
+        void Scan() {};
     };
 }

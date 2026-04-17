@@ -1,12 +1,10 @@
 #pragma once
 
-#include <vector>
-
 namespace db7::access
 {
-    class Column
+    class ProjectedRow
     {
     private:
-    public:
+        public:
     };
 }

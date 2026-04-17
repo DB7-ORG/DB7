@@ -1,12 +1,12 @@
 #pragma once
 
-#include "common.hpp"
+#include "storage_common.hpp"
 
 namespace db7::storage
 {
     struct Page
     {
-        u32 pageId;
+        page_id pageId;
         byte *data;
     };
 }

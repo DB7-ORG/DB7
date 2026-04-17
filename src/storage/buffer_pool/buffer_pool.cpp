@@ -3,20 +3,20 @@
 namespace db7::storage
 {
 
-    Page Pin(u32 pid)
+    Page BufferPool::Pin(u32 pid)
     {
         return Page{
             .pageId = pid,
             .data = nullptr};
     }
 
-    void Unpin(u32 pid, bool dirty)
+    void BufferPool::Unpin(u32 pid, bool dirty)
     {
         (void)pid;
         (void)dirty;
     }
 
-    void Flush(u32 pid)
+    void BufferPool::Flush(u32 pid)
     {
         (void)pid;
     }

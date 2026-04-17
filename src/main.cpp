@@ -4,6 +4,7 @@
 #include <fmt/core.h>
 
 #include "catalog/catalog.hpp"
+#include "storage/buffer_pool/buffer_pool.hpp"
 
 static inline u64 now_ns()
 {
@@ -16,9 +17,12 @@ int main()
 {
     fmt::print("Hello, {}!\n", "world");
 
-    db7::catalog::Catalog cat;
+    auto buffer_pool = new db7::storage::BufferPool();
+
+    auto cat = new db7::catalog::Catalog(buffer_pool);
     std::string s = "sss";
-    cat.CreateDatabase(nullptr, s, true);
+
+    cat->CreateDatabase(nullptr, s, true);
 
     return 0;
 }
