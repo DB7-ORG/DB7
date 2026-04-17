@@ -17,7 +17,7 @@ namespace db7::catalog
 
         (void)name;
 
-        return 0;
+        return db_oid_t(0);
     }
 
     bool Catalog::CreateDatabaseEntry(transaction::TransactionContext *txn, const db_oid_t db, const std::string &name, DatabaseCatalog *const dbc)

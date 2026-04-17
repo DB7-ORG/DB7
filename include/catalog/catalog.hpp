@@ -36,9 +36,9 @@ namespace db7::catalog
 
     public:
         Catalog(storage::BufferPool *buffer_pool)
-            : databases_(buffer_pool, Builder::CreateDatabaseSchema(), rel_oid_t{0}),
+            : databases_(buffer_pool, Builder::CreateDatabaseSchema(), rel_oid_t(0)),
               databases_map_({}),
-              next_db_oid_(1),
+              next_db_oid_(catalog::db_oid_t(1)),
               buffer_pool_(buffer_pool) {}
 
         db_oid_t CreateDatabase(db7::transaction::TransactionContext *txn, std::string &name, const bool bootstrap);

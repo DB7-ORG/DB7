@@ -6,6 +6,8 @@
 #include "catalog/catalog.hpp"
 #include "storage/buffer_pool/buffer_pool.hpp"
 
+using namespace db7;
+
 static inline u64 now_ns()
 {
     timespec ts;
@@ -19,7 +21,7 @@ int main()
 
     auto buffer_pool = new db7::storage::BufferPool();
 
-    auto cat = new db7::catalog::Catalog(buffer_pool);
+    auto cat = new catalog::Catalog(buffer_pool);
     std::string s = "sss";
 
     cat->CreateDatabase(nullptr, s, true);

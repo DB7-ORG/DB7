@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cassert>
+#include <stdexcept>
+
 /**
  * Disables copy constructor because of hidden copies that can occur in c++.
  * Must use default move because when u disable copy ctor compiler doesnt generate move.
@@ -10,3 +13,5 @@
     ClassName &operator=(const ClassName &) = delete; \
     ClassName(ClassName &&) = default;                \
     ClassName &operator=(ClassName &&) = default;
+
+#define DB7_ASSERT(expr, message) assert((expr) && (message))
