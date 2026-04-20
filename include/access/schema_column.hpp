@@ -20,12 +20,12 @@ namespace db7::access
         SchemaColumn(catalog::col_oid_t oid, type_id col_type, std::string col_name)
             : oid_(oid), col_type_(col_type), col_name_(std::move(col_name)) {}
 
-        catalog::col_oid_t GetOid()
+        catalog::col_oid_t GetOid() const
         {
             return oid_;
         }
 
-        u32 GetTypeSize()
+        u32 GetTypeSize() const
         {
             return SizeOf(col_type_);
         }

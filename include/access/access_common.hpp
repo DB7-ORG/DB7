@@ -15,7 +15,10 @@ namespace db7::access
         INTEGER,  // int32
         BIGINT,   // int64
 
+        DOUBLE,
+
         VARCHAR,
+        VARBINARY,
     };
 
     constexpr u8 SizeOf(type_id t)

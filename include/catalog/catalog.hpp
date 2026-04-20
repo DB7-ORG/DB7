@@ -5,6 +5,7 @@
 #include "catalog/database_catalog.hpp"
 #include "access/table.hpp"
 #include "catalog/builder.hpp"
+#include "access/projected_rows_builder.hpp"
 
 #include <atomic>
 #include <unordered_map>
@@ -33,13 +34,15 @@ namespace db7::catalog
         std::unordered_map<db_oid_t, DatabaseCatalog *> databases_map_;
         std::atomic<db_oid_t> next_db_oid_;
         storage::BufferPool *buffer_pool_;
+        access::ProjectedRowsBuilder pr_builder_;
 
     public:
         Catalog(storage::BufferPool *buffer_pool)
             : databases_(buffer_pool, Builder::CreateDatabaseSchema(), rel_oid_t(0)),
               databases_map_({}),
               next_db_oid_(catalog::db_oid_t(1)),
-              buffer_pool_(buffer_pool) {}
+              buffer_pool_(buffer_pool),
+              pr_builder_(databases_.GetSchema()) {}
 
         db_oid_t CreateDatabase(db7::transaction::TransactionContext *txn, std::string &name, const bool bootstrap);
 

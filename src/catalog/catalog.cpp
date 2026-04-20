@@ -1,5 +1,11 @@
 #include "catalog/catalog.hpp"
 #include "catalog/builder.hpp"
+#include "access/projected_rows.hpp"
+#include "access/projected_rows_builder.hpp"
+#include "catalog/catalog_common.hpp"
+#include "shared/var_len.hpp"
+
+#include <cstring>
 
 namespace db7::catalog
 {
@@ -22,8 +28,21 @@ namespace db7::catalog
 
     bool Catalog::CreateDatabaseEntry(transaction::TransactionContext *txn, const db_oid_t db, const std::string &name, DatabaseCatalog *const dbc)
     {
-        // crate varlen entry
+        (void)dbc;
+        (void)txn;
 
-        databases_.Insert();
+        shared::VarLen::CrateVarlenEntry(); // TODO create varlen here with name
+        // for now name len must be < 16 bytes
+        // auto db_schema = databases_.GetSchema();
+
+        pr_builder_.PrepareBuilder(1);
+        pr_builder_.Set<db_oid_t>(db_oid_t(CatalogColumnOid::DATOID), db);
+        pr_builder_.SetBytes(db_oid_t(CatalogColumnOid::DATNAME), (const byte *)name.data(), name.length());
+        auto rows = pr_builder_.Build();
+
+        databases_.Insert(rows);
+        delete[] rows.data;
+
+        return true;
     }
 }

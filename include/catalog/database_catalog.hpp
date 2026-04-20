@@ -18,8 +18,23 @@ namespace db7::catalog
         // cached data
         access::Table *namespaces_;
         access::Table *classes_;
-        access::Table *columns_;
+        access::Table *attributes_;
+        access::Table *types_;
+        access::Table *constraints_;
+        access::Table *languages_;
+        access::Table *procs_;
 
         DatabaseCatalog() {}
+
+        ~DatabaseCatalog()
+        {
+            delete namespaces_;
+            delete classes_;
+            delete attributes_;
+            delete types_;
+            delete constraints_;
+            delete languages_;
+            delete procs_;
+        }
     };
 }

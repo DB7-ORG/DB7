@@ -5,6 +5,7 @@
 #include "catalog/catalog_common.hpp"
 #include "storage/storage_common.hpp"
 #include "shared/macro_helper.hpp"
+#include "access/projected_rows.hpp"
 
 #include <unordered_map>
 #include <memory>
@@ -32,12 +33,20 @@ namespace db7::access
         DB7_DISALLOW_COPY(Table);
 
         Table(storage::BufferPool *buffer, Schema schema, catalog::rel_oid_t oid)
-            : buffer_(buffer), schema_(std::move(schema)), oid_(oid) {}
+            : buffer_(buffer), schema_(std::move(schema)), oid_(oid)
+        {
+            // TODO initialize a table file using disk manager
+        }
 
-        void Insert() {};
+        void Insert(const ProjectedRows &rows);
 
         u32 PageCount() { return 0; };
 
         void Scan() {};
+
+        Schema *GetSchema()
+        {
+            return &schema_;
+        }
     };
 }

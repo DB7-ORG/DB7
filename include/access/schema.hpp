@@ -4,6 +4,7 @@
 #include "catalog/catalog_common.hpp"
 #include "shared/align_util.hpp"
 #include "shared/macro_helper.hpp"
+#include "storage/storage_common.hpp"
 
 #include <vector>
 #include <unordered_map>
@@ -19,10 +20,6 @@ namespace db7::access
 
         void CalculateOffsets()
         {
-            constexpr u32 HEADER_SIZE = 64;
-            constexpr u32 PAGE_SIZE = 1 << 20;
-            constexpr u32 PAYLOAD_SIZE = PAGE_SIZE - HEADER_SIZE;
-
             u32 row_size = 0;
             u32 worst_case_pad = 0;
             for (auto &col : columns_)
@@ -32,9 +29,9 @@ namespace db7::access
                 worst_case_pad += item_size - 1;
             }
 
-            const u32 row_count = (PAYLOAD_SIZE - worst_case_pad) / row_size;
+            const u32 row_count = (storage::PAYLOAD_SIZE - worst_case_pad) / row_size;
 
-            u32 curr_offset = HEADER_SIZE;
+            u32 curr_offset = storage::HEADER_SIZE;
             for (auto &col : columns_)
             {
                 // pad to type
@@ -55,6 +52,16 @@ namespace db7::access
             : columns_(std::move(columns))
         {
             CalculateOffsets();
+        }
+
+        const std::vector<SchemaColumn> &GetColumns() const
+        {
+            return columns_;
+        }
+
+        const std::unordered_map<catalog::col_oid_t, u32> &GetOffsetMap()
+        {
+            return col_to_offset_map_;
         }
     };
 }

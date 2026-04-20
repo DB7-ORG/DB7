@@ -14,7 +14,7 @@ namespace db7::storage
 
     public:
         BufferPool() {}
-        Page Pin(u32 pid); // TODO all of these should have private methods calling DiskManager
+        Page *Pin(u32 pid); // TODO all of these should have private methods calling DiskManager
         void Unpin(u32 pid, bool dirty);
         void Flush(u32 pid);
     };

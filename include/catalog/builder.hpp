@@ -19,5 +19,12 @@ namespace db7::catalog
         static DatabaseCatalog *CreateDatabaseCatalog(storage::BufferPool *buffer_pool);
 
         static access::Schema CreateDatabaseSchema();
+        static access::Schema CreateNamespaceSchema();
+        static access::Schema CreateClassSchema();
+        static access::Schema CreateAttributeSchema();
+        static access::Schema CreateTypeSchema();
+        static access::Schema CreateConstraintSchema();
+        static access::Schema CreateLanguageSchema();
+        static access::Schema CreateProcSchema();
     };
 }
