@@ -3,7 +3,7 @@
 #include "access/projected_rows.hpp"
 #include "access/projected_rows_builder.hpp"
 #include "catalog/catalog_common.hpp"
-#include "shared/var_len.hpp"
+#include "storage/varlen_entry.hpp"
 
 #include <cstring>
 
@@ -31,13 +31,15 @@ namespace db7::catalog
         (void)dbc;
         (void)txn;
 
-        shared::VarLen::CrateVarlenEntry(); // TODO create varlen here with name
+        // TODO create varlen here with name
         // for now name len must be < 16 bytes
         // auto db_schema = databases_.GetSchema();
 
+        // TODO this is really wierd
         pr_builder_.PrepareBuilder(1);
-        pr_builder_.Set<db_oid_t>(db_oid_t(CatalogColumnOid::DATOID), db);
-        pr_builder_.SetBytes(db_oid_t(CatalogColumnOid::DATNAME), (const byte *)name.data(), name.length());
+        pr_builder_.Push({next_db_oid_++});
+        auto data = *(storage::VarlenEntry *)name.data();
+        pr_builder_.Push({data});
         auto rows = pr_builder_.Build();
 
         databases_.Insert(rows);

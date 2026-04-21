@@ -2,6 +2,9 @@
 
 namespace db7::storage
 {
+    BufferPool::BufferPool(DiskManager *disk_mng) : disk_mng_(disk_mng)
+    {
+    }
 
     Page *BufferPool::Pin(u32 pid)
     {

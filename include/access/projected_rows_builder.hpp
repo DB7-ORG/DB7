@@ -3,7 +3,7 @@
 #include "access/schema.hpp"
 #include "access/projected_rows.hpp"
 
-#include <vector>
+#include <initializer_list>
 #include <cstring>
 
 namespace db7::access
@@ -35,31 +35,20 @@ namespace db7::access
         }
 
         template <typename T>
-        void Set(catalog::col_oid_t oid, const T &value)
+        void Push(std::initializer_list<T> values)
         {
-            (void)oid;
+            DB7_ASSERT(values.size() == row_count_, "Invalid values dont match schema");
 
             curr_ = shared::AlignUp(curr_, alignof(T));
-            *(reinterpret_cast<T *>(curr_)) = value;
+            T *dst = reinterpret_cast<T *>(curr_);
+            for (u32 i = 0; i < row_count_; i++)
+                dst[i] = values[i];
             curr_ += sizeof(T) * row_count_;
-            // col_oids_.push_back(oid);
-        }
-
-        // For variable-length / string columns
-        void SetBytes(catalog::col_oid_t oid, const byte *src, u32 len, u32 align = 16)
-        {
-            (void)oid;
-
-            curr_ = shared::AlignUp(curr_, align);
-            memcpy(curr_, src, len);
-            curr_ += len * row_count_; // or fixed field width
-            // col_oids_.push_back(oid);
         }
 
         ProjectedRows Build()
         {
             return ProjectedRows{
-                //.col_oid_ids = col_oids_,
                 .data = data_,
                 .total_size = static_cast<u32>(curr_ - data_),
                 .row_count = row_count_};

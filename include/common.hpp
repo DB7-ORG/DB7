@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <iostream>
 
+#define PACKED __attribute__((packed))
+
 namespace db7
 {
     using u8 = uint8_t;

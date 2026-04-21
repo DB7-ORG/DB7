@@ -36,7 +36,7 @@ namespace db7::access
             : buffer_(buffer), schema_(std::move(schema)), oid_(oid)
         {
             // TODO initialize a table file using disk manager
-        }
+                }
 
         void Insert(const ProjectedRows &rows);
 
