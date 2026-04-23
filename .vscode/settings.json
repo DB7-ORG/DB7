@@ -4,5 +4,6 @@
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter",
         "editor.formatOnSave": true
-    }
+    },
+    "tlaplus.tlc.modelChecker.options": "-workers 1 -coverage 1"
 }
