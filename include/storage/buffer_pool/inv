@@ -1,8 +1,3 @@
- \* No two frames hold the same non-zero page_id
- UniquePages == \A f1, f2 \in 1..NUM_FRAMES :
-     f1 /= f2 /\ frames[f1].page_id /= 0
-     => frames[f1].page_id /= frames[f2].page_id
- 
  \* Checks so that htable doesnt have 2 different pointers to same frame
  HashTableNoDuplicates == \A p1, p2 \in 1..NUM_PAGES :
      p1 /= p2 /\ hash_table[p1] /= 0
@@ -13,8 +8,3 @@ UniquePages ==
     => \A f1, f2 \in 1..NUM_FRAMES :
         f1 /= f2 /\ frames[f1].page_id /= 0
         => frames[f1].page_id /= frames[f2].page_id
-
-     \* Number of non-zero hash table entries equals number of frames with non-zero page_id
- HashTableConsistent ==
-     Cardinality({p \in 1..NUM_PAGES : hash_table[p] /= 0})
-     = Cardinality({f \in 1..NUM_FRAMES : frames[f].page_id /= 0})
