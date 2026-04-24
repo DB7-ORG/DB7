@@ -10,8 +10,6 @@ variables
     frames = [f \in 1..NUM_FRAMES |-> [
         page_id |-> 0,
         ref_count |-> 0
-        \* io_in_progres |-> FALSE,
-        \* valid |-> FALSE
     ]]
 \* fair
 process Thread \in 1..NUM_THREADS
@@ -48,7 +46,7 @@ begin
             goto UsePage;
         else
             \* jump to lookup or find victim
-            goto Lookup;
+            goto FindVictim;
         end if;
 
     UsePage:
@@ -56,8 +54,8 @@ begin
         goto Done;
             
     InsertVictimToTable:
-        if hash_table[wanted%NUM_PARTITIONS][wanted] = 0 then
-            hash_table[wanted%NUM_PARTITIONS][wanted] := idx;
+        if hash_table[wanted % NUM_PARTITIONS][wanted] = 0 then
+            hash_table[wanted % NUM_PARTITIONS][wanted] := idx;
             goto FetchPage;
         else 
             goto UndoState;
@@ -81,11 +79,11 @@ begin
         else
             goto UsePage;      
         end if;
-         
+      
 end process;
 
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "23862763" /\ chksum(tla) = "c67d13a1")
+\* BEGIN TRANSLATION (chksum(pcal) = "375e7222" /\ chksum(tla) = "9f1c66d9")
 VARIABLES pc, hash_table, frames, wanted, idx, evict_page_id
 
 vars == << pc, hash_table, frames, wanted, idx, evict_page_id >>
@@ -141,7 +139,7 @@ PageVisit(self) ==
                ![idx[self]].ref_count =
                frames[idx[self]].ref_count + 1]
           /\ pc' = [pc EXCEPT ![self] = "UsePage"]
-     ELSE /\ pc' = [pc EXCEPT ![self] = "Lookup"]
+     ELSE /\ pc' = [pc EXCEPT ![self] = "FindVictim"]
           /\ UNCHANGED frames
   /\ UNCHANGED << hash_table, wanted, idx, evict_page_id >>
 
@@ -215,9 +213,7 @@ Terminating ==
 
 Next == ( \E self \in 1 .. NUM_THREADS: Thread(self) ) \/ Terminating
 
-Spec ==
-  /\ Init /\ [][Next]_vars
-  /\ \A self \in 1 .. NUM_THREADS: WF_vars(Thread(self))
+Spec == Init /\ [][Next]_vars
 
 Termination == <>( \A self \in ProcSet: pc[self] = "Done" )
 

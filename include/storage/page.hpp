@@ -4,12 +4,15 @@
 #include "shared/macro_helper.hpp"
 
 #include <cstring>
+#include <shared_mutex>
 
 namespace db7::storage
 {
     struct Page
     {
-        page_id pageId;
+        page_id page_id;
+        u32 ref_count;
+        std::shared_mutex latch;
         byte *data;
 
         byte *GetOffset(u32 offset)
@@ -29,6 +32,34 @@ namespace db7::storage
         {
             DB7_ASSERT(data != nullptr, "Page data in null");
             memcpy(data + offset, value, size);
+        }
+
+        /**
+         * Lock utils so i can change the lock type later
+         */
+        void RLock()
+        {
+            latch.lock_shared();
+        }
+
+        void RUnlock()
+        {
+            latch.unlock_shared();
+        }
+
+        bool TryRLock()
+        {
+            return latch.try_lock_shared();
+        }
+
+        void WLock()
+        {
+            latch.lock();
+        }
+
+        void WUnlock()
+        {
+            latch.unlock();
         }
     };
 }
