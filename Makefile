@@ -2,7 +2,7 @@ MAKEFLAGS += -j$(nproc)
 CXX = g++
 CC = gcc
 BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -Iinclude -Isrc -march=native
-LDFLAGS = -lxxhash -lfmt
+LDFLAGS = -lxxhash -lfmt -luring
 
 BUILD ?= release
 
@@ -63,5 +63,8 @@ clean:
 
 clean-force:
 	rm -rf $(OBJ_DIR) $(CACHE_OBJ_DIR) $(BIN_DIR)
+	
+install:
+	sudo apt install -y liburing-dev libxxhash-dev libfmt-dev build-essential
 
-.PHONY: all clean clean-force run
+.PHONY: all clean clean-force run install

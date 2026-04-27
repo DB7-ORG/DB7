@@ -12,15 +12,12 @@
 
 namespace db7::storage
 {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-truncation"
     void DiskManager::BuildPath(table_id tid, char *buf, u32 len)
     {
         int n = snprintf(buf, len, "%s/table_%u.db", base_dir_, (unsigned)tid);
         (void)n;
         DB7_ASSERT(n > 0 && (u32)n < len, "Path buffer too small");
     }
-#pragma GCC diagnostic pop
 
     void DiskManager::LoadExistingTables()
     {
