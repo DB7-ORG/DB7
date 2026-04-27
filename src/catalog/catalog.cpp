@@ -29,6 +29,7 @@ namespace db7::catalog
     bool Catalog::CreateDatabaseEntry(transaction::TransactionContext *txn, const db_oid_t db, const std::string &name, DatabaseCatalog *const dbc)
     {
         (void)dbc;
+        (void)db;
         (void)txn;
 
         // TODO create varlen here with name

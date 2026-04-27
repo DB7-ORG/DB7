@@ -19,13 +19,15 @@ namespace db7::storage
         BufferPartition partitions_[BUFFER_POOL_PARTITION_NUM];
 
         Page *GetVictim(page_id wanted, u32 &victim_frame_idx, page_id &victim_page_id);
+        void UndoState(Page *victim_page, page_id victim_page_id, page_id wanted);
+        bool PageVisit(Page *page, u32 pid);
 
     public:
         BufferPool(DiskManager *disk_mng);
         ~BufferPool();
 
         Page *Pin(u32 pid); // TODO all of these should have private methods calling DiskManager
-        void Unpin(u32 pid, bool dirty);
+        void Unpin(Page *page, bool dirty = false);
         void Flush(u32 pid);
     };
 }

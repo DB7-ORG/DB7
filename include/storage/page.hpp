@@ -5,14 +5,18 @@
 
 #include <cstring>
 #include <shared_mutex>
+#include <atomic>
 
 namespace db7::storage
 {
     struct Page
     {
-        page_id page_id;
-        u32 ref_count;
-        std::shared_mutex latch;
+        page_id pid;
+        std::atomic<u32> ref_count;
+        std::shared_mutex latch; // header lock
+        // padding
+        u64 none;
+        std::shared_mutex lock;
         byte *data;
 
         byte *GetOffset(u32 offset)
@@ -60,6 +64,11 @@ namespace db7::storage
         void WUnlock()
         {
             latch.unlock();
+        }
+
+        bool TryWLock()
+        {
+            return latch.try_lock();
         }
     };
 }

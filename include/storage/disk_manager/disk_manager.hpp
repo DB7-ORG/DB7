@@ -40,14 +40,14 @@ namespace db7::storage
         DiskManager(const char *base_dir);
         ~DiskManager();
 
-        bool CreateTable(table_id table_id);
-        bool DropTable(table_id table_id);
-        bool ExistsTable(table_id table_id);
-        bool ReadPage(table_id table_id, page_id page_id, void *dest);
-        bool WritePage(table_id table_id, page_id page_id, const void *src);
-        bool AllocatePage(table_id table_id, page_id *out_page_id);
-        bool FreePage(table_id table_id, page_id page_id);
-        bool FlushPage(table_id table_id);
-        u32 PageCount(table_id table_id);
+        bool CreateTable(table_id tbl_id);
+        bool DropTable(table_id tbl_id);
+        bool ExistsTable(table_id tbl_id);
+        bool ReadPage(table_id tbl_id, page_id pid, void *dest);
+        bool WritePage(table_id tbl_id, page_id pid, const void *src);
+        bool AllocatePage(table_id tbl_id, page_id *out_page_id);
+        bool FreePage(table_id tbl_id, page_id pid);
+        bool FlushPage(table_id tbl_id);
+        u32 PageCount(table_id tbl_id);
     };
 }

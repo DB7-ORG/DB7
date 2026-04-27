@@ -26,10 +26,11 @@ namespace db7::storage
             return UINT32_MAX;
         };
 
-        bool Put(page_id page_id, u32 frame_idx) // TODO return idx of inserted frame
+        bool Put(page_id page_id, u32 frame_idx, u32 &new_frame_idx) // TODO return idx of inserted frame
         {
             std::unique_lock guard(lock);
             auto [it, inserted] = hmap.emplace(page_id, frame_idx);
+            new_frame_idx = it->second;
             return inserted;
         }
 

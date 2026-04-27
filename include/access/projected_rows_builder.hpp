@@ -42,7 +42,7 @@ namespace db7::access
             curr_ = shared::AlignUp(curr_, alignof(T));
             T *dst = reinterpret_cast<T *>(curr_);
             for (u32 i = 0; i < row_count_; i++)
-                dst[i] = values[i];
+                dst[i] = *(values.begin() + i);
             curr_ += sizeof(T) * row_count_;
         }
 

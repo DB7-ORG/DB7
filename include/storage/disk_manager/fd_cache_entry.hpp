@@ -6,7 +6,7 @@ namespace db7::storage
 {
     struct FdCacheEntry
     {
-        table_id table_id;
+        table_id tbl_id;
         int fd;          /* OS file descriptor, -1 = unused slot    */
         u64 last_access; /* monotonic counter for LRU eviction      */
 

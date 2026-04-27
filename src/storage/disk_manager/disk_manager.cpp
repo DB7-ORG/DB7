@@ -8,10 +8,14 @@
 
 namespace db7::storage
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-truncation"
     void DiskManager::BuildPath(table_id tid, char *buf, u32 len)
     {
-        snprintf(buf, len, "%s/table_%u.db", base_dir_, (unsigned)tid);
+        int n = snprintf(buf, len, "%s/table_%u.db", base_dir_, (unsigned)tid);
+        DB7_ASSERT(n > 0 && (u32)n < len, "Path buffer too small");
     }
+#pragma GCC diagnostic pop
 
     bool DiskManager::ReadHeader(int fd, TableFileHeader *hdr)
     {
@@ -161,10 +165,10 @@ namespace db7::storage
         // TODO Free LruLinkedList
     }
 
-    bool DiskManager::CreateTable(table_id table_id)
+    bool DiskManager::CreateTable(table_id tbl_id)
     {
         char path[MAX_PATH_LEN];
-        BuildPath(table_id, path, sizeof(path));
+        BuildPath(tbl_id, path, sizeof(path));
 
         int fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0644);
         if (fd < 0)
@@ -175,7 +179,7 @@ namespace db7::storage
 
         TableFileHeader hdr;
         hdr.magic = MAGIC_NUMBER;
-        hdr.table_id = table_id;
+        hdr.tbl_id = tbl_id;
         hdr.page_count = 1; /* just the header page */
         hdr.free_page_head = 0;
 
@@ -193,29 +197,29 @@ namespace db7::storage
         return 0;
     }
 
-    bool DiskManager::DropTable(table_id table_id)
+    bool DiskManager::DropTable(table_id tbl_id)
     {
         // TODO cache_invalidate(table_id)
 
         char path[MAX_PATH_LEN];
-        BuildPath(table_id, path, sizeof(path));
+        BuildPath(tbl_id, path, sizeof(path));
         return unlink(path);
     }
 
-    bool DiskManager::ExistsTable(table_id table_id)
+    bool DiskManager::ExistsTable(table_id tbl_id)
     {
         char path[MAX_PATH_LEN];
-        BuildPath(table_id, path, sizeof(path));
+        BuildPath(tbl_id, path, sizeof(path));
         return access(path, F_OK) == 0;
     }
 
-    bool DiskManager::ReadPage(table_id table_id, page_id page_id, void *dest)
+    bool DiskManager::ReadPage(table_id tbl_id, page_id pid, void *dest)
     {
         int fd = 0; // TODO cache_get_fd(dm, table_id);
         if (fd < 0)
             return false;
 
-        off_t offset = (off_t)page_id * PAGE_SIZE;
+        off_t offset = (off_t)pid * PAGE_SIZE;
         ssize_t n = pread(fd, dest, PAGE_SIZE, offset);
         if (n != PAGE_SIZE)
         {
@@ -226,13 +230,13 @@ namespace db7::storage
         return true;
     }
 
-    bool DiskManager::WritePage(table_id table_id, page_id page_id, const void *src)
+    bool DiskManager::WritePage(table_id tbl_id, page_id pid, const void *src)
     {
         int fd = 0; // TODO cache_get_fd(dm, table_id);
         if (fd < 0)
             return false;
 
-        off_t offset = (off_t)page_id * PAGE_SIZE;
+        off_t offset = (off_t)pid * PAGE_SIZE;
         ssize_t n = pwrite(fd, src, PAGE_SIZE, offset);
         if (n != PAGE_SIZE)
         {
@@ -243,7 +247,7 @@ namespace db7::storage
         return true;
     }
 
-    bool DiskManager::AllocatePage(table_id table_id, page_id *out_page_id)
+    bool DiskManager::AllocatePage(table_id tbl_id, page_id *out_page_id)
     {
         int fd = 0; // TODO cache_get_fd(dm, table_id);
         if (fd < 0)
@@ -298,7 +302,7 @@ namespace db7::storage
         return true;
     }
 
-    bool DiskManager::FreePage(table_id table_id, page_id page_id)
+    bool DiskManager::FreePage(table_id tbl_id, page_id page_id)
     {
         int fd = 0; // TODO cache_get_fd(dm, table_id);
         if (fd < 0)
@@ -335,7 +339,7 @@ namespace db7::storage
         return true;
     }
 
-    bool DiskManager::FlushPage(table_id table_id)
+    bool DiskManager::FlushPage(table_id tbl_id)
     {
         FdCacheEntry *entry = nullptr; // TODO cache_find(dm, table_id);
         if (entry && entry->fd >= 0)
@@ -343,7 +347,7 @@ namespace db7::storage
         return true; /* not cached = nothing to flush */
     }
 
-    u32 DiskManager::PageCount(table_id table_id)
+    u32 DiskManager::PageCount(table_id tbl_id)
     {
         int fd = 0; // TODO cache_get_fd(dm, table_id);
         if (fd < 0)

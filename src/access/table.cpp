@@ -29,6 +29,6 @@ namespace db7::access
             curr += size;
         }
 
-        buffer_->Unpin(page_id, true);
+        buffer_->Unpin(insert_page, true);
     }
 }
