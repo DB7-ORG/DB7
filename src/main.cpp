@@ -20,7 +20,19 @@ int main()
 {
     fmt::print("Hello, {}!\n", "world");
 
-    db7::storage::DiskManager disk_mng("ssss");
+    db7::storage::DiskManager disk_mng(".data");
+
+    disk_mng.CreateTable(1);
+    disk_mng.DropTable(1);
+
+    void *dest = std::aligned_alloc(4096, 1 << 20);
+    disk_mng.CreateTable(2);
+    disk_mng.ReadPage(2, 2, dest);
+    disk_mng.WritePage(2, 2, dest);
+    disk_mng.ExistsTable(2);
+    disk_mng.TruncateFile(2, 6);
+    disk_mng.ReadPage(2, 4, dest);
+    disk_mng.PageCount(2);
 
     auto buffer_pool = new db7::storage::BufferPool(&disk_mng);
 

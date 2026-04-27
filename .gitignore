@@ -45,3 +45,5 @@ bin
 some.bin
 perf.*
 *.deb
+
+.data
