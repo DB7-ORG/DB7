@@ -8,6 +8,7 @@
 #include "storage/buffer_pool/buffer_pool.hpp"
 #include "storage/disk_manager/disk_manager.hpp"
 #include "storage/disk_manager/disk_scheduler.hpp"
+#include "debug/printer.hpp"
 
 using namespace db7;
 
@@ -23,7 +24,7 @@ int main()
     fmt::print("Hello, {}!\n", "world");
 
     db7::storage::DiskManagerAsync disk_mng_async(".data");
-    disk_mng_async.CreateTable(2);
+    disk_mng_async.OpenFile(2);
     disk_mng_async.TruncateFile(2, 500);
 
     auto len = 1 << 20;
@@ -34,7 +35,15 @@ int main()
 
     db7::storage::BufferPool buffer_pool(&disk_scheduler);
 
-    // buffer_pool.Pin(1);
+    for (u32 i = 0; i < 34; i++)
+    {
+        db7::storage::PageIdentifier id(2, i);
+        auto future = buffer_pool.Pin(id);
+        auto page = future.get();
+        buffer_pool.Unpin(page);
+    }
+
+    shared::Print(buffer_pool);
 
     u64 t00 = now_ns();
 

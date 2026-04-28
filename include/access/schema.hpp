@@ -29,9 +29,9 @@ namespace db7::access
                 worst_case_pad += item_size - 1;
             }
 
-            const u32 row_count = (storage::PAYLOAD_SIZE - worst_case_pad) / row_size;
+            const u32 row_count = (PAYLOAD_SIZE - worst_case_pad) / row_size;
 
-            u32 curr_offset = storage::HEADER_SIZE;
+            u32 curr_offset = HEADER_SIZE;
             for (auto &col : columns_)
             {
                 // pad to type

@@ -177,6 +177,28 @@ namespace db7::storage
         return true;
     }
 
+    bool DiskManagerAsync::OpenFile(table_id tbl_id)
+    {
+        char path[MAX_PATH_LEN];
+        BuildPath(tbl_id, path, sizeof(path));
+
+        int fd = open(path, O_RDWR | O_CREAT | O_DIRECT, 0644);
+        if (fd < 0)
+        {
+            DB7_ASSERT(false, "File not found");
+            return false;
+        }
+
+        struct stat st;
+        fstat(fd, &st);
+        u32 page_count = st.st_size / PAGE_SIZE;
+
+        FdCacheEntry entry(fd, page_count);
+        cache_->Set(tbl_id, entry);
+
+        return true;
+    }
+
     bool DiskManagerAsync::DropTable(table_id tbl_id)
     {
         auto hdr = cache_->Invalidate(tbl_id);

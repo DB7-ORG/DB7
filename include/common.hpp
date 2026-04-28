@@ -5,6 +5,8 @@
 
 #define PACKED __attribute__((packed))
 
+#define DB7_DEBUG true
+
 namespace db7
 {
     using u8 = uint8_t;

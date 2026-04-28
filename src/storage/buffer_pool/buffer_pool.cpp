@@ -39,7 +39,6 @@ namespace db7::storage
 
                 page->WUnlock();
                 victim_frame_idx = head;
-                page->lock.lock();
                 return page;
             }
         }
@@ -110,7 +109,6 @@ namespace db7::storage
             }
 
             // UndoState
-            page->lock.unlock();
             UndoState(page, victim_page_id, id);
 
             page = &pages_[new_frame_idx];

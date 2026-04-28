@@ -41,6 +41,7 @@ namespace db7::storage
         int Submit();
 
         bool CreateTable(table_id tbl_id);
+        bool OpenFile(table_id tbl_id);
         bool DropTable(table_id tbl_id);
         bool ExistsTable(table_id tbl_id);
         bool TruncateFile(table_id tbl_id, u32 pages_num);

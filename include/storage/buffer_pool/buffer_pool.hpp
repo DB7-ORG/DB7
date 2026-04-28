@@ -28,5 +28,12 @@ namespace db7::storage
 
         std::shared_future<Page *> Pin(PageIdentifier id);
         void Unpin(Page *page, bool dirty = false);
+
+#ifdef DB7_DEBUG
+        Page *GetPagesDebug() const
+        {
+            return pages_;
+        };
+#endif
     };
 }

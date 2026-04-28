@@ -30,6 +30,8 @@ namespace db7::storage
         std::shared_mutex lock;
         byte *data;
 
+        Page() : id(0), ref_count(0), state(PageState::VALID), data(nullptr) {}
+
         byte *GetOffset(u32 offset)
         {
             DB7_ASSERT(data != nullptr, "Page data in null");
