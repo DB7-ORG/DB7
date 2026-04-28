@@ -2,7 +2,7 @@
 
 #include "common.hpp"
 #include "storage/page.hpp"
-#include "storage/disk_manager/disk_manager.hpp"
+#include "storage/disk_manager/disk_scheduler.hpp"
 #include "storage/buffer_pool/buffer_partition.hpp"
 
 #include <atomic>
@@ -12,7 +12,7 @@ namespace db7::storage
     class BufferPool
     {
     private:
-        DiskManager *disk_mng_;
+        DiskScheduler *disk_mng_;
         Page *pages_;
         u32 poolSize_;
         std::atomic<u32> sweep_head;
@@ -23,11 +23,10 @@ namespace db7::storage
         bool PageVisit(Page *page, u32 pid);
 
     public:
-        BufferPool(DiskManager *disk_mng);
+        BufferPool(DiskScheduler *disk_mng);
         ~BufferPool();
 
-        Page *Pin(u32 pid); // TODO all of these should have private methods calling DiskManager
+        std::shared_future<Page *> Pin(u32 pid);
         void Unpin(Page *page, bool dirty = false);
-        void Flush(u32 pid);
     };
 }

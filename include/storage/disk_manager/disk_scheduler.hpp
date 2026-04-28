@@ -26,11 +26,11 @@ namespace db7::storage
         };
         Op op;
         IoPriority priority;
-        int fd;
-        void *buf;
-        u32 len;
-        off_t offset;
-        void *user_data;
+        Page *page;
+        page_id pid;
+
+        IoTask(Op op, IoPriority priority, Page *page, page_id pid)
+            : op(op), priority(priority), page(page), pid(pid) {}
 
         // higher priority = should come first
         bool operator<(const IoTask &other) const
@@ -44,7 +44,7 @@ namespace db7::storage
     private:
         DiskManagerAsync *io_;
         u32 max_inflight_;
-        std::atomic<u32> inflight_;
+        u32 inflight_;
         std::atomic<bool> running_;
 
         std::priority_queue<IoTask> queue_;
@@ -54,14 +54,15 @@ namespace db7::storage
 
         void Run()
         {
-            io_->SetCompletionCallback([this](void *ud, ssize_t res)
-                                       {
-            inflight_--;
-            // forward to whoever submitted the task
-            auto *task = static_cast<IoTask *>(ud);
-            // handle result here — notify waiting thread, mark page ready, etc.
-            (void)res;
-            delete task; });
+            io_->SetCompletionCallback(
+                [](void *user_data, ssize_t result)
+                {
+                    (void)result;
+                    auto *page = static_cast<Page *>(user_data);
+                    DB7_ASSERT(result == PAGE_SIZE, "Short read");
+                    page->state = PageState::VALID;
+                    page->io_promise.set_value(page);
+                });
 
             while (running_)
             {
@@ -74,7 +75,7 @@ namespace db7::storage
                 // 3. if nothing to do, sleep
                 std::unique_lock<std::mutex> lock(mu_);
                 cv_.wait_for(lock, std::chrono::milliseconds(1), [this]
-                             { return !queue_.empty() || !running_; });
+                             { return !queue_.empty() || !running_ || inflight_ > 0; });
             }
 
             // drain remaining on shutdown
@@ -82,7 +83,7 @@ namespace db7::storage
                 DrainCompletions();
         }
 
-        void SubmitPending()
+        void SubmitPending() // TODO pick a different data structure that is more thread friendly
         {
             std::lock_guard<std::mutex> lock(mu_);
             bool submitted_any = false;
@@ -92,14 +93,11 @@ namespace db7::storage
                 IoTask task = queue_.top();
                 queue_.pop();
 
-                // heap-allocate so pointer survives until completion
-                auto *t = new IoTask(task);
-
                 bool ok;
                 if (task.op == IoTask::READ)
-                    ok = io_->SubmitRead(task.fd, task.buf, task.len, task.offset, t);
+                    ok = io_->SubmitRead(task.pid, task.page->data, PAGE_SIZE, task.pid * PAGE_SIZE, (void *)task.page);
                 else
-                    ok = io_->SubmitWrite(task.fd, task.buf, task.len, task.offset, t);
+                    ok = io_->SubmitWrite(task.pid, task.page->data, PAGE_SIZE, task.pid * PAGE_SIZE, (void *)task.page);
 
                 if (ok)
                 {
@@ -110,7 +108,6 @@ namespace db7::storage
                 {
                     // ring full, put it back
                     queue_.push(task);
-                    delete t;
                     break;
                 }
             }
@@ -122,7 +119,9 @@ namespace db7::storage
         void DrainCompletions()
         {
             if (inflight_ > 0)
-                io_->ReapCompletions(max_inflight_);
+            {
+                inflight_ -= io_->ReapCompletions(max_inflight_);
+            }
         }
 
     public:

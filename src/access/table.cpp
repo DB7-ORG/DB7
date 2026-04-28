@@ -12,7 +12,7 @@ namespace db7::access
     void Table::Insert(const ProjectedRows &rows)
     {
         u32 page_id = storage::FreeSpaceManager::Get(rows.total_size); // TODO table oid
-        storage::Page *insert_page = buffer_->Pin(page_id);
+        storage::Page *insert_page = buffer_->Pin(page_id).get();
 
         const auto &map = schema_.GetOffsetMap();
         auto curr = rows.data;

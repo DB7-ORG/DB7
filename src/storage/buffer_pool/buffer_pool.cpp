@@ -3,7 +3,7 @@
 
 namespace db7::storage
 {
-    BufferPool::BufferPool(DiskManager *disk_mng) : disk_mng_(disk_mng)
+    BufferPool::BufferPool(DiskScheduler *disk_mng) : disk_mng_(disk_mng)
     {
         pages_ = new Page[BUFFER_POOL_PAGE_NUM];
         auto data = static_cast<u8 *>(std::aligned_alloc(4096, BUFFER_POOL_PAGE_NUM * PAGE_SIZE));
@@ -32,6 +32,11 @@ namespace db7::storage
                 victim_page_id = page->pid;
                 page->pid = wanted;
                 page->ref_count++;
+
+                page->io_promise = std::promise<Page *>();
+                page->io_future = page->io_future = page->io_promise.get_future().share();
+                page->state = PageState::LOADING;
+
                 page->WUnlock();
                 victim_frame_idx = head;
                 page->lock.lock();
@@ -64,7 +69,7 @@ namespace db7::storage
         return false;
     }
 
-    Page *BufferPool::Pin(u32 pid)
+    std::shared_future<Page *> BufferPool::Pin(u32 pid)
     {
         // LOOKUP
         u32 part = shared::HashUtil::murmurhash32(pid) % BUFFER_POOL_PARTITION_NUM;
@@ -79,7 +84,7 @@ namespace db7::storage
                 page = &pages_[frame_idx];
                 if (PageVisit(page, pid))
                 {
-                    return page;
+                    return page->io_future;
                 }
             }
 
@@ -98,7 +103,10 @@ namespace db7::storage
                 partition = &partitions_[part];
                 partition->Delete(victim_page_id, victim_frame_idx);
 
-                return page;
+                IoTask task(IoTask::READ, IoPriority::HIGH, page, pid);
+                disk_mng_->Enqueue(task);
+
+                return page->io_future;
             }
 
             // UndoState
@@ -108,7 +116,7 @@ namespace db7::storage
             page = &pages_[new_frame_idx];
             if (PageVisit(page, pid))
             {
-                return page;
+                return page->io_future;
             }
             // goto Lookup
         }
@@ -120,10 +128,5 @@ namespace db7::storage
         page->RLock();
         page->ref_count--;
         page->RUnlock();
-    }
-
-    void BufferPool::Flush(u32 pid)
-    {
-        (void)pid;
     }
 }

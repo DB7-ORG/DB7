@@ -2,6 +2,7 @@
 
 #include "common.hpp"
 #include <fmt/core.h>
+#include <random>
 
 #include "catalog/catalog.hpp"
 #include "storage/buffer_pool/buffer_pool.hpp"
@@ -21,42 +22,37 @@ int main()
 {
     fmt::print("Hello, {}!\n", "world");
 
-    db7::storage::DiskManager disk_mng(".data");
+    db7::storage::DiskManagerAsync disk_mng_async(".data");
+    disk_mng_async.CreateTable(2);
+    disk_mng_async.TruncateFile(2, 500);
 
-    // disk_mng.CreateTable(1);
-    // disk_mng.DropTable(1);
+    auto len = 1 << 20;
+    u8 *dest = (u8 *)std::aligned_alloc(4096, len);
 
-    // void *dest = std::aligned_alloc(4096, 1 << 20);
-    // disk_mng.CreateTable(2);
-    // disk_mng.ReadPage(2, 2, dest);
-    // disk_mng.WritePage(2, 2, dest);
-    // disk_mng.ExistsTable(2);
-    // disk_mng.TruncateFile(2, 6);
-    // disk_mng.ReadPage(2, 4, dest);
-    // disk_mng.PageCount(2);
+    db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
+    disk_scheduler.Start();
 
-    //////////////////////
+    db7::storage::BufferPool buffer_pool(&disk_scheduler);
 
-    // db7::storage::DiskManagerAsync disk_mng_async();
+    u64 t00 = now_ns();
 
-    // db7::storage::DiskScheduler scheduler(&disk_mng_async, 64);
-    // scheduler.Start();
+    dest[0] = 'a';
+    dest[1] = 't';
 
-    // // buffer pool submits work
-    // db7::storage::IoTask task;
-    // task.op = db7::storage::IoTask::READ;
-    // task.priority = db7::storage::IoPriority::HIGH;
-    // task.fd = fd;
-    // task.buf = aligned_buf;
-    // task.len = PAGE_SIZE;
-    // task.offset = page_id * PAGE_SIZE;
-    // task.user_data = nullptr;
+    u64 t0 = now_ns();
 
-    // scheduler.Enqueue(std::move(task));
+    u64 t1 = now_ns();
 
-    auto buffer_pool = new db7::storage::BufferPool(&disk_mng);
+    u64 t2 = now_ns();
 
-    auto cat = new catalog::Catalog(buffer_pool);
+    fmt::print("{} {}\n", (char)dest[0], (char)dest[1]);
+
+    printf("init queue:        %.3f ms\n", (t0 - t00) / 1e6);
+    printf("write:        %.3f ms\n", (t1 - t0) / 1e6);
+    printf("read:        %.3f ms\n", (t2 - t1) / 1e6);
+
+    auto cat = new catalog::Catalog(&buffer_pool);
+
     std::string s = "sss";
 
     cat->CreateDatabase(nullptr, s, true);

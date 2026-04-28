@@ -6,16 +6,26 @@
 #include <cstring>
 #include <shared_mutex>
 #include <atomic>
+#include <future>
 
 namespace db7::storage
 {
-    struct Page
+    enum class PageState : u8
     {
+        VALID,    // data is ready
+        LOADING,  // async read in flight
+        EVICTING, // async writeback in flight
+    };
+
+    struct Page
+    { // TODO padding
         page_id pid;
         std::atomic<u32> ref_count;
         std::shared_mutex latch; // header lock
-        // padding
-        u64 none;
+
+        std::atomic<PageState> state;
+        std::promise<Page *> io_promise;
+        std::shared_future<Page *> io_future;
         std::shared_mutex lock;
         byte *data;
 
