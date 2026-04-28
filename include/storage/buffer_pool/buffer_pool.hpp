@@ -18,15 +18,15 @@ namespace db7::storage
         std::atomic<u32> sweep_head;
         BufferPartition partitions_[BUFFER_POOL_PARTITION_NUM];
 
-        Page *GetVictim(page_id wanted, u32 &victim_frame_idx, page_id &victim_page_id);
-        void UndoState(Page *victim_page, page_id victim_page_id, page_id wanted);
-        bool PageVisit(Page *page, u32 pid);
+        Page *GetVictim(PageIdentifier id, u32 &victim_frame_idx, PageIdentifier &victim_page_id);
+        void UndoState(Page *victim_page, PageIdentifier victim_page_id, PageIdentifier wanted);
+        bool PageVisit(Page *page, PageIdentifier id);
 
     public:
         BufferPool(DiskScheduler *disk_mng);
         ~BufferPool();
 
-        std::shared_future<Page *> Pin(u32 pid);
+        std::shared_future<Page *> Pin(PageIdentifier id);
         void Unpin(Page *page, bool dirty = false);
     };
 }

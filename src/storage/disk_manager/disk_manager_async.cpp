@@ -66,7 +66,7 @@ namespace db7::storage
         if (ret < 0)
             throw std::runtime_error("io_uring_queue_init failed");
 
-        strncpy(base_dir_, base_dir, MAX_PATH_LEN - 1);
+        strncpy(base_dir_, base_dir, MAX_PATH_LEN_2 - 1);
 
         for (u32 i = 0; i < MAX_OPEN_FILES; i++)
         {
@@ -95,10 +95,9 @@ namespace db7::storage
     /**
      * sqe - Submission Queue Entry
      */
-    bool DiskManagerAsync::SubmitRead(page_id pid, void *buf, u32 len, off_t offset, void *user_data)
+    bool DiskManagerAsync::SubmitRead(table_id tid, void *buf, u32 len, off_t offset, void *user_data)
     {
-        auto hdr = cache_->Get(pid);
-        DB7_ASSERT(hdr.page_count > pid, "No available pages");
+        auto hdr = cache_->Get(tid);
         DB7_ASSERT(hdr.fd >= 0, "No valid file descriptor");
 
         struct io_uring_sqe *sqe = io_uring_get_sqe(&ring_);
@@ -110,10 +109,9 @@ namespace db7::storage
         return true;
     }
 
-    bool DiskManagerAsync::SubmitWrite(page_id pid, const void *buf, u32 len, off_t offset, void *user_data)
+    bool DiskManagerAsync::SubmitWrite(table_id tid, const void *buf, u32 len, off_t offset, void *user_data)
     {
-        auto hdr = cache_->Get(pid);
-        DB7_ASSERT(hdr.page_count > pid, "No available pages");
+        auto hdr = cache_->Get(tid);
         DB7_ASSERT(hdr.fd >= 0, "No valid file descriptor");
 
         struct io_uring_sqe *sqe = io_uring_get_sqe(&ring_);

@@ -34,6 +34,8 @@ int main()
 
     db7::storage::BufferPool buffer_pool(&disk_scheduler);
 
+    // buffer_pool.Pin(1);
+
     u64 t00 = now_ns();
 
     dest[0] = 'a';
@@ -56,6 +58,8 @@ int main()
     std::string s = "sss";
 
     cat->CreateDatabase(nullptr, s, true);
+
+    disk_scheduler.Stop();
 
     return 0;
 }

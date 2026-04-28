@@ -7,6 +7,7 @@
 #include <shared_mutex>
 #include <atomic>
 #include <future>
+#include <functional>
 
 namespace db7::storage
 {
@@ -19,7 +20,7 @@ namespace db7::storage
 
     struct Page
     { // TODO padding
-        page_id pid;
+        PageIdentifier id;
         std::atomic<u32> ref_count;
         std::shared_mutex latch; // header lock
 

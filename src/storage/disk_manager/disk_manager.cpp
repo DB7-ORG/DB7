@@ -36,7 +36,7 @@ namespace db7::storage
                 continue;
 
             char path[MAX_PATH_LEN];
-            snprintf(path, MAX_PATH_LEN, "%s/%s", base_dir_, entry->d_name);
+            BuildPath(tbl_id, path, sizeof(path));
 
             int fd = open(path, O_RDWR | O_DIRECT);
             if (fd < 0)
@@ -58,7 +58,7 @@ namespace db7::storage
     DiskManager::DiskManager(const char *base_dir)
         : cache_(std::make_unique<FdCache>())
     {
-        strncpy(base_dir_, base_dir, MAX_PATH_LEN - 1);
+        strncpy(base_dir_, base_dir, MAX_PATH_LEN_2 - 1);
 
         for (u32 i = 0; i < MAX_OPEN_FILES; i++)
         {

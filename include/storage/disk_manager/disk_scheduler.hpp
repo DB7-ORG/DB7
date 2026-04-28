@@ -27,10 +27,10 @@ namespace db7::storage
         Op op;
         IoPriority priority;
         Page *page;
-        page_id pid;
+        PageIdentifier id;
 
-        IoTask(Op op, IoPriority priority, Page *page, page_id pid)
-            : op(op), priority(priority), page(page), pid(pid) {}
+        IoTask(Op op, IoPriority priority, Page *page, PageIdentifier id)
+            : op(op), priority(priority), page(page), id(id) {}
 
         // higher priority = should come first
         bool operator<(const IoTask &other) const
@@ -95,9 +95,9 @@ namespace db7::storage
 
                 bool ok;
                 if (task.op == IoTask::READ)
-                    ok = io_->SubmitRead(task.pid, task.page->data, PAGE_SIZE, task.pid * PAGE_SIZE, (void *)task.page);
+                    ok = io_->SubmitRead(task.id.tbl_id, task.page->data, PAGE_SIZE, task.id.pid * PAGE_SIZE, (void *)task.page);
                 else
-                    ok = io_->SubmitWrite(task.pid, task.page->data, PAGE_SIZE, task.pid * PAGE_SIZE, (void *)task.page);
+                    ok = io_->SubmitWrite(task.id.tbl_id, task.page->data, PAGE_SIZE, task.id.pid * PAGE_SIZE, (void *)task.page);
 
                 if (ok)
                 {

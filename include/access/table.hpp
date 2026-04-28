@@ -6,6 +6,7 @@
 #include "storage/storage_common.hpp"
 #include "shared/macro_helper.hpp"
 #include "access/projected_rows.hpp"
+#include "storage/storage_common.hpp"
 
 #include <unordered_map>
 #include <memory>
@@ -36,7 +37,7 @@ namespace db7::access
             : buffer_(buffer), schema_(std::move(schema)), oid_(oid)
         {
             // TODO initialize a table file using disk manager
-                }
+        }
 
         void Insert(const ProjectedRows &rows);
 

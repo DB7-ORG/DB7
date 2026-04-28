@@ -5,14 +5,18 @@
 
 #include <memory>
 
+/**
+ * this is a hack
+ */
 #define MAX_PATH_LEN 256u
+#define MAX_PATH_LEN_2 128u
 
 namespace db7::storage
 {
     class DiskManager
     {
     private:
-        char base_dir_[MAX_PATH_LEN]; /* directory that holds table files */
+        char base_dir_[MAX_PATH_LEN_2]; /* directory that holds table files */
         std::unique_ptr<FdCache> cache_;
 
         void BuildPath(table_id tid, char *buf, u32 len);
