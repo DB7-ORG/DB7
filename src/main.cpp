@@ -3,6 +3,8 @@
 #include "common.hpp"
 #include <fmt/core.h>
 #include <random>
+// #include <thread>
+// #include <chrono>
 
 #include "catalog/catalog.hpp"
 #include "storage/buffer_pool/buffer_pool.hpp"
@@ -23,44 +25,70 @@ int main()
 {
     fmt::print("Hello, {}!\n", "world");
 
+    constexpr u32 PAGES = 10000;
+
+    // int fd = open(".data/table_2.db", O_RDWR | O_CREAT | O_DIRECT, 0644);
+    // if (fd < 0)
+    // {
+    //     DB7_ASSERT(false, "File not found");
+    //     return false;
+    // }
+
+    // alignas(4096) u8 buf[PAGE_SIZE] = {};
+    // for (u32 i = 0; i < PAGES; i++)
+    // {
+    //     memset(buf, 0, PAGE_SIZE);
+    //     *reinterpret_cast<u64 *>(buf) = i;
+    //     pwrite(fd, buf, PAGE_SIZE, (off_t)i * PAGE_SIZE);
+    // }
+    // fsync(fd);
+
     db7::storage::DiskManagerAsync disk_mng_async(".data");
     disk_mng_async.OpenFile(2);
-    disk_mng_async.TruncateFile(2, 500);
+    disk_mng_async.TruncateFile(2, PAGES);
 
-    auto len = 1 << 20;
-    u8 *dest = (u8 *)std::aligned_alloc(4096, len);
-
-    db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
+    db7::storage::DiskScheduler disk_scheduler(&disk_mng_async, IOURING_QUEUE_SIZE);
     disk_scheduler.Start();
 
     db7::storage::BufferPool buffer_pool(&disk_scheduler);
 
-    for (u32 i = 0; i < 34; i++)
-    {
-        db7::storage::PageIdentifier id(2, i);
-        auto future = buffer_pool.Pin(id);
-        auto page = future.get();
-        buffer_pool.Unpin(page);
-    }
-
-    shared::Print(buffer_pool);
+    constexpr u32 NUM_THREADS = 20;
+    constexpr u32 NUM_OPS = 500;
 
     u64 t00 = now_ns();
 
-    dest[0] = 'a';
-    dest[1] = 't';
+    std::vector<std::thread> threads;
+    for (u32 t = 0; t < NUM_THREADS; t++)
+    {
+        threads.emplace_back([&buffer_pool, t]()
+                             {
+        u32 counter = t*NUM_OPS;
+        for (u32 i = 0; i < NUM_OPS; i++)
+        {
+            db7::storage::PageIdentifier id(2, counter++);
+            auto page = buffer_pool.Pin(id);
+            // page->RLock();
+            // page->WaitIO();
+            // page->RUnlock();
+
+            //std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+            page->RLock();
+            buffer_pool.Unpin(page);
+            page->RUnlock();
+        } });
+    }
+
+    for (auto &t : threads)
+        t.join();
 
     u64 t0 = now_ns();
 
-    u64 t1 = now_ns();
+    // shared::Print(buffer_pool);
 
-    u64 t2 = now_ns();
-
-    fmt::print("{} {}\n", (char)dest[0], (char)dest[1]);
-
-    printf("init queue:        %.3f ms\n", (t0 - t00) / 1e6);
-    printf("write:        %.3f ms\n", (t1 - t0) / 1e6);
-    printf("read:        %.3f ms\n", (t2 - t1) / 1e6);
+    printf("time:        %.3f ms\n", (t0 - t00) / 1e6);
+    // printf("write:        %.3f ms\n", (t1 - t0) / 1e6);
+    // printf("read:        %.3f ms\n", (t2 - t1) / 1e6);
 
     auto cat = new catalog::Catalog(&buffer_pool);
 

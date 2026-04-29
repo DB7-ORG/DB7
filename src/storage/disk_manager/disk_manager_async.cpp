@@ -13,7 +13,7 @@
 
 namespace db7::storage
 {
-#pragma GCC diagnostic push
+#pragma GCC diagnostic push // TODO
 #pragma GCC diagnostic ignored "-Wformat-truncation"
     void DiskManagerAsync::BuildPath(table_id tid, char *buf, u32 len)
     {
@@ -220,7 +220,7 @@ namespace db7::storage
         return access(path, F_OK) == 0;
     }
 
-    bool DiskManagerAsync::TruncateFile(table_id tbl_id, u32 pages_num)
+    bool DiskManagerAsync::TruncateFile(table_id tbl_id, u64 pages_num)
     {
         FdCacheEntry hdr = cache_->Get(tbl_id);
         DB7_ASSERT(hdr.fd >= 0, "File not found");

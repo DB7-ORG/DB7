@@ -9,7 +9,9 @@ variables
     hash_table = [par \in 0..NUM_PARTITIONS-1 |-> [p \in 1..NUM_PAGES |-> 0]],
     frames = [f \in 1..NUM_FRAMES |-> [
         page_id |-> 0,
-        ref_count |-> 0
+        ref_count |-> 0,
+        dirty |-> FALSE,
+        io_in_progress |-> FALSE
     ]]
 \* fair
 process Thread \in 1..NUM_THREADS
@@ -30,10 +32,16 @@ begin
         end if;
 
     FindVictim:
-        await (\E f \in 1..NUM_FRAMES : frames[f].ref_count = 0);
-        with v \in {f \in 1..NUM_FRAMES : frames[f].ref_count = 0} do
+        await (\E f \in 1..NUM_FRAMES : 
+            frames[f].ref_count = 0 
+            /\ frames[f].dirty = FALSE 
+            /\ frames[f].io_in_progress = FALSE);
+        with v \in {f \in 1..NUM_FRAMES : 
+            frames[f].ref_count = 0 
+            /\ frames[f].dirty = FALSE 
+            /\ frames[f].io_in_progress = FALSE} do
             evict_page_id := frames[v].page_id;
-            frames[v].ref_count := 1 || frames[v].page_id := wanted;
+            frames[v].ref_count := 1 || frames[v].page_id := wanted || frames[v].io_in_progress := TRUE;
             idx := v;
         end with;
         goto InsertVictimToTable;
@@ -50,6 +58,7 @@ begin
         end if;
 
     UsePage:
+        await frames[idx].io_in_progress = FALSE;
         frames[idx].ref_count := frames[idx].ref_count - 1;
         goto Done;
             
@@ -62,12 +71,13 @@ begin
         end if;
         
     UndoState:
-        frames[idx].ref_count := frames[idx].ref_count - 1 || frames[idx].page_id := evict_page_id;
+        frames[idx].ref_count := frames[idx].ref_count - 1 || frames[idx].page_id := evict_page_id || frames[idx].io_in_progress := FALSE;
         evict_page_id:=0;
         idx:=0;
         goto Lookup;
 
     FetchPage:
+        frames[idx].io_in_progress := FALSE;
         goto RemoveStaleEntry;
     
     RemoveStaleEntry:
@@ -83,7 +93,7 @@ begin
 end process;
 
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "375e7222" /\ chksum(tla) = "9f1c66d9")
+\* BEGIN TRANSLATION (chksum(pcal) = "d9cc9037" /\ chksum(tla) = "d8831bbd")
 VARIABLES pc, hash_table, frames, wanted, idx, evict_page_id
 
 vars == << pc, hash_table, frames, wanted, idx, evict_page_id >>
@@ -95,7 +105,14 @@ Init ==
   /\ hash_table =
        [par \in 0 .. NUM_PARTITIONS - 1 |-> [p \in 1 .. NUM_PAGES |-> 0]
        ]
-  /\ frames = [f \in 1 .. NUM_FRAMES |-> [ page_id |-> 0, ref_count |-> 0 ]]
+  /\ frames =
+       [f \in 1 .. NUM_FRAMES |->
+         [ page_id |-> 0,
+           ref_count |-> 0,
+           dirty |-> FALSE,
+           io_in_progress |-> FALSE
+         ]
+       ]
   (* Process Thread *)
   /\ wanted = [self \in 1 .. NUM_THREADS |-> 0]
   /\ idx = [self \in 1 .. NUM_THREADS |-> 0]
@@ -122,11 +139,24 @@ Lookup(self) ==
 
 FindVictim(self) ==
   /\ pc[self] = "FindVictim"
-  /\ ( \E f \in 1 .. NUM_FRAMES: frames[f].ref_count = 0 )
-  /\ \E v \in {f \in 1 .. NUM_FRAMES: frames[f].ref_count = 0}:
+  /\ ( \E f \in 1 .. NUM_FRAMES:
+         frames[f].ref_count = 0 /\ frames[f].dirty = FALSE /\
+           frames[f].io_in_progress = FALSE
+     )
+  /\ \E v \in
+       {f \in 1 .. NUM_FRAMES:
+           frames[f].ref_count = 0 /\ frames[f].dirty = FALSE /\
+             frames[f].io_in_progress = FALSE
+         }:
        /\ evict_page_id' = [evict_page_id EXCEPT ![self] = frames[v].page_id]
        /\ frames' =
-            [frames EXCEPT ![v].ref_count = 1, ![v].page_id = wanted[self]]
+            [frames EXCEPT
+            ![v].ref_count =
+            1,
+            ![v].page_id =
+            wanted[self],
+            ![v].io_in_progress =
+            TRUE]
        /\ idx' = [idx EXCEPT ![self] = v]
   /\ pc' = [pc EXCEPT ![self] = "InsertVictimToTable"]
   /\ UNCHANGED << hash_table, wanted >>
@@ -145,6 +175,7 @@ PageVisit(self) ==
 
 UsePage(self) ==
   /\ pc[self] = "UsePage"
+  /\ frames[idx[self]].io_in_progress = FALSE
   /\ frames' =
        [frames EXCEPT ![idx[self]].ref_count = frames[idx[self]].ref_count - 1]
   /\ pc' = [pc EXCEPT ![self] = "Done"]
@@ -169,7 +200,9 @@ UndoState(self) ==
        ![idx[self]].ref_count =
        frames[idx[self]].ref_count - 1,
        ![idx[self]].page_id =
-       evict_page_id[self]]
+       evict_page_id[self],
+       ![idx[self]].io_in_progress =
+       FALSE]
   /\ evict_page_id' = [evict_page_id EXCEPT ![self] = 0]
   /\ idx' = [idx EXCEPT ![self] = 0]
   /\ pc' = [pc EXCEPT ![self] = "Lookup"]
@@ -177,8 +210,9 @@ UndoState(self) ==
 
 FetchPage(self) ==
   /\ pc[self] = "FetchPage"
+  /\ frames' = [frames EXCEPT ![idx[self]].io_in_progress = FALSE]
   /\ pc' = [pc EXCEPT ![self] = "RemoveStaleEntry"]
-  /\ UNCHANGED << hash_table, frames, wanted, idx, evict_page_id >>
+  /\ UNCHANGED << hash_table, wanted, idx, evict_page_id >>
 
 RemoveStaleEntry(self) ==
   /\ pc[self] = "RemoveStaleEntry"
@@ -218,11 +252,6 @@ Spec == Init /\ [][Next]_vars
 Termination == <>( \A self \in ProcSet: pc[self] = "Done" )
 
 \* END TRANSLATION 
-\* Checks so that htable doesnt have 2 different pointers to same frame
-\* HashTableNoDuplicates ==
-\*   \A p1, p2 \in 1 .. NUM_PAGES:
-\*     p1 /= p2 /\ hash_table[p1 % NUM_PARTITIONS][p1] /= 0 =>
-\*       hash_table[p1 % NUM_PARTITIONS][p1] /= hash_table[p2 % NUM_PARTITIONS][p2]
 \* Checks at the end of alg that there are no duplicate pages
 UniquePages ==
   ( \A t \in 1 .. NUM_THREADS: pc[t] = "Done" ) =>
@@ -230,9 +259,12 @@ UniquePages ==
       f1 /= f2 /\ frames[f1].page_id /= 0 =>
         frames[f1].page_id /= frames[f2].page_id
 \* Checks if any pins are leaked
-NoLeakedPins ==
+NoLeakedFlags ==
   ( \A t \in 1 .. NUM_THREADS: pc[t] = "Done" ) =>
-    \A f \in 1 .. NUM_FRAMES: frames[f].ref_count = 0
+    \A f \in 1 .. NUM_FRAMES:
+      frames[f].ref_count = 0 /\ frames[f].dirty = FALSE /\
+        frames[f].io_in_progress = FALSE
+
 \* Checks hash table points to correct page
 HashTableConsistent ==
   ( \A t \in 1 .. NUM_THREADS: pc[t] = "Done" ) =>

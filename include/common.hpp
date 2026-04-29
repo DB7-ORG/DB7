@@ -6,6 +6,7 @@
 #define PACKED __attribute__((packed))
 
 #define DB7_DEBUG true
+#define CACHE_LINE_SIZE 64
 
 namespace db7
 {

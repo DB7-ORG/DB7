@@ -1,6 +1,7 @@
 #pragma once
 
 #include "storage/disk_manager/disk_manager_async.hpp"
+#include "storage/page.hpp"
 
 #include <queue>
 #include <mutex>
@@ -60,8 +61,16 @@ namespace db7::storage
                     (void)result;
                     auto *page = static_cast<Page *>(user_data);
                     DB7_ASSERT(result == PAGE_SIZE, "Short read");
-                    page->state = PageState::VALID;
-                    page->io_promise.set_value(page);
+                    DB7_ASSERT(page->IsIOInProgress(), "Io in progress not set");
+
+                    // DB7_ASSERT(page->GetId().pid == *(u64 *)page->GetData(), "Invalid page");
+                    // printf("%d ", page->GetId().pid);
+
+                    // TODO DB7_ASSERT(page->IsPinned(), "Pin not set");
+                    // Dont need locks here since no page can write to header while io_in_progress is set
+                    // page->WLock();
+                    page->SignalIO();
+                    // page->WUnlock();
                 });
 
             while (running_)
@@ -95,9 +104,9 @@ namespace db7::storage
 
                 bool ok;
                 if (task.op == IoTask::READ)
-                    ok = io_->SubmitRead(task.id.tbl_id, task.page->data, PAGE_SIZE, task.id.pid * PAGE_SIZE, (void *)task.page);
+                    ok = io_->SubmitRead(task.id.tbl_id, task.page->GetData(), PAGE_SIZE, task.id.pid * PAGE_SIZE, (void *)task.page);
                 else
-                    ok = io_->SubmitWrite(task.id.tbl_id, task.page->data, PAGE_SIZE, task.id.pid * PAGE_SIZE, (void *)task.page);
+                    ok = io_->SubmitWrite(task.id.tbl_id, task.page->GetData(), PAGE_SIZE, task.id.pid * PAGE_SIZE, (void *)task.page);
 
                 if (ok)
                 {

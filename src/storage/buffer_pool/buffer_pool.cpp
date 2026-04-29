@@ -6,61 +6,66 @@ namespace db7::storage
     BufferPool::BufferPool(DiskScheduler *disk_mng) : disk_mng_(disk_mng)
     {
         pages_ = new Page[BUFFER_POOL_PAGE_NUM];
-        auto data = static_cast<u8 *>(std::aligned_alloc(4096, BUFFER_POOL_PAGE_NUM * PAGE_SIZE));
+        auto data = static_cast<u8 *>(std::aligned_alloc(4096, static_cast<size_t>(BUFFER_POOL_PAGE_NUM) * PAGE_SIZE));
+        DB7_ASSERT(data != nullptr, "Failed to allocate");
+        PageIdentifier id(0);
         for (u32 i = 0; i < BUFFER_POOL_PAGE_NUM; i++)
         {
-            pages_[i].id.packed = 0;
-            pages_[i].data = data + (i * PAGE_SIZE);
+            pages_[i].SetId(id);
+            pages_[i].SetData(data + (i * PAGE_SIZE));
         }
     }
 
     BufferPool::~BufferPool()
     {
-        std::free(pages_[0].data);
+        std::free(pages_[0].GetData());
         delete[] pages_;
     }
 
     Page *BufferPool::GetVictim(PageIdentifier id, u32 &victim_frame_idx, PageIdentifier &victim_page_id)
     {
-        u32 max_iters = BUFFER_POOL_PAGE_NUM * 4;
+        u32 max_iters = BUFFER_POOL_PAGE_NUM * 40;
         for (u32 i = 0; i < max_iters; i++)
         {
             u32 head = (sweep_head++) % BUFFER_POOL_PAGE_NUM;
             Page *page = &pages_[head];
-            if (page->TryWLock() && page->ref_count == 0)
+            if (page->TryWLock())
             {
-                victim_page_id = page->id;
-                page->id = id;
-                page->ref_count++;
-
-                page->io_promise = std::promise<Page *>();
-                page->io_future = page->io_future = page->io_promise.get_future().share();
-                page->state = PageState::LOADING;
-
+                if (page->IsEvictable())
+                {
+                    victim_page_id = page->GetId();
+                    page->SetId(id);
+                    page->Pin();
+                    page->SetIOInProgress();
+                    page->WUnlock();
+                    victim_frame_idx = head;
+                    return page;
+                }
                 page->WUnlock();
-                victim_frame_idx = head;
-                return page;
             }
+
+            std::this_thread::yield();
         }
         DB7_ASSERT(false, "No pages i can evict");
         return nullptr;
     }
 
-    void BufferPool::UndoState(Page *victim_page, PageIdentifier victim_page_id, PageIdentifier wanted)
+    void BufferPool::UndoState(Page *victim_page, PageIdentifier victim_page_id)
     {
         victim_page->WLock();
-        victim_page->ref_count--;
-        if (victim_page->id == wanted)
-            victim_page->id = victim_page_id;
+        victim_page->Unpin();
+        // if (victim_page->GetId() == wanted)
+        victim_page->SetId(victim_page_id);
+        victim_page->ClearIOInProgress();
         victim_page->WUnlock();
     }
 
     bool BufferPool::PageVisit(Page *page, PageIdentifier id)
     {
         page->RLock();
-        if (page->id.pid == id.pid && page->id.tbl_id == id.tbl_id)
+        if (page->GetId() == id)
         { // PageVisit
-            page->ref_count++;
+            page->Pin();
             page->RUnlock();
             return true;
         }
@@ -68,7 +73,7 @@ namespace db7::storage
         return false;
     }
 
-    std::shared_future<Page *> BufferPool::Pin(PageIdentifier id)
+    Page *BufferPool::Pin(PageIdentifier id)
     {
         // LOOKUP
         u32 part = shared::HashUtil::murmurhash64(id.packed) % BUFFER_POOL_PARTITION_NUM;
@@ -83,7 +88,7 @@ namespace db7::storage
                 page = &pages_[frame_idx];
                 if (PageVisit(page, id))
                 {
-                    return page->io_future;
+                    return page;
                 }
             }
 
@@ -105,16 +110,16 @@ namespace db7::storage
                 IoTask task(IoTask::READ, IoPriority::HIGH, page, id);
                 disk_mng_->Enqueue(task);
 
-                return page->io_future;
+                return page;
             }
 
             // UndoState
-            UndoState(page, victim_page_id, id);
+            UndoState(page, victim_page_id);
 
             page = &pages_[new_frame_idx];
             if (PageVisit(page, id))
             {
-                return page->io_future;
+                return page;
             }
             // goto Lookup
         }
@@ -123,8 +128,8 @@ namespace db7::storage
     void BufferPool::Unpin(Page *page, bool dirty)
     {
         (void)dirty;
-        page->RLock();
-        page->ref_count--;
-        page->RUnlock();
+        // page->RLock();
+        page->Unpin();
+        // page->RUnlock();
     }
 }

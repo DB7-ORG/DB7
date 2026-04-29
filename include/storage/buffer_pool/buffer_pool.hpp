@@ -19,14 +19,14 @@ namespace db7::storage
         BufferPartition partitions_[BUFFER_POOL_PARTITION_NUM];
 
         Page *GetVictim(PageIdentifier id, u32 &victim_frame_idx, PageIdentifier &victim_page_id);
-        void UndoState(Page *victim_page, PageIdentifier victim_page_id, PageIdentifier wanted);
+        void UndoState(Page *victim_page, PageIdentifier victim_page_id);
         bool PageVisit(Page *page, PageIdentifier id);
 
     public:
         BufferPool(DiskScheduler *disk_mng);
         ~BufferPool();
 
-        std::shared_future<Page *> Pin(PageIdentifier id);
+        Page *Pin(PageIdentifier id);
         void Unpin(Page *page, bool dirty = false);
 
 #ifdef DB7_DEBUG
