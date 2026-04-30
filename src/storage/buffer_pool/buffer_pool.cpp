@@ -1,6 +1,9 @@
 #include "storage/buffer_pool/buffer_pool.hpp"
 #include "shared/hash_util.hpp"
 
+#include <thread>
+#include <chrono>
+
 namespace db7::storage
 {
     BufferPool::BufferPool(DiskScheduler *disk_mng) : disk_mng_(disk_mng)
@@ -24,8 +27,9 @@ namespace db7::storage
 
     Page *BufferPool::GetVictim(PageIdentifier id, u32 &victim_frame_idx, PageIdentifier &victim_page_id)
     {
-        u32 max_iters = BUFFER_POOL_PAGE_NUM * 40;
-        for (u32 i = 0; i < max_iters; i++)
+        u32 max_iters = BUFFER_POOL_PAGE_NUM * 2;
+
+        for (u32 iters = 1; true; iters++)
         {
             u32 head = (sweep_head++) % BUFFER_POOL_PAGE_NUM;
             Page *page = &pages_[head];
@@ -44,9 +48,13 @@ namespace db7::storage
                 page->WUnlock();
             }
 
-            std::this_thread::yield();
+            if (iters % max_iters == 0)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
         }
-        DB7_ASSERT(false, "No pages i can evict");
+
+        DB7_ASSERT(false, "Unreachable");
         return nullptr;
     }
 

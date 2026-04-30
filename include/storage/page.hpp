@@ -19,11 +19,12 @@ namespace db7::storage
         PageIdentifier id_;          // 8 bytes
         byte *data_;                 // 8 bytes
         std::atomic<u32> ref_count_; // 4 bytes
-        u8 flags_;                   // 1 byte
+        std::atomic<u8> flags_;      // 1 byte
         u8 pad_[3];                  // 3 bytes padding
 
         alignas(CACHE_LINE_SIZE) std::shared_mutex latch_; // ~56 bytes typically
-        alignas(CACHE_LINE_SIZE) std::condition_variable_any io_cv_;
+        alignas(CACHE_LINE_SIZE) std::mutex io_mtx_;
+        alignas(CACHE_LINE_SIZE) std::condition_variable io_cv_;
         alignas(CACHE_LINE_SIZE) std::shared_mutex lock_;
 
     public:
@@ -68,13 +69,13 @@ namespace db7::storage
         u32 PinCount() const { return ref_count_.load(); }
         bool IsPinned() const { return PinCount() > 0; }
 
-        bool IsDirty() const { return flags_ & DIRTY_FLAG; }
-        void SetDirty() { flags_ |= DIRTY_FLAG; }
-        void ClearDirty() { flags_ &= ~DIRTY_FLAG; }
+        bool IsIOInProgress() const { return flags_.load(std::memory_order_acquire) & IO_IN_PROGRESS_FLAG; }
+        void SetIOInProgress() { flags_.fetch_or(IO_IN_PROGRESS_FLAG, std::memory_order_release); }
+        void ClearIOInProgress() { flags_.fetch_and(~IO_IN_PROGRESS_FLAG, std::memory_order_release); }
 
-        bool IsIOInProgress() const { return flags_ & IO_IN_PROGRESS_FLAG; }
-        void SetIOInProgress() { flags_ |= IO_IN_PROGRESS_FLAG; }
-        void ClearIOInProgress() { flags_ &= ~IO_IN_PROGRESS_FLAG; }
+        bool IsDirty() const { return flags_.load(std::memory_order_acquire) & DIRTY_FLAG; }
+        void SetDirty() { flags_.fetch_or(DIRTY_FLAG, std::memory_order_release); }
+        void ClearDirty() { flags_.fetch_and(~DIRTY_FLAG, std::memory_order_release); }
 
         bool IsEvictable() const { return !IsPinned() && !IsDirty() && !IsIOInProgress(); }
 
@@ -91,18 +92,19 @@ namespace db7::storage
         /**
          * Channel
          */
-        void WaitIO() // TODO
+        void WaitIO()
         {
-            if (!IsIOInProgress())
-                return;
-
-            io_cv_.wait(latch_, [&]
+            std::unique_lock lk(io_mtx_);
+            io_cv_.wait(lk, [&]
                         { return !IsIOInProgress(); });
         }
 
         void SignalIO()
         {
-            ClearIOInProgress();
+            {
+                std::lock_guard lk(io_mtx_);
+                ClearIOInProgress();
+            }
             io_cv_.notify_all();
         }
     };

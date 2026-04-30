@@ -21,38 +21,43 @@ static inline u64 now_ns()
     return u64(ts.tv_sec) * 1000000000ull + ts.tv_nsec;
 }
 
+constexpr u32 PAGES = 10000;
+
+void populate_table()
+{
+    int fd = open(".data/table_2.db", O_RDWR | O_CREAT | O_DIRECT, 0644);
+    if (fd < 0)
+    {
+        DB7_ASSERT(false, "File not found");
+        return;
+    }
+
+    alignas(4096) u8 buf[PAGE_SIZE] = {};
+    for (u32 i = 0; i < PAGES; i++)
+    {
+        memset(buf, 0, PAGE_SIZE);
+        *reinterpret_cast<u64 *>(buf) = i;
+        pwrite(fd, buf, PAGE_SIZE, (off_t)i * PAGE_SIZE);
+    }
+    fsync(fd);
+}
+
 int main()
 {
     fmt::print("Hello, {}!\n", "world");
 
-    constexpr u32 PAGES = 10000;
-
-    // int fd = open(".data/table_2.db", O_RDWR | O_CREAT | O_DIRECT, 0644);
-    // if (fd < 0)
-    // {
-    //     DB7_ASSERT(false, "File not found");
-    //     return false;
-    // }
-
-    // alignas(4096) u8 buf[PAGE_SIZE] = {};
-    // for (u32 i = 0; i < PAGES; i++)
-    // {
-    //     memset(buf, 0, PAGE_SIZE);
-    //     *reinterpret_cast<u64 *>(buf) = i;
-    //     pwrite(fd, buf, PAGE_SIZE, (off_t)i * PAGE_SIZE);
-    // }
-    // fsync(fd);
+    // populate_table();
 
     db7::storage::DiskManagerAsync disk_mng_async(".data");
     disk_mng_async.OpenFile(2);
     disk_mng_async.TruncateFile(2, PAGES);
 
-    db7::storage::DiskScheduler disk_scheduler(&disk_mng_async, IOURING_QUEUE_SIZE);
+    db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
     disk_scheduler.Start();
 
     db7::storage::BufferPool buffer_pool(&disk_scheduler);
 
-    constexpr u32 NUM_THREADS = 20;
+    constexpr u32 NUM_THREADS = 1000;
     constexpr u32 NUM_OPS = 500;
 
     u64 t00 = now_ns();
@@ -62,18 +67,20 @@ int main()
     {
         threads.emplace_back([&buffer_pool, t]()
                              {
-        u32 counter = t*NUM_OPS;
+        std::mt19937 rng(std::random_device{}());
+        std::uniform_int_distribution<u32> dist(0, PAGES-1);
+
         for (u32 i = 0; i < NUM_OPS; i++)
         {
-            db7::storage::PageIdentifier id(2, counter++);
+            db7::storage::PageIdentifier id(2, dist(rng));
             auto page = buffer_pool.Pin(id);
-            // page->RLock();
-            // page->WaitIO();
-            // page->RUnlock();
+
+            page->WaitIO();
 
             //std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
             page->RLock();
+            //page->ClearIOInProgress();
             buffer_pool.Unpin(page);
             page->RUnlock();
         } });
@@ -84,7 +91,7 @@ int main()
 
     u64 t0 = now_ns();
 
-    // shared::Print(buffer_pool);
+    shared::Print(buffer_pool);
 
     printf("time:        %.3f ms\n", (t0 - t00) / 1e6);
     // printf("write:        %.3f ms\n", (t1 - t0) / 1e6);
@@ -95,6 +102,8 @@ int main()
     std::string s = "sss";
 
     cat->CreateDatabase(nullptr, s, true);
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     disk_scheduler.Stop();
 

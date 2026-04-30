@@ -6,3 +6,12 @@ much better than current design?????
 
 redesign in tla+ buffer pool with io in progress flag
 and refactor code or tla to match the names
+
+
+BUFFER POOL SIZE = 1_000
+
+THREAD NUM = 10_000
+
+PARTITIONS = 128
+
+TIME = 45s

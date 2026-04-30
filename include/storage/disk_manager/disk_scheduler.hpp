@@ -2,6 +2,8 @@
 
 #include "storage/disk_manager/disk_manager_async.hpp"
 #include "storage/page.hpp"
+#undef BLOCK_SIZE
+#include "third_party/concurrentqueue.h"
 
 #include <queue>
 #include <mutex>
@@ -30,6 +32,8 @@ namespace db7::storage
         Page *page;
         PageIdentifier id;
 
+        IoTask() {}
+
         IoTask(Op op, IoPriority priority, Page *page, PageIdentifier id)
             : op(op), priority(priority), page(page), id(id) {}
 
@@ -44,13 +48,11 @@ namespace db7::storage
     {
     private:
         DiskManagerAsync *io_;
-        u32 max_inflight_;
         u32 inflight_;
+        u32 max_inflight_;
         std::atomic<bool> running_;
 
-        std::priority_queue<IoTask> queue_;
-        std::mutex mu_;
-        std::condition_variable cv_;
+        moodycamel::ConcurrentQueue<IoTask> queue_;
         std::thread worker_;
 
         void Run()
@@ -63,14 +65,13 @@ namespace db7::storage
                     DB7_ASSERT(result == PAGE_SIZE, "Short read");
                     DB7_ASSERT(page->IsIOInProgress(), "Io in progress not set");
 
-                    // DB7_ASSERT(page->GetId().pid == *(u64 *)page->GetData(), "Invalid page");
+                    DB7_ASSERT(page->GetId().pid == *(u64 *)page->GetData(), "Invalid page");
                     // printf("%d ", page->GetId().pid);
 
                     // TODO DB7_ASSERT(page->IsPinned(), "Pin not set");
                     // Dont need locks here since no page can write to header while io_in_progress is set
-                    // page->WLock();
+
                     page->SignalIO();
-                    // page->WUnlock();
                 });
 
             while (running_)
@@ -82,9 +83,11 @@ namespace db7::storage
                 SubmitPending();
 
                 // 3. if nothing to do, sleep
-                std::unique_lock<std::mutex> lock(mu_);
-                cv_.wait_for(lock, std::chrono::milliseconds(1), [this]
-                             { return !queue_.empty() || !running_ || inflight_ > 0; });
+                if (queue_.size_approx() == 0 && inflight_ == 0)
+                {
+                    // Nothing to do — back off briefly
+                    std::this_thread::sleep_for(std::chrono::microseconds(50));
+                }
             }
 
             // drain remaining on shutdown
@@ -92,21 +95,24 @@ namespace db7::storage
                 DrainCompletions();
         }
 
-        void SubmitPending() // TODO pick a different data structure that is more thread friendly
+        void SubmitPending()
         {
-            std::lock_guard<std::mutex> lock(mu_);
             bool submitted_any = false;
 
-            while (!queue_.empty() && inflight_ < max_inflight_)
-            {
-                IoTask task = queue_.top();
-                queue_.pop();
+            // Bulk dequeue up to available inflight slots
+            u32 slots = std::min((u32)IOURING_QUEUE_SIZE, max_inflight_ - inflight_);
+            if (slots == 0)
+                return;
+            IoTask tasks[IOURING_QUEUE_SIZE]; // or use max_inflight_ with a vector if it varies
+            size_t count = queue_.try_dequeue_bulk(tasks, slots);
 
+            for (size_t i = 0; i < count; ++i)
+            {
                 bool ok;
-                if (task.op == IoTask::READ)
-                    ok = io_->SubmitRead(task.id.tbl_id, task.page->GetData(), PAGE_SIZE, task.id.pid * PAGE_SIZE, (void *)task.page);
+                if (tasks[i].op == IoTask::READ)
+                    ok = io_->SubmitRead(tasks[i].id.tbl_id, tasks[i].page->GetData(), PAGE_SIZE, tasks[i].id.pid * PAGE_SIZE, (void *)tasks[i].page);
                 else
-                    ok = io_->SubmitWrite(task.id.tbl_id, task.page->GetData(), PAGE_SIZE, task.id.pid * PAGE_SIZE, (void *)task.page);
+                    ok = io_->SubmitWrite(tasks[i].id.tbl_id, tasks[i].page->GetData(), PAGE_SIZE, tasks[i].id.pid * PAGE_SIZE, (void *)tasks[i].page);
 
                 if (ok)
                 {
@@ -115,8 +121,8 @@ namespace db7::storage
                 }
                 else
                 {
-                    // ring full, put it back
-                    queue_.push(task);
+                    // Ring full — re-enqueue this task and all remaining ones
+                    queue_.enqueue_bulk(tasks + i, count - i);
                     break;
                 }
             }
@@ -134,10 +140,8 @@ namespace db7::storage
         }
 
     public:
-        DiskScheduler(DiskManagerAsync *io, u32 max_inflight = 64)
-            : io_(io), max_inflight_(max_inflight), inflight_(0), running_(false)
-        {
-        }
+        DiskScheduler(DiskManagerAsync *io)
+            : io_(io), inflight_(0), max_inflight_(IOURING_QUEUE_SIZE), running_(false), queue_(IOURING_QUEUE_SIZE) {}
 
         ~DiskScheduler() { Stop(); }
 
@@ -150,18 +154,13 @@ namespace db7::storage
         void Stop()
         {
             running_ = false;
-            cv_.notify_one();
             if (worker_.joinable())
                 worker_.join();
         }
 
         void Enqueue(IoTask task)
         {
-            {
-                std::lock_guard<std::mutex> lock(mu_);
-                queue_.push(std::move(task));
-            }
-            cv_.notify_one();
+            queue_.enqueue(task);
         }
     };
 }
