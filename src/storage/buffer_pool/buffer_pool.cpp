@@ -14,7 +14,9 @@ namespace db7::storage
         PageIdentifier id(0);
         for (u32 i = 0; i < BUFFER_POOL_PAGE_NUM; i++)
         {
+            pages_[i].WLock();
             pages_[i].SetId(id);
+            pages_[i].WUnlock();
             pages_[i].SetData(data + (i * PAGE_SIZE));
         }
     }
@@ -136,8 +138,6 @@ namespace db7::storage
     void BufferPool::Unpin(Page *page, bool dirty)
     {
         (void)dirty;
-        // page->RLock();
         page->Unpin();
-        // page->RUnlock();
     }
 }

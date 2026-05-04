@@ -8,6 +8,8 @@
 #define BUFFER_POOL_PAGE_NUM 1000
 #define BUFFER_POOL_PARTITION_NUM 128
 
+#define IOURING_QUEUE_SIZE 512
+
 namespace db7::storage
 {
     using page_id = u32;

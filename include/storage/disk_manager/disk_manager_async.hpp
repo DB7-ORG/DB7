@@ -8,7 +8,6 @@
 #include <functional>
 #include <memory>
 
-#define IOURING_QUEUE_SIZE 1024
 /**
  * this is a hack
  */

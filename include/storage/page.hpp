@@ -16,15 +16,14 @@ namespace db7::storage
     class Page
     { // TODO padding
     private:
-        PageIdentifier id_;          // 8 bytes
-        byte *data_;                 // 8 bytes
-        std::atomic<u32> ref_count_; // 4 bytes
-        std::atomic<u8> flags_;      // 1 byte
-        u8 pad_[3];                  // 3 bytes padding
+        PageIdentifier id_; // 8 bytes
+        byte *data_;        // 8 bytes
+        u32 ref_count_;     // 4 bytes
+        u8 flags_;          // 1 byte
+        u8 pad_[3];         // 3 bytes padding
 
         alignas(CACHE_LINE_SIZE) std::shared_mutex latch_; // ~56 bytes typically
-        alignas(CACHE_LINE_SIZE) std::mutex io_mtx_;
-        alignas(CACHE_LINE_SIZE) std::condition_variable io_cv_;
+        std::condition_variable_any io_cv_;
         alignas(CACHE_LINE_SIZE) std::shared_mutex lock_;
 
     public:
@@ -64,18 +63,18 @@ namespace db7::storage
         /**
          * Flags
          */
-        void Pin() { ref_count_.fetch_add(1); }
-        void Unpin() { ref_count_.fetch_sub(1); }
-        u32 PinCount() const { return ref_count_.load(); }
+        void Pin() { ref_count_++; }
+        void Unpin() { ref_count_--; }
+        u32 PinCount() const { return ref_count_; }
         bool IsPinned() const { return PinCount() > 0; }
 
-        bool IsIOInProgress() const { return flags_.load(std::memory_order_acquire) & IO_IN_PROGRESS_FLAG; }
-        void SetIOInProgress() { flags_.fetch_or(IO_IN_PROGRESS_FLAG, std::memory_order_release); }
-        void ClearIOInProgress() { flags_.fetch_and(~IO_IN_PROGRESS_FLAG, std::memory_order_release); }
+        bool IsIOInProgress() const { return flags_ & IO_IN_PROGRESS_FLAG; }
+        void SetIOInProgress() { flags_ |= IO_IN_PROGRESS_FLAG; }
+        void ClearIOInProgress() { flags_ &= ~IO_IN_PROGRESS_FLAG; }
 
-        bool IsDirty() const { return flags_.load(std::memory_order_acquire) & DIRTY_FLAG; }
-        void SetDirty() { flags_.fetch_or(DIRTY_FLAG, std::memory_order_release); }
-        void ClearDirty() { flags_.fetch_and(~DIRTY_FLAG, std::memory_order_release); }
+        bool IsDirty() const { return flags_ & DIRTY_FLAG; }
+        void SetDirty() { flags_ |= DIRTY_FLAG; }
+        void ClearDirty() { flags_ &= ~DIRTY_FLAG; }
 
         bool IsEvictable() const { return !IsPinned() && !IsDirty() && !IsIOInProgress(); }
 
@@ -94,7 +93,7 @@ namespace db7::storage
          */
         void WaitIO()
         {
-            std::unique_lock lk(io_mtx_);
+            std::unique_lock lk(latch_);
             io_cv_.wait(lk, [&]
                         { return !IsIOInProgress(); });
         }
@@ -102,7 +101,7 @@ namespace db7::storage
         void SignalIO()
         {
             {
-                std::lock_guard lk(io_mtx_);
+                std::lock_guard lk(latch_);
                 ClearIOInProgress();
             }
             io_cv_.notify_all();

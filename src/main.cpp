@@ -57,7 +57,7 @@ int main()
 
     db7::storage::BufferPool buffer_pool(&disk_scheduler);
 
-    constexpr u32 NUM_THREADS = 1000;
+    constexpr u32 NUM_THREADS = 500;
     constexpr u32 NUM_OPS = 500;
 
     u64 t00 = now_ns();
@@ -79,10 +79,10 @@ int main()
 
             //std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
-            page->RLock();
+            page->WLock();
             //page->ClearIOInProgress();
             buffer_pool.Unpin(page);
-            page->RUnlock();
+            page->WUnlock();
         } });
     }
 
