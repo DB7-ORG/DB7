@@ -39,7 +39,7 @@ namespace db7::storage
 
         for (u32 iters = 1; true; iters++)
         {
-            u32 head = (sweep_head++) % BUFFER_POOL_PAGE_NUM;
+            u32 head = (sweep_head_++) % BUFFER_POOL_PAGE_NUM;
             Page *page = &pages_[head];
             if (page->TryWLock())
             {
@@ -147,6 +147,8 @@ namespace db7::storage
     void BufferPool::Unpin(Page *page, bool dirty)
     {
         (void)dirty;
+        page->WLock();
         page->Unpin();
+        page->WUnlock();
     }
 }

@@ -13,13 +13,14 @@ namespace db7::access
     {
         u32 page_id = storage::FreeSpaceManager::Get(rows.total_size); // TODO table oid
         (void)page_id;
-        storage::PageIdentifier id;
+        storage::PageIdentifier id(oid_, page_id);
         storage::Page *insert_page = buffer_->Pin(id);
         insert_page->WaitIO();
 
         const auto &map = schema_.GetOffsetMap();
         auto curr = rows.data;
 
+        insert_page->WDataLock();
         for (const auto &column : schema_.GetColumns())
         {
             catalog::col_oid_t oid = column.GetOid();
@@ -31,7 +32,13 @@ namespace db7::access
             insert_page->WriteOffset(offset, curr, size);
             curr += size;
         }
+        insert_page->WDataUnlock();
 
         buffer_->Unpin(insert_page, true);
+    }
+
+    u32 Table::PageCount()
+    {
+        return 0;
     }
 }

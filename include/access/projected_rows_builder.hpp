@@ -17,22 +17,8 @@ namespace db7::access
         // std::vector<catalog::col_oid_t> col_oids_;
 
     public:
-        ProjectedRowsBuilder(Schema *schema)
-            : schema_(schema)
-        {
-        }
-
-        void PrepareBuilder(u32 row_count)
-        {
-            u32 max_size = 0;
-            for (const auto &col : schema_->GetColumns())
-            {
-                max_size = shared::AlignUp(max_size, col.GetTypeSize());
-                max_size += col.GetTypeSize() * row_count;
-            }
-            data_ = new byte[max_size]();
-            curr_ = data_;
-        }
+        ProjectedRowsBuilder(Schema *schema, byte *data, u32 row_count)
+            : schema_(schema), data_(data), curr_(data), row_count_(row_count) {}
 
         template <typename T>
         void Push(std::initializer_list<T> values)

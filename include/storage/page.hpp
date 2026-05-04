@@ -88,6 +88,11 @@ namespace db7::storage
         void WUnlock() { latch_.unlock(); }
         bool TryWLock() { return latch_.try_lock(); }
 
+        void RDataLock() { lock_.lock_shared(); }
+        void RDataUnlock() { lock_.unlock_shared(); }
+        void WDataLock() { lock_.lock(); }
+        void WDataUnlock() { lock_.unlock(); }
+
         /**
          * Channel
          */

@@ -34,19 +34,19 @@ namespace db7::catalog
         std::unordered_map<db_oid_t, DatabaseCatalog *> databases_map_;
         std::atomic<db_oid_t> next_db_oid_;
         storage::BufferPool *buffer_pool_;
-        access::ProjectedRowsBuilder pr_builder_;
+        storage::DiskManagerAsync *disk_mng_;
 
     public:
-        Catalog(storage::BufferPool *buffer_pool)
-            : databases_(buffer_pool, Builder::CreateDatabaseSchema(), rel_oid_t(0)),
+        Catalog(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng)
+            : databases_(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(), rel_oid_t(0)),
               databases_map_({}),
               next_db_oid_(catalog::db_oid_t(1)),
               buffer_pool_(buffer_pool),
-              pr_builder_(databases_.GetSchema()) {}
+              disk_mng_(disk_mng) {}
 
         db_oid_t CreateDatabase(db7::transaction::TransactionContext *txn, std::string &name, const bool bootstrap);
 
-        bool CreateDatabaseEntry(transaction::TransactionContext *txn, const db_oid_t db, const std::string &name, DatabaseCatalog *const dbc);
+        bool CreateDatabaseEntry(transaction::TransactionContext *txn, const std::string &name, DatabaseCatalog *const dbc);
     };
 
 }

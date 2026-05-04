@@ -13,6 +13,8 @@
  */
 #define MAX_PATH_LEN 256u
 #define MAX_PATH_LEN_2 128u
+#define DIRECT_ALIGN 4096
+#define INIT_FREE_PAGES 3
 
 namespace db7::storage
 {
@@ -39,8 +41,9 @@ namespace db7::storage
         int ReapCompletions(u32 max_completions = IOURING_QUEUE_SIZE);
         int Submit();
 
-        bool CreateTable(table_id tbl_id);
+        bool CreateTable(table_id tbl_id, u32 initial_pages = INIT_FREE_PAGES);
         bool OpenFile(table_id tbl_id);
+        bool CreateOpenFile(table_id tbl_id, u32 initial_pages);
         bool DropTable(table_id tbl_id);
         bool ExistsTable(table_id tbl_id);
         bool TruncateFile(table_id tbl_id, u64 pages_num);

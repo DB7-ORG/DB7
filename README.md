@@ -4,14 +4,11 @@ figure out how to structure ProjectedRowsBuilder!!!!
 in buffer pool i can hold partition lock while checking the page and if its a stale entry i can remove it right away without starting from scratch!!!!
 much better than current design?????
 
-redesign in tla+ buffer pool with io in progress flag
-and refactor code or tla to match the names
+figure out how to allocate tables when there is no memory
+
+figure out how to deserialize catalog entries (read)
+
+figure out how to manage errors for disk and other
 
 
-BUFFER POOL SIZE = 1_000
 
-THREAD NUM = 10_000
-
-PARTITIONS = 128
-
-TIME = 45s

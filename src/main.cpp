@@ -37,26 +37,18 @@ void populate_table()
     {
         memset(buf, 0, PAGE_SIZE);
         *reinterpret_cast<u64 *>(buf) = i;
-        pwrite(fd, buf, PAGE_SIZE, (off_t)i * PAGE_SIZE);
+        ssize_t written = pwrite(fd, buf, PAGE_SIZE, (off_t)i * PAGE_SIZE);
+        if (written != PAGE_SIZE)
+        {
+            fmt::print("pwrite failed: %s", strerror(errno));
+            // return error or abort depending on your strategy
+        }
     }
     fsync(fd);
 }
 
-int main()
+void test_buffer_pool(db7::storage::BufferPool &buffer_pool)
 {
-    fmt::print("Hello, {}!\n", "world");
-
-    // populate_table();
-
-    db7::storage::DiskManagerAsync disk_mng_async(".data");
-    disk_mng_async.OpenFile(2);
-    disk_mng_async.TruncateFile(2, PAGES);
-
-    db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
-    disk_scheduler.Start();
-
-    db7::storage::BufferPool buffer_pool(&disk_scheduler);
-
     constexpr u32 NUM_THREADS = 500;
     constexpr u32 NUM_OPS = 500;
 
@@ -79,10 +71,7 @@ int main()
 
             //std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
-            page->WLock();
-            // page->ClearIOInProgress();
             buffer_pool.Unpin(page);
-            page->WUnlock();
         } });
     }
 
@@ -94,16 +83,33 @@ int main()
     shared::Print(buffer_pool);
 
     printf("time:        %.3f ms\n", (t0 - t00) / 1e6);
+}
+
+int main()
+{
+    fmt::print("Hello, {}!\n", "world");
+
+    // populate_table();
+
+    db7::storage::DiskManagerAsync disk_mng_async(".data");
+    // disk_mng_async.OpenFile(2);
+    // disk_mng_async.TruncateFile(2, PAGES);
+
+    db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
+    disk_scheduler.Start();
+
+    db7::storage::BufferPool buffer_pool(&disk_scheduler);
+
     // printf("write:        %.3f ms\n", (t1 - t0) / 1e6);
     // printf("read:        %.3f ms\n", (t2 - t1) / 1e6);
 
-    auto cat = new catalog::Catalog(&buffer_pool);
+    auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
 
     std::string s = "sss";
 
     cat->CreateDatabase(nullptr, s, true);
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    // std::this_thread::sleep_for(std::chrono::seconds(1));
 
     disk_scheduler.Stop();
 

@@ -15,7 +15,7 @@ namespace db7::storage
         DiskScheduler *disk_mng_;
         Page *pages_;
         u32 poolSize_;
-        std::atomic<u32> sweep_head;
+        std::atomic<u32> sweep_head_;
         BufferPartitions partitions_;
 
         Page *GetVictim(PageIdentifier id, u32 &victim_frame_idx, PageIdentifier &victim_page_id);

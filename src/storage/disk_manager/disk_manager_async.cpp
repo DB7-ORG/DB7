@@ -8,8 +8,9 @@
 #include <fcntl.h>
 #include <dirent.h>
 
-#define DIRECT_ALIGN 4096
-#define INIT_FREE_PAGES 3
+/**
+ * TODO there is no error handling
+ */
 
 namespace db7::storage
 {
@@ -150,8 +151,8 @@ namespace db7::storage
 
         return reaped;
     }
-
-    bool DiskManagerAsync::CreateTable(table_id tbl_id)
+#include "shared/align_util.hpp"
+    bool DiskManagerAsync::CreateTable(table_id tbl_id, u32 initial_pages)
     {
         if (cache_->Get(tbl_id).fd != -1)
         {
@@ -169,10 +170,13 @@ namespace db7::storage
             return false;
         }
 
-        FdCacheEntry entry(fd, INIT_FREE_PAGES);
+        FdCacheEntry entry(fd, initial_pages);
         cache_->Set(tbl_id, entry);
 
-        TruncateFile(tbl_id, INIT_FREE_PAGES);
+        // TruncateFile(tbl_id, initial_pages);
+        // TODO move this to truncate
+        int ret = fallocate(fd, 0, 0, (off_t)initial_pages * PAGE_SIZE);
+        DB7_ASSERT(ret == 0, "fallocate failed");
 
         return true;
     }
@@ -182,7 +186,7 @@ namespace db7::storage
         char path[MAX_PATH_LEN];
         BuildPath(tbl_id, path, sizeof(path));
 
-        int fd = open(path, O_RDWR | O_CREAT | O_DIRECT, 0644);
+        int fd = open(path, O_RDWR | O_DIRECT, 0644);
         if (fd < 0)
         {
             DB7_ASSERT(false, "File not found");
@@ -197,6 +201,21 @@ namespace db7::storage
         cache_->Set(tbl_id, entry);
 
         return true;
+    }
+
+    bool DiskManagerAsync::CreateOpenFile(table_id tbl_id, u32 initial_pages)
+    {
+        char path[MAX_PATH_LEN];
+        BuildPath(tbl_id, path, sizeof(path));
+
+        if (access(path, F_OK) == 0)
+        {
+            return OpenFile(tbl_id);
+        }
+        else
+        {
+            return CreateTable(tbl_id, initial_pages);
+        }
     }
 
     bool DiskManagerAsync::DropTable(table_id tbl_id)

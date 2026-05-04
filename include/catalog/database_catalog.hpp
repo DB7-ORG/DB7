@@ -14,6 +14,9 @@ namespace db7::catalog
      */
     class DatabaseCatalog
     {
+    private:
+        catalog::db_oid_t db_id_;
+
     public:
         // cached data
         access::Table *namespaces_;
@@ -24,7 +27,7 @@ namespace db7::catalog
         access::Table *languages_;
         access::Table *procs_;
 
-        DatabaseCatalog() {}
+        DatabaseCatalog(catalog::db_oid_t db_id) : db_id_(db_id) {}
 
         ~DatabaseCatalog()
         {
@@ -35,6 +38,11 @@ namespace db7::catalog
             delete constraints_;
             delete languages_;
             delete procs_;
+        }
+
+        catalog::db_oid_t GetDbOid()
+        {
+            return db_id_;
         }
     };
 }

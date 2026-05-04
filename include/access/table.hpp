@@ -7,6 +7,7 @@
 #include "shared/macro_helper.hpp"
 #include "access/projected_rows.hpp"
 #include "storage/storage_common.hpp"
+#include "storage/disk_manager/disk_manager_async.hpp"
 
 #include <unordered_map>
 #include <memory>
@@ -27,21 +28,27 @@ namespace db7::access
 
     private:
         storage::BufferPool *buffer_;
+        storage::DiskManagerAsync *disk_mng_;
         Schema schema_;
         catalog::rel_oid_t oid_;
 
     public:
         DB7_DISALLOW_COPY(Table);
 
-        Table(storage::BufferPool *buffer, Schema schema, catalog::rel_oid_t oid)
-            : buffer_(buffer), schema_(std::move(schema)), oid_(oid)
+        Table(storage::BufferPool *buffer, storage::DiskManagerAsync *disk_mng, Schema schema, catalog::rel_oid_t oid)
+            : buffer_(buffer), disk_mng_(disk_mng), schema_(std::move(schema)), oid_(oid)
         {
             // TODO initialize a table file using disk manager
+            if (!disk_mng_->CreateOpenFile(oid, 1))
+            {
+                // TODO handle error
+                DB7_ASSERT(false, "Table could not be created/opened");
+            }
         }
 
         void Insert(const ProjectedRows &rows);
 
-        u32 PageCount() { return 0; };
+        u32 PageCount();
 
         void Scan() {};
 

@@ -156,19 +156,19 @@ namespace db7::catalog
         return access::Schema(columns);
     }
 
-    DatabaseCatalog *Builder::CreateDatabaseCatalog(storage::BufferPool *buffer_pool)
+    DatabaseCatalog *Builder::CreateDatabaseCatalog(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng)
     {
         DB7_ASSERT(buffer_pool != nullptr, "BufferPool must be provided");
 
-        DatabaseCatalog *dbc = new DatabaseCatalog();
+        DatabaseCatalog *dbc = new DatabaseCatalog(1);
 
-        dbc->namespaces_ = new access::Table(buffer_pool, CreateNamespaceSchema(), rel_oid_t(CatalogTableOid::PG_NAMESPACE));
-        dbc->classes_ = new access::Table(buffer_pool, CreateClassSchema(), rel_oid_t(CatalogTableOid::PG_CLASS));
-        dbc->attributes_ = new access::Table(buffer_pool, CreateAttributeSchema(), rel_oid_t(CatalogTableOid::PG_ATTRIBUTE));
-        dbc->types_ = new access::Table(buffer_pool, CreateTypeSchema(), rel_oid_t(CatalogTableOid::PG_TYPE));
-        dbc->constraints_ = new access::Table(buffer_pool, CreateConstraintSchema(), rel_oid_t(CatalogTableOid::PG_CONSTRAINT));
-        dbc->languages_ = new access::Table(buffer_pool, CreateLanguageSchema(), rel_oid_t(CatalogTableOid::PG_LANGUAGE));
-        dbc->procs_ = new access::Table(buffer_pool, CreateProcSchema(), rel_oid_t(CatalogTableOid::PG_PROC));
+        dbc->namespaces_ = new access::Table(buffer_pool, disk_mng, CreateNamespaceSchema(), rel_oid_t(CatalogTableOid::PG_NAMESPACE));
+        dbc->classes_ = new access::Table(buffer_pool, disk_mng, CreateClassSchema(), rel_oid_t(CatalogTableOid::PG_CLASS));
+        dbc->attributes_ = new access::Table(buffer_pool, disk_mng, CreateAttributeSchema(), rel_oid_t(CatalogTableOid::PG_ATTRIBUTE));
+        dbc->types_ = new access::Table(buffer_pool, disk_mng, CreateTypeSchema(), rel_oid_t(CatalogTableOid::PG_TYPE));
+        dbc->constraints_ = new access::Table(buffer_pool, disk_mng, CreateConstraintSchema(), rel_oid_t(CatalogTableOid::PG_CONSTRAINT));
+        dbc->languages_ = new access::Table(buffer_pool, disk_mng, CreateLanguageSchema(), rel_oid_t(CatalogTableOid::PG_LANGUAGE));
+        dbc->procs_ = new access::Table(buffer_pool, disk_mng, CreateProcSchema(), rel_oid_t(CatalogTableOid::PG_PROC));
 
         return dbc;
     }

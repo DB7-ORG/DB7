@@ -6,6 +6,7 @@
 namespace db7::storage
 {
     class BufferPool; // forward declare, no #include needed
+    class DiskManagerAsync;
 }
 
 namespace db7::catalog
@@ -16,7 +17,7 @@ namespace db7::catalog
     class Builder
     {
     public:
-        static DatabaseCatalog *CreateDatabaseCatalog(storage::BufferPool *buffer_pool);
+        static DatabaseCatalog *CreateDatabaseCatalog(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng);
 
         static access::Schema CreateDatabaseSchema();
         static access::Schema CreateNamespaceSchema();
