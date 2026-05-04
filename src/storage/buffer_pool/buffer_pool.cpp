@@ -19,6 +19,12 @@ namespace db7::storage
             pages_[i].WUnlock();
             pages_[i].SetData(data + (i * PAGE_SIZE));
         }
+
+        size_t per_partition = BUFFER_POOL_PAGE_NUM / BUFFER_POOL_PARTITION_NUM;
+        for (u32 i = 0; i < BUFFER_POOL_PARTITION_NUM; i++)
+        {
+            partitions_.Reserve(per_partition, i);
+        }
     }
 
     BufferPool::~BufferPool()
@@ -83,16 +89,20 @@ namespace db7::storage
         return false;
     }
 
+    u32 BufferPool::GetPartitionIdx(PageIdentifier id)
+    {
+        return shared::HashUtil::murmurhash64(id.packed) % BUFFER_POOL_PARTITION_NUM;
+    }
+
     Page *BufferPool::Pin(PageIdentifier id)
     {
         // LOOKUP
-        u32 part = shared::HashUtil::murmurhash64(id.packed) % BUFFER_POOL_PARTITION_NUM;
-        BufferPartition *partition = &partitions_[part];
+        u32 partIdx = GetPartitionIdx(id);
 
         while (true)
         {
             Page *page;
-            u32 frame_idx = partition->Get(id);
+            u32 frame_idx = partitions_.Get(id, partIdx);
             if (frame_idx != UINT32_MAX) // page found (fast path)
             {
                 page = &pages_[frame_idx];
@@ -108,14 +118,13 @@ namespace db7::storage
             page = GetVictim(id, victim_frame_idx, victim_page_id);
 
             u32 new_frame_idx;
-            if (partition->Put(id, victim_frame_idx, new_frame_idx))
+            if (partitions_.Put(id, victim_frame_idx, new_frame_idx, partIdx))
             {
                 // TODO FetchPage
                 (void)disk_mng_;
 
-                part = shared::HashUtil::murmurhash64(victim_page_id.packed) % BUFFER_POOL_PARTITION_NUM;
-                partition = &partitions_[part];
-                partition->Delete(victim_page_id, victim_frame_idx);
+                partIdx = GetPartitionIdx(victim_page_id);
+                partitions_.Delete(victim_page_id, victim_frame_idx, partIdx);
 
                 IoTask task(IoTask::READ, IoPriority::HIGH, page, id);
                 disk_mng_->Enqueue(task);

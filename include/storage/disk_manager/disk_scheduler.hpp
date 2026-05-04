@@ -63,10 +63,6 @@ namespace db7::storage
                     (void)result;
                     auto *page = static_cast<Page *>(user_data);
                     DB7_ASSERT(result == PAGE_SIZE, "Short read");
-                    DB7_ASSERT(page->IsIOInProgress(), "Io in progress not set");
-                    DB7_ASSERT(page->GetId().pid == *(u64 *)page->GetData(), "Invalid page");
-                    DB7_ASSERT(page->IsPinned(), "Pin not set");
-
                     page->SignalIO();
                 });
 

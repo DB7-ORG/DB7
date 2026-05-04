@@ -102,6 +102,9 @@ namespace db7::storage
         {
             {
                 std::lock_guard lk(latch_);
+                DB7_ASSERT(IsIOInProgress(), "Io in progress not set");
+                DB7_ASSERT(IsPinned(), "Pin not set");
+                DB7_ASSERT(GetId().pid == *(u64 *)GetData(), "Invalid page");
                 ClearIOInProgress();
             }
             io_cv_.notify_all();
