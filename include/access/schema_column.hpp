@@ -29,5 +29,10 @@ namespace db7::access
         {
             return SizeOf(col_type_);
         }
+
+        const std::string &GetName() const
+        {
+            return col_name_;
+        }
     };
 }

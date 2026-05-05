@@ -2,6 +2,8 @@
 
 #include "common.hpp"
 
+#define INVALID_REL_OID 0
+
 namespace db7::catalog
 {
     using db_oid_t = u32;

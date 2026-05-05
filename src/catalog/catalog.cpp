@@ -29,17 +29,20 @@ namespace db7::catalog
         return db_oid_t(0);
     }
 
-    bool Catalog::CreateDatabaseEntry(transaction::TransactionContext *txn, const std::string &name, DatabaseCatalog *const dbc)
+    bool Catalog::CreateDatabaseEntry(transaction::TransactionContext *txn, const std::string &name, DatabaseCatalog *const dbc) // TODO span
     {
         (void)dbc;
         (void)txn;
+
+        // storage::VarlenEntry name()
 
         // TODO create varlen here with name
         // for now name len must be < 16 bytes
         auto db_schema = databases_.GetSchema();
         const u32 row_count = 1;
         u32 max_size = db_schema->CalculateMaxSize(row_count);
-        auto *block = shared::AllocAligned(max_size, 16).get(); // TODO allocator
+        auto block_owner = shared::AllocAligned(max_size, 16);
+        auto *block = block_owner.get(); // TODO allocator
 
         access::ProjectedRowsBuilder pr_builder_(databases_.GetSchema(), block, row_count);
         pr_builder_.Push({next_db_oid_++});

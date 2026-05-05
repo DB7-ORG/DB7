@@ -25,7 +25,7 @@ namespace db7::access
         {
             DB7_ASSERT(values.size() == row_count_, "Invalid values dont match schema");
 
-            curr_ = shared::AlignUp(curr_, alignof(T));
+            curr_ = shared::AlignUp(curr_, sizeof(T));
             T *dst = reinterpret_cast<T *>(curr_);
             for (u32 i = 0; i < row_count_; i++)
                 dst[i] = *(values.begin() + i);

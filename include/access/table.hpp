@@ -8,9 +8,11 @@
 #include "access/projected_rows.hpp"
 #include "storage/storage_common.hpp"
 #include "storage/disk_manager/disk_manager_async.hpp"
+#include "storage/varlen_entry.hpp"
 
 #include <unordered_map>
 #include <memory>
+#include <span>
 
 /**
  * Layer between storage and other components.
@@ -31,15 +33,22 @@ namespace db7::access
         storage::DiskManagerAsync *disk_mng_;
         Schema schema_;
         catalog::rel_oid_t oid_;
+        catalog::rel_oid_t varlen_oid_;
 
     public:
         DB7_DISALLOW_COPY(Table);
 
-        Table(storage::BufferPool *buffer, storage::DiskManagerAsync *disk_mng, Schema schema, catalog::rel_oid_t oid)
-            : buffer_(buffer), disk_mng_(disk_mng), schema_(std::move(schema)), oid_(oid)
+        Table(storage::BufferPool *buffer, storage::DiskManagerAsync *disk_mng, Schema schema, catalog::rel_oid_t oid, catalog::rel_oid_t varlen_oid = 0)
+            : buffer_(buffer), disk_mng_(disk_mng), schema_(std::move(schema)), oid_(oid), varlen_oid_(varlen_oid)
         {
             // TODO initialize a table file using disk manager
-            if (!disk_mng_->CreateOpenFile(oid, 1))
+            if (!disk_mng_->CreateOpenFile(oid_, 1))
+            {
+                // TODO handle error
+                DB7_ASSERT(false, "Table could not be created/opened");
+            }
+
+            if (varlen_oid_ == INVALID_REL_OID || !disk_mng_->CreateOpenFile(varlen_oid_, 1))
             {
                 // TODO handle error
                 DB7_ASSERT(false, "Table could not be created/opened");
@@ -47,14 +56,15 @@ namespace db7::access
         }
 
         void Insert(const ProjectedRows &rows);
+        u32 Insert(std::span<const byte> data);
 
         u32 PageCount();
-
-        void Scan() {};
 
         Schema *GetSchema()
         {
             return &schema_;
         }
+
+        void PrintPage(storage::Page *page);
     };
 }

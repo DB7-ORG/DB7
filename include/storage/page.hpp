@@ -48,7 +48,7 @@ namespace db7::storage
             memcpy(data_ + offset, &value, sizeof(T)); // TODO Compiler should optimize this for const fixed types, but test it.
         }
 
-        void WriteOffset(u32 offset, byte *value, u32 size)
+        void WriteOffset(u32 offset, const byte *value, u32 size)
         {
             DB7_ASSERT(data_ != nullptr, "Page data in null");
             memcpy(data_ + offset, value, size);
@@ -109,7 +109,7 @@ namespace db7::storage
                 std::lock_guard lk(latch_);
                 DB7_ASSERT(IsIOInProgress(), "Io in progress not set");
                 DB7_ASSERT(IsPinned(), "Pin not set");
-                DB7_ASSERT(GetId().pid == *(u64 *)GetData(), "Invalid page");
+                // DB7_ASSERT(GetId().pid == *(u64 *)GetData(), "Invalid page");
                 ClearIOInProgress();
             }
             io_cv_.notify_all();

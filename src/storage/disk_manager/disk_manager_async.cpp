@@ -239,16 +239,15 @@ namespace db7::storage
         return access(path, F_OK) == 0;
     }
 
-    bool DiskManagerAsync::TruncateFile(table_id tbl_id, u64 pages_num)
+    bool DiskManagerAsync::ExtendFile(table_id tbl_id, u64 pages_num)
     {
         FdCacheEntry hdr = cache_->Get(tbl_id);
         DB7_ASSERT(hdr.fd >= 0, "File not found");
 
-        int n = ftruncate(hdr.fd, (pages_num)*PAGE_SIZE);
-        (void)n;
-        DB7_ASSERT(n == 0, "Truncate failed");
-        hdr.page_count = pages_num;
+        int ret = fallocate(hdr.fd, 0, hdr.page_count * PAGE_SIZE, (off_t)pages_num * PAGE_SIZE);
+        DB7_ASSERT(ret == 0, "fallocate failed");
 
+        hdr.page_count = hdr.page_count + pages_num;
         cache_->Set(tbl_id, hdr);
 
         return true;

@@ -5,7 +5,7 @@
 
 namespace db7::storage
 {
-    class FreeSpaceManager
+    class FreeSpaceManagerVarlen
     {
     private:
         inline static u32 next_page_id = 1;
