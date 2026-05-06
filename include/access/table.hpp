@@ -48,7 +48,7 @@ namespace db7::access
                 DB7_ASSERT(false, "Table could not be created/opened");
             }
 
-            if (varlen_oid_ == INVALID_REL_OID || !disk_mng_->CreateOpenFile(varlen_oid_, 1))
+            if (varlen_oid_ != INVALID_REL_OID && !disk_mng_->CreateOpenFile(varlen_oid_, 1))
             {
                 // TODO handle error
                 DB7_ASSERT(false, "Table could not be created/opened");
@@ -56,7 +56,7 @@ namespace db7::access
         }
 
         void Insert(const ProjectedRows &rows);
-        u32 Insert(std::span<const byte> data);
+        std::pair<u32, u32> Insert(std::span<const byte> data);
 
         u32 PageCount();
 

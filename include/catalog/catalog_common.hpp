@@ -19,6 +19,7 @@ namespace db7::catalog
         PG_CONSTRAINT = 5,
         PG_LANGUAGE = 6,
         PG_PROC = 7,
+        PG_VARLEN = 8,
     };
 
     enum class CatalogColumnOid : col_oid_t

@@ -38,15 +38,15 @@ namespace db7::catalog
 
     public:
         Catalog(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng)
-            : databases_(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(), rel_oid_t(0)),
+            : databases_(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(), rel_oid_t(0), rel_oid_t(CatalogTableOid::PG_VARLEN)),
               databases_map_({}),
               next_db_oid_(catalog::db_oid_t(1)),
               buffer_pool_(buffer_pool),
               disk_mng_(disk_mng) {}
 
-        db_oid_t CreateDatabase(db7::transaction::TransactionContext *txn, std::string &name, const bool bootstrap);
+        db_oid_t CreateDatabase(db7::transaction::TransactionContext *txn, const std::span<byte> name, const bool bootstrap);
 
-        bool CreateDatabaseEntry(transaction::TransactionContext *txn, const std::string &name, DatabaseCatalog *const dbc);
+        bool CreateDatabaseEntry(transaction::TransactionContext *txn, const std::span<byte> name, DatabaseCatalog *const dbc);
     };
 
 }

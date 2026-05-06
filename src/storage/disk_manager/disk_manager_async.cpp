@@ -98,6 +98,10 @@ namespace db7::storage
      */
     bool DiskManagerAsync::SubmitRead(table_id tid, void *buf, u32 len, off_t offset, void *user_data)
     {
+        DB7_ASSERT((uintptr_t)buf % 4096 == 0, "unaligned buffer");
+        DB7_ASSERT(len % 4096 == 0, "unaligned length");
+        DB7_ASSERT(offset % 4096 == 0, "unaligned offset");
+
         auto hdr = cache_->Get(tid);
         DB7_ASSERT(hdr.fd >= 0, "No valid file descriptor");
 
@@ -112,6 +116,10 @@ namespace db7::storage
 
     bool DiskManagerAsync::SubmitWrite(table_id tid, const void *buf, u32 len, off_t offset, void *user_data)
     {
+        DB7_ASSERT((uintptr_t)buf % 4096 == 0, "unaligned buffer");
+        DB7_ASSERT(len % 4096 == 0, "unaligned length");
+        DB7_ASSERT(offset % 4096 == 0, "unaligned offset");
+
         auto hdr = cache_->Get(tid);
         DB7_ASSERT(hdr.fd >= 0, "No valid file descriptor");
 
@@ -176,6 +184,7 @@ namespace db7::storage
         // TruncateFile(tbl_id, initial_pages);
         // TODO move this to truncate
         int ret = fallocate(fd, 0, 0, (off_t)initial_pages * PAGE_SIZE);
+        (void)ret;
         DB7_ASSERT(ret == 0, "fallocate failed");
 
         return true;
@@ -245,6 +254,7 @@ namespace db7::storage
         DB7_ASSERT(hdr.fd >= 0, "File not found");
 
         int ret = fallocate(hdr.fd, 0, hdr.page_count * PAGE_SIZE, (off_t)pages_num * PAGE_SIZE);
+        (void)ret;
         DB7_ASSERT(ret == 0, "fallocate failed");
 
         hdr.page_count = hdr.page_count + pages_num;

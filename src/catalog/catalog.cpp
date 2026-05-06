@@ -5,12 +5,13 @@
 #include "catalog/catalog_common.hpp"
 #include "storage/varlen_entry.hpp"
 #include "shared/align_util.hpp"
+#include "access/access_builder.hpp"
 
 #include <cstring>
 
 namespace db7::catalog
 {
-    db_oid_t Catalog::CreateDatabase(transaction::TransactionContext *txn, std::string &name, const bool bootstrap)
+    db_oid_t Catalog::CreateDatabase(transaction::TransactionContext *txn, const std::span<byte> name, const bool bootstrap)
     {
         db_oid_t oid = next_db_oid_++;
 
@@ -29,15 +30,13 @@ namespace db7::catalog
         return db_oid_t(0);
     }
 
-    bool Catalog::CreateDatabaseEntry(transaction::TransactionContext *txn, const std::string &name, DatabaseCatalog *const dbc) // TODO span
+    bool Catalog::CreateDatabaseEntry(transaction::TransactionContext *txn, const std::span<byte> name, DatabaseCatalog *const dbc) // TODO span
     {
         (void)dbc;
         (void)txn;
 
-        // storage::VarlenEntry name()
+        storage::VarlenEntry entry = access::AccessBuilder::CreateVarlenEntry(name, &databases_);
 
-        // TODO create varlen here with name
-        // for now name len must be < 16 bytes
         auto db_schema = databases_.GetSchema();
         const u32 row_count = 1;
         u32 max_size = db_schema->CalculateMaxSize(row_count);
@@ -46,8 +45,7 @@ namespace db7::catalog
 
         access::ProjectedRowsBuilder pr_builder_(databases_.GetSchema(), block, row_count);
         pr_builder_.Push({next_db_oid_++});
-        auto data = *(storage::VarlenEntry *)name.data();
-        pr_builder_.Push({data});
+        pr_builder_.Push({entry});
         auto rows = pr_builder_.Build();
 
         databases_.Insert(rows);

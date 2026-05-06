@@ -105,9 +105,10 @@ int main()
 
     auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
 
-    std::string s = "sss";
+    std::string s = "sssssssssssssssssssssssssssssss";
+    std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
 
-    cat->CreateDatabase(nullptr, s, true);
+    cat->CreateDatabase(nullptr, sdata, true);
 
     // std::this_thread::sleep_for(std::chrono::seconds(1));
 

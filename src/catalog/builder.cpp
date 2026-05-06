@@ -162,13 +162,13 @@ namespace db7::catalog
 
         DatabaseCatalog *dbc = new DatabaseCatalog(1);
 
-        dbc->namespaces_ = new access::Table(buffer_pool, disk_mng, CreateNamespaceSchema(), rel_oid_t(CatalogTableOid::PG_NAMESPACE));
-        dbc->classes_ = new access::Table(buffer_pool, disk_mng, CreateClassSchema(), rel_oid_t(CatalogTableOid::PG_CLASS));
-        dbc->attributes_ = new access::Table(buffer_pool, disk_mng, CreateAttributeSchema(), rel_oid_t(CatalogTableOid::PG_ATTRIBUTE));
-        dbc->types_ = new access::Table(buffer_pool, disk_mng, CreateTypeSchema(), rel_oid_t(CatalogTableOid::PG_TYPE));
-        dbc->constraints_ = new access::Table(buffer_pool, disk_mng, CreateConstraintSchema(), rel_oid_t(CatalogTableOid::PG_CONSTRAINT));
-        dbc->languages_ = new access::Table(buffer_pool, disk_mng, CreateLanguageSchema(), rel_oid_t(CatalogTableOid::PG_LANGUAGE));
-        dbc->procs_ = new access::Table(buffer_pool, disk_mng, CreateProcSchema(), rel_oid_t(CatalogTableOid::PG_PROC));
+        dbc->namespaces_ = new access::Table(buffer_pool, disk_mng, CreateNamespaceSchema(), rel_oid_t(CatalogTableOid::PG_NAMESPACE), rel_oid_t(CatalogTableOid::PG_VARLEN));
+        dbc->classes_ = new access::Table(buffer_pool, disk_mng, CreateClassSchema(), rel_oid_t(CatalogTableOid::PG_CLASS), rel_oid_t(CatalogTableOid::PG_VARLEN));
+        dbc->attributes_ = new access::Table(buffer_pool, disk_mng, CreateAttributeSchema(), rel_oid_t(CatalogTableOid::PG_ATTRIBUTE), rel_oid_t(CatalogTableOid::PG_VARLEN));
+        dbc->types_ = new access::Table(buffer_pool, disk_mng, CreateTypeSchema(), rel_oid_t(CatalogTableOid::PG_TYPE), rel_oid_t(CatalogTableOid::PG_VARLEN));
+        dbc->constraints_ = new access::Table(buffer_pool, disk_mng, CreateConstraintSchema(), rel_oid_t(CatalogTableOid::PG_CONSTRAINT), rel_oid_t(CatalogTableOid::PG_VARLEN));
+        dbc->languages_ = new access::Table(buffer_pool, disk_mng, CreateLanguageSchema(), rel_oid_t(CatalogTableOid::PG_LANGUAGE), rel_oid_t(CatalogTableOid::PG_VARLEN));
+        dbc->procs_ = new access::Table(buffer_pool, disk_mng, CreateProcSchema(), rel_oid_t(CatalogTableOid::PG_PROC), rel_oid_t(CatalogTableOid::PG_VARLEN));
 
         return dbc;
     }

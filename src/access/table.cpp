@@ -11,7 +11,6 @@ namespace db7::access
     void Table::Insert(const ProjectedRows &rows)
     {
         u32 page_id = storage::FreeSpaceManager::Get(rows.total_size); // TODO table oid
-        (void)page_id;
         storage::PageIdentifier id(oid_, page_id);
         storage::Page *insert_page = buffer_->Pin(id);
         insert_page->WaitIO();
@@ -45,10 +44,9 @@ namespace db7::access
         buffer_->Unpin(insert_page, true);
     }
 
-    u32 Table::Insert(std::span<const byte> data)
+    std::pair<u32, u32> Table::Insert(std::span<const byte> data)
     {
         u32 page_id = storage::FreeSpaceManagerVarlen::Get(data.size()); // TODO table oid
-        (void)page_id;
         storage::PageIdentifier id(varlen_oid_, page_id);
         storage::Page *insert_page = buffer_->Pin(id);
         insert_page->WaitIO();
@@ -57,14 +55,14 @@ namespace db7::access
 
         auto body = insert_page->GetData();
         storage::PageHeader header(body);
-        u32 offset = header.FetchAddCount(data.size());
+        u32 offset = header.FetchAddCount(data.size()) + sizeof(header);
         header.WriteHeader(body);
 
         insert_page->WriteOffset(offset, data.data(), data.size());
 
         insert_page->WDataUnlock();
 
-        return offset;
+        return {offset, page_id};
     }
 
     u32 Table::PageCount()
@@ -92,7 +90,8 @@ namespace db7::access
         std::cout << "=== Page Contents ===" << std::endl;
         std::cout << "Row count: " << row_count << std::endl;
         std::cout << "Table id: " << tbl << std::endl;
-        std::cout << "Page id: " << pid << std::endl;
+        std::cout << "Page id: " << pid << "\n"
+                  << std::endl;
 
         for (u32 i = 0; i < row_count; i++)
         {
@@ -124,11 +123,19 @@ namespace db7::access
                 }
                 else
                 {
-                    // for (u32 b = 0; b < type_size; b++)
-                    //     printf("%02x", static_cast<unsigned char>(val_ptr[b]));
-
-                    // Print as string, stopping at null or type_size
-                    std::cout << std::string(reinterpret_cast<const char *>(val_ptr), strnlen(reinterpret_cast<const char *>(val_ptr), type_size));
+                    auto entry = *(storage::VarlenEntry *)val_ptr;
+                    if (entry.IsInline())
+                    {
+                        std::cout.write(entry.GetInline(), entry.GetSize());
+                    }
+                    else
+                    {
+                        storage::PageIdentifier id(varlen_oid_, entry.GetRef().pid);
+                        storage::Page *insert_page = buffer_->Pin(id);
+                        insert_page->WaitIO();
+                        byte *off = insert_page->GetOffset(entry.GetRef().offset);
+                        std::cout.write((char *)off, entry.GetSize());
+                    }
                 }
 
                 std::cout << " | ";

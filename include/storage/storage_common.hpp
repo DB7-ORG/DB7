@@ -3,7 +3,7 @@
 #include "common.hpp"
 
 #define HEADER_SIZE 64
-#define PAGE_SIZE (1 << 8)
+#define PAGE_SIZE (1 << 18)
 #define PAYLOAD_SIZE (PAGE_SIZE - HEADER_SIZE)
 #define BUFFER_POOL_PAGE_NUM 1000
 #define BUFFER_POOL_PARTITION_NUM 128
