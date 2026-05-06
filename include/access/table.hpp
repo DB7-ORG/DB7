@@ -56,7 +56,10 @@ namespace db7::access
         }
 
         void Insert(const ProjectedRows &rows);
+
         std::pair<u32, u32> Insert(std::span<const byte> data);
+
+        void Delete(u32 idx, catalog::rel_oid_t pid);
 
         u32 PageCount();
 

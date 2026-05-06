@@ -2,12 +2,9 @@
 
 #include "common.hpp"
 
-#define HEADER_SIZE 64
 #define PAGE_SIZE (1 << 18)
-#define PAYLOAD_SIZE (PAGE_SIZE - HEADER_SIZE)
 #define BUFFER_POOL_PAGE_NUM 1000
 #define BUFFER_POOL_PARTITION_NUM 128
-
 #define IOURING_QUEUE_SIZE 512
 
 namespace db7::storage
@@ -32,10 +29,10 @@ namespace db7::storage
 
         PageIdentifier() {}
 
-        PageIdentifier(table_id tbl_id, page_id pid)
+        explicit PageIdentifier(table_id tbl_id, page_id pid)
             : tbl_id(tbl_id), pid(pid) {}
 
-        PageIdentifier(u64 packed)
+        explicit PageIdentifier(u64 packed)
             : packed(packed) {}
 
         bool operator==(const PageIdentifier &other) const

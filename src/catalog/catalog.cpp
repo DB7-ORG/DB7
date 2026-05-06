@@ -11,6 +11,19 @@
 
 namespace db7::catalog
 {
+
+    bool Catalog::RemoveMapping(db_oid_t oid)
+    {
+        auto it = databases_map_.find(oid);
+        if (it == databases_map_.end())
+        {
+            return false;
+        }
+        delete it->second;
+        databases_map_.erase(it);
+        return true;
+    }
+
     db_oid_t Catalog::CreateDatabase(transaction::TransactionContext *txn, const std::span<byte> name, const bool bootstrap)
     {
         db_oid_t oid = next_db_oid_++;
@@ -30,7 +43,7 @@ namespace db7::catalog
         return db_oid_t(0);
     }
 
-    bool Catalog::CreateDatabaseEntry(transaction::TransactionContext *txn, const std::span<byte> name, DatabaseCatalog *const dbc) // TODO span
+    bool Catalog::CreateDatabaseEntry(transaction::TransactionContext *txn, const std::span<byte> name, DatabaseCatalog *const dbc)
     {
         (void)dbc;
         (void)txn;
@@ -39,6 +52,7 @@ namespace db7::catalog
 
         auto db_schema = databases_.GetSchema();
         const u32 row_count = 1;
+
         u32 max_size = db_schema->CalculateMaxSize(row_count);
         auto block_owner = shared::AllocAligned(max_size, 16);
         auto *block = block_owner.get(); // TODO allocator
@@ -49,6 +63,38 @@ namespace db7::catalog
         auto rows = pr_builder_.Build();
 
         databases_.Insert(rows);
+
+        return true;
+    }
+
+    bool Catalog::DeleteDatabase(transaction::TransactionContext *txn, const db_oid_t oid)
+    {
+        (void)txn;
+
+        if (!DeleteDatabaseEntry(txn, oid))
+        {
+            DB7_ASSERT(false, "Failed to delete entry");
+            return false;
+        }
+
+        if (!RemoveMapping(oid))
+        {
+            DB7_ASSERT(false, "Mapping not found");
+            return false;
+        }
+
+        return true;
+    }
+
+    bool Catalog::DeleteDatabaseEntry(transaction::TransactionContext *txn, const db_oid_t oid)
+    {
+        (void)oid;
+        (void)txn;
+        // scan the index of the table and get the idx of the row
+        u32 idx = 0;
+        u32 pid = 1;
+
+        databases_.Delete(idx, pid);
 
         return true;
     }

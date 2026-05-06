@@ -7,21 +7,12 @@
 #include <mutex>
 
 #define TABLE_FILE_HEADER_SIZE 16
-#define MIN_HEADER_PAGE_SIZE 4096
 
 #define MAX_OPEN_FILES 128u
 using file_t = int;
 
 namespace db7::storage
 {
-    // struct PACKED TableFileHeader
-    // {
-    //     u32 magic;
-    //     table_id tbl_id;
-    //     u32 page_count;     /* includes the header page itself */
-    //     u32 free_page_head; /* page_id of first free page, 0 = none */
-    //     char reserved[MIN_HEADER_PAGE_SIZE - TABLE_FILE_HEADER_SIZE];
-    // };
 
     struct FdCacheEntry
     {

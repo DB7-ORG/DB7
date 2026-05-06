@@ -5,9 +5,16 @@
 #include "shared/align_util.hpp"
 #include "storage/page_header.hpp"
 
+#include <iomanip>
+
+/**
+ * TODO for now this gets a page from fsm where all insert data fits
+ * this can be relaxed in future where we might be able to get multiple pages to partially insert
+ * also some optimizations w reserved_ and max_count_ in page header so locks can be released but that complicates
+ * if transaction rolls back u might get holes in pages
+ */
 namespace db7::access
 {
-
     void Table::Insert(const ProjectedRows &rows)
     {
         u32 page_id = storage::FreeSpaceManager::Get(rows.total_size); // TODO table oid
@@ -65,6 +72,22 @@ namespace db7::access
         return {offset, page_id};
     }
 
+    void Table::Delete(u32 idx, catalog::rel_oid_t pid)
+    {
+        storage::PageIdentifier id(oid_, pid);
+        storage::Page *page = buffer_->Pin(id);
+        page->WaitIO();
+
+        u32 byte_offset = storage::HEADER_SIZE + idx / 8;
+        byte mask = byte(1 << (idx % 8));
+
+        page->WDataLock();
+        byte current = *page->GetOffset(byte_offset);
+        page->WriteOffset(byte_offset, byte(current | mask));
+        // TODO change mvcc headers also
+        page->WDataUnlock();
+    }
+
     u32 Table::PageCount()
     {
         return disk_mng_->PageCount(oid_);
@@ -88,14 +111,19 @@ namespace db7::access
         const auto &map = schema_.GetOffsetMap();
 
         std::cout << "=== Page Contents ===" << std::endl;
-        std::cout << "Row count: " << row_count << std::endl;
-        std::cout << "Table id: " << tbl << std::endl;
-        std::cout << "Page id: " << pid << "\n"
+        std::cout << "  Row count : " << row_count << std::endl;
+        std::cout << "  Table id  : " << tbl << std::endl;
+        std::cout << "  Page id   : " << pid << "\n"
                   << std::endl;
 
         for (u32 i = 0; i < row_count; i++)
         {
-            std::cout << "Row " << i << ": ";
+            u32 byte_offset = storage::HEADER_SIZE + i / 8;
+            bool deleted = (body[byte_offset] >> (i % 8)) & 1;
+
+            std::cout << "  Row " << std::setw(3) << i
+                      << (deleted ? "  [DELETED]  " : "             ") << "| ";
+
             for (const auto &column : schema_.GetColumns())
             {
                 u32 type_size = column.GetTypeSize();
@@ -138,7 +166,7 @@ namespace db7::access
                     }
                 }
 
-                std::cout << " | ";
+                std::cout << std::setw(12) << std::left << /* value */ "" << std::right << "| ";
             }
             std::cout << std::endl;
         }

@@ -33,4 +33,7 @@ namespace db7::storage
         }
         void SetCount(u32 count) { count_ = count; }
     };
+
+    constexpr size_t HEADER_SIZE = sizeof(PageHeader);
+    constexpr size_t PAYLOAD_SIZE = PAGE_SIZE - HEADER_SIZE;
 }

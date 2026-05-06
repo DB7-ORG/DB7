@@ -36,6 +36,8 @@ namespace db7::catalog
         storage::BufferPool *buffer_pool_;
         storage::DiskManagerAsync *disk_mng_;
 
+        bool RemoveMapping(db_oid_t oid);
+
     public:
         Catalog(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng)
             : databases_(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(), rel_oid_t(0), rel_oid_t(CatalogTableOid::PG_VARLEN)),
@@ -47,6 +49,10 @@ namespace db7::catalog
         db_oid_t CreateDatabase(db7::transaction::TransactionContext *txn, const std::span<byte> name, const bool bootstrap);
 
         bool CreateDatabaseEntry(transaction::TransactionContext *txn, const std::span<byte> name, DatabaseCatalog *const dbc);
+
+        bool DeleteDatabase(transaction::TransactionContext *txn, db_oid_t oid);
+
+        bool DeleteDatabaseEntry(transaction::TransactionContext *txn, const db_oid_t oid);
     };
 
 }

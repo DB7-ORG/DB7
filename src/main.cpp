@@ -108,7 +108,12 @@ int main()
     std::string s = "sssssssssssssssssssssssssssssss";
     std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
 
+    std::string sa = "aaaa";
+    std::span<byte> sdataa(reinterpret_cast<byte *>(s.data()), s.size());
+
     cat->CreateDatabase(nullptr, sdata, true);
+    cat->DeleteDatabase(nullptr, 1);
+    cat->CreateDatabase(nullptr, sdataa, true);
 
     // std::this_thread::sleep_for(std::chrono::seconds(1));
 

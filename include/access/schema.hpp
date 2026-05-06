@@ -5,6 +5,7 @@
 #include "shared/align_util.hpp"
 #include "shared/macro_helper.hpp"
 #include "storage/storage_common.hpp"
+#include "storage/page_header.hpp"
 
 #include <vector>
 #include <unordered_map>
@@ -29,9 +30,9 @@ namespace db7::access
                 worst_case_pad += item_size - 1;
             }
 
-            const u32 row_count = (PAYLOAD_SIZE - worst_case_pad) / row_size;
+            const u32 row_count = (PAGE_SIZE - storage::HEADER_SIZE - worst_case_pad) * 8 / (1 + 8 * row_size);
 
-            u32 curr_offset = HEADER_SIZE;
+            u32 curr_offset = storage::HEADER_SIZE + (row_count + 7) / 8;
             for (auto &col : columns_)
             {
                 // pad to type
