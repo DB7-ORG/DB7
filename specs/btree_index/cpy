@@ -1,0 +1,222 @@
+---- MODULE btree_index ----
+EXTENDS Integers, Sequences, FiniteSets, TLC
+
+CONSTANTS NUM_THREADS, VALUES
+
+(*--algorithm btree_index
+
+variables
+    nodes = [i \in 1..100 |->
+        [
+            keys    |-> <<0,0,0>>,        
+            children|-> <<0,0,0,0>>,        
+            is_leaf |-> TRUE,
+            count   |-> 0,
+            rlink   |-> 0,
+            max_val |-> 0,
+            idx     |-> i
+        ]
+    ],
+    num_keys = 3,
+    root = 0,
+    next_free = 1;
+
+macro flush(node) begin
+    nodes[node.idx] := node;
+end macro;
+
+macro alloc_node(node_var_name, is_leaf) begin
+    node_var_name := nodes[next_free];
+    node_var_name.is_leaf := is_leaf;
+    next_free := next_free + 1;
+end macro;
+
+\* idx := 1;
+\* while idx <= cur_node.count /\ cur_node.keys[idx] < insert_key do
+\*     idx := idx + 1;
+\* end while;
+\* ptr := cur_node.children[idx];
+macro find_child(cur_node, insert_key) begin
+    idx := CHOOSE i \in 1..(cur_node.count + 1) :
+            /\ \A j \in 1..(i-1) : cur_node.keys[j] < insert_key
+            /\ (i > cur_node.count \/ cur_node.keys[i] >= insert_key);
+    ptr := cur_node.children[idx];
+end macro;
+
+macro shift_and_insert_keys(node, idx, key) begin
+    sh_idx := node.count;
+    while sh_idx >= idx do
+        node.keys[sh_idx + 1] := node.keys[sh_idx];
+        sh_idx := sh_idx - 1;
+    end while;
+    node.keys[idx] := key;
+    node.count:= node.count+1;
+    flush(node);
+end macro;
+
+macro shift_and_insert_children(node, idx, ref) begin
+    sh_idx := node.count + 1;
+    while sh_idx >= idx do
+        node.children[sh_idx + 1] := node.children[sh_idx];
+        sh_idx := sh_idx - 1;
+    end while;
+    node.children[idx] := ref;
+    flush(node);
+end macro;
+
+macro copy_upper_part(cur, new_node, old_mid) begin
+    mid := old_mid;
+    new_node_idx := 1;
+    while mid <= cur.count do
+        new_node.keys[new_node_idx] := cur.keys[mid];
+        new_node.children[new_node_idx] := cur.children[mid];
+        mid := mid + 1;
+        new_node_idx := new_node_idx + 1;
+    end while;
+    new_node.children[new_node_idx] := cur.children[mid];
+    flush(new_node);
+end macro;
+
+macro split_and_insert(current_node, insert_idx, insert_key) begin
+
+    alloc_node(new_node, current_node.is_leaf);
+
+    old_mid := current_node.count \div 2 + 1;
+    copy_upper_part(current_node, new_node, old_mid);  
+    
+    old_count := current_node.count;
+    
+    new_node.count := old_count - (old_mid - 1) || 
+    new_node.rlink := current_node.rlink;
+
+    current_node.count := current_node.count \div 2 || 
+    current_node.rlink := new_node.idx;
+
+    if insert_idx <= old_mid then
+        shift_and_insert_keys(current_node, insert_idx, insert_key);
+        insert_idx := insert_idx + 1;
+        shift_and_insert_children(current_node, insert_idx, prev_node);
+    else
+        shift_and_insert_keys(new_node, insert_idx - current_node.count, insert_key);
+        insert_idx := insert_idx + 1;
+        shift_and_insert_children(new_node, insert_idx - current_node.count, prev_node);
+    end if;
+
+    seperator := new_node.keys[1];
+    prev_node := new_node.idx;
+
+    flush(current_node);
+    flush(new_node);
+end macro;
+
+process Thread \in 1..NUM_THREADS
+variables key = 0, cur = nodes[1], node_stack = <<>>, seperator = 0, prev_node = 0, idx = 0, ptr = 0, sh_idx = 0, mid = 0, new_node_idx = 0,
+    old_mid = 0, old_count = 0, new_node = nodes[1],
+    new_root = nodes[1], top = 0;
+
+begin
+
+    Start:
+        with val \in 1..VALUES do
+            key := val;
+        end with;
+    
+    GetRoot:
+        if root = 0 then
+            root := next_free;
+            next_free:=next_free+1;
+        end if;
+        cur := nodes[root];
+
+    FetchPage:
+        \* fetching from buffer pool
+        \* no locks held on index nodes
+        goto Insert;
+
+    Insert:
+        \* follow right pointer
+        if cur.max_val != 0 /\ cur.max_val <= key then\* <= or <
+            cur := nodes[cur.rlink];
+            \* goto FetchPage;
+        else
+            \* Scan keys
+            \* For a leaf idx is an insert position
+            \* For an intermediate idx is ref location
+            find_child(cur,key);
+
+            if cur.is_leaf then
+                \* need to split
+                if cur.count = num_keys then
+                    split_and_insert(cur, idx, key);
+                    goto Backtrack;
+
+                else
+                    shift_and_insert_keys(cur, idx, key);
+                    goto Done;
+                end if;
+
+            else
+                cur := nodes[ptr];
+                node_stack := Append(node_stack, ptr);
+                goto FetchPage;
+            end if;
+           
+        end if;
+        
+    Backtrack:
+        if Len(node_stack) = 0 then
+            goto Done;
+        end if;
+
+        top := node_stack[Len(node_stack)];
+        cur := nodes[top];
+        node_stack := SubSeq(node_stack, 1, Len(node_stack) - 1);
+
+        if Len(node_stack) = 0 then
+            goto InsertRoot;
+        else
+            goto InsertInter;
+        end if;
+
+    InsertRoot:
+        split_and_insert(cur, idx, seperator);
+
+        alloc_node(new_root, cur.is_leaf);
+        
+        new_root.keys[1] := seperator;
+        new_root.children[1] := root;
+        new_root.children[2] := new_node.idx;
+
+        root := new_root.idx;
+        goto Done;
+
+    InsertInter:
+        \* follow right pointer
+        if cur.max_val != 0 then
+            if cur.max_val <= key then \* <= or <
+                cur := nodes[cur.rlink];
+                goto FetchPage;
+            end if;
+        end if;
+
+        \* Scan keys
+        \* For a leaf idx is an insert position
+        \* For an intermediate idx is ref location
+        idx:=1;
+        ptr:=cur.children[num_keys+1];
+        find_child(cur,key);
+
+        if cur.count = num_keys then
+            split_and_insert(cur, idx, key);
+            goto Backtrack;
+        else 
+            shift_and_insert_keys(cur, idx, seperator);
+            idx := idx + 1;
+            shift_and_insert_children(cur, idx, prev_node);
+            goto Done;
+        end if;
+      
+end process;
+
+end algorithm; *)
+====
