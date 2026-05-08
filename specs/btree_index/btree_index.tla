@@ -166,7 +166,7 @@ begin
                     LeftHalfKeys(overfull),
                     LeftHalfKeys(overfull2),
                     current.is_leaf,
-                    (MAX_NUM_KEYS + 1) - ((MAX_NUM_KEYS + 1) \div 2) - 1,
+                    (MAX_NUM_KEYS + 1) - ((MAX_NUM_KEYS + 1) \div 2),
                     next_free,
                     sentinel,
                     current_idx,
@@ -177,6 +177,7 @@ begin
             last_page_idx := next_free;
 
             next_free:=next_free+1;
+            \* TODO needs to add root right away if its a leaf-root
             goto PropagateInsert;
         end if;
 
@@ -243,7 +244,7 @@ begin
                         LeftHalfKeys(overfull),
                         LeftHalfKeys(overfull2),
                         current.is_leaf,
-                        (MAX_NUM_KEYS + 1) - ((MAX_NUM_KEYS + 1) \div 2) - 1,
+                        (MAX_NUM_KEYS + 1) - ((MAX_NUM_KEYS + 1) \div 2),
                         next_free,
                         sentinel,
                         current_idx,
@@ -283,7 +284,7 @@ begin
                         LeftHalfKeys(overfull),
                         LeftHalfKeys(overfull2),
                         current.is_leaf,
-                        (MAX_NUM_KEYS + 1) - ((MAX_NUM_KEYS + 1) \div 2) - 1,
+                        (MAX_NUM_KEYS + 1) - ((MAX_NUM_KEYS + 1) \div 2),
                         next_free,
                         sentinel,
                         current_idx,
@@ -496,10 +497,9 @@ Insert(self) ==
                          ].level),
                        ![current_idx[self]] =
                        NewNode(LeftHalfKeys(overfull'[self]), LeftHalfKeys(overfull2'[self]), current'[self].is_leaf, ( MAX_NUM_KEYS +
-                                 1
-                             ) -
-                             ( ( MAX_NUM_KEYS + 1 ) \div 2 ) -
-                           1, next_free, sentinel'[
+                               1
+                           ) -
+                           ( ( MAX_NUM_KEYS + 1 ) \div 2 ), next_free, sentinel'[
                            self
                          ], current_idx[
                            self
@@ -640,10 +640,9 @@ HandleRoot(self) ==
                                    ]), current'[
                                    self
                                  ].is_leaf, ( MAX_NUM_KEYS +
-                                         1
-                                     ) -
-                                     ( ( MAX_NUM_KEYS + 1 ) \div 2 ) -
-                                   1, next_free, sentinel'[
+                                       1
+                                   ) -
+                                   ( ( MAX_NUM_KEYS + 1 ) \div 2 ), next_free, sentinel'[
                                    self
                                  ], current_idx[
                                    self
@@ -687,10 +686,9 @@ HandleRoot(self) ==
                                    ]), current'[
                                    self
                                  ].is_leaf, ( MAX_NUM_KEYS +
-                                         1
-                                     ) -
-                                     ( ( MAX_NUM_KEYS + 1 ) \div 2 ) -
-                                   1, next_free, sentinel'[
+                                       1
+                                   ) -
+                                   ( ( MAX_NUM_KEYS + 1 ) \div 2 ), next_free, sentinel'[
                                    self
                                  ], current_idx[
                                    self
@@ -737,5 +735,13 @@ TotalLeafKeys ==
   IN SumRec(1 .. next_free - 1)
 
 CountCheck == AllDone => TotalLeafKeys = NUM_THREADS
+
+IsSorted(seq) == \A i, j \in 1 .. Len(seq): i < j => seq[i] <= seq[j]
+
+AllNodesSorted ==
+  \A n \in 1 .. ( next_free - 1 ):
+    IsSorted(SubSeq(nodes[n].keys, 1, nodes[n].count))
+
+SortedCheck == AllDone => AllNodesSorted
 
 ====
