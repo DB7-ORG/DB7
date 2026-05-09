@@ -48,3 +48,4 @@ perf.*
 
 .data
 specs/**/*.old
+specs/**/states
