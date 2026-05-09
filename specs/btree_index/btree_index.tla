@@ -1,7 +1,7 @@
 ---- MODULE btree_index ----
 EXTENDS Integers, Sequences, FiniteSets, TLC
 
-CONSTANTS NUM_THREADS, VALUES
+CONSTANTS NUM_THREADS
 
 
 \* ============================================================
@@ -55,13 +55,14 @@ OverfullKeys(seq, key, pos) ==
   ]
 
 LeftHalfKeys(seq4) ==
-  [i \in 1 .. Len(seq4) |-> IF i <= ( Len(seq4) + 1 ) \div 2 THEN seq4[i] ELSE 0
-  ]
+  LET mid == ( Len(seq4) ) \div 2
+  IN [i \in 1 .. ( Len(seq4) - 1 ) |-> IF i <= mid THEN seq4[i] ELSE 0
+      ]
 
 RightHalfKeys(seq4) ==
-  LET mid == ( Len(seq4) + 1 ) \div 2
-  IN [i \in 1 .. Len(seq4) |->
-        IF i + mid <= ( Len(seq4) ) THEN seq4[i + mid] ELSE 0
+  LET mid == ( Len(seq4) ) \div 2
+  IN [i \in 1 .. ( Len(seq4) - 1 ) |->
+        IF i <= Len(seq4) - mid THEN seq4[i + mid] ELSE 0
       ]
 
 ReloadCurrent(current_idx, nodes) == nodes[current_idx]
@@ -91,9 +92,10 @@ variables
 begin
 
     Start:
-        with val \in 1..VALUES do
-            key := val;
-        end with;
+        \* with val \in 1..VALUES do
+        \*     key := val;
+        \* end with;
+        key := self;
 
         if root_idx = UNDEFINED then
             nodes[next_free] := EmptyNode(next_free);
@@ -108,7 +110,9 @@ begin
     DropToLevel:
         current := ReloadCurrent(current_idx, nodes);
 
-        if current.level <= drop_level then
+        if current_idx = root_idx /\  current.level = 0 then 
+            goto HandleRoot;
+        elsif current.level <= drop_level then
             goto Insert;
         elsif current.is_leaf = TRUE then 
             goto Insert;
@@ -177,8 +181,14 @@ begin
             last_page_idx := next_free;
 
             next_free:=next_free+1;
-            \* TODO needs to add root right away if its a leaf-root
-            goto PropagateInsert;
+            if Len(stack) = 0 then 
+                drop_level := current.level + 1;
+                current_idx := root_idx;
+                goto DropToLevel;
+            else
+                goto PropagateInsert;
+            end if;
+            
         end if;
 
     PropagateInsert:
@@ -357,7 +367,7 @@ Init ==
 
 Start(self) ==
   /\ pc[self] = "Start"
-  /\ \E val \in 1 .. VALUES: key' = [key EXCEPT ![self] = val]
+  /\ key' = [key EXCEPT ![self] = self]
   /\ IF root_idx = UNDEFINED
      THEN /\ nodes' = [nodes EXCEPT ![next_free] = EmptyNode(next_free)]
           /\ root_idx' = next_free
@@ -374,33 +384,36 @@ DropToLevel(self) ==
   /\ pc[self] = "DropToLevel"
   /\ current' =
        [current EXCEPT ![self] = ReloadCurrent(current_idx[self], nodes)]
-  /\ IF current'[self].level <= drop_level[self]
-     THEN /\ pc' = [pc EXCEPT ![self] = "Insert"]
+  /\ IF current_idx[self] = root_idx /\ current'[self].level = 0
+     THEN /\ pc' = [pc EXCEPT ![self] = "HandleRoot"]
           /\ UNCHANGED << current_idx, idx, stack >>
-     ELSE /\ IF current'[self].is_leaf = TRUE
+     ELSE /\ IF current'[self].level <= drop_level[self]
              THEN /\ pc' = [pc EXCEPT ![self] = "Insert"]
                   /\ UNCHANGED << current_idx, idx, stack >>
-             ELSE /\ IF current'[self].max_val /= UNDEFINED /\
-                         key[self] >= current'[self].max_val
-                     THEN /\ current_idx' =
-                               [current_idx EXCEPT
-                               ![self] =
-                               current'[self].rlink]
-                          /\ pc' = [pc EXCEPT ![self] = "DropToLevel"]
-                          /\ UNCHANGED << idx, stack >>
-                     ELSE /\ stack' =
-                               [stack EXCEPT
-                               ![self] =
-                               Append(stack[self], current_idx[self])]
-                          /\ idx' =
-                               [idx EXCEPT
-                               ![self] =
-                               FindPosition(current'[self], key[self])]
-                          /\ current_idx' =
-                               [current_idx EXCEPT
-                               ![self] =
-                               current'[self].children[idx'[self]]]
-                          /\ pc' = [pc EXCEPT ![self] = "DropToLevel"]
+             ELSE /\ IF current'[self].is_leaf = TRUE
+                     THEN /\ pc' = [pc EXCEPT ![self] = "Insert"]
+                          /\ UNCHANGED << current_idx, idx, stack >>
+                     ELSE /\ IF current'[self].max_val /= UNDEFINED /\
+                                 key[self] >= current'[self].max_val
+                             THEN /\ current_idx' =
+                                       [current_idx EXCEPT
+                                       ![self] =
+                                       current'[self].rlink]
+                                  /\ pc' = [pc EXCEPT ![self] = "DropToLevel"]
+                                  /\ UNCHANGED << idx, stack >>
+                             ELSE /\ stack' =
+                                       [stack EXCEPT
+                                       ![self] =
+                                       Append(stack[self], current_idx[self])]
+                                  /\ idx' =
+                                       [idx EXCEPT
+                                       ![self] =
+                                       FindPosition(current'[self], key[self])]
+                                  /\ current_idx' =
+                                       [current_idx EXCEPT
+                                       ![self] =
+                                       current'[self].children[idx'[self]]]
+                                  /\ pc' = [pc EXCEPT ![self] = "DropToLevel"]
   /\ UNCHANGED << nodes,
         root_idx,
         next_free,
@@ -425,6 +438,7 @@ Insert(self) ==
                 key,
                 idx,
                 last_page_idx,
+                drop_level,
                 sentinel,
                 overfull,
                 overfull2
@@ -461,7 +475,9 @@ Insert(self) ==
                   /\ pc' = [pc EXCEPT ![self] = "Done"]
                   /\ UNCHANGED << next_free,
                         key,
+                        current_idx,
                         last_page_idx,
+                        drop_level,
                         sentinel,
                         overfull,
                         overfull2
@@ -509,9 +525,17 @@ Insert(self) ==
                   /\ key' = [key EXCEPT ![self] = sentinel'[self]]
                   /\ last_page_idx' = [last_page_idx EXCEPT ![self] = next_free]
                   /\ next_free' = next_free + 1
-                  /\ pc' = [pc EXCEPT ![self] = "PropagateInsert"]
-          /\ UNCHANGED current_idx
-  /\ UNCHANGED << root_idx, drop_level, stack >>
+                  /\ IF Len(stack[self]) = 0
+                     THEN /\ drop_level' =
+                               [drop_level EXCEPT
+                               ![self] =
+                               current'[self].level + 1]
+                          /\ current_idx' =
+                               [current_idx EXCEPT ![self] = root_idx]
+                          /\ pc' = [pc EXCEPT ![self] = "DropToLevel"]
+                     ELSE /\ pc' = [pc EXCEPT ![self] = "PropagateInsert"]
+                          /\ UNCHANGED << current_idx, drop_level >>
+  /\ UNCHANGED << root_idx, stack >>
 
 PropagateInsert(self) ==
   /\ pc[self] = "PropagateInsert"
@@ -724,13 +748,18 @@ Termination == <>( \A self \in ProcSet: pc[self] = "Done" )
 \* END TRANSLATION
 AllDone == \A self \in ProcSet: pc[self] = "Done"
 
+NotZeroCount(x) == Len(SelectSeq(nodes[x].keys, LAMBDA k:k # 0))
+
 TotalLeafKeys ==
   LET RECURSIVE SumRec(_)
       SumRec(s) ==
         IF s = {}
         THEN 0
         ELSE LET x == CHOOSE x \in s: TRUE
-          IN ( IF nodes[x].is_leaf THEN nodes[x].count ELSE 0 ) +
+          IN ( IF nodes[x].level = 0 /\ NotZeroCount(x) = nodes[x].count
+                  THEN nodes[x].count
+                  ELSE 0
+                ) +
                 SumRec(s \ { x })
   IN SumRec(1 .. next_free - 1)
 
@@ -742,6 +771,20 @@ AllNodesSorted ==
   \A n \in 1 .. ( next_free - 1 ):
     IsSorted(SubSeq(nodes[n].keys, 1, nodes[n].count))
 
-SortedCheck == AllDone => AllNodesSorted
+CheckMaxValue(max, node_idx) ==
+  \A i \in 1 .. nodes[node_idx].count: nodes[node_idx].keys[i] < max
 
+CheckMinValue(min, node_idx) ==
+  \A i \in 1 .. nodes[node_idx].count: nodes[node_idx].keys[i] >= min
+
+AreChildrenKeysSortedByParent ==
+  \A n \in 1 .. ( next_free - 1 ):
+    nodes[n].level > 0 =>
+      \A j \in 1 .. nodes[n].count:
+        LET k == nodes[n].keys[j]
+            p1 == nodes[n].children[j]
+            p2 == nodes[n].children[j + 1]
+        IN CheckMaxValue(k, p1) /\ CheckMinValue(k, p2)
+
+SortedCheck == AllDone => AllNodesSorted /\ AreChildrenKeysSortedByParent
 ====
