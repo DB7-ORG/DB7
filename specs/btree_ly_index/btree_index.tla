@@ -1,4 +1,13 @@
 ---- MODULE btree_index ----
+
+\* ============================================================
+\* Note that in the spec leaf nodes 
+\* have the same format as intermediate nodes 
+\* which in a real system is great
+\* this is just to lower the complexity 
+\* and understand logic better not complicate things
+\* ============================================================
+
 EXTENDS Integers, Sequences, FiniteSets, TLC
 
 CONSTANTS NUM_THREADS
@@ -10,11 +19,9 @@ CONSTANTS NUM_THREADS
 MAX_NUM_KEYS == 3
 UNDEFINED == 0
 
-\* NOTE is_leaf is not needed since i have level
 EmptyNode(id) ==
   [ keys |-> << 0, 0, 0 >>,
     children |-> << 0, 0, 0, 0 >>,
-    is_leaf |-> TRUE,
     count |-> 0,
     rlink |-> UNDEFINED,
     max_val |-> UNDEFINED,
@@ -22,10 +29,9 @@ EmptyNode(id) ==
     level |-> 0
   ]
 
-NewNode(keys, children, is_leaf, count, rlink, max_val, id, lvl) ==
+NewNode(keys, children, count, rlink, max_val, id, lvl) ==
   [ keys |-> keys,
     children |-> children,
-    is_leaf |-> is_leaf,
     count |-> count,
     rlink |-> rlink,
     max_val |-> max_val,
@@ -77,7 +83,6 @@ InsertToNode(current,idx,key,last_page_idx,current_idx) ==
                 NewNode(
                     ShiftRightInsert(current.keys, idx, key),
                     ShiftRightInsert(current.children, idx + 1, last_page_idx),
-                    current.is_leaf,
                     current.count+1,
                     current.rlink,
                     current.max_val,
@@ -85,12 +90,11 @@ InsertToNode(current,idx,key,last_page_idx,current_idx) ==
                     current.level
                 )
 
-SplitLeaf(nodes, next_free, current_idx, current, overfull, overfull2, sentinel) ==
+SplitLeaf(nodes, next_free, current_idx, current, overfull, overfull_children, sentinel) ==
     [nodes EXCEPT
         ![next_free] = NewNode(
             RightHalfKeys(overfull),
-            RightHalfKeys(overfull2),
-            current.is_leaf,
+            RightHalfKeys(overfull_children),
             (MAX_NUM_KEYS + 1) \div 2,
             current.rlink,
             current.max_val,
@@ -99,8 +103,7 @@ SplitLeaf(nodes, next_free, current_idx, current, overfull, overfull2, sentinel)
         ),
         ![current_idx] = NewNode(
             LeftHalfKeys(overfull),
-            LeftHalfKeys(overfull2),
-            current.is_leaf,
+            LeftHalfKeys(overfull_children),
             (MAX_NUM_KEYS + 1) - ((MAX_NUM_KEYS + 1) \div 2),
             next_free,
             sentinel,
@@ -109,12 +112,11 @@ SplitLeaf(nodes, next_free, current_idx, current, overfull, overfull2, sentinel)
         )
     ]
 
-SplitIntermediate(nodes, next_free, current_idx, current, overfull, overfull2, sentinel) ==
+SplitIntermediate(nodes, next_free, current_idx, current, overfull, overfull_children, sentinel) ==
     [nodes EXCEPT
         ![next_free] = NewNode(
             RightHalfKeysInter(overfull),
-            RightHalfKeysInter(overfull2),
-            current.is_leaf,
+            RightHalfKeysInter(overfull_children),
             (MAX_NUM_KEYS + 1) \div 2 - 1,
             current.rlink,
             current.max_val,
@@ -123,8 +125,7 @@ SplitIntermediate(nodes, next_free, current_idx, current, overfull, overfull2, s
         ),
         ![current_idx] = NewNode(
             LeftHalfKeys(overfull),
-            LeftHalfKeys(overfull2),
-            current.is_leaf,
+            LeftHalfKeys(overfull_children),
             (MAX_NUM_KEYS + 1) - ((MAX_NUM_KEYS + 1) \div 2),
             next_free,
             sentinel,
@@ -133,19 +134,18 @@ SplitIntermediate(nodes, next_free, current_idx, current, overfull, overfull2, s
         )
     ]
 
-Split(nodes, next_free, current_idx, current, overfull, overfull2, sentinel) ==
+Split(nodes, next_free, current_idx, current, overfull, overfull_children, sentinel) ==
     IF current.level = 0
-    THEN SplitLeaf(nodes, next_free, current_idx, current, overfull, overfull2, sentinel)
-    ELSE SplitIntermediate(nodes, next_free, current_idx, current, overfull, overfull2, sentinel)
+    THEN SplitLeaf(nodes, next_free, current_idx, current, overfull, overfull_children, sentinel)
+    ELSE SplitIntermediate(nodes, next_free, current_idx, current, overfull, overfull_children, sentinel)
 
-SplitCreateRoot(nodes, next_free, current_idx, current, overfull, overfull2, sentinel, key, last_page_idx) ==
+SplitCreateRoot(nodes, next_free, current_idx, current, overfull, overfull_children, sentinel, key, last_page_idx) ==
     [
-        (Split(nodes, next_free, current_idx, current, overfull, overfull2, sentinel))
+        (Split(nodes, next_free, current_idx, current, overfull, overfull_children, sentinel))
         EXCEPT
             ![next_free + 1] = NewNode(
                 << key, 0, 0 >>,
                 << current_idx, last_page_idx, 0, 0 >>,
-                FALSE,
                 1,
                 UNDEFINED,
                 UNDEFINED,
@@ -175,7 +175,7 @@ variables
     stack = UNDEFINED,
     sentinel = UNDEFINED,
     overfull = UNDEFINED,
-    overfull2 = UNDEFINED;
+    overfull_children = UNDEFINED;
 begin
 
     Start:
@@ -197,10 +197,7 @@ begin
     DropToLevel:
         current := ReloadCurrent(current_idx, nodes);
 
-        if current_idx = root_idx /\  current.level = 0 then 
-            \* special case there is only one node the root node
-            goto HandleRoot;
-        elsif current.level <= drop_level then
+        if current.level <= drop_level then
             \* we got to leaf level in regular case or in special case
             \* while it was doing stuff in the tree another or multiple roots were created
             \* so we have to descend to the level above the starting pooint
@@ -237,62 +234,7 @@ begin
 
             overfull := OverfullKeys(current.keys, key, idx);
 
-            overfull2 := OverfullKeys(current.children, last_page_idx, idx + 1);
-
-            sentinel := overfull[(MAX_NUM_KEYS + 1) \div 2 + 1];
-
-            nodes := Split(nodes, next_free, current_idx, current, overfull, overfull2, sentinel);
-
-            key := sentinel;  \* propagate the separator upward
-
-            last_page_idx := next_free;
-
-            next_free:=next_free+1;
-
-            if Len(stack) = 0 then 
-                drop_level := current.level + 1;
-                current_idx := root_idx;
-                goto DropToLevel;
-            else
-                goto PropagateInsert;
-            end if;
-            
-        end if;
-
-    PropagateInsert:
-        current := ReloadCurrent(current_idx, nodes);
-
-        if Len(stack) = 0 then 
-            \* we need to handle root state because its possible 
-            \* that root has changed after we started
-            goto HandleRoot;
-        else 
-            \* regular case, not root
-            \* last_page_idx := current.idx;
-            current_idx := stack[Len(stack)];
-            stack := SubSeq(stack, 1, Len(stack) - 1);
-            goto Insert;
-        end if;
-
-    HandleRoot:
-        \* handle root
-        current := ReloadCurrent(current_idx, nodes);
-        \* need to go right
-        if current.max_val /= UNDEFINED /\ key >= current.max_val then 
-            current_idx := current.rlink;
-            goto HandleRoot;
-        elsif current.count /= MAX_NUM_KEYS then
-            idx := FindInsertPosition(current, key);
-            nodes[current_idx] := InsertToNode(current,idx,key,last_page_idx,current_idx);
-            goto Done;
-        else 
-            \* we need to split root
-
-            idx := FindInsertPosition(current, key);
-
-            overfull := OverfullKeys(current.keys, key, idx);
-
-            overfull2 := OverfullKeys(current.children, last_page_idx, idx + 1);
+            overfull_children := OverfullKeys(current.children, last_page_idx, idx + 1);
 
             sentinel := overfull[(MAX_NUM_KEYS + 1) \div 2 + 1];
 
@@ -300,40 +242,55 @@ begin
 
             last_page_idx := next_free;
 
-            if current_idx = root_idx then
-                \* create new root no problem
-                nodes := SplitCreateRoot(nodes, next_free, current_idx, current, overfull, overfull2, sentinel, key, last_page_idx);
+            if Len(stack) = 0 /\ current_idx = root_idx then
+                \* current node is still the old root, create a new one above it
+
+                nodes := SplitCreateRoot(nodes, next_free, current_idx, current, overfull, overfull_children, sentinel, key, last_page_idx);
                 
                 root_idx := next_free + 1;
 
                 next_free:=next_free+2;
                 
                 goto Done;
+            elsif Len(stack) = 0 then
+                \* root changed, re-descend
 
-            else 
-                \* traverse again to level above and proceed from there
-                 nodes := Split(nodes, next_free, current_idx, current, overfull, overfull2, sentinel);
+                nodes := Split(nodes, next_free, current_idx, current, overfull, overfull_children, sentinel);
 
-                next_free := next_free + 1;
+                next_free:=next_free+1;
 
                 drop_level := current.level + 1;
 
                 current_idx := root_idx;
 
                 goto DropToLevel;
+            else
+                \* pop stack, insert separator into parent
+                
+                nodes := Split(nodes, next_free, current_idx, current, overfull, overfull_children, sentinel);
+
+                next_free:=next_free+1;
+
+                current_idx := stack[Len(stack)];
+
+                stack := SubSeq(stack, 1, Len(stack) - 1);
+
+                goto Insert;
             end if;
             
-        end if; 
-     
+        end if;
+
 end process;
 
 end algorithm; *)
 \* BEGIN TRANSLATION
 VARIABLES pc, nodes, root_idx, next_free, key, current_idx, current, idx, 
-          last_page_idx, drop_level, stack, sentinel, overfull, overfull2
+          last_page_idx, drop_level, stack, sentinel, overfull, 
+          overfull_children
 
 vars == << pc, nodes, root_idx, next_free, key, current_idx, current, idx, 
-           last_page_idx, drop_level, stack, sentinel, overfull, overfull2 >>
+           last_page_idx, drop_level, stack, sentinel, overfull, 
+           overfull_children >>
 
 ProcSet == (1..NUM_THREADS)
 
@@ -351,7 +308,7 @@ Init == (* Global variables *)
         /\ stack = [self \in 1..NUM_THREADS |-> UNDEFINED]
         /\ sentinel = [self \in 1..NUM_THREADS |-> UNDEFINED]
         /\ overfull = [self \in 1..NUM_THREADS |-> UNDEFINED]
-        /\ overfull2 = [self \in 1..NUM_THREADS |-> UNDEFINED]
+        /\ overfull_children = [self \in 1..NUM_THREADS |-> UNDEFINED]
         /\ pc = [self \in ProcSet |-> "Start"]
 
 Start(self) == /\ pc[self] = "Start"
@@ -367,116 +324,74 @@ Start(self) == /\ pc[self] = "Start"
                /\ stack' = [stack EXCEPT ![self] = <<>>]
                /\ pc' = [pc EXCEPT ![self] = "DropToLevel"]
                /\ UNCHANGED << current, idx, last_page_idx, sentinel, overfull, 
-                               overfull2 >>
+                               overfull_children >>
 
 DropToLevel(self) == /\ pc[self] = "DropToLevel"
                      /\ current' = [current EXCEPT ![self] = ReloadCurrent(current_idx[self], nodes)]
-                     /\ IF current_idx[self] = root_idx /\  current'[self].level = 0
-                           THEN /\ pc' = [pc EXCEPT ![self] = "HandleRoot"]
+                     /\ IF current'[self].level <= drop_level[self]
+                           THEN /\ pc' = [pc EXCEPT ![self] = "Insert"]
                                 /\ UNCHANGED << current_idx, idx, stack >>
-                           ELSE /\ IF current'[self].level <= drop_level[self]
-                                      THEN /\ pc' = [pc EXCEPT ![self] = "Insert"]
-                                           /\ UNCHANGED << current_idx, idx, 
-                                                           stack >>
-                                      ELSE /\ IF current'[self].max_val /= UNDEFINED /\ key[self] >= current'[self].max_val
-                                                 THEN /\ current_idx' = [current_idx EXCEPT ![self] = current'[self].rlink]
-                                                      /\ pc' = [pc EXCEPT ![self] = "DropToLevel"]
-                                                      /\ UNCHANGED << idx, 
-                                                                      stack >>
-                                                 ELSE /\ stack' = [stack EXCEPT ![self] = Append(stack[self], current_idx[self])]
-                                                      /\ idx' = [idx EXCEPT ![self] = FindPosition(current'[self], key[self])]
-                                                      /\ current_idx' = [current_idx EXCEPT ![self] = current'[self].children[idx'[self]]]
-                                                      /\ pc' = [pc EXCEPT ![self] = "DropToLevel"]
+                           ELSE /\ IF current'[self].max_val /= UNDEFINED /\ key[self] >= current'[self].max_val
+                                      THEN /\ current_idx' = [current_idx EXCEPT ![self] = current'[self].rlink]
+                                           /\ pc' = [pc EXCEPT ![self] = "DropToLevel"]
+                                           /\ UNCHANGED << idx, stack >>
+                                      ELSE /\ stack' = [stack EXCEPT ![self] = Append(stack[self], current_idx[self])]
+                                           /\ idx' = [idx EXCEPT ![self] = FindPosition(current'[self], key[self])]
+                                           /\ current_idx' = [current_idx EXCEPT ![self] = current'[self].children[idx'[self]]]
+                                           /\ pc' = [pc EXCEPT ![self] = "DropToLevel"]
                      /\ UNCHANGED << nodes, root_idx, next_free, key, 
                                      last_page_idx, drop_level, sentinel, 
-                                     overfull, overfull2 >>
+                                     overfull, overfull_children >>
 
 Insert(self) == /\ pc[self] = "Insert"
                 /\ current' = [current EXCEPT ![self] = ReloadCurrent(current_idx[self], nodes)]
                 /\ IF current'[self].max_val /= UNDEFINED /\ key[self] >= current'[self].max_val
                       THEN /\ current_idx' = [current_idx EXCEPT ![self] = current'[self].rlink]
                            /\ pc' = [pc EXCEPT ![self] = "Insert"]
-                           /\ UNCHANGED << nodes, next_free, key, idx, 
-                                           last_page_idx, drop_level, sentinel, 
-                                           overfull, overfull2 >>
+                           /\ UNCHANGED << nodes, root_idx, next_free, key, 
+                                           idx, last_page_idx, drop_level, 
+                                           stack, sentinel, overfull, 
+                                           overfull_children >>
                       ELSE /\ IF current'[self].count /= MAX_NUM_KEYS
                                  THEN /\ idx' = [idx EXCEPT ![self] = FindInsertPosition(current'[self], key[self])]
                                       /\ nodes' = [nodes EXCEPT ![current_idx[self]] = InsertToNode(current'[self],idx'[self],key[self],last_page_idx[self],current_idx[self])]
                                       /\ pc' = [pc EXCEPT ![self] = "Done"]
-                                      /\ UNCHANGED << next_free, key, 
+                                      /\ UNCHANGED << root_idx, next_free, key, 
                                                       current_idx, 
                                                       last_page_idx, 
-                                                      drop_level, sentinel, 
-                                                      overfull, overfull2 >>
+                                                      drop_level, stack, 
+                                                      sentinel, overfull, 
+                                                      overfull_children >>
                                  ELSE /\ idx' = [idx EXCEPT ![self] = FindInsertPosition(current'[self], key[self])]
                                       /\ overfull' = [overfull EXCEPT ![self] = OverfullKeys(current'[self].keys, key[self], idx'[self])]
-                                      /\ overfull2' = [overfull2 EXCEPT ![self] = OverfullKeys(current'[self].children, last_page_idx[self], idx'[self] + 1)]
+                                      /\ overfull_children' = [overfull_children EXCEPT ![self] = OverfullKeys(current'[self].children, last_page_idx[self], idx'[self] + 1)]
                                       /\ sentinel' = [sentinel EXCEPT ![self] = overfull'[self][(MAX_NUM_KEYS + 1) \div 2 + 1]]
-                                      /\ nodes' = Split(nodes, next_free, current_idx[self], current'[self], overfull'[self], overfull2'[self], sentinel'[self])
                                       /\ key' = [key EXCEPT ![self] = sentinel'[self]]
                                       /\ last_page_idx' = [last_page_idx EXCEPT ![self] = next_free]
-                                      /\ next_free' = next_free+1
-                                      /\ IF Len(stack[self]) = 0
-                                            THEN /\ drop_level' = [drop_level EXCEPT ![self] = current'[self].level + 1]
-                                                 /\ current_idx' = [current_idx EXCEPT ![self] = root_idx]
-                                                 /\ pc' = [pc EXCEPT ![self] = "DropToLevel"]
-                                            ELSE /\ pc' = [pc EXCEPT ![self] = "PropagateInsert"]
+                                      /\ IF Len(stack[self]) = 0 /\ current_idx[self] = root_idx
+                                            THEN /\ nodes' = SplitCreateRoot(nodes, next_free, current_idx[self], current'[self], overfull'[self], overfull_children'[self], sentinel'[self], key'[self], last_page_idx'[self])
+                                                 /\ root_idx' = next_free + 1
+                                                 /\ next_free' = next_free+2
+                                                 /\ pc' = [pc EXCEPT ![self] = "Done"]
                                                  /\ UNCHANGED << current_idx, 
-                                                                 drop_level >>
-                /\ UNCHANGED << root_idx, stack >>
-
-PropagateInsert(self) == /\ pc[self] = "PropagateInsert"
-                         /\ current' = [current EXCEPT ![self] = ReloadCurrent(current_idx[self], nodes)]
-                         /\ IF Len(stack[self]) = 0
-                               THEN /\ pc' = [pc EXCEPT ![self] = "HandleRoot"]
-                                    /\ UNCHANGED << current_idx, stack >>
-                               ELSE /\ current_idx' = [current_idx EXCEPT ![self] = stack[self][Len(stack[self])]]
-                                    /\ stack' = [stack EXCEPT ![self] = SubSeq(stack[self], 1, Len(stack[self]) - 1)]
-                                    /\ pc' = [pc EXCEPT ![self] = "Insert"]
-                         /\ UNCHANGED << nodes, root_idx, next_free, key, idx, 
-                                         last_page_idx, drop_level, sentinel, 
-                                         overfull, overfull2 >>
-
-HandleRoot(self) == /\ pc[self] = "HandleRoot"
-                    /\ current' = [current EXCEPT ![self] = ReloadCurrent(current_idx[self], nodes)]
-                    /\ IF current'[self].max_val /= UNDEFINED /\ key[self] >= current'[self].max_val
-                          THEN /\ current_idx' = [current_idx EXCEPT ![self] = current'[self].rlink]
-                               /\ pc' = [pc EXCEPT ![self] = "HandleRoot"]
-                               /\ UNCHANGED << nodes, root_idx, next_free, key, 
-                                               idx, last_page_idx, drop_level, 
-                                               sentinel, overfull, overfull2 >>
-                          ELSE /\ IF current'[self].count /= MAX_NUM_KEYS
-                                     THEN /\ idx' = [idx EXCEPT ![self] = FindInsertPosition(current'[self], key[self])]
-                                          /\ nodes' = [nodes EXCEPT ![current_idx[self]] = InsertToNode(current'[self],idx'[self],key[self],last_page_idx[self],current_idx[self])]
-                                          /\ pc' = [pc EXCEPT ![self] = "Done"]
-                                          /\ UNCHANGED << root_idx, next_free, 
-                                                          key, current_idx, 
-                                                          last_page_idx, 
-                                                          drop_level, sentinel, 
-                                                          overfull, overfull2 >>
-                                     ELSE /\ idx' = [idx EXCEPT ![self] = FindInsertPosition(current'[self], key[self])]
-                                          /\ overfull' = [overfull EXCEPT ![self] = OverfullKeys(current'[self].keys, key[self], idx'[self])]
-                                          /\ overfull2' = [overfull2 EXCEPT ![self] = OverfullKeys(current'[self].children, last_page_idx[self], idx'[self] + 1)]
-                                          /\ sentinel' = [sentinel EXCEPT ![self] = overfull'[self][(MAX_NUM_KEYS + 1) \div 2 + 1]]
-                                          /\ key' = [key EXCEPT ![self] = sentinel'[self]]
-                                          /\ last_page_idx' = [last_page_idx EXCEPT ![self] = next_free]
-                                          /\ IF current_idx[self] = root_idx
-                                                THEN /\ nodes' = SplitCreateRoot(nodes, next_free, current_idx[self], current'[self], overfull'[self], overfull2'[self], sentinel'[self], key'[self], last_page_idx'[self])
-                                                     /\ root_idx' = next_free + 1
-                                                     /\ next_free' = next_free+2
-                                                     /\ pc' = [pc EXCEPT ![self] = "Done"]
-                                                     /\ UNCHANGED << current_idx, 
-                                                                     drop_level >>
-                                                ELSE /\ nodes' = Split(nodes, next_free, current_idx[self], current'[self], overfull'[self], overfull2'[self], sentinel'[self])
-                                                     /\ next_free' = next_free + 1
-                                                     /\ drop_level' = [drop_level EXCEPT ![self] = current'[self].level + 1]
-                                                     /\ current_idx' = [current_idx EXCEPT ![self] = root_idx]
-                                                     /\ pc' = [pc EXCEPT ![self] = "DropToLevel"]
-                                                     /\ UNCHANGED root_idx
-                    /\ stack' = stack
+                                                                 drop_level, 
+                                                                 stack >>
+                                            ELSE /\ IF Len(stack[self]) = 0
+                                                       THEN /\ nodes' = Split(nodes, next_free, current_idx[self], current'[self], overfull'[self], overfull_children'[self], sentinel'[self])
+                                                            /\ next_free' = next_free+1
+                                                            /\ drop_level' = [drop_level EXCEPT ![self] = current'[self].level + 1]
+                                                            /\ current_idx' = [current_idx EXCEPT ![self] = root_idx]
+                                                            /\ pc' = [pc EXCEPT ![self] = "DropToLevel"]
+                                                            /\ stack' = stack
+                                                       ELSE /\ nodes' = Split(nodes, next_free, current_idx[self], current'[self], overfull'[self], overfull_children'[self], sentinel'[self])
+                                                            /\ next_free' = next_free+1
+                                                            /\ current_idx' = [current_idx EXCEPT ![self] = stack[self][Len(stack[self])]]
+                                                            /\ stack' = [stack EXCEPT ![self] = SubSeq(stack[self], 1, Len(stack[self]) - 1)]
+                                                            /\ pc' = [pc EXCEPT ![self] = "Insert"]
+                                                            /\ UNCHANGED drop_level
+                                                 /\ UNCHANGED root_idx
 
 Thread(self) == Start(self) \/ DropToLevel(self) \/ Insert(self)
-                   \/ PropagateInsert(self) \/ HandleRoot(self)
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
