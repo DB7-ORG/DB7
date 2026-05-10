@@ -1,6 +1,7 @@
 #pragma once
 
 #include "storage/index/index.hpp"
+#include "storage/storage_common.hpp"
 
 namespace db7::storage
 {
