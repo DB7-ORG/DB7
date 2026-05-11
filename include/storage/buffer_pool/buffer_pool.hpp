@@ -29,6 +29,7 @@ namespace db7::storage
 
         Page *Pin(PageIdentifier id);
         void Unpin(Page *page, bool dirty = false);
+        Page *Reserve(table_id tbl_id, page_id &pid);
 
 #ifdef DB7_DEBUG
         Page *GetPagesDebug() const

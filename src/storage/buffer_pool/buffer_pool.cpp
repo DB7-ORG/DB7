@@ -151,4 +151,10 @@ namespace db7::storage
         page->Unpin();
         page->WUnlock();
     }
+
+    Page *BufferPool::Reserve(table_id tbl_id, page_id &pid)
+    {
+        // need to reserve a page from disk manager
+        // consider extracting non async components from disk manager
+    }
 }

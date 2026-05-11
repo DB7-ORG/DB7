@@ -34,18 +34,18 @@ namespace db7::shared
             rw_mtx.unlock_shared();
         }
 
-        // Reader: try optimistic first, fall back to shared lock
-        u64 ReadOptimistic()
+        bool ReadOptimistic(u64 &version)
         {
-            u64 s = seq.load(std::memory_order_acquire);
-            if (!(s & 1))
-                return s;
-            return 0;
+            version = seq.load(std::memory_order_acquire);
+            if (!(version & 1))
+                return true;
+            return false;
         }
 
-        bool Validate(uint64_t s)
+        bool Validate(u64 s)
         {
-            return seq.load(std::memory_order_acquire) == s;
+            std::atomic_thread_fence(std::memory_order_acquire);
+            return seq.load(std::memory_order_relaxed) == s;
         }
     };
 }

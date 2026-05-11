@@ -2,6 +2,7 @@
 
 #include "storage_common.hpp"
 #include "shared/macro_helper.hpp"
+#include "shared/locks/adaptive_version_lock.hpp"
 
 #include <cstring>
 #include <shared_mutex>
@@ -24,7 +25,7 @@ namespace db7::storage
 
         alignas(CACHE_LINE_SIZE) std::shared_mutex latch_; // ~56 bytes typically
         std::condition_variable_any io_cv_;
-        alignas(CACHE_LINE_SIZE) std::shared_mutex lock_;
+        alignas(CACHE_LINE_SIZE) shared::AdaptiveVersionLock lock_;
 
     public:
         Page() : id_(0), data_(nullptr), ref_count_(0), flags_(0) {}
@@ -88,10 +89,12 @@ namespace db7::storage
         void WUnlock() { latch_.unlock(); }
         bool TryWLock() { return latch_.try_lock(); }
 
-        void RDataLock() { lock_.lock_shared(); }
-        void RDataUnlock() { lock_.unlock_shared(); }
-        void WDataLock() { lock_.lock(); }
-        void WDataUnlock() { lock_.unlock(); }
+        void RDataLock() { lock_.ReadLock(); }
+        void RDataUnlock() { lock_.ReadUnlock(); }
+        void WDataLock() { lock_.WriteLock(); }
+        void WDataUnlock() { lock_.WriteUnlock(); }
+        bool ReadVersion(u64 &version) { return lock_.ReadOptimistic(version); }
+        bool ValidateVersion(u64 version) { return lock_.Validate(version); }
 
         /**
          * Channel
