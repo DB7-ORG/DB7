@@ -102,8 +102,10 @@ int main()
     db7::storage::BufferPool buffer_pool(&disk_scheduler);
 
     db7::storage::BTreeIndex index(&buffer_pool, 1);
-    index.Insert(1, 15);
+    for (u32 i = 0; i < 16382; i++)
+        index.Insert(i, UINT64_MAX);
 
+    index.Insert(16382, UINT64_MAX);
     // auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
 
     // std::string s = "sssssssssssssssssssssssssssssss";

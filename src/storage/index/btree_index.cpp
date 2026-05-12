@@ -93,9 +93,17 @@ namespace db7::storage
 
     void NodeInsertLeaf(byte *data, BtreeHeader *header, T key, R value)
     {
-        u32 idx = FindPosition((T *)OffsetHeader(data), header->count, key);
-        ShiftRightInsert((T *)OffsetHeader(data), header->count, idx, key);
-        ShiftRightInsert((R *)(data + REF_OFFSET_LEAF), header->count, idx + 1, value);
+        if (UNLIKELY(header->count == 0))
+        {
+            *(T *)(data + KEY_OFFSET) = key;
+            *(R *)(data + REF_OFFSET_LEAF) = value;
+        }
+        else
+        {
+            u32 idx = FindPosition((T *)OffsetHeader(data), header->count, key);
+            ShiftRightInsert((T *)OffsetHeader(data), header->count, idx, key);
+            ShiftRightInsert((R *)(data + REF_OFFSET_LEAF), header->count, idx, value);
+        }
         header->count++;
         WriteHeader(header, data);
     }
@@ -269,7 +277,7 @@ namespace db7::storage
         BtreeHeader *header = GetHeader(page->GetData());
         GoRight(page, header, key);
 
-        auto *data = page->GetData();
+        byte *data = page->GetData();
         if (header->count < MAX_COUNT_LEAF)
         {
             NodeInsertLeaf(data, header, key, value);

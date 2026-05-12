@@ -15,3 +15,6 @@
     ClassName &operator=(ClassName &&) = default;
 
 #define DB7_ASSERT(expr, message) assert((expr) && (message))
+
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#define LIKELY(x) __builtin_expect(!!(x), 1)
