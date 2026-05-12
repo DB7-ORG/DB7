@@ -11,6 +11,7 @@
 #include "storage/disk_manager/disk_manager.hpp"
 #include "storage/disk_manager/disk_scheduler.hpp"
 #include "debug/printer.hpp"
+#include "storage/index/btree_index.hpp"
 
 using namespace db7;
 
@@ -92,7 +93,7 @@ int main()
     // populate_table();
 
     db7::storage::DiskManagerAsync disk_mng_async(".data");
-    // disk_mng_async.OpenFile(2);
+    disk_mng_async.CreateOpenFile(1, 3);
     // disk_mng_async.TruncateFile(2, PAGES);
 
     db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
@@ -100,20 +101,20 @@ int main()
 
     db7::storage::BufferPool buffer_pool(&disk_scheduler);
 
-    // printf("write:        %.3f ms\n", (t1 - t0) / 1e6);
-    // printf("read:        %.3f ms\n", (t2 - t1) / 1e6);
+    db7::storage::BTreeIndex index(&buffer_pool, 1);
+    index.Insert(1, 15);
 
-    auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
+    // auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
 
-    std::string s = "sssssssssssssssssssssssssssssss";
-    std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
+    // std::string s = "sssssssssssssssssssssssssssssss";
+    // std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
 
-    std::string sa = "aaaa";
-    std::span<byte> sdataa(reinterpret_cast<byte *>(s.data()), s.size());
+    // std::string sa = "aaaa";
+    // std::span<byte> sdataa(reinterpret_cast<byte *>(s.data()), s.size());
 
-    cat->CreateDatabase(nullptr, sdata, true);
-    cat->DeleteDatabase(nullptr, 1);
-    cat->CreateDatabase(nullptr, sdataa, true);
+    // cat->CreateDatabase(nullptr, sdata, true);
+    // cat->DeleteDatabase(nullptr, 1);
+    // cat->CreateDatabase(nullptr, sdataa, true);
 
     // std::this_thread::sleep_for(std::chrono::seconds(1));
 

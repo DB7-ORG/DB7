@@ -7,8 +7,8 @@ LDFLAGS = -lxxhash -lfmt -luring -ljemalloc
 BUILD ?= release
 
 ifeq ($(BUILD),debug)
-    CXXFLAGS = $(BASE_CXXFLAGS) -g -O0 -DDEBUG
-    CCO3FLAGS = -g -O0 -DDEBUG
+    CXXFLAGS = $(BASE_CXXFLAGS) -g -O0 -DDEBUG -fno-inline
+    CCO3FLAGS = -g -O0 -DDEBUG -fno-inline
 else
     CXXFLAGS = $(BASE_CXXFLAGS) -O2 -DNDEBUG
     CCO3FLAGS = -O3 -DNDEBUG

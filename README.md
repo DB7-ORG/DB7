@@ -13,3 +13,9 @@ thread safety for file descriptors
 * clock sync
     sudo ntpdate pool.ntp.org
 
+* Consider vectorised read
+
+# i dont like Reserve in buffer pool 
+# i dont like storing root in metadata page of the index 
+# i dont like fsm hacking should plan it first
+# i dont like that index isnt flexible for now

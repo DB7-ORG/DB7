@@ -18,7 +18,7 @@ namespace db7::storage
         std::atomic<u32> sweep_head_;
         BufferPartitions partitions_;
 
-        Page *GetVictim(PageIdentifier id, u32 &victim_frame_idx, PageIdentifier &victim_page_id);
+        Page *GetVictim(PageIdentifier id, u32 &victim_frame_idx, PageIdentifier &victim_page_id, bool isIO = true);
         void UndoState(Page *victim_page, PageIdentifier victim_page_id);
         bool PageVisit(Page *page, PageIdentifier id);
         u32 GetPartitionIdx(PageIdentifier id);
@@ -29,7 +29,7 @@ namespace db7::storage
 
         Page *Pin(PageIdentifier id);
         void Unpin(Page *page, bool dirty = false);
-        Page *Reserve(table_id tbl_id, page_id &pid);
+        Page *Reserve(table_id tbl_id);
 
 #ifdef DB7_DEBUG
         Page *GetPagesDebug() const

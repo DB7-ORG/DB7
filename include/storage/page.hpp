@@ -59,6 +59,7 @@ namespace db7::storage
          * ID
          */
         PageIdentifier GetId() const { return id_; }
+        page_id GetPageId() const { return id_.pid; }
         void SetId(PageIdentifier id) { id_ = id; }
 
         /**

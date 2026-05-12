@@ -159,7 +159,7 @@ namespace db7::storage
 
         return reaped;
     }
-#include "shared/align_util.hpp"
+
     bool DiskManagerAsync::CreateTable(table_id tbl_id, u32 initial_pages)
     {
         if (cache_->Get(tbl_id).fd != -1)

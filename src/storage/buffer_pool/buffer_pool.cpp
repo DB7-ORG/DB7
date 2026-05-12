@@ -1,5 +1,6 @@
 #include "storage/buffer_pool/buffer_pool.hpp"
 #include "shared/hash_util.hpp"
+#include "storage/fsm/fsm_index.hpp"
 
 #include <thread>
 #include <chrono>
@@ -33,7 +34,7 @@ namespace db7::storage
         delete[] pages_;
     }
 
-    Page *BufferPool::GetVictim(PageIdentifier id, u32 &victim_frame_idx, PageIdentifier &victim_page_id)
+    Page *BufferPool::GetVictim(PageIdentifier id, u32 &victim_frame_idx, PageIdentifier &victim_page_id, bool isIO)
     {
         u32 max_iters = BUFFER_POOL_PAGE_NUM * 2;
 
@@ -48,7 +49,10 @@ namespace db7::storage
                     victim_page_id = page->GetId();
                     page->SetId(id);
                     page->Pin();
-                    page->SetIOInProgress();
+                    if (isIO)
+                    {
+                        page->SetIOInProgress();
+                    }
                     page->WUnlock();
                     victim_frame_idx = head;
                     return page;
@@ -70,7 +74,6 @@ namespace db7::storage
     {
         victim_page->WLock();
         victim_page->Unpin();
-        // if (victim_page->GetId() == wanted)
         victim_page->SetId(victim_page_id);
         victim_page->ClearIOInProgress();
         victim_page->WUnlock();
@@ -152,9 +155,27 @@ namespace db7::storage
         page->WUnlock();
     }
 
-    Page *BufferPool::Reserve(table_id tbl_id, page_id &pid)
+    Page *BufferPool::Reserve(table_id tbl_id)
     {
-        // need to reserve a page from disk manager
-        // consider extracting non async components from disk manager
+        u32 pid = FreeSpaceManagerIndex::Get();
+
+        auto id = PageIdentifier(tbl_id, pid);
+        u32 partIdx = GetPartitionIdx(id);
+
+        u32 victim_frame_idx;
+        PageIdentifier victim_page_id(0);
+        auto page = GetVictim(id, victim_frame_idx, victim_page_id, false);
+
+        u32 new_frame_idx;
+        if (partitions_.Put(id, victim_frame_idx, new_frame_idx, partIdx))
+        {
+            partIdx = GetPartitionIdx(victim_page_id);
+            partitions_.Delete(victim_page_id, victim_frame_idx, partIdx);
+            return page;
+        }
+
+        DB7_ASSERT(false, "invalid state reserved page could not be inserted");
+
+        return nullptr;
     }
 }
