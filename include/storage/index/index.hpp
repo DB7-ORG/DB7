@@ -10,6 +10,6 @@ namespace db7::storage
         virtual ~Index() = default;
         virtual bool Insert(u64 key, u64 value) = 0;
         virtual bool Delete(/* ... */) = 0;
-        virtual void ScanKey(/* ... */) = 0;
+        virtual u64 Get(u64 key) = 0;
     };
 }

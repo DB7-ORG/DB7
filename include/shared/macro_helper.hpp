@@ -18,3 +18,10 @@
 
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
 #define LIKELY(x) __builtin_expect(!!(x), 1)
+
+#define DB7_UNREACHABLE()                 \
+    do                                    \
+    {                                     \
+        DB7_ASSERT(false, "unreachable"); \
+        __builtin_unreachable();          \
+    } while (0)

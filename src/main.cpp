@@ -102,10 +102,26 @@ int main()
     db7::storage::BufferPool buffer_pool(&disk_scheduler);
 
     db7::storage::BTreeIndex index(&buffer_pool, 1);
-    for (u32 i = 0; i < 16382; i++)
-        index.Insert(i, UINT64_MAX);
 
-    index.Insert(16382, UINT64_MAX);
+    u32 n = 170382;
+    std::vector<u32> keys(n);
+    std::iota(keys.begin(), keys.end(), 0);
+    std::shuffle(keys.begin(), keys.end(), std::mt19937{std::random_device{}()});
+
+    for (u32 i = 0; i < n; i++)
+    {
+        index.Insert(keys[i], i);
+    }
+
+    for (u32 i = 0; i < n; i++)
+    {
+        auto item = index.Get(keys[i]);
+        if (item != i)
+        {
+            throw std::runtime_error("value doesnt match");
+        }
+    }
+
     // auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
 
     // std::string s = "sssssssssssssssssssssssssssssss";
@@ -119,6 +135,8 @@ int main()
     // cat->CreateDatabase(nullptr, sdataa, true);
 
     // std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    shared::Print(buffer_pool);
 
     disk_scheduler.Stop();
 
