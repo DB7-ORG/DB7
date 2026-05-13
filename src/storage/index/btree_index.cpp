@@ -129,11 +129,20 @@ namespace db7::storage
         return root_id_.load();
     }
 
+    template <bool IsLeaf, typename Typ>
+    void NodeInsert(byte *data, u32 count, T key, Typ value)
+    {
+        u32 idx = FindPosition((T *)OffsetHeader(data), count, key);
+        ShiftRightInsert((T *)OffsetHeader(data), count, idx, key);
+        if constexpr (IsLeaf)
+            ShiftRightInsert((Typ *)(data + REF_OFFSET_LEAF), count, idx, value);
+        else
+            ShiftRightInsert((Typ *)(data + REF_OFFSET_INTER), count + 1, idx + 1, value);
+    }
+
     void NodeInsertInter(byte *data, BtreeHeader *header, T key, page_id value)
     {
-        u32 idx = FindPosition((T *)OffsetHeader(data), header->count, key);
-        ShiftRightInsert((T *)OffsetHeader(data), header->count, idx, key);
-        ShiftRightInsert((page_id *)(data + REF_OFFSET_INTER), header->count + 1, idx + 1, value);
+        NodeInsert<false>(data, header->count, key, value);
         header->count++;
         WriteHeader(header, data);
     }
@@ -147,16 +156,14 @@ namespace db7::storage
         }
         else
         {
-            u32 idx = FindPosition((T *)OffsetHeader(data), header->count, key);
-            ShiftRightInsert((T *)OffsetHeader(data), header->count, idx, key);
-            ShiftRightInsert((R *)(data + REF_OFFSET_LEAF), header->count, idx, value);
+            NodeInsert<true>(data, header->count, key, value);
         }
         header->count++;
         WriteHeader(header, data);
     }
 
     T BTreeIndex::SplitLeaf(BtreeHeader *header, byte *data, page_id &new_pid, T key, R value)
-    { // TODO key not inserted
+    {
         auto *right_page = ReserveNode(tbl_id_);
 
         new_pid = right_page->GetPageId();
@@ -173,14 +180,20 @@ namespace db7::storage
 
         auto new_header = BtreeHeader(new_pid, mid, header->level, sentinel);
 
+        if (key < sentinel)
+        {
+            NodeInsert<true>(data, new_header.count, key, value);
+            new_header.count++;
+        }
+        else
+        {
+            NodeInsert<true>(right_data, right_header.count, key, value);
+            right_header.count++;
+        }
+
         WriteHeader(&right_header, right_data);
 
         WriteHeader(&new_header, data);
-
-        if (key < sentinel) // TODO this is a hack
-            NodeInsertLeaf(data, &new_header, key, value);
-        else
-            NodeInsertLeaf(right_page->GetData(), &right_header, key, value);
 
         ReleasePage<LockMode::None>(right_page);
 
@@ -188,7 +201,7 @@ namespace db7::storage
     }
 
     T BTreeIndex::SplitInter(BtreeHeader *header, byte *data, page_id &new_pid, T key, R value)
-    { // TODO key not inserted
+    {
         auto *right_page = ReserveNode(tbl_id_);
 
         new_pid = right_page->GetPageId();
@@ -205,14 +218,20 @@ namespace db7::storage
 
         auto new_header = BtreeHeader(new_pid, mid, header->level, sentinel);
 
+        if (key < sentinel)
+        {
+            NodeInsert<false>(data, new_header.count, key, value);
+            new_header.count++;
+        }
+        else
+        {
+            NodeInsert<false>(right_data, right_header.count, key, value);
+            right_header.count++;
+        }
+
         WriteHeader(&right_header, right_data);
 
         WriteHeader(&new_header, data);
-
-        if (key < sentinel) // TODO this is a hack
-            NodeInsertInter(data, &new_header, key, value);
-        else
-            NodeInsertInter(right_page->GetData(), &right_header, key, value);
 
         ReleasePage<LockMode::None>(right_page);
 
@@ -229,7 +248,6 @@ namespace db7::storage
 
             if (header->level <= 0)
             {
-                // TODO push to stack in some cases
                 Unlock<LockMode::Read>(page);
                 return page;
             }

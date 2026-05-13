@@ -108,10 +108,12 @@ int main()
     std::iota(keys.begin(), keys.end(), 0);
     std::shuffle(keys.begin(), keys.end(), std::mt19937{std::random_device{}()});
 
+    u64 t0 = now_ns();
     for (u32 i = 0; i < n; i++)
     {
         index.Insert(keys[i], i);
     }
+    u64 t1 = now_ns();
 
     for (u32 i = 0; i < n; i++)
     {
@@ -121,6 +123,12 @@ int main()
             throw std::runtime_error("value doesnt match");
         }
     }
+    u64 t2 = now_ns();
+
+    // shared::Print(buffer_pool);
+
+    printf("insert:        %.3f ms\n", (t1 - t0) / 1e6);
+    printf("search:        %.3f ms\n", (t2 - t1) / 1e6);
 
     // auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
 
@@ -135,8 +143,6 @@ int main()
     // cat->CreateDatabase(nullptr, sdataa, true);
 
     // std::this_thread::sleep_for(std::chrono::seconds(1));
-
-    shared::Print(buffer_pool);
 
     disk_scheduler.Stop();
 
