@@ -7,6 +7,7 @@ namespace db7::storage
 {
     thread_local u64 tl_version = 0;
     thread_local u32 tl_tries = 0;
+    thread_local std::vector<page_id> tl_state;
 
     void ClearLocals()
     {
@@ -17,41 +18,70 @@ namespace db7::storage
     u32 FindPosition(const T *data, const u32 count, const T value)
     {
         DB7_ASSERT(count != 0, "zero count node");
-        T cur;
-        u32 i = 0;
-        do
+        // T cur;
+        // u32 i = 0;
+        // do
+        // {
+        //     cur = data[i];
+        //     if (cur > value)
+        //     {
+        //         break;
+        //     }
+        //     i++;
+        // } while (i < count);
+        // return i;
+
+        u32 lo = 0, hi = count;
+        while (lo < hi)
         {
-            cur = data[i];
-            if (cur > value)
-            {
-                break;
-            }
-            i++;
-        } while (i < count);
-        return i;
+            u32 mid = lo + (hi - lo) / 2;
+            if (data[mid] <= value)
+                lo = mid + 1;
+            else
+                hi = mid;
+        }
+        return lo;
     }
+
+    // R FindKeyValue(byte *data, const u32 count, const T value)
+    // {
+    //     DB7_ASSERT(count != 0, "zero count node");
+    //     T cur;
+    //     u32 i = 0;
+    //     T *arr = reinterpret_cast<T *>(data + KEY_OFFSET);
+    //     do
+    //     {
+    //         cur = arr[i];
+    //         if (cur >= value)
+    //         {
+    //             break;
+    //         }
+    //         i++;
+    //     } while (i < count);
+
+    //     if (cur == value)
+    //     {
+    //         return reinterpret_cast<R *>(data + REF_OFFSET_LEAF)[i];
+    //     }
+
+    //     return BTreeIndex::UNDEFINED;
+    // }
 
     R FindKeyValue(byte *data, const u32 count, const T value)
     {
         DB7_ASSERT(count != 0, "zero count node");
-        T cur;
-        u32 i = 0;
         T *arr = reinterpret_cast<T *>(data + KEY_OFFSET);
-        do
+        u32 lo = 0, hi = count;
+        while (lo < hi)
         {
-            cur = arr[i];
-            if (cur >= value)
-            {
-                break;
-            }
-            i++;
-        } while (i < count);
-
-        if (cur == value)
-        {
-            return reinterpret_cast<R *>(data + REF_OFFSET_LEAF)[i];
+            u32 mid = (lo + hi) / 2;
+            if (arr[mid] < value)
+                lo = mid + 1;
+            else
+                hi = mid;
         }
-
+        if (lo < count && arr[lo] == value)
+            return reinterpret_cast<R *>(data + REF_OFFSET_LEAF)[lo];
         return BTreeIndex::UNDEFINED;
     }
 
@@ -594,10 +624,9 @@ namespace db7::storage
     bool BTreeIndex::Insert(T key, R value)
     {
         ClearLocals();
-        std::vector<page_id> state;
-        state.reserve(3);
-        Page *page = DropToLevel(&state, key);
-        return InsertInternal(&state, page, key, value);
+        tl_state.clear();
+        Page *page = DropToLevel(&tl_state, key);
+        return InsertInternal(&tl_state, page, key, value);
     }
 
     R BTreeIndex::Get(T key)

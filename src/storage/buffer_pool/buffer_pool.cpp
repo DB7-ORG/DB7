@@ -34,7 +34,7 @@ namespace db7::storage
         delete[] pages_;
     }
 
-        Page *BufferPool::GetVictim(PageIdentifier id, u32 &victim_frame_idx, PageIdentifier &victim_page_id, bool isIO)
+    Page *BufferPool::GetVictim(PageIdentifier id, u32 &victim_frame_idx, PageIdentifier &victim_page_id, bool isIO)
     {
         u32 max_iters = BUFFER_POOL_PAGE_NUM * 2;
 
@@ -150,9 +150,9 @@ namespace db7::storage
     void BufferPool::Unpin(Page *page, bool dirty)
     {
         (void)dirty;
-        page->WLock();
+        // page->WLock();
         page->Unpin();
-        page->WUnlock();
+        // page->WUnlock();
     }
 
     Page *BufferPool::Reserve(table_id tbl_id)

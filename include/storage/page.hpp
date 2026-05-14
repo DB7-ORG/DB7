@@ -17,11 +17,11 @@ namespace db7::storage
     class Page
     { // TODO padding
     private:
-        PageIdentifier id_; // 8 bytes
-        byte *data_;        // 8 bytes
-        u32 ref_count_;     // 4 bytes
-        u8 flags_;          // 1 byte
-        u8 pad_[3];         // 3 bytes padding
+        PageIdentifier id_;          // 8 bytes
+        byte *data_;                 // 8 bytes
+        std::atomic<u32> ref_count_; // 4 bytes
+        std::atomic<u8> flags_;      // 1 byte
+        u8 pad_[3];                  // 3 bytes padding
 
         alignas(CACHE_LINE_SIZE) std::shared_mutex latch_; // ~56 bytes typically
         std::condition_variable_any io_cv_;
@@ -71,12 +71,16 @@ namespace db7::storage
         bool IsPinned() const { return PinCount() > 0; }
 
         bool IsIOInProgress() const { return flags_ & IO_IN_PROGRESS_FLAG; }
-        void SetIOInProgress() { flags_ |= IO_IN_PROGRESS_FLAG; }
-        void ClearIOInProgress() { flags_ &= ~IO_IN_PROGRESS_FLAG; }
+        // void SetIOInProgress() { flags_ |= IO_IN_PROGRESS_FLAG; }
+        // void ClearIOInProgress() { flags_ &= ~IO_IN_PROGRESS_FLAG; }
+        void SetIOInProgress() { flags_.fetch_or(IO_IN_PROGRESS_FLAG); }
+        void ClearIOInProgress() { flags_.fetch_and(~IO_IN_PROGRESS_FLAG); }
 
         bool IsDirty() const { return flags_ & DIRTY_FLAG; }
-        void SetDirty() { flags_ |= DIRTY_FLAG; }
-        void ClearDirty() { flags_ &= ~DIRTY_FLAG; }
+        // void SetDirty() { flags_ |= DIRTY_FLAG; }
+        // void ClearDirty() { flags_ &= ~DIRTY_FLAG; }
+        void SetDirty() { flags_.fetch_or(DIRTY_FLAG); }
+        void ClearDirty() { flags_.fetch_and(~DIRTY_FLAG); }
 
         bool IsEvictable() const { return !IsPinned() && !IsDirty() && !IsIOInProgress(); }
 
@@ -102,6 +106,9 @@ namespace db7::storage
          */
         void WaitIO()
         {
+            if (!IsIOInProgress())
+                return;
+
             std::unique_lock lk(latch_);
             io_cv_.wait(lk, [&]
                         { return !IsIOInProgress(); });

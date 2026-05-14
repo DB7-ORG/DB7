@@ -103,26 +103,63 @@ int main()
 
     db7::storage::BTreeIndex index(&buffer_pool, 1);
 
-    u32 n = 170382;
+    u32 n = 2'000'000;
     std::vector<u32> keys(n);
     std::iota(keys.begin(), keys.end(), 0);
     std::shuffle(keys.begin(), keys.end(), std::mt19937{std::random_device{}()});
 
+    u32 num_threads = std::thread::hardware_concurrency();
+    std::vector<std::thread> threads;
+
     u64 t0 = now_ns();
-    for (u32 i = 0; i < n; i++)
+    for (u32 t = 0; t < num_threads; t++)
     {
-        index.Insert(keys[i], i);
+        threads.emplace_back([&, t]()
+                             {
+        u32 start = (n * t) / num_threads;
+        u32 end = (n * (t + 1)) / num_threads;
+        for (u32 i = start; i < end; i++)
+        {
+            index.Insert(keys[i], i);
+        } });
     }
+    for (auto &th : threads)
+        th.join();
+    // for (u32 i = 0; i < n; i++)
+    // {
+    //     index.Insert(keys[i], i);
+    // }
+
+    std::vector<std::thread> read_threads;
+
     u64 t1 = now_ns();
 
-    for (u32 i = 0; i < n; i++)
+    for (u32 t = 0; t < num_threads; t++)
     {
-        auto item = index.Get(keys[i]);
-        if (item != i)
+        read_threads.emplace_back([&, t]()
+                                  {
+        u32 start = (n * t) / num_threads;
+        u32 end = (n * (t + 1)) / num_threads;
+        for (u32 i = start; i < end; i++)
         {
-            throw std::runtime_error("value doesnt match");
-        }
+            auto item = index.Get(keys[i]);
+            if (item != i)
+            {
+                throw std::runtime_error("value doesnt match");
+            }
+        } });
     }
+    for (auto &th : read_threads)
+        th.join();
+
+    // for (u32 i = 0; i < n; i++)
+    // {
+    //     auto item = index.Get(keys[i]);
+    //     if (item != i)
+    //     {
+    //         throw std::runtime_error("value doesnt match");
+    //     }
+    // }
     u64 t2 = now_ns();
 
     // shared::Print(buffer_pool);

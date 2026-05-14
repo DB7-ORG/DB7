@@ -1,3 +1,5 @@
+#pragma once
+
 #include "common.hpp"
 
 #include <atomic>
@@ -45,5 +47,27 @@ namespace db7::shared
             std::atomic_thread_fence(std::memory_order_acquire);
             return seq.load() == version; // std::memory_order_relaxed
         }
+
+        class ReadGuard
+        {
+            AdaptiveVersionLock &lock_;
+
+        public:
+            ReadGuard(AdaptiveVersionLock &lock) : lock_(lock) { lock_.ReadLock(); }
+            ~ReadGuard() { lock_.ReadUnlock(); }
+            ReadGuard(const ReadGuard &) = delete;
+            ReadGuard &operator=(const ReadGuard &) = delete;
+        };
+
+        class WriteGuard
+        {
+            AdaptiveVersionLock &lock_;
+
+        public:
+            WriteGuard(AdaptiveVersionLock &lock) : lock_(lock) { lock_.WriteLock(); }
+            ~WriteGuard() { lock_.WriteUnlock(); }
+            WriteGuard(const WriteGuard &) = delete;
+            WriteGuard &operator=(const WriteGuard &) = delete;
+        };
     };
 }
