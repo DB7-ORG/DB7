@@ -18,4 +18,9 @@ thread safety for file descriptors
 # i dont like Reserve in buffer pool 
 # i dont like storing root in metadata page of the index 
 # i dont like fsm hacking should plan it first
-# i dont like that index isnt flexible for now
+# i dont like that index isnt flexible for now 
+
+thread_local page_id tl_state_buf[16];
+thread_local u32 tl_state_size = 0;
+
+perf report -i perf.data -f

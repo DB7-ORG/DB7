@@ -47,5 +47,6 @@ perf.*
 *.deb
 
 .data
+!perf/*.data
 specs/**/*.old
 specs/**/states
