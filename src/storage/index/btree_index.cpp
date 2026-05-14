@@ -5,6 +5,15 @@
 
 namespace db7::storage
 {
+    thread_local u64 tl_version = 0;
+    thread_local u32 tl_tries = 0;
+
+    void ClearLocals()
+    {
+        tl_version = 0;
+        tl_tries = 0;
+    }
+
     u32 FindPosition(const T *data, const u32 count, const T value)
     {
         DB7_ASSERT(count != 0, "zero count node");
@@ -62,6 +71,23 @@ namespace db7::storage
         data[idx] = value;
     }
 
+    /**
+     * There are several ways to lock a page
+     * - Exclusive (LockMode::Write)
+     *      Taken by writers, so only one writer is allowed in a critical section
+     * - Shared (LockMode::Read)
+     *      Taken by readers usually in case of high contention where a thread
+     *      tried several times (MAX_OPTIMISTIC_TRIES) to optimistically read a node.
+     * - Optimistic (LockMode::Optimistic)
+     *      Only taken by readers or writers while they are descending down the tree.
+     *      Does not aquire any locks just reads a version field and hopes that version doesnt change.
+     *      In case of reading a version while someone is holding an exclusive lock or at the end of
+     *      the node scan it reads some different version then it increments tl_tries and tries again.
+     *      If it fails to read optimistically for couple of runs then there is a fallback to SharedLock.
+     * - None (LockMode::None)
+     *      No locks taken at all. Noop.
+     *      Useful when combined w reserve page, where no locks are taken.
+     */
     template <LockMode Mode>
     void Lock(Page *page)
     {
@@ -69,24 +95,64 @@ namespace db7::storage
             page->WDataLock();
         else if constexpr (Mode == LockMode::Read)
             page->RDataLock();
+        else if constexpr (Mode == LockMode::Optimistic)
+        {
+            while (tl_tries < MAX_OPTIMISTIC_TRIES && !page->ReadVersion(tl_version))
+            {
+                tl_tries++;
+                // pause
+            }
+
+            if (tl_tries >= MAX_OPTIMISTIC_TRIES)
+            {
+                page->RDataLock();
+            }
+        }
         else if constexpr (Mode == LockMode::None)
-            page->GetId();
+            return;
         else
-            throw std::runtime_error("Invalid type");
+            DB7_UNREACHABLE();
     }
 
     template <LockMode Mode>
-    void Unlock(Page *page)
+    bool Unlock(Page *page)
     {
         if constexpr (Mode == LockMode::Write)
             page->WDataUnlock();
         else if constexpr (Mode == LockMode::Read)
             page->RDataUnlock();
+        else if constexpr (Mode == LockMode::Optimistic)
+        {
+            if (tl_tries >= MAX_OPTIMISTIC_TRIES)
+            {
+                page->RDataUnlock();
+                return true;
+            }
+
+            if (!page->ValidateVersion(tl_version))
+            {
+                tl_tries++;
+                return false;
+            }
+        }
         else if constexpr (Mode == LockMode::None)
-            page->GetId(); // TODO should handle optimistic
+            return true;
         else
-            throw std::runtime_error("Invalid type");
+            DB7_UNREACHABLE();
+
+        return true;
     }
+
+    /**
+     * Optimistic version of read node
+     */
+    // Page *BTreeIndex::GetNode(PageIdentifier id_, u64 &version, bool &result)
+    // {
+    //     Page *page = buffer_pool_->Pin(id_);
+    //     page->WaitIO();
+    //     // result = page->ReadVersion(version);
+    //     return page;
+    // }
 
     template <LockMode Mode>
     Page *BTreeIndex::GetNode(PageIdentifier id_)
@@ -243,27 +309,43 @@ namespace db7::storage
         page_id pid = GetRoot();
         do
         {
-            Page *page = GetNode<LockMode::Read>(PageIdentifier(tbl_id_, pid)); // TODO should be optimistic
+            Page *page = GetNode<LockMode::None>(PageIdentifier(tbl_id_, pid));
+        retry:
+            constexpr LockMode LM = LockMode::Optimistic;
+            Lock<LM>(page);
+
             BtreeHeader *header = GetHeader(page->GetData());
 
             if (header->level <= 0)
             {
-                Unlock<LockMode::Read>(page);
+                if (!Unlock<LM>(page))
+                    goto retry;
+
                 return page;
             }
             else if (header->max_val != UNDEFINED && key >= header->max_val)
             {
-                pid = header->rlink;
+                page_id new_pid = header->rlink;
+
+                if (!Unlock<LM>(page))
+                    goto retry;
+
+                pid = new_pid;
             }
             else
             {
-                state->push_back(pid); // TODO should probably store a pointer and keep pages pinned
                 auto *data = page->GetData();
                 u32 idx = FindPosition((T *)OffsetHeader(data), header->count, key);
-                pid = reinterpret_cast<page_id *>(data + REF_OFFSET_INTER)[idx];
-            }
-            ReleasePage<LockMode::Read>(page);
+                page_id new_pid = reinterpret_cast<page_id *>(data + REF_OFFSET_INTER)[idx];
 
+                if (!Unlock<LM>(page))
+                    goto retry;
+
+                state->push_back(pid); // TODO should probably store a pointer and keep pages pinned
+                pid = new_pid;
+            }
+
+            ReleasePage<LockMode::None>(page);
         } while (true);
 
         DB7_UNREACHABLE();
@@ -275,27 +357,45 @@ namespace db7::storage
         page_id pid = GetRoot();
         do
         {
-            Page *page = GetNode<LockMode::Read>(PageIdentifier(tbl_id_, pid)); // TODO should be optimistic
+            Page *page = GetNode<LockMode::None>(PageIdentifier(tbl_id_, pid));
+        retry:
+            constexpr LockMode LM = LockMode::Optimistic;
+            Lock<LM>(page);
+
             BtreeHeader *header = GetHeader(page->GetData());
 
             if (header->level <= drop_level)
             {
-                Unlock<LockMode::Read>(page);
+                if (!Unlock<LM>(page))
+                    goto retry;
+
                 state->push_back(pid);
+
                 return;
             }
             else if (header->max_val != UNDEFINED && key >= header->max_val)
             {
-                pid = header->rlink;
+                page_id new_pid = header->rlink;
+
+                if (!Unlock<LM>(page))
+                    goto retry;
+
+                pid = new_pid;
             }
             else
             {
-                state->push_back(pid); // TODO should probably store a pointer and keep pages pinned
                 auto *data = page->GetData();
                 u32 idx = FindPosition((T *)OffsetHeader(data), header->count, key);
-                pid = reinterpret_cast<page_id *>(data + REF_OFFSET_INTER)[idx];
+                page_id new_pid = reinterpret_cast<page_id *>(data + REF_OFFSET_INTER)[idx];
+
+                if (!Unlock<LM>(page))
+                    goto retry;
+
+                state->push_back(pid); // TODO should probably store a pointer and keep pages pinned
+                pid = new_pid;
             }
-            ReleasePage<LockMode::Read>(page);
+
+            ReleasePage<LockMode::None>(page);
 
         } while (true);
 
@@ -341,7 +441,8 @@ namespace db7::storage
             page_id pid = state->back();
             state->pop_back();
 
-            auto *page = GetNode<LockMode::Write>(PageIdentifier(tbl_id_, pid));
+            constexpr LockMode LM = LockMode::Write;
+            auto *page = GetNode<LM>(PageIdentifier(tbl_id_, pid));
             BtreeHeader *header = GetHeader(page->GetData());
             GoRight(page, header, key);
             pid = page->GetPageId();
@@ -350,7 +451,7 @@ namespace db7::storage
             if (header->count < MAX_COUNT_INTER)
             {
                 NodeInsertInter(data, header, key, value);
-                ReleasePage<LockMode::Write>(page);
+                ReleasePage<LM>(page);
                 break;
             }
             else
@@ -359,7 +460,7 @@ namespace db7::storage
                 key = SplitInter(header, data, new_pid, key, value);
                 value = new_pid;
                 u8 level = header->level;
-                ReleasePage<LockMode::Write>(page);
+                ReleasePage<LM>(page);
 
                 if (state->empty())
                 {
@@ -427,33 +528,58 @@ namespace db7::storage
         return true;
     }
 
-    Page *BTreeIndex::InternalGet(T key)
+    R BTreeIndex::InternalGet(T key)
     {
         page_id pid = GetRoot();
         do
         {
-            Page *page = GetNode<LockMode::Read>(PageIdentifier(tbl_id_, pid));
+            Page *page = GetNode<LockMode::None>(PageIdentifier(tbl_id_, pid));
+        retry:
+            constexpr LockMode LM = LockMode::Optimistic;
+            Lock<LM>(page);
+
             BtreeHeader *header = GetHeader(page->GetData());
 
             if (header->max_val != UNDEFINED && key >= header->max_val)
             {
-                pid = header->rlink;
+                page_id new_pid = header->rlink;
+
+                if (!Unlock<LM>(page))
+                    goto retry;
+
+                pid = new_pid;
             }
             else if (header->level == 0)
             {
-                return page;
+                byte *data = page->GetData();
+                BtreeHeader *header = GetHeader(data);
+                R result = FindKeyValue(data, header->count, key);
+
+                if (!Unlock<LM>(page))
+                    goto retry;
+
+                ReleasePage<LockMode::None>(page);
+
+                return result;
             }
             else
             {
                 auto *data = page->GetData();
                 u32 idx = FindPosition((T *)OffsetHeader(data), header->count, key);
-                pid = reinterpret_cast<page_id *>(data + REF_OFFSET_INTER)[idx];
+                page_id new_pid = reinterpret_cast<page_id *>(data + REF_OFFSET_INTER)[idx];
+
+                if (!Unlock<LM>(page))
+                    goto retry;
+
+                pid = new_pid;
             }
-            ReleasePage<LockMode::Read>(page);
+
+            ReleasePage<LockMode::None>(page);
+
         } while (true);
 
-        DB7_ASSERT(false, "unreachable");
-        return nullptr;
+        DB7_UNREACHABLE();
+        return UNDEFINED;
     }
 
     BTreeIndex::BTreeIndex(BufferPool *buffer_pool, table_id tbl_id)
@@ -467,6 +593,7 @@ namespace db7::storage
 
     bool BTreeIndex::Insert(T key, R value)
     {
+        ClearLocals();
         std::vector<page_id> state;
         state.reserve(3);
         Page *page = DropToLevel(&state, key);
@@ -475,11 +602,7 @@ namespace db7::storage
 
     R BTreeIndex::Get(T key)
     {
-        Page *page = InternalGet(key);
-        byte *data = page->GetData();
-        BtreeHeader *header = GetHeader(data);
-        R result = FindKeyValue(data, header->count, key);
-        ReleasePage<LockMode::Read>(page);
-        return result;
+        ClearLocals();
+        return InternalGet(key);
     }
 }

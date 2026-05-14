@@ -37,15 +37,13 @@ namespace db7::shared
         bool ReadOptimistic(u64 &version)
         {
             version = seq.load(std::memory_order_acquire);
-            if (!(version & 1))
-                return true;
-            return false;
+            return !(version & 1);
         }
 
-        bool Validate(u64 s)
+        bool Validate(u64 version)
         {
             std::atomic_thread_fence(std::memory_order_acquire);
-            return seq.load(std::memory_order_relaxed) == s;
+            return seq.load() == version; // std::memory_order_relaxed
         }
     };
 }

@@ -37,9 +37,12 @@ namespace db7::storage
     constexpr u64 MAX_COUNT_LEAF = (PAGE_SIZE - KEY_OFFSET - PAD_KEY_REF_LEAF) / (sizeof(T) + sizeof(R));
     constexpr u64 REF_OFFSET_LEAF = shared::AlignUp(KEY_OFFSET + MAX_COUNT_LEAF * sizeof(T), (u64)sizeof(R));
 
+    constexpr u64 MAX_OPTIMISTIC_TRIES = 1;
+
     enum class LockMode
     {
         None,
+        Optimistic,
         Read,
         Write
     };
@@ -52,21 +55,23 @@ namespace db7::storage
         BufferPool *buffer_pool_;
         table_id tbl_id_;
 
-        Page *DropToLevel(std::vector<page_id> *state, T key);
-        void DropToLevel(std::vector<page_id> *state, T key, u8 drop_level);
+        Page *ReserveNode(table_id id);
         template <LockMode Mode>
         Page *GetNode(PageIdentifier id_);
         template <LockMode Mode>
         void ReleasePage(Page *page);
-        bool InsertInternal(std::vector<page_id> *state, Page *page, T key, R value);
-        bool PropagateInsert(std::vector<page_id> *state, T key, page_id value);
-        Page *ReserveNode(table_id id);
+
+        void CreateNewRoot(u8 level, T key, page_id pid, page_id new_pid);
         T SplitLeaf(BtreeHeader *header, byte *data, page_id &new_pid, T key, R value);
         T SplitInter(BtreeHeader *header, byte *data, page_id &new_pid, T key, R value);
-        page_id GetRoot();
         void GoRight(Page *&page, BtreeHeader *&header, T key);
-        void CreateNewRoot(u8 level, T key, page_id pid, page_id new_pid);
-        Page *InternalGet(T key);
+        page_id GetRoot();
+
+        Page *DropToLevel(std::vector<page_id> *state, T key);
+        void DropToLevel(std::vector<page_id> *state, T key, u8 drop_level);
+        bool InsertInternal(std::vector<page_id> *state, Page *page, T key, R value);
+        bool PropagateInsert(std::vector<page_id> *state, T key, page_id value);
+        R InternalGet(T key);
 
     public:
         static constexpr u64 UNDEFINED = 0;
@@ -76,6 +81,6 @@ namespace db7::storage
 
         bool Insert(T key, R value);
         bool Delete(/* ... */) override { return false; }
-        u64 Get(u64 key);
+        R Get(T key);
     };
 }
