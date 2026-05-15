@@ -67,10 +67,10 @@ namespace db7::storage
         void GoRight(Page *&page, BtreeHeader *&header, T key);
         page_id GetRoot();
 
-        Page *DropToLevel(std::vector<page_id> *state, T key);
-        void DropToLevel(std::vector<page_id> *state, T key, u8 drop_level);
-        bool InsertInternal(std::vector<page_id> *state, Page *page, T key, R value);
-        bool PropagateInsert(std::vector<page_id> *state, T key, page_id value);
+        Page *DropToLevel(T key);
+        void DropToLevel(T key, u8 drop_level);
+        bool InsertInternal(Page *page, T key, R value);
+        bool PropagateInsert(T key, page_id value);
         R InternalGet(T key);
 
     public:

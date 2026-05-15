@@ -7,30 +7,36 @@ namespace db7::storage
 {
     thread_local u64 tl_version = 0;
     thread_local u32 tl_tries = 0;
-    thread_local std::vector<page_id> tl_state;
+    thread_local page_id tl_state_buf[16];
+    thread_local u32 tl_state_size = 0;
 
-    void ClearLocals()
+    void TlClearLocals()
     {
         tl_version = 0;
         tl_tries = 0;
+        tl_state_size = 0;
+    }
+
+    void TlStatePush(page_id id)
+    {
+        DB7_ASSERT(tl_state_size < 16, "Invaliid size tried to push to full stack");
+        tl_state_buf[tl_state_size++] = id;
+    }
+
+    page_id TlStateGet()
+    {
+        DB7_ASSERT(tl_state_size >= 1, "Invaliid size tried to pop from empty stack");
+        return tl_state_buf[--tl_state_size];
+    }
+
+    bool TlStateIsEmpty()
+    {
+        return tl_state_size == 0;
     }
 
     u32 FindPosition(const T *data, const u32 count, const T value)
     {
         DB7_ASSERT(count != 0, "zero count node");
-        // T cur;
-        // u32 i = 0;
-        // do
-        // {
-        //     cur = data[i];
-        //     if (cur > value)
-        //     {
-        //         break;
-        //     }
-        //     i++;
-        // } while (i < count);
-        // return i;
-
         u32 lo = 0, hi = count;
         while (lo < hi)
         {
@@ -42,30 +48,6 @@ namespace db7::storage
         }
         return lo;
     }
-
-    // R FindKeyValue(byte *data, const u32 count, const T value)
-    // {
-    //     DB7_ASSERT(count != 0, "zero count node");
-    //     T cur;
-    //     u32 i = 0;
-    //     T *arr = reinterpret_cast<T *>(data + KEY_OFFSET);
-    //     do
-    //     {
-    //         cur = arr[i];
-    //         if (cur >= value)
-    //         {
-    //             break;
-    //         }
-    //         i++;
-    //     } while (i < count);
-
-    //     if (cur == value)
-    //     {
-    //         return reinterpret_cast<R *>(data + REF_OFFSET_LEAF)[i];
-    //     }
-
-    //     return BTreeIndex::UNDEFINED;
-    // }
 
     R FindKeyValue(byte *data, const u32 count, const T value)
     {
@@ -172,17 +154,6 @@ namespace db7::storage
 
         return true;
     }
-
-    /**
-     * Optimistic version of read node
-     */
-    // Page *BTreeIndex::GetNode(PageIdentifier id_, u64 &version, bool &result)
-    // {
-    //     Page *page = buffer_pool_->Pin(id_);
-    //     page->WaitIO();
-    //     // result = page->ReadVersion(version);
-    //     return page;
-    // }
 
     template <LockMode Mode>
     Page *BTreeIndex::GetNode(PageIdentifier id_)
@@ -334,7 +305,7 @@ namespace db7::storage
         return sentinel;
     }
 
-    Page *BTreeIndex::DropToLevel(std::vector<page_id> *state, T key)
+    Page *BTreeIndex::DropToLevel(T key)
     {
         page_id pid = GetRoot();
         do
@@ -371,7 +342,7 @@ namespace db7::storage
                 if (!Unlock<LM>(page))
                     goto retry;
 
-                state->push_back(pid); // TODO should probably store a pointer and keep pages pinned
+                TlStatePush(pid); // TODO should probably store a pointer and keep pages pinned
                 pid = new_pid;
             }
 
@@ -382,7 +353,7 @@ namespace db7::storage
         return nullptr;
     }
 
-    void BTreeIndex::DropToLevel(std::vector<page_id> *state, T key, u8 drop_level)
+    void BTreeIndex::DropToLevel(T key, u8 drop_level)
     {
         page_id pid = GetRoot();
         do
@@ -399,7 +370,7 @@ namespace db7::storage
                 if (!Unlock<LM>(page))
                     goto retry;
 
-                state->push_back(pid);
+                TlStatePush(pid);
 
                 return;
             }
@@ -421,7 +392,7 @@ namespace db7::storage
                 if (!Unlock<LM>(page))
                     goto retry;
 
-                state->push_back(pid); // TODO should probably store a pointer and keep pages pinned
+                TlStatePush(pid); // TODO should probably store a pointer and keep pages pinned
                 pid = new_pid;
             }
 
@@ -464,12 +435,11 @@ namespace db7::storage
         ReleasePage<LockMode::None>(new_root_page);
     }
 
-    bool BTreeIndex::PropagateInsert(std::vector<page_id> *state, T key, page_id value)
+    bool BTreeIndex::PropagateInsert(T key, page_id value)
     {
-        while (!state->empty())
+        while (!TlStateIsEmpty())
         {
-            page_id pid = state->back();
-            state->pop_back();
+            page_id pid = TlStateGet();
 
             constexpr LockMode LM = LockMode::Write;
             auto *page = GetNode<LM>(PageIdentifier(tbl_id_, pid));
@@ -492,7 +462,7 @@ namespace db7::storage
                 u8 level = header->level;
                 ReleasePage<LM>(page);
 
-                if (state->empty())
+                if (TlStateIsEmpty())
                 {
                     root_mtx_.lock();
                     if (GetRoot() == pid)
@@ -504,7 +474,7 @@ namespace db7::storage
                     else
                     {
                         root_mtx_.unlock();
-                        DropToLevel(state, key, level + 1);
+                        DropToLevel(key, level + 1);
                     }
                 }
             }
@@ -513,7 +483,7 @@ namespace db7::storage
         return true;
     }
 
-    bool BTreeIndex::InsertInternal(std::vector<page_id> *state, Page *page, T key, R value)
+    bool BTreeIndex::InsertInternal(Page *page, T key, R value)
     {
         Lock<LockMode::Write>(page);
 
@@ -534,7 +504,7 @@ namespace db7::storage
             u8 level = header->level;
             ReleasePage<LockMode::Write>(page);
 
-            if (state->empty())
+            if (TlStateIsEmpty())
             {
                 root_mtx_.lock();
                 if (GetRoot() == pid)
@@ -545,13 +515,13 @@ namespace db7::storage
                 else
                 {
                     root_mtx_.unlock();
-                    DropToLevel(state, sentinel, level + 1);
-                    return PropagateInsert(state, sentinel, new_pid);
+                    DropToLevel(sentinel, level + 1);
+                    return PropagateInsert(sentinel, new_pid);
                 }
             }
             else
             {
-                return PropagateInsert(state, sentinel, new_pid);
+                return PropagateInsert(sentinel, new_pid);
             }
         }
 
@@ -623,15 +593,14 @@ namespace db7::storage
 
     bool BTreeIndex::Insert(T key, R value)
     {
-        ClearLocals();
-        tl_state.clear();
-        Page *page = DropToLevel(&tl_state, key);
-        return InsertInternal(&tl_state, page, key, value);
+        TlClearLocals();
+        Page *page = DropToLevel(key);
+        return InsertInternal(page, key, value);
     }
 
     R BTreeIndex::Get(T key)
     {
-        ClearLocals();
+        TlClearLocals();
         return InternalGet(key);
     }
 }
