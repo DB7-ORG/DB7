@@ -7,12 +7,6 @@
 
 #include <iomanip>
 
-/**
- * TODO for now this gets a page from fsm where all insert data fits
- * this can be relaxed in future where we might be able to get multiple pages to partially insert
- * also some optimizations w reserved_ and max_count_ in page header so locks can be released but that complicates
- * if transaction rolls back u might get holes in pages
- */
 namespace db7::access
 {
     void Table::Insert(const ProjectedRows &rows)

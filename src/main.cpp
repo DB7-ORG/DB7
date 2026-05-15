@@ -186,6 +186,8 @@ int main()
 
     // std::this_thread::sleep_for(std::chrono::seconds(1));
 
+    delete cat;
+
     disk_scheduler.Stop();
 
     return 0;

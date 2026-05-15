@@ -55,6 +55,8 @@ namespace db7::catalog
 
         ~Catalog()
         {
+            for (auto &[oid, dbc] : databases_map_)
+                delete dbc;
             delete databases_;
             delete databases_index_datoid;
             delete databases_index_datname;

@@ -38,7 +38,7 @@ namespace db7::access
         case type_id::VARCHAR:
             return 16;
         default:
-            return 0; // TODO exception
+            DB7_UNREACHABLE();
         }
     }
 
