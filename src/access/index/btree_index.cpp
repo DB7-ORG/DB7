@@ -582,13 +582,19 @@ namespace db7::access
         return UNDEFINED;
     }
 
-    BTreeIndex::BTreeIndex(storage::BufferPool *buffer_pool, table_id tbl_id)
-        : root_id_(1), buffer_pool_(buffer_pool), tbl_id_(tbl_id)
+    BTreeIndex::BTreeIndex(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, table_id tbl_id)
+        : root_id_(1), buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id)
     {
         storage::Page *page = buffer_pool_->Reserve(tbl_id);
         BtreeHeader header(UNDEFINED, 0, 0, UNDEFINED);
         WriteHeader(&header, page->GetData());
         ReleasePage<LockMode::None>(page);
+
+        if (!disk_mng_->CreateOpenFile(tbl_id_, 1))
+        {
+            // TODO handle error
+            DB7_ASSERT(false, "Table could not be created/opened");
+        }
     }
 
     bool BTreeIndex::Insert(T key, R value)

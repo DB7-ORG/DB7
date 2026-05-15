@@ -6,6 +6,7 @@
 #include "access/table.hpp"
 #include "catalog/builder.hpp"
 #include "access/projected_rows_builder.hpp"
+#include "access/index/btree_index.hpp"
 
 #include <atomic>
 #include <unordered_map>
@@ -30,7 +31,9 @@ namespace db7::catalog
         /**
          *  Next available database oid
          */
-        access::Table databases_;
+        access::Table *databases_;
+        access::BTreeIndex *databases_index_datoid;
+        access::BTreeIndex *databases_index_datname;
         std::unordered_map<db_oid_t, DatabaseCatalog *> databases_map_;
         std::atomic<db_oid_t> next_db_oid_;
         storage::BufferPool *buffer_pool_;
@@ -40,11 +43,22 @@ namespace db7::catalog
 
     public:
         Catalog(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng)
-            : databases_(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(), rel_oid_t(0), rel_oid_t(CatalogTableOid::PG_VARLEN)),
-              databases_map_({}),
+            : databases_map_({}),
               next_db_oid_(catalog::db_oid_t(1)),
               buffer_pool_(buffer_pool),
-              disk_mng_(disk_mng) {}
+              disk_mng_(disk_mng)
+        {
+            databases_ = new access::Table(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(), rel_oid_t(0), rel_oid_t(CatalogTableOid::PG_VARLEN));
+            databases_index_datoid = new access::BTreeIndex(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_DATABASE_DATOID));
+            databases_index_datname = new access::BTreeIndex(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_DATABASE_DATNAME));
+        }
+
+        ~Catalog()
+        {
+            delete databases_;
+            delete databases_index_datoid;
+            delete databases_index_datname;
+        }
 
         db_oid_t CreateDatabase(db7::transaction::TransactionContext *txn, const std::span<byte> name, const bool bootstrap);
 

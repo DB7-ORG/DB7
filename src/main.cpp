@@ -86,22 +86,9 @@ void test_buffer_pool(db7::storage::BufferPool &buffer_pool)
     printf("time:        %.3f ms\n", (t0 - t00) / 1e6);
 }
 
-int main()
+void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskManagerAsync *disk_mng_async)
 {
-    fmt::print("Hello, {}!\n", "world");
-
-    // populate_table();
-
-    db7::storage::DiskManagerAsync disk_mng_async(".data");
-    disk_mng_async.CreateOpenFile(1, 3);
-    // disk_mng_async.TruncateFile(2, PAGES);
-
-    db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
-    disk_scheduler.Start();
-
-    db7::storage::BufferPool buffer_pool(&disk_scheduler);
-
-    db7::access::BTreeIndex index(&buffer_pool, 1);
+    db7::access::BTreeIndex index(buffer_pool, disk_mng_async, 1);
 
     u32 n = 2'000'000;
     std::vector<u32> keys(n);
@@ -166,16 +153,34 @@ int main()
 
     printf("insert:        %.3f ms\n", (t1 - t0) / 1e6);
     printf("search:        %.3f ms\n", (t2 - t1) / 1e6);
+}
 
-    // auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
+int main()
+{
+    fmt::print("Hello, {}!\n", "world");
 
-    // std::string s = "sssssssssssssssssssssssssssssss";
-    // std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
+    // populate_table();
 
-    // std::string sa = "aaaa";
-    // std::span<byte> sdataa(reinterpret_cast<byte *>(s.data()), s.size());
+    db7::storage::DiskManagerAsync disk_mng_async(".data");
+    disk_mng_async.CreateOpenFile(1, 3);
+    // disk_mng_async.TruncateFile(2, PAGES);
 
-    // cat->CreateDatabase(nullptr, sdata, true);
+    db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
+    disk_scheduler.Start();
+
+    db7::storage::BufferPool buffer_pool(&disk_scheduler);
+
+    // test_index_perf(&buffer_pool, disk_mng_async);
+
+    auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
+
+    std::string s = "sssssssssssssssssssssssssssssss";
+    std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
+
+    std::string sa = "aaaa";
+    std::span<byte> sdataa(reinterpret_cast<byte *>(s.data()), s.size());
+
+    cat->CreateDatabase(nullptr, sdata, true);
     // cat->DeleteDatabase(nullptr, 1);
     // cat->CreateDatabase(nullptr, sdataa, true);
 

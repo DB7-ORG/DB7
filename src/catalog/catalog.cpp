@@ -11,7 +11,6 @@
 
 namespace db7::catalog
 {
-
     bool Catalog::RemoveMapping(db_oid_t oid)
     {
         auto it = databases_map_.find(oid);
@@ -45,24 +44,28 @@ namespace db7::catalog
 
     bool Catalog::CreateDatabaseEntry(transaction::TransactionContext *txn, const std::span<byte> name, DatabaseCatalog *const dbc)
     {
-        (void)dbc;
+        db_oid_t oid = dbc->GetDbOid();
         (void)txn;
 
-        storage::VarlenEntry entry = access::AccessBuilder::CreateVarlenEntry(name, &databases_);
+        storage::VarlenEntry entry = access::AccessBuilder::CreateVarlenEntry(name, databases_);
 
-        auto db_schema = databases_.GetSchema();
+        auto db_schema = databases_->GetSchema();
         const u32 row_count = 1;
 
         u32 max_size = db_schema->CalculateMaxSize(row_count);
         auto block_owner = shared::AllocAligned(max_size, 16);
         auto *block = block_owner.get(); // TODO allocator
 
-        access::ProjectedRowsBuilder pr_builder_(databases_.GetSchema(), block, row_count);
-        pr_builder_.Push({next_db_oid_++});
+        access::ProjectedRowsBuilder pr_builder_(databases_->GetSchema(), block, row_count);
+        pr_builder_.Push({oid});
         pr_builder_.Push({entry});
         auto rows = pr_builder_.Build();
 
-        databases_.Insert(rows);
+        databases_->Insert(rows);
+
+        // TODO insert real values
+        databases_index_datoid->Insert(oid, 0);
+        databases_index_datname->Insert(oid, 0);
 
         return true;
     }
@@ -90,11 +93,12 @@ namespace db7::catalog
     {
         (void)oid;
         (void)txn;
+
         // scan the index of the table and get the idx of the row
         u32 idx = 0;
         u32 pid = 1;
 
-        databases_.Delete(idx, pid);
+        databases_->Delete(idx, pid);
 
         return true;
     }

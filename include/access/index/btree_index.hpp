@@ -56,6 +56,7 @@ namespace db7::access
         std::mutex root_mtx_;
         std::atomic<page_id> root_id_;
         storage::BufferPool *buffer_pool_;
+        storage::DiskManagerAsync *disk_mng_;
         table_id tbl_id_;
 
         storage::Page *ReserveNode(table_id id);
@@ -79,7 +80,7 @@ namespace db7::access
     public:
         static constexpr u64 UNDEFINED = 0;
 
-        BTreeIndex(storage::BufferPool *buffer_pool, table_id tbl_id);
+        BTreeIndex(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, table_id tbl_id);
         ~BTreeIndex() = default;
 
         bool Insert(T key, R value);
