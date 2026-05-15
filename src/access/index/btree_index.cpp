@@ -1,9 +1,9 @@
-#include "storage/index/btree_index.hpp"
+#include "access/index/btree_index.hpp"
 #include "shared/macro_helper.hpp"
 
 #include <cstring>
 
-namespace db7::storage
+namespace db7::access
 {
     thread_local u64 tl_version = 0;
     thread_local u32 tl_tries = 0;
@@ -101,7 +101,7 @@ namespace db7::storage
      *      Useful when combined w reserve page, where no locks are taken.
      */
     template <LockMode Mode>
-    void Lock(Page *page)
+    void Lock(storage::Page *page)
     {
         if constexpr (Mode == LockMode::Write)
             page->WDataLock();
@@ -127,7 +127,7 @@ namespace db7::storage
     }
 
     template <LockMode Mode>
-    bool Unlock(Page *page)
+    bool Unlock(storage::Page *page)
     {
         if constexpr (Mode == LockMode::Write)
             page->WDataUnlock();
@@ -156,22 +156,22 @@ namespace db7::storage
     }
 
     template <LockMode Mode>
-    Page *BTreeIndex::GetNode(PageIdentifier id_)
+    storage::Page *BTreeIndex::GetNode(storage::PageIdentifier id_)
     {
-        Page *page = buffer_pool_->Pin(id_);
+        storage::Page *page = buffer_pool_->Pin(id_);
         page->WaitIO();
         Lock<Mode>(page);
         return page;
     }
 
     template <LockMode Mode>
-    void BTreeIndex::ReleasePage(Page *page)
+    void BTreeIndex::ReleasePage(storage::Page *page)
     {
         Unlock<Mode>(page);
         buffer_pool_->Unpin(page);
     }
 
-    Page *BTreeIndex::ReserveNode(table_id id_)
+    storage::Page *BTreeIndex::ReserveNode(table_id id_)
     {
         return buffer_pool_->Reserve(id_);
     }
@@ -305,12 +305,12 @@ namespace db7::storage
         return sentinel;
     }
 
-    Page *BTreeIndex::DropToLevel(T key)
+    storage::Page *BTreeIndex::DropToLevel(T key)
     {
         page_id pid = GetRoot();
         do
         {
-            Page *page = GetNode<LockMode::None>(PageIdentifier(tbl_id_, pid));
+            storage::Page *page = GetNode<LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
         retry:
             constexpr LockMode LM = LockMode::Optimistic;
             Lock<LM>(page);
@@ -358,7 +358,7 @@ namespace db7::storage
         page_id pid = GetRoot();
         do
         {
-            Page *page = GetNode<LockMode::None>(PageIdentifier(tbl_id_, pid));
+            storage::Page *page = GetNode<LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
         retry:
             constexpr LockMode LM = LockMode::Optimistic;
             Lock<LM>(page);
@@ -403,20 +403,20 @@ namespace db7::storage
         DB7_UNREACHABLE();
     }
 
-    void BTreeIndex::GoRight(Page *&page, BtreeHeader *&header, T key)
+    void BTreeIndex::GoRight(storage::Page *&page, BtreeHeader *&header, T key)
     {
         while (header->max_val != UNDEFINED && key >= header->max_val)
         {
             page_id pid = header->rlink;
             ReleasePage<LockMode::Write>(page);
-            page = GetNode<LockMode::Write>(PageIdentifier(tbl_id_, pid));
+            page = GetNode<LockMode::Write>(storage::PageIdentifier(tbl_id_, pid));
             header = GetHeader(page->GetData());
         };
     }
 
     void BTreeIndex::CreateNewRoot(u8 level, T key, page_id pid, page_id new_pid)
     {
-        Page *new_root_page = ReserveNode(tbl_id_);
+        storage::Page *new_root_page = ReserveNode(tbl_id_);
 
         byte *new_root_data = new_root_page->GetData();
 
@@ -442,7 +442,7 @@ namespace db7::storage
             page_id pid = TlStateGet();
 
             constexpr LockMode LM = LockMode::Write;
-            auto *page = GetNode<LM>(PageIdentifier(tbl_id_, pid));
+            auto *page = GetNode<LM>(storage::PageIdentifier(tbl_id_, pid));
             BtreeHeader *header = GetHeader(page->GetData());
             GoRight(page, header, key);
             pid = page->GetPageId();
@@ -483,7 +483,7 @@ namespace db7::storage
         return true;
     }
 
-    bool BTreeIndex::InsertInternal(Page *page, T key, R value)
+    bool BTreeIndex::InsertInternal(storage::Page *page, T key, R value)
     {
         Lock<LockMode::Write>(page);
 
@@ -533,7 +533,7 @@ namespace db7::storage
         page_id pid = GetRoot();
         do
         {
-            Page *page = GetNode<LockMode::None>(PageIdentifier(tbl_id_, pid));
+            storage::Page *page = GetNode<LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
         retry:
             constexpr LockMode LM = LockMode::Optimistic;
             Lock<LM>(page);
@@ -582,10 +582,10 @@ namespace db7::storage
         return UNDEFINED;
     }
 
-    BTreeIndex::BTreeIndex(BufferPool *buffer_pool, table_id tbl_id)
+    BTreeIndex::BTreeIndex(storage::BufferPool *buffer_pool, table_id tbl_id)
         : root_id_(1), buffer_pool_(buffer_pool), tbl_id_(tbl_id)
     {
-        Page *page = buffer_pool_->Reserve(tbl_id);
+        storage::Page *page = buffer_pool_->Reserve(tbl_id);
         BtreeHeader header(UNDEFINED, 0, 0, UNDEFINED);
         WriteHeader(&header, page->GetData());
         ReleasePage<LockMode::None>(page);
@@ -594,7 +594,7 @@ namespace db7::storage
     bool BTreeIndex::Insert(T key, R value)
     {
         TlClearLocals();
-        Page *page = DropToLevel(key);
+        storage::Page *page = DropToLevel(key);
         return InsertInternal(page, key, value);
     }
 

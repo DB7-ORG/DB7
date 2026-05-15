@@ -1,6 +1,6 @@
 #pragma once
 
-#include "storage/index/index.hpp"
+#include "access/index/index.hpp"
 #include "storage/storage_common.hpp"
 #include "storage/page.hpp"
 #include "storage/buffer_pool/buffer_pool.hpp"
@@ -10,10 +10,13 @@
 #include <atomic>
 #include <mutex>
 
-namespace db7::storage
+namespace db7::access
 {
     using T = u64;
     using R = u64;
+
+    using page_id = storage::page_id;
+    using table_id = storage::table_id;
 
     struct BtreeHeader
     {
@@ -52,31 +55,31 @@ namespace db7::storage
     private: // TODO seperate cache lines
         std::mutex root_mtx_;
         std::atomic<page_id> root_id_;
-        BufferPool *buffer_pool_;
+        storage::BufferPool *buffer_pool_;
         table_id tbl_id_;
 
-        Page *ReserveNode(table_id id);
+        storage::Page *ReserveNode(table_id id);
         template <LockMode Mode>
-        Page *GetNode(PageIdentifier id_);
+        storage::Page *GetNode(storage::PageIdentifier id_);
         template <LockMode Mode>
-        void ReleasePage(Page *page);
+        void ReleasePage(storage::Page *page);
 
         void CreateNewRoot(u8 level, T key, page_id pid, page_id new_pid);
         T SplitLeaf(BtreeHeader *header, byte *data, page_id &new_pid, T key, R value);
         T SplitInter(BtreeHeader *header, byte *data, page_id &new_pid, T key, R value);
-        void GoRight(Page *&page, BtreeHeader *&header, T key);
+        void GoRight(storage::Page *&page, BtreeHeader *&header, T key);
         page_id GetRoot();
 
-        Page *DropToLevel(T key);
+        storage::Page *DropToLevel(T key);
         void DropToLevel(T key, u8 drop_level);
-        bool InsertInternal(Page *page, T key, R value);
+        bool InsertInternal(storage::Page *page, T key, R value);
         bool PropagateInsert(T key, page_id value);
         R InternalGet(T key);
 
     public:
         static constexpr u64 UNDEFINED = 0;
 
-        BTreeIndex(BufferPool *buffer_pool, table_id tbl_id);
+        BTreeIndex(storage::BufferPool *buffer_pool, table_id tbl_id);
         ~BTreeIndex() = default;
 
         bool Insert(T key, R value);

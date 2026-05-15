@@ -11,7 +11,7 @@
 #include "storage/disk_manager/disk_manager.hpp"
 #include "storage/disk_manager/disk_scheduler.hpp"
 #include "debug/printer.hpp"
-#include "storage/index/btree_index.hpp"
+#include "access/index/btree_index.hpp"
 
 using namespace db7;
 
@@ -101,7 +101,7 @@ int main()
 
     db7::storage::BufferPool buffer_pool(&disk_scheduler);
 
-    db7::storage::BTreeIndex index(&buffer_pool, 1);
+    db7::access::BTreeIndex index(&buffer_pool, 1);
 
     u32 n = 2'000'000;
     std::vector<u32> keys(n);

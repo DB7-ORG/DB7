@@ -2,7 +2,7 @@
 
 #include "common.hpp"
 
-namespace db7::storage
+namespace db7::access
 {
     class Index
     {
