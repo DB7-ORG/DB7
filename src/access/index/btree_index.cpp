@@ -34,55 +34,6 @@ namespace db7::access
         return tl_state_size == 0;
     }
 
-    u32 FindPosition(const T *data, const u32 count, const T value)
-    {
-        DB7_ASSERT(count != 0, "zero count node");
-        u32 lo = 0, hi = count;
-        while (lo < hi)
-        {
-            u32 mid = lo + (hi - lo) / 2;
-            if (data[mid] <= value)
-                lo = mid + 1;
-            else
-                hi = mid;
-        }
-        return lo;
-    }
-
-    R FindKeyValue(byte *data, const u32 count, const T value)
-    {
-        DB7_ASSERT(count != 0, "zero count node");
-        T *arr = reinterpret_cast<T *>(data + KEY_OFFSET);
-        u32 lo = 0, hi = count;
-        while (lo < hi)
-        {
-            u32 mid = (lo + hi) / 2;
-            if (arr[mid] < value)
-                lo = mid + 1;
-            else
-                hi = mid;
-        }
-        if (lo < count && arr[lo] == value)
-            return reinterpret_cast<R *>(data + REF_OFFSET_LEAF)[lo];
-        return BTreeIndex::UNDEFINED;
-    }
-
-    template <typename Typ>
-    u32 CopyUpperHalf(Typ *from, Typ *to, u32 count, bool isLeaf)
-    {
-        u32 mid = (count + 1) / 2;
-        u32 inc = isLeaf ? 0 : 1;
-        std::memcpy(to, from + mid + inc, (count - mid) * sizeof(Typ));
-        return mid;
-    }
-
-    template <typename Typ>
-    void ShiftRightInsert(Typ *data, u32 count, u32 idx, Typ value)
-    {
-        std::memmove(data + idx + 1, data + idx, (count - idx) * sizeof(Typ));
-        data[idx] = value;
-    }
-
     /**
      * There are several ways to lock a page
      * - Exclusive (LockMode::Write)
@@ -196,35 +147,8 @@ namespace db7::access
         return root_id_.load();
     }
 
-    template <bool IsLeaf, typename Typ>
-    void NodeInsert(byte *data, u32 count, T key, Typ value)
+    void IncrementHeaderSize(byte *data, BtreeHeader *header)
     {
-        u32 idx = FindPosition((T *)OffsetHeader(data), count, key);
-        ShiftRightInsert((T *)OffsetHeader(data), count, idx, key);
-        if constexpr (IsLeaf)
-            ShiftRightInsert((Typ *)(data + REF_OFFSET_LEAF), count, idx, value);
-        else
-            ShiftRightInsert((Typ *)(data + REF_OFFSET_INTER), count + 1, idx + 1, value);
-    }
-
-    void NodeInsertInter(byte *data, BtreeHeader *header, T key, page_id value)
-    {
-        NodeInsert<false>(data, header->count, key, value);
-        header->count++;
-        WriteHeader(header, data);
-    }
-
-    void NodeInsertLeaf(byte *data, BtreeHeader *header, T key, R value)
-    {
-        if (UNLIKELY(header->count == 0))
-        {
-            *(T *)(data + KEY_OFFSET) = key;
-            *(R *)(data + REF_OFFSET_LEAF) = value;
-        }
-        else
-        {
-            NodeInsert<true>(data, header->count, key, value);
-        }
         header->count++;
         WriteHeader(header, data);
     }
@@ -237,9 +161,9 @@ namespace db7::access
 
         byte *right_data = right_page->GetData();
 
-        u32 mid = CopyUpperHalf((T *)OffsetHeader(data), (T *)OffsetHeader(right_data), header->count, true);
+        u32 mid = layout_leaf_.CopyUpperHalf((T *)OffsetHeader(data), (T *)OffsetHeader(right_data), header->count);
 
-        CopyUpperHalf((R *)(data + REF_OFFSET_LEAF), (R *)(right_data + REF_OFFSET_LEAF), header->count, true);
+        layout_leaf_.CopyUpperHalf((R *)(data + REF_OFFSET_LEAF), (R *)(right_data + REF_OFFSET_LEAF), header->count);
 
         T sentinel = ((T *)OffsetHeader(right_data))[0];
 
@@ -249,12 +173,12 @@ namespace db7::access
 
         if (key < sentinel)
         {
-            NodeInsert<true>(data, new_header.count, key, value);
+            layout_leaf_.Insert(data, new_header.count, key, value);
             new_header.count++;
         }
         else
         {
-            NodeInsert<true>(right_data, right_header.count, key, value);
+            layout_leaf_.Insert(right_data, right_header.count, key, value);
             right_header.count++;
         }
 
@@ -275,9 +199,9 @@ namespace db7::access
 
         byte *right_data = right_page->GetData();
 
-        u32 mid = CopyUpperHalf((T *)OffsetHeader(data), (T *)OffsetHeader(right_data), header->count, false);
+        u32 mid = layout_inter_.CopyUpperHalf((T *)OffsetHeader(data), (T *)OffsetHeader(right_data), header->count);
 
-        CopyUpperHalf((page_id *)(data + REF_OFFSET_INTER), (page_id *)(right_data + REF_OFFSET_INTER), header->count, false);
+        layout_inter_.CopyUpperHalf((page_id *)(data + REF_OFFSET_INTER), (page_id *)(right_data + REF_OFFSET_INTER), header->count);
 
         T sentinel = ((T *)OffsetHeader(right_data))[0];
 
@@ -287,12 +211,12 @@ namespace db7::access
 
         if (key < sentinel)
         {
-            NodeInsert<false>(data, new_header.count, key, value);
+            layout_inter_.Insert(data, new_header.count, key, value);
             new_header.count++;
         }
         else
         {
-            NodeInsert<false>(right_data, right_header.count, key, value);
+            layout_inter_.Insert(right_data, right_header.count, key, value);
             right_header.count++;
         }
 
@@ -336,8 +260,7 @@ namespace db7::access
             else
             {
                 auto *data = page->GetData();
-                u32 idx = FindPosition((T *)OffsetHeader(data), header->count, key);
-                page_id new_pid = reinterpret_cast<page_id *>(data + REF_OFFSET_INTER)[idx];
+                page_id new_pid = layout_inter_.Get(data, header->count, key);
 
                 if (!Unlock<LM>(page))
                     goto retry;
@@ -386,8 +309,7 @@ namespace db7::access
             else
             {
                 auto *data = page->GetData();
-                u32 idx = FindPosition((T *)OffsetHeader(data), header->count, key);
-                page_id new_pid = reinterpret_cast<page_id *>(data + REF_OFFSET_INTER)[idx];
+                page_id new_pid = layout_inter_.Get(data, header->count, key);
 
                 if (!Unlock<LM>(page))
                     goto retry;
@@ -424,11 +346,7 @@ namespace db7::access
 
         WriteHeader(&h, new_root_data);
 
-        *(T *)(new_root_data + KEY_OFFSET) = key;
-
-        *(page_id *)(new_root_data + REF_OFFSET_INTER) = pid;
-
-        *(page_id *)(new_root_data + REF_OFFSET_INTER + sizeof(page_id)) = new_pid;
+        layout_inter_.CreateRoot(new_root_data, key, pid, new_pid);
 
         root_id_.store(new_root_page->GetPageId());
 
@@ -448,9 +366,10 @@ namespace db7::access
             pid = page->GetPageId();
 
             auto *data = page->GetData();
-            if (header->count < MAX_COUNT_INTER)
+            if (layout_inter_.HasSpace(header))
             {
-                NodeInsertInter(data, header, key, value);
+                layout_inter_.Insert(data, header->count, key, value);
+                IncrementHeaderSize(data, header);
                 ReleasePage<LM>(page);
                 break;
             }
@@ -492,9 +411,10 @@ namespace db7::access
         byte *data = page->GetData();
         page_id pid = page->GetPageId();
 
-        if (header->count < MAX_COUNT_LEAF)
+        if (layout_leaf_.HasSpace(header))
         {
-            NodeInsertLeaf(data, header, key, value);
+            layout_leaf_.Insert(data, header->count, key, value);
+            IncrementHeaderSize(data, header);
             ReleasePage<LockMode::Write>(page);
         }
         else
@@ -553,7 +473,7 @@ namespace db7::access
             {
                 byte *data = page->GetData();
                 BtreeHeader *header = GetHeader(data);
-                R result = FindKeyValue(data, header->count, key);
+                R result = layout_leaf_.Get(data, header->count, key);
 
                 if (!Unlock<LM>(page))
                     goto retry;
@@ -565,8 +485,7 @@ namespace db7::access
             else
             {
                 auto *data = page->GetData();
-                u32 idx = FindPosition((T *)OffsetHeader(data), header->count, key);
-                page_id new_pid = reinterpret_cast<page_id *>(data + REF_OFFSET_INTER)[idx];
+                page_id new_pid = layout_inter_.Get(data, header->count, key);
 
                 if (!Unlock<LM>(page))
                     goto retry;
@@ -583,7 +502,8 @@ namespace db7::access
     }
 
     BTreeIndex::BTreeIndex(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, table_id tbl_id)
-        : root_id_(1), buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id)
+        : root_id_(1), buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id),
+          layout_inter_(KEY_OFFSET, REF_OFFSET_INTER, MAX_COUNT_INTER), layout_leaf_(KEY_OFFSET, REF_OFFSET_LEAF, MAX_COUNT_LEAF)
     {
         storage::Page *page = buffer_pool_->Reserve(tbl_id);
         BtreeHeader header(UNDEFINED, 0, 0, UNDEFINED);

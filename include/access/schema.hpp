@@ -19,7 +19,7 @@ namespace db7::access
         std::vector<SchemaColumn> columns_;
         std::unordered_map<catalog::col_oid_t, u32> col_to_offset_map_;
 
-        void CalculateOffsets()
+        void CalculateOffsets(u32 header_size)
         {
             u32 row_size = 0;
             u32 worst_case_pad = 0;
@@ -30,9 +30,9 @@ namespace db7::access
                 worst_case_pad += item_size - 1;
             }
 
-            const u32 row_count = (PAGE_SIZE - storage::HEADER_SIZE - worst_case_pad) * 8 / (1 + 8 * row_size);
+            const u32 row_count = (PAGE_SIZE - header_size - worst_case_pad) * 8 / (1 + 8 * row_size);
 
-            u32 curr_offset = storage::HEADER_SIZE + (row_count + 7) / 8;
+            u32 curr_offset = header_size + (row_count + 7) / 8;
             for (auto &col : columns_)
             {
                 // pad to type
@@ -52,7 +52,7 @@ namespace db7::access
         Schema(std::vector<SchemaColumn> columns)
             : columns_(std::move(columns))
         {
-            CalculateOffsets();
+            CalculateOffsets(storage::HEADER_SIZE);
         }
 
         const std::vector<SchemaColumn> &GetColumns() const

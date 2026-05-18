@@ -5,6 +5,9 @@
 #include "storage/page.hpp"
 #include "storage/buffer_pool/buffer_pool.hpp"
 #include "shared/align_util.hpp"
+#include "access/index/btree_number_layout_inter.hpp"
+#include "access/index/btree_number_layout_leaf.hpp"
+#include "access/index/btree_header.hpp"
 
 #include <vector>
 #include <atomic>
@@ -15,20 +18,7 @@ namespace db7::access
     using T = u64;
     using R = u64;
 
-    using page_id = storage::page_id;
-    using table_id = storage::table_id;
-
-    struct BtreeHeader
-    {
-        u64 rlink;
-        u32 count;
-        u8 level;
-        T max_val;
-
-        BtreeHeader(u64 rlink, u32 count, u8 level, T max_val)
-            : rlink(rlink), count(count), level(level), max_val(max_val) {}
-    };
-
+    // TODO template this and build it in layout
     constexpr u64 BTREE_HEADER_SIZE = sizeof(BtreeHeader);
     constexpr u64 KEY_OFFSET = shared::AlignUp(BTREE_HEADER_SIZE, (u64)sizeof(T));
 
@@ -58,6 +48,11 @@ namespace db7::access
         storage::BufferPool *buffer_pool_;
         storage::DiskManagerAsync *disk_mng_;
         table_id tbl_id_;
+
+        using Layout1 = BtreeNumberLayoutIntermediate;
+        using Layout2 = BtreeNumberLayoutLeaf;
+        Layout1 layout_inter_;
+        Layout2 layout_leaf_;
 
         storage::Page *ReserveNode(table_id id);
         template <LockMode Mode>

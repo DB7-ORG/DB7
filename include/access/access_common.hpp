@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.hpp"
+#include "shared/macro_helper.hpp"
 
 namespace db7::access
 {
@@ -34,8 +35,10 @@ namespace db7::access
         case type_id::INTEGER:
             return 4;
         case type_id::BIGINT:
+        case type_id::DOUBLE:
             return 8;
         case type_id::VARCHAR:
+        case type_id::VARBINARY:
             return 16;
         default:
             DB7_UNREACHABLE();

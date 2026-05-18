@@ -80,7 +80,7 @@ namespace db7::storage
     }
 
     bool BufferPool::PageVisit(Page *page, PageIdentifier id)
-    {
+    { // TODO  might be able to use optimistic here but i think this is just a spinlock anyway
         page->RLock();
         if (page->GetId() == id)
         { // PageVisit

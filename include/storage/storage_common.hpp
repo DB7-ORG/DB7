@@ -7,11 +7,11 @@
 #define BUFFER_POOL_PARTITION_NUM 128
 #define IOURING_QUEUE_SIZE 512
 
+using page_id = uint32_t;
+using table_id = uint32_t;
+
 namespace db7::storage
 {
-    using page_id = u32;
-    using table_id = u32;
-
     /**
      * If u modify this make sure to change hashing logic
      */

@@ -1,9 +1,10 @@
 #pragma once
 
-#include "common.hpp"
+#include "storage/storage_common.hpp"
 
 #include <algorithm>
 #include <span>
+#include <cstring>
 
 namespace db7::storage
 {
@@ -47,6 +48,22 @@ namespace db7::storage
             std::memcpy(&prefix_, data.data(), data.size() < sizeof(prefix_) ? data.size() : sizeof(prefix_));
             ref_content_ = {pid, offset};
         }
+
+        // int Compare(const std::span<byte> data)
+        // {
+        //     const byte *inlined = GetInline();
+        //     u32 cmp_len = std::min((u32)data.size(), GetSize());
+        //     int result = std::memcmp(inlined, data.data(), cmp_len);
+        //     if (result != 0)
+        //         return result;
+
+        //     if (GetSize() < data.size())
+        //         return -1;
+        //     else if (GetSize() > data.size())
+        //         return 1;
+        //     else
+        //         return 0;
+        // }
     };
 
     static_assert(sizeof(VarlenEntry) == 16);
