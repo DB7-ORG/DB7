@@ -7,13 +7,13 @@
 
 namespace db7::access
 {
+    template <typename T>
     class BtreeNumberLayoutIntermediate
     {
-    private:
-        using T = u64;
-        using R = page_id;
+        static_assert(std::is_arithmetic_v<T>, "T must be a numeric type");
 
-        static constexpr u64 UNDEFINED = 0;
+    private:
+        static constexpr T UNDEFINED = std::numeric_limits<T>::max();
 
         u64 key_offset_;
         u64 ref_offset_;
@@ -41,6 +41,14 @@ namespace db7::access
             return lo;
         }
 
+        template <typename Typ>
+        u32 CopyUpperHalf(Typ *from, Typ *to, u32 count)
+        {
+            u32 mid = (count + 1) / 2;
+            std::memcpy(to, from + mid + 1, (count - mid) * sizeof(Typ));
+            return mid;
+        }
+
         T *OffsetKey(byte *data)
         {
             return reinterpret_cast<T *>(data + key_offset_);
@@ -51,9 +59,20 @@ namespace db7::access
             return reinterpret_cast<page_id *>(data + ref_offset_);
         }
 
+        T GetKeyAt(byte *data, u32 idx)
+        {
+            T *arr = OffsetKey(data);
+            return arr[idx];
+        }
+
     public:
-        BtreeNumberLayoutIntermediate(u64 key_offset, u64 ref_offset, u64 max_count)
-            : key_offset_(key_offset), ref_offset_(ref_offset), max_count_(max_count) {}
+        BtreeNumberLayoutIntermediate(u64 header_size)
+        {
+            constexpr u64 pad_keys = sizeof(page_id) - 1;
+            key_offset_ = shared::AlignUp(header_size, (u64)sizeof(T));
+            max_count_ = (PAGE_SIZE - key_offset_ - pad_keys - sizeof(page_id)) / (sizeof(T) + sizeof(page_id));
+            ref_offset_ = shared::AlignUp(key_offset_ + max_count_ * sizeof(T), (u64)sizeof(page_id));
+        }
 
         auto Get(byte *data, const u32 count, const T value)
         {
@@ -62,25 +81,11 @@ namespace db7::access
             return OffsetRef(data)[idx];
         }
 
-        T GetKeyAt(byte *data, u32 idx)
-        {
-            T *arr = OffsetKey(data);
-            return arr[idx];
-        }
-
         void Insert(byte *data, u32 count, T key, page_id value)
         {
             u32 idx = GetIdx(OffsetKey(data), count, key);
             ShiftRightInsert(OffsetKey(data), count, idx, key);
             ShiftRightInsert(OffsetRef(data), count + 1, idx + 1, value);
-        }
-
-        template <typename Typ>
-        u32 CopyUpperHalf(Typ *from, Typ *to, u32 count)
-        {
-            u32 mid = (count + 1) / 2;
-            std::memcpy(to, from + mid + 1, (count - mid) * sizeof(Typ));
-            return mid;
         }
 
         bool HasSpace(BtreeHeader *header)
@@ -118,4 +123,4 @@ namespace db7::access
             }
         }
     };
-}
+};

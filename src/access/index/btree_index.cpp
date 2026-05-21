@@ -473,7 +473,7 @@ namespace db7::access
 
     BTreeIndex::BTreeIndex(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, table_id tbl_id)
         : root_id_(1), buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id),
-          layout_inter_(KEY_OFFSET, REF_OFFSET_INTER, MAX_COUNT_INTER), layout_leaf_(KEY_OFFSET, REF_OFFSET_LEAF, MAX_COUNT_LEAF)
+          layout_inter_(sizeof(BtreeHeader)), layout_leaf_(sizeof(BtreeHeader))
     {
         storage::Page *page = buffer_pool_->Reserve(tbl_id);
         BtreeHeader header(UNDEFINED, 0, 0, UNDEFINED);

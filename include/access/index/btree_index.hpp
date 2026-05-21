@@ -18,18 +18,6 @@ namespace db7::access
     using T = u64;
     using R = u64;
 
-    // TODO template this and build it in layout
-    constexpr u64 BTREE_HEADER_SIZE = sizeof(BtreeHeader);
-    constexpr u64 KEY_OFFSET = shared::AlignUp(BTREE_HEADER_SIZE, (u64)sizeof(T));
-
-    constexpr u64 PAD_KEY_REF_INTER = sizeof(page_id) - 1;
-    constexpr u64 MAX_COUNT_INTER = (PAGE_SIZE - KEY_OFFSET - PAD_KEY_REF_INTER - sizeof(page_id)) / (sizeof(T) + sizeof(page_id));
-    constexpr u64 REF_OFFSET_INTER = shared::AlignUp(KEY_OFFSET + MAX_COUNT_INTER * sizeof(T), (u64)sizeof(page_id));
-
-    constexpr u64 PAD_KEY_REF_LEAF = sizeof(R) - 1;
-    constexpr u64 MAX_COUNT_LEAF = (PAGE_SIZE - KEY_OFFSET - PAD_KEY_REF_LEAF) / (sizeof(T) + sizeof(R));
-    constexpr u64 REF_OFFSET_LEAF = shared::AlignUp(KEY_OFFSET + MAX_COUNT_LEAF * sizeof(T), (u64)sizeof(R));
-
     constexpr u64 MAX_OPTIMISTIC_TRIES = 1;
 
     enum class LockMode
@@ -49,10 +37,8 @@ namespace db7::access
         storage::DiskManagerAsync *disk_mng_;
         table_id tbl_id_;
 
-        using Layout1 = BtreeNumberLayoutIntermediate;
-        using Layout2 = BtreeNumberLayoutLeaf;
-        Layout1 layout_inter_;
-        Layout2 layout_leaf_;
+        BtreeNumberLayoutIntermediate<T> layout_inter_;
+        BtreeNumberLayoutLeaf<T> layout_leaf_;
 
         storage::Page *ReserveNode(table_id id);
         template <LockMode Mode>

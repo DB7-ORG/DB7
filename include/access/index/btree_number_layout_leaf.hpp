@@ -8,13 +8,15 @@
 namespace db7::access
 {
 
+    template <typename T>
     class BtreeNumberLayoutLeaf
     {
+        static_assert(std::is_arithmetic_v<T>, "T must be a numeric type");
+
     private:
-        using T = u64;
         using R = u64;
 
-        static constexpr u64 UNDEFINED = 0;
+        static constexpr T UNDEFINED = std::numeric_limits<T>::max();
 
         u64 key_offset_;
         u64 ref_offset_;
@@ -67,8 +69,13 @@ namespace db7::access
         }
 
     public:
-        BtreeNumberLayoutLeaf(u64 key_offset, u64 ref_offset, u64 max_count)
-            : key_offset_(key_offset), ref_offset_(ref_offset), max_count_(max_count) {}
+        BtreeNumberLayoutLeaf(u64 header_size)
+        {
+            constexpr u64 pad_keys = sizeof(R) - 1;
+            key_offset_ = shared::AlignUp(header_size, (u64)sizeof(T));
+            max_count_ = (PAGE_SIZE - key_offset_ - pad_keys) / (sizeof(T) + sizeof(R));
+            ref_offset_ = shared::AlignUp(key_offset_ + max_count_ * sizeof(T), (u64)sizeof(R));
+        }
 
         R Get(byte *data, const u32 count, const T value)
         {
@@ -122,4 +129,4 @@ namespace db7::access
             }
         }
     };
-}
+};

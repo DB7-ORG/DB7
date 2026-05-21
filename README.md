@@ -24,3 +24,7 @@ thread_local page_id tl_state_buf[16];
 thread_local u32 tl_state_size = 0;
 
 perf report -i perf.data -f
+
+
+https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf
+* Head optimizations seems easy to implement
