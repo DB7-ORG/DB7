@@ -127,11 +127,6 @@ namespace db7::access
         return buffer_pool_->Reserve(id_);
     }
 
-    byte *OffsetHeader(byte *data)
-    {
-        return data + KEY_OFFSET;
-    }
-
     BtreeHeader *GetHeader(byte *data)
     {
         return reinterpret_cast<BtreeHeader *>(data);
@@ -161,26 +156,14 @@ namespace db7::access
 
         byte *right_data = right_page->GetData();
 
-        u32 mid = layout_leaf_.CopyUpperHalf((T *)OffsetHeader(data), (T *)OffsetHeader(right_data), header->count);
+        T sentinel;
+        u32 new_header_count;
+        u32 right_header_count;
+        layout_leaf_.Split(data, right_data, header->count, key, value, sentinel, new_header_count, right_header_count);
 
-        layout_leaf_.CopyUpperHalf((R *)(data + REF_OFFSET_LEAF), (R *)(right_data + REF_OFFSET_LEAF), header->count);
+        auto right_header = BtreeHeader(header->rlink, right_header_count, header->level, header->max_val);
 
-        T sentinel = ((T *)OffsetHeader(right_data))[0];
-
-        auto right_header = BtreeHeader(header->rlink, header->count - mid, header->level, header->max_val);
-
-        auto new_header = BtreeHeader(new_pid, mid, header->level, sentinel);
-
-        if (key < sentinel)
-        {
-            layout_leaf_.Insert(data, new_header.count, key, value);
-            new_header.count++;
-        }
-        else
-        {
-            layout_leaf_.Insert(right_data, right_header.count, key, value);
-            right_header.count++;
-        }
+        auto new_header = BtreeHeader(new_pid, new_header_count, header->level, sentinel);
 
         WriteHeader(&right_header, right_data);
 
@@ -199,26 +182,14 @@ namespace db7::access
 
         byte *right_data = right_page->GetData();
 
-        u32 mid = layout_inter_.CopyUpperHalf((T *)OffsetHeader(data), (T *)OffsetHeader(right_data), header->count);
+        T sentinel;
+        u32 new_header_count;
+        u32 right_header_count;
+        layout_inter_.Split(data, right_data, header->count, key, value, sentinel, new_header_count, right_header_count);
 
-        layout_inter_.CopyUpperHalf((page_id *)(data + REF_OFFSET_INTER), (page_id *)(right_data + REF_OFFSET_INTER), header->count);
+        auto right_header = BtreeHeader(header->rlink, right_header_count, header->level, header->max_val);
 
-        T sentinel = ((T *)OffsetHeader(data))[mid];
-
-        auto right_header = BtreeHeader(header->rlink, header->count - mid - 1, header->level, header->max_val);
-
-        auto new_header = BtreeHeader(new_pid, mid, header->level, sentinel);
-
-        if (key < sentinel)
-        {
-            layout_inter_.Insert(data, new_header.count, key, value);
-            new_header.count++;
-        }
-        else
-        {
-            layout_inter_.Insert(right_data, right_header.count, key, value);
-            right_header.count++;
-        }
+        auto new_header = BtreeHeader(new_pid, new_header_count, header->level, sentinel);
 
         WriteHeader(&right_header, right_data);
 

@@ -42,34 +42,6 @@ namespace db7::access
             return lo;
         }
 
-    public:
-        BtreeNumberLayoutLeaf(u64 key_offset, u64 ref_offset, u64 max_count)
-            : key_offset_(key_offset), ref_offset_(ref_offset), max_count_(max_count) {}
-
-        R Get(byte *data, const u32 count, const T value)
-        {
-            T *arr = reinterpret_cast<T *>(data + key_offset_);
-            u32 lo = GetIdx(arr, count, value) - 1;
-            if (lo < count && arr[lo] == value)
-                return reinterpret_cast<R *>(data + ref_offset_)[lo];
-            return BtreeNumberLayoutLeaf::UNDEFINED;
-        }
-
-        void Insert(byte *data, u32 count, T key, R value)
-        {
-            if (UNLIKELY(count == 0))
-            {
-                *(T *)(data + key_offset_) = key;
-                *(R *)(data + ref_offset_) = value;
-            }
-            else
-            {
-                u32 idx = GetIdx((T *)(data + key_offset_), count, key);
-                ShiftRightInsert((T *)(data + key_offset_), count, idx, key);
-                ShiftRightInsert((R *)(data + ref_offset_), count, idx, value);
-            }
-        }
-
         template <typename Typ>
         u32 CopyUpperHalf(Typ *from, Typ *to, u32 count)
         {
@@ -78,9 +50,76 @@ namespace db7::access
             return mid;
         }
 
+        T *OffsetKey(byte *data)
+        {
+            return reinterpret_cast<T *>(data + key_offset_);
+        }
+
+        R *OffsetRef(byte *data)
+        {
+            return reinterpret_cast<R *>(data + ref_offset_);
+        }
+
+        T GetKeyAt(byte *data, u32 idx)
+        {
+            T *arr = OffsetKey(data);
+            return arr[idx];
+        }
+
+    public:
+        BtreeNumberLayoutLeaf(u64 key_offset, u64 ref_offset, u64 max_count)
+            : key_offset_(key_offset), ref_offset_(ref_offset), max_count_(max_count) {}
+
+        R Get(byte *data, const u32 count, const T value)
+        {
+            T *arr = OffsetKey(data);
+            u32 lo = GetIdx(arr, count, value) - 1;
+            if (lo < count && arr[lo] == value)
+                return (OffsetRef(data))[lo];
+            return BtreeNumberLayoutLeaf::UNDEFINED;
+        }
+
+        void Insert(byte *data, u32 count, T key, R value)
+        {
+            if (UNLIKELY(count == 0))
+            {
+                *OffsetKey(data) = key;
+                *OffsetRef(data) = value;
+            }
+            else
+            {
+                u32 idx = GetIdx(OffsetKey(data), count, key);
+                ShiftRightInsert(OffsetKey(data), count, idx, key);
+                ShiftRightInsert(OffsetRef(data), count, idx, value);
+            }
+        }
+
         bool HasSpace(BtreeHeader *header)
         {
             return header->count < max_count_;
+        }
+
+        void Split(byte *data, byte *right_data, u32 count, T key, page_id value, T &sentinel_out, u32 &new_header_count_out, u32 &right_header_count_out)
+        {
+            u32 mid = CopyUpperHalf(OffsetKey(data), OffsetKey(right_data), count);
+
+            CopyUpperHalf(OffsetRef(data), OffsetRef(right_data), count);
+
+            sentinel_out = GetKeyAt(right_data, 0);
+
+            new_header_count_out = mid;
+            right_header_count_out = count - mid;
+
+            if (key < sentinel_out)
+            {
+                Insert(data, new_header_count_out, key, value);
+                new_header_count_out++;
+            }
+            else
+            {
+                Insert(right_data, right_header_count_out, key, value);
+                right_header_count_out++;
+            }
         }
     };
 }

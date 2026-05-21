@@ -90,7 +90,7 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
 {
     db7::access::BTreeIndex index(buffer_pool, disk_mng_async, 1);
 
-    u32 n = 1'000'000;
+    u32 n = 2'000'000;
     std::vector<u32> keys(n);
     std::iota(keys.begin(), keys.end(), 1);
     std::shuffle(keys.begin(), keys.end(), std::mt19937{std::random_device{}()});

@@ -7,12 +7,11 @@
 
 namespace db7::access
 {
-
     class BtreeNumberLayoutIntermediate
     {
     private:
         using T = u64;
-        using R = u64;
+        using R = page_id;
 
         static constexpr u64 UNDEFINED = 0;
 
@@ -42,22 +41,38 @@ namespace db7::access
             return lo;
         }
 
+        T *OffsetKey(byte *data)
+        {
+            return reinterpret_cast<T *>(data + key_offset_);
+        }
+
+        page_id *OffsetRef(byte *data)
+        {
+            return reinterpret_cast<page_id *>(data + ref_offset_);
+        }
+
     public:
         BtreeNumberLayoutIntermediate(u64 key_offset, u64 ref_offset, u64 max_count)
             : key_offset_(key_offset), ref_offset_(ref_offset), max_count_(max_count) {}
 
         auto Get(byte *data, const u32 count, const T value)
         {
-            T *arr = reinterpret_cast<T *>(data + key_offset_);
+            T *arr = OffsetKey(data);
             u32 idx = GetIdx(arr, count, value);
-            return reinterpret_cast<page_id *>(data + ref_offset_)[idx];
+            return OffsetRef(data)[idx];
+        }
+
+        T GetKeyAt(byte *data, u32 idx)
+        {
+            T *arr = OffsetKey(data);
+            return arr[idx];
         }
 
         void Insert(byte *data, u32 count, T key, page_id value)
         {
-            u32 idx = GetIdx((T *)(data + key_offset_), count, key);
-            ShiftRightInsert((T *)(data + key_offset_), count, idx, key);
-            ShiftRightInsert((page_id *)(data + ref_offset_), count + 1, idx + 1, value);
+            u32 idx = GetIdx(OffsetKey(data), count, key);
+            ShiftRightInsert(OffsetKey(data), count, idx, key);
+            ShiftRightInsert(OffsetRef(data), count + 1, idx + 1, value);
         }
 
         template <typename Typ>
@@ -75,9 +90,32 @@ namespace db7::access
 
         void CreateRoot(byte *data, T key, page_id pid, page_id new_pid)
         {
-            *(T *)(data + key_offset_) = key;
-            *(page_id *)(data + ref_offset_) = pid;
-            *(page_id *)(data + ref_offset_ + sizeof(page_id)) = new_pid;
+            *OffsetKey(data) = key;
+            *OffsetRef(data) = pid;
+            *OffsetRef(data + sizeof(page_id)) = new_pid;
+        }
+
+        void Split(byte *data, byte *right_data, u32 count, T key, page_id value, T &sentinel_out, u32 &new_header_count_out, u32 &right_header_count_out)
+        {
+            u32 mid = CopyUpperHalf(OffsetKey(data), OffsetKey(right_data), count);
+
+            CopyUpperHalf(OffsetRef(data), OffsetRef(right_data), count);
+
+            sentinel_out = GetKeyAt(data, mid);
+
+            new_header_count_out = mid;
+            right_header_count_out = count - mid - 1;
+
+            if (key < sentinel_out)
+            {
+                Insert(data, new_header_count_out, key, value);
+                new_header_count_out++;
+            }
+            else
+            {
+                Insert(right_data, right_header_count_out, key, value);
+                right_header_count_out++;
+            }
         }
     };
 }
