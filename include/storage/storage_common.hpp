@@ -2,8 +2,8 @@
 
 #include "common.hpp"
 
-#define PAGE_SIZE (1 << 18)
-#define BUFFER_POOL_PAGE_NUM 1000
+#define PAGE_SIZE (1 << 13)
+#define BUFFER_POOL_PAGE_NUM 40000
 #define BUFFER_POOL_PARTITION_NUM 128
 #define IOURING_QUEUE_SIZE 512
 

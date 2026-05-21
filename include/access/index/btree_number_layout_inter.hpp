@@ -11,8 +11,8 @@ namespace db7::access
     class BtreeNumberLayoutIntermediate
     {
     private:
-        using T = u32;
-        using R = u32;
+        using T = u64;
+        using R = u64;
 
         static constexpr u64 UNDEFINED = 0;
 

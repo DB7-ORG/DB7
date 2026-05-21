@@ -11,8 +11,8 @@ namespace db7::access
     class BtreeNumberLayoutLeaf
     {
     private:
-        using T = u32;
-        using R = u32;
+        using T = u64;
+        using R = u64;
 
         static constexpr u64 UNDEFINED = 0;
 
@@ -49,7 +49,7 @@ namespace db7::access
         R Get(byte *data, const u32 count, const T value)
         {
             T *arr = reinterpret_cast<T *>(data + key_offset_);
-            u32 lo = GetIdx(arr, count, value);
+            u32 lo = GetIdx(arr, count, value) - 1;
             if (lo < count && arr[lo] == value)
                 return reinterpret_cast<R *>(data + ref_offset_)[lo];
             return BtreeNumberLayoutLeaf::UNDEFINED;

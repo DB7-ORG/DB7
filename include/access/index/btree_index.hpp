@@ -23,7 +23,7 @@ namespace db7::access
     constexpr u64 KEY_OFFSET = shared::AlignUp(BTREE_HEADER_SIZE, (u64)sizeof(T));
 
     constexpr u64 PAD_KEY_REF_INTER = sizeof(page_id) - 1;
-    constexpr u64 MAX_COUNT_INTER = (PAGE_SIZE - KEY_OFFSET - PAD_KEY_REF_INTER) / (sizeof(T) + sizeof(page_id));
+    constexpr u64 MAX_COUNT_INTER = (PAGE_SIZE - KEY_OFFSET - PAD_KEY_REF_INTER - sizeof(page_id)) / (sizeof(T) + sizeof(page_id));
     constexpr u64 REF_OFFSET_INTER = shared::AlignUp(KEY_OFFSET + MAX_COUNT_INTER * sizeof(T), (u64)sizeof(page_id));
 
     constexpr u64 PAD_KEY_REF_LEAF = sizeof(R) - 1;

@@ -203,9 +203,9 @@ namespace db7::access
 
         layout_inter_.CopyUpperHalf((page_id *)(data + REF_OFFSET_INTER), (page_id *)(right_data + REF_OFFSET_INTER), header->count);
 
-        T sentinel = ((T *)OffsetHeader(right_data))[0];
+        T sentinel = ((T *)OffsetHeader(data))[mid];
 
-        auto right_header = BtreeHeader(header->rlink, header->count - mid, header->level, header->max_val);
+        auto right_header = BtreeHeader(header->rlink, header->count - mid - 1, header->level, header->max_val);
 
         auto new_header = BtreeHeader(new_pid, mid, header->level, sentinel);
 
@@ -479,7 +479,6 @@ namespace db7::access
                     goto retry;
 
                 ReleasePage<LockMode::None>(page);
-
                 return result;
             }
             else

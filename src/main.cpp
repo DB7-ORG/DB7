@@ -90,41 +90,51 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
 {
     db7::access::BTreeIndex index(buffer_pool, disk_mng_async, 1);
 
-    u32 n = 2'000'000;
+    u32 n = 1'000'000;
     std::vector<u32> keys(n);
-    std::iota(keys.begin(), keys.end(), 0);
+    std::iota(keys.begin(), keys.end(), 1);
     std::shuffle(keys.begin(), keys.end(), std::mt19937{std::random_device{}()});
 
     u32 num_threads = std::thread::hardware_concurrency();
     std::vector<std::thread> threads;
 
+    bool SINGLE_THREAD = false;
+
     u64 t0 = now_ns();
-    for (u32 t = 0; t < num_threads; t++)
+    if (!SINGLE_THREAD)
     {
-        threads.emplace_back([&, t]()
-                             {
+        for (u32 t = 0; t < num_threads; t++)
+        {
+            threads.emplace_back([&, t]()
+                                 {
         u32 start = (n * t) / num_threads;
         u32 end = (n * (t + 1)) / num_threads;
         for (u32 i = start; i < end; i++)
         {
             index.Insert(keys[i], i);
         } });
+        }
+        for (auto &th : threads)
+            th.join();
     }
-    for (auto &th : threads)
-        th.join();
-    // for (u32 i = 0; i < n; i++)
-    // {
-    //     index.Insert(keys[i], i);
-    // }
-
-    std::vector<std::thread> read_threads;
+    else
+    {
+        for (u32 i = 1; i <= n; i++)
+        {
+            // std::cout << i << std::endl;
+            index.Insert(keys[i], i);
+        }
+    }
 
     u64 t1 = now_ns();
 
-    for (u32 t = 0; t < num_threads; t++)
+    if (!SINGLE_THREAD)
     {
-        read_threads.emplace_back([&, t]()
-                                  {
+        std::vector<std::thread> read_threads;
+        for (u32 t = 0; t < num_threads; t++)
+        {
+            read_threads.emplace_back([&, t]()
+                                      {
         u32 start = (n * t) / num_threads;
         u32 end = (n * (t + 1)) / num_threads;
         for (u32 i = start; i < end; i++)
@@ -135,21 +145,24 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
                 throw std::runtime_error("value doesnt match");
             }
         } });
+        }
+        for (auto &th : read_threads)
+            th.join();
     }
-    for (auto &th : read_threads)
-        th.join();
-
-    // for (u32 i = 0; i < n; i++)
-    // {
-    //     auto item = index.Get(keys[i]);
-    //     if (item != i)
-    //     {
-    //         throw std::runtime_error("value doesnt match");
-    //     }
-    // }
+    else
+    {
+        for (u32 i = 1; i <= n; i++)
+        {
+            auto item = index.Get(keys[i]);
+            if (item != i)
+            {
+                throw std::runtime_error("value doesnt match");
+            }
+        }
+    }
     u64 t2 = now_ns();
 
-    // shared::Print(buffer_pool);
+    // db7::shared::Print(*buffer_pool);
 
     printf("insert:        %.3f ms\n", (t1 - t0) / 1e6);
     printf("search:        %.3f ms\n", (t2 - t1) / 1e6);
@@ -170,7 +183,7 @@ int main()
 
     db7::storage::BufferPool buffer_pool(&disk_scheduler);
 
-    // test_index_perf(&buffer_pool, disk_mng_async);
+    test_index_perf(&buffer_pool, &disk_mng_async);
 
     auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
 
