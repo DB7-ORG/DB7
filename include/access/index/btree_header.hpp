@@ -5,9 +5,9 @@
 namespace db7::access
 {
 
+    template <typename T>
     struct BtreeHeader
     {
-        using T = u32;
 
         u64 rlink;
         u32 count;

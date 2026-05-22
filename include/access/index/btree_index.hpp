@@ -37,6 +37,9 @@ namespace db7::access
         storage::DiskManagerAsync *disk_mng_;
         table_id tbl_id_;
 
+        using Layout = BtreeNumberLayoutIntermediate<T>;
+        static constexpr T UNDEFINED = std::numeric_limits<T>::max();
+
         BtreeNumberLayoutIntermediate<T> layout_inter_;
         BtreeNumberLayoutLeaf<T> layout_leaf_;
 
@@ -47,9 +50,9 @@ namespace db7::access
         void ReleasePage(storage::Page *page);
 
         void CreateNewRoot(u8 level, T key, page_id pid, page_id new_pid);
-        T SplitLeaf(BtreeHeader *header, byte *data, page_id &new_pid, T key, R value);
-        T SplitInter(BtreeHeader *header, byte *data, page_id &new_pid, T key, R value);
-        void GoRight(storage::Page *&page, BtreeHeader *&header, T key);
+        T SplitLeaf(BtreeHeader<T> *header, byte *data, page_id &new_pid, T key, R value);
+        T SplitInter(BtreeHeader<T> *header, byte *data, page_id &new_pid, T key, R value);
+        void GoRight(storage::Page *&page, BtreeHeader<T> *&header, T key);
         page_id GetRoot();
 
         storage::Page *DropToLevel(T key);
@@ -59,8 +62,6 @@ namespace db7::access
         R InternalGet(T key);
 
     public:
-        static constexpr u64 UNDEFINED = 0;
-
         BTreeIndex(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, table_id tbl_id);
         ~BTreeIndex() = default;
 

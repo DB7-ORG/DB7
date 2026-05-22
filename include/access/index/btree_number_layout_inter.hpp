@@ -13,8 +13,6 @@ namespace db7::access
         static_assert(std::is_arithmetic_v<T>, "T must be a numeric type");
 
     private:
-        static constexpr T UNDEFINED = std::numeric_limits<T>::max();
-
         u64 key_offset_;
         u64 ref_offset_;
         u64 max_count_;
@@ -66,6 +64,8 @@ namespace db7::access
         }
 
     public:
+        static constexpr T UNDEFINED = std::numeric_limits<T>::max();
+
         BtreeNumberLayoutIntermediate(u64 header_size)
         {
             constexpr u64 pad_keys = sizeof(page_id) - 1;
@@ -88,7 +88,7 @@ namespace db7::access
             ShiftRightInsert(OffsetRef(data), count + 1, idx + 1, value);
         }
 
-        bool HasSpace(BtreeHeader *header)
+        bool HasSpace(BtreeHeader<T> *header)
         {
             return header->count < max_count_;
         }

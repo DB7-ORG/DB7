@@ -119,7 +119,7 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
     }
     else
     {
-        for (u32 i = 1; i <= n; i++)
+        for (u32 i = 0; i < n; i++)
         {
             // std::cout << i << std::endl;
             index.Insert(keys[i], i);
@@ -151,7 +151,7 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
     }
     else
     {
-        for (u32 i = 1; i <= n; i++)
+        for (u32 i = 0; i < n; i++)
         {
             auto item = index.Get(keys[i]);
             if (item != i)
@@ -185,21 +185,21 @@ int main()
 
     test_index_perf(&buffer_pool, &disk_mng_async);
 
-    auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
+    // auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
 
-    std::string s = "sssssssssssssssssssssssssssssss";
-    std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
+    // std::string s = "sssssssssssssssssssssssssssssss";
+    // std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
 
-    std::string sa = "aaaa";
-    std::span<byte> sdataa(reinterpret_cast<byte *>(s.data()), s.size());
+    // std::string sa = "aaaa";
+    // std::span<byte> sdataa(reinterpret_cast<byte *>(s.data()), s.size());
 
-    cat->CreateDatabase(nullptr, sdata, true);
+    // cat->CreateDatabase(nullptr, sdata, true);
     // cat->DeleteDatabase(nullptr, 1);
     // cat->CreateDatabase(nullptr, sdataa, true);
 
     // std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    delete cat;
+    // delete cat;
 
     disk_scheduler.Stop();
 

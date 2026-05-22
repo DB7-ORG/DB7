@@ -101,7 +101,7 @@ namespace db7::access
             }
         }
 
-        bool HasSpace(BtreeHeader *header)
+        bool HasSpace(BtreeHeader<T> *header)
         {
             return header->count < max_count_;
         }

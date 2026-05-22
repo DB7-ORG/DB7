@@ -157,7 +157,7 @@ namespace db7::storage
 
     Page *BufferPool::Reserve(table_id tbl_id)
     {
-        u32 pid = FreeSpaceManagerIndex::Get();
+        u32 pid = FreeSpaceManagerIndex::Get(tbl_id);
 
         auto id = PageIdentifier(tbl_id, pid);
         u32 partIdx = GetPartitionIdx(id);
