@@ -21,6 +21,12 @@ namespace db7::shared
         return reinterpret_cast<byte *>(addr);
     }
 
+    template <typename T>
+    constexpr T AlignDown(T value, T alignment)
+    {
+        return value & ~(alignment - 1);
+    }
+
     struct AlignedDeleter
     {
         void operator()(void *ptr) const noexcept { std::free(ptr); }

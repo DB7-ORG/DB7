@@ -88,8 +88,9 @@ namespace db7::access
             ShiftRightInsert(OffsetRef(data), count + 1, idx + 1, value);
         }
 
-        bool HasSpace(BtreeHeader<T> *header)
+        bool HasSpace(BtreeHeader<T> *header, T key)
         {
+            (void)key;
             return header->count < max_count_;
         }
 

@@ -337,7 +337,7 @@ namespace db7::access
             pid = page->GetPageId();
 
             auto *data = page->GetData();
-            if (layout_inter_.HasSpace(header))
+            if (layout_inter_.HasSpace(header, key))
             {
                 layout_inter_.Insert(data, header->count, key, value);
                 IncrementHeaderSize(data, header);
@@ -382,7 +382,7 @@ namespace db7::access
         byte *data = page->GetData();
         page_id pid = page->GetPageId();
 
-        if (layout_leaf_.HasSpace(header))
+        if (layout_leaf_.HasSpace(header, key))
         {
             layout_leaf_.Insert(data, header->count, key, value);
             IncrementHeaderSize(data, header);

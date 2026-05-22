@@ -29,14 +29,35 @@ namespace db7::access
             data[idx] = value;
         }
 
-        u32 GetIdx(const T *data, const u32 count, const T value)
+        // u32 GetIdx(const T *data, const u32 count, const T value)
+        // {
+        //     DB7_ASSERT(count != 0, "zero count node");
+        //     u32 lo = 0, hi = count;
+        //     while (lo < hi)
+        //     {
+        //         u32 mid = lo + (hi - lo) / 2;
+        //         if (data[mid] <= value)
+        //             lo = mid + 1;
+        //         else
+        //             hi = mid;
+        //     }
+        //     return lo;
+        // }
+
+        u32 GetIdx(const T *data, const u32 count, const T value, bool &found)
         {
             DB7_ASSERT(count != 0, "zero count node");
+            found = false;
             u32 lo = 0, hi = count;
             while (lo < hi)
             {
                 u32 mid = lo + (hi - lo) / 2;
-                if (data[mid] <= value)
+                if (data[mid] == value)
+                {
+                    found = true;
+                    return mid;
+                }
+                if (data[mid] < value)
                     lo = mid + 1;
                 else
                     hi = mid;
@@ -77,32 +98,49 @@ namespace db7::access
             ref_offset_ = shared::AlignUp(key_offset_ + max_count_ * sizeof(T), (u64)sizeof(R));
         }
 
+        // R Get(byte *data, const u32 count, const T value)
+        // {
+        //     T *arr = OffsetKey(data);
+        //     u32 lo = GetIdx(arr, count, value) - 1;
+        //     if (lo < count && arr[lo] == value)
+        //         return (OffsetRef(data))[lo];
+        //     return BtreeNumberLayoutLeaf::UNDEFINED;
+        // }
         R Get(byte *data, const u32 count, const T value)
         {
-            T *arr = OffsetKey(data);
-            u32 lo = GetIdx(arr, count, value) - 1;
-            if (lo < count && arr[lo] == value)
-                return (OffsetRef(data))[lo];
+            bool found;
+            u32 idx = GetIdx(OffsetKey(data), count, value, found);
+            if (found)
+                return (OffsetRef(data))[idx];
             return BtreeNumberLayoutLeaf::UNDEFINED;
         }
 
         void Insert(byte *data, u32 count, T key, R value)
         {
-            if (UNLIKELY(count == 0))
-            {
-                *OffsetKey(data) = key;
-                *OffsetRef(data) = value;
-            }
-            else
-            {
-                u32 idx = GetIdx(OffsetKey(data), count, key);
-                ShiftRightInsert(OffsetKey(data), count, idx, key);
-                ShiftRightInsert(OffsetRef(data), count, idx, value);
-            }
+            bool found;
+            u32 idx = count == 0 ? 0 : GetIdx(OffsetKey(data), count, key, found);
+            ShiftRightInsert(OffsetKey(data), count, idx, key);
+            ShiftRightInsert(OffsetRef(data), count, idx, value);
         }
 
-        bool HasSpace(BtreeHeader<T> *header)
+        // void Insert(byte *data, u32 count, T key, R value)
+        // {
+        //     if (UNLIKELY(count == 0))
+        //     {
+        //         *OffsetKey(data) = key;
+        //         *OffsetRef(data) = value;
+        //     }
+        //     else
+        //     {
+        //         u32 idx = GetIdx(OffsetKey(data), count, key);
+        //         ShiftRightInsert(OffsetKey(data), count, idx, key);
+        //         ShiftRightInsert(OffsetRef(data), count, idx, value);
+        //     }
+        // }
+
+        bool HasSpace(BtreeHeader<T> *header, T key)
         {
+            (void)key;
             return header->count < max_count_;
         }
 
