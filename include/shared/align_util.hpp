@@ -22,7 +22,7 @@ namespace db7::shared
     }
 
     template <typename T>
-    constexpr T AlignDown(T value, T alignment)
+    constexpr T AlignDown(T value, size_t alignment)
     {
         return value & ~(alignment - 1);
     }
