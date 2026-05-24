@@ -148,7 +148,7 @@ namespace db7::access
         WriteHeader(header, data);
     }
 
-    T BTreeIndex::SplitLeaf(BtreeHeader<T> *header, byte *data, page_id &new_pid, T key, R value)
+    T BTreeIndex::SplitLeaf(byte *data, page_id &new_pid, T key, R value)
     {
         auto *right_page = ReserveNode(tbl_id_);
 
@@ -156,25 +156,14 @@ namespace db7::access
 
         byte *right_data = right_page->GetData();
 
-        T sentinel;
-        u32 new_header_count;
-        u32 right_header_count;
-        layout_leaf_.Split(data, right_data, header->count, key, value, sentinel, new_header_count, right_header_count);
-
-        auto right_header = BtreeHeader<T>(header->rlink, right_header_count, header->level, header->max_val);
-
-        auto new_header = BtreeHeader<T>(new_pid, new_header_count, header->level, sentinel);
-
-        WriteHeader(&right_header, right_data);
-
-        WriteHeader(&new_header, data);
+        T sentinel = layout_leaf_.Split(data, right_data, new_pid, key, value);
 
         ReleasePage<LockMode::None>(right_page);
 
         return sentinel;
     }
 
-    T BTreeIndex::SplitInter(BtreeHeader<T> *header, byte *data, page_id &new_pid, T key, R value)
+    T BTreeIndex::SplitInter(byte *data, page_id &new_pid, T key, R value)
     {
         auto *right_page = ReserveNode(tbl_id_);
 
@@ -182,18 +171,7 @@ namespace db7::access
 
         byte *right_data = right_page->GetData();
 
-        T sentinel;
-        u32 new_header_count;
-        u32 right_header_count;
-        layout_inter_.Split(data, right_data, header->count, key, value, sentinel, new_header_count, right_header_count);
-
-        auto right_header = BtreeHeader<T>(header->rlink, right_header_count, header->level, header->max_val);
-
-        auto new_header = BtreeHeader<T>(new_pid, new_header_count, header->level, sentinel);
-
-        WriteHeader(&right_header, right_data);
-
-        WriteHeader(&new_header, data);
+        T sentinel = layout_inter_.Split(data, right_data, new_pid, key, value);
 
         ReleasePage<LockMode::None>(right_page);
 
@@ -347,7 +325,7 @@ namespace db7::access
             else
             {
                 page_id new_pid;
-                key = SplitInter(header, data, new_pid, key, value);
+                key = SplitInter(data, new_pid, key, value);
                 value = new_pid;
                 u8 level = header->level;
                 ReleasePage<LM>(page);
@@ -391,7 +369,7 @@ namespace db7::access
         else
         {
             page_id new_pid;
-            T sentinel = SplitLeaf(header, data, new_pid, key, value);
+            T sentinel = SplitLeaf(data, new_pid, key, value);
             u8 level = header->level;
             ReleasePage<LockMode::Write>(page);
 

@@ -208,6 +208,11 @@ namespace db7::access
             return split;
         }
 
+        BtreeHeader<u32> *CastHeader(byte *data)
+        {
+            return reinterpret_cast<BtreeHeader<u32> *>(data);
+        }
+
     public:
         BtreeVarlenLayoutLeaf(u64 header_size) : header_size_(header_size), key_offset_(header_size + sizeof(VarlenHeader)) {}
 
@@ -248,22 +253,12 @@ namespace db7::access
             return key_offset_ + header->count * sizeof(Slot) + hdr->heap_size + CalcWorstCaseSize(key) < PAGE_SIZE;
         }
 
-        BtreeHeader<u32> *GetHeader(byte *data)
-        {
-            return reinterpret_cast<BtreeHeader<u32> *>(data);
-        }
-
-        void WriteHeader(BtreeHeader<u32> *header, byte *data)
-        {
-            std::memcpy(data, header, sizeof(BtreeHeader<u32>));
-        }
-
         // TODO refactor this
         void Split(byte *left_data, byte *right_data, page_id new_pid, Key key, R value)
         {
-            auto *left_header = GetHeader(left_data);
+            auto *left_header = CastHeader(left_data);
 
-            auto *right_header = GetHeader(right_data);
+            auto *right_header = CastHeader(right_data);
 
             u32 max_val = left_header->max_val;
             byte *slot_ptr = ReadSlot(left_data, max_val);

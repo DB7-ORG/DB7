@@ -89,6 +89,11 @@ namespace db7::access
             return arr[idx];
         }
 
+        BtreeHeader<T> *CastHeader(byte *data)
+        {
+            return reinterpret_cast<BtreeHeader<T> *>(data);
+        }
+
     public:
         BtreeNumberLayoutLeaf(u64 header_size)
         {
@@ -144,27 +149,42 @@ namespace db7::access
             return header->count < max_count_;
         }
 
-        void Split(byte *data, byte *right_data, u32 count, T key, page_id value, T &sentinel_out, u32 &new_header_count_out, u32 &right_header_count_out)
+        T Split(byte *left_data, byte *right_data, page_id new_pid, T key, R value)
         {
-            u32 mid = CopyUpperHalf(OffsetKey(data), OffsetKey(right_data), count);
+            auto *left_header = CastHeader(left_data);
 
-            CopyUpperHalf(OffsetRef(data), OffsetRef(right_data), count);
+            auto *right_header = CastHeader(right_data);
 
-            sentinel_out = GetKeyAt(right_data, 0);
+            u32 mid = CopyUpperHalf(OffsetKey(left_data), OffsetKey(right_data), left_header->count);
 
-            new_header_count_out = mid;
-            right_header_count_out = count - mid;
+            CopyUpperHalf(OffsetRef(left_data), OffsetRef(right_data), left_header->count);
 
-            if (key < sentinel_out)
+            T sentinel = GetKeyAt(right_data, 0);
+
+            u32 left_header_count = mid;
+            u32 right_header_count = left_header->count - mid;
+
+            if (key < sentinel)
             {
-                Insert(data, new_header_count_out, key, value);
-                new_header_count_out++;
+                Insert(left_data, left_header_count, key, value);
+                left_header_count++;
             }
             else
             {
-                Insert(right_data, right_header_count_out, key, value);
-                right_header_count_out++;
+                Insert(right_data, right_header_count, key, value);
+                right_header_count++;
             }
+
+            right_header->rlink = left_header->rlink;
+            right_header->count = right_header_count;
+            right_header->level = left_header->level;
+            right_header->max_val = left_header->max_val;
+
+            left_header->rlink = new_pid;
+            left_header->count = left_header_count;
+            left_header->max_val = sentinel;
+
+            return sentinel;
         }
     };
 };
