@@ -51,7 +51,7 @@ namespace db7::access
 
         void CreateNewRoot(u8 level, T key, page_id pid, page_id new_pid);
         T SplitLeaf(byte *data, page_id &new_pid, T key, R value);
-        T SplitInter(byte *data, page_id &new_pid, T key, R value);
+        T SplitInter(byte *data, page_id &new_pid, T key, page_id value);
         void GoRight(storage::Page *&page, BtreeHeader<T> *&header, T key);
         page_id GetRoot();
 

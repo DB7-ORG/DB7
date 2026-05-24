@@ -81,14 +81,22 @@ namespace db7::storage
 
     bool BufferPool::PageVisit(Page *page, PageIdentifier id)
     { // TODO  might be able to use optimistic here but i think this is just a spinlock anyway
-        page->RLock();
+        // page->RLock();
+        // if (page->GetId() == id)
+        // { // PageVisit
+        //     page->Pin();
+        //     page->RUnlock();
+        //     return true;
+        // }
+        // page->RUnlock();
+
+        page->Pin(); // optimistic pin
         if (page->GetId() == id)
-        { // PageVisit
-            page->Pin();
-            page->RUnlock();
+        {
             return true;
         }
-        page->RUnlock();
+        page->Unpin();
+
         return false;
     }
 

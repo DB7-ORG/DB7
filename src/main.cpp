@@ -90,17 +90,19 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
 {
     db7::access::BTreeIndex index(buffer_pool, disk_mng_async, 1);
 
-    u32 n = 1'000'000;
+    u32 n = 10'000'000;
     std::vector<u32> keys(n);
     std::iota(keys.begin(), keys.end(), 1);
     std::shuffle(keys.begin(), keys.end(), std::mt19937{std::random_device{}()});
 
     u32 num_threads = std::thread::hardware_concurrency();
+    std::cout << num_threads << std::endl;
     std::vector<std::thread> threads;
 
-    bool SINGLE_THREAD = false;
+    bool SINGLE_THREAD = true;
 
     u64 t0 = now_ns();
+
     if (!SINGLE_THREAD)
     {
         for (u32 t = 0; t < num_threads; t++)
@@ -160,6 +162,7 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
             }
         }
     }
+
     u64 t2 = now_ns();
 
     // db7::shared::Print(*buffer_pool);

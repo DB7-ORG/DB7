@@ -17,18 +17,18 @@ namespace db7::storage
     class Page
     { // TODO padding
     private:
-        PageIdentifier id_;          // 8 bytes
-        byte *data_;                 // 8 bytes
-        std::atomic<u32> ref_count_; // 4 bytes
-        std::atomic<u8> flags_;      // 1 byte
-        u8 pad_[3];                  // 3 bytes padding
+        std::atomic<PageIdentifier> id_; // 8 bytes
+        byte *data_;                     // 8 bytes
+        std::atomic<u32> ref_count_;     // 4 bytes
+        std::atomic<u8> flags_;          // 1 byte
+        u8 pad_[3];                      // 3 bytes padding
 
-        alignas(CACHE_LINE_SIZE) std::shared_mutex latch_; // ~56 bytes typically
+        alignas(CACHE_LINE_SIZE) std::mutex latch_; // ~56 bytes typically
         std::condition_variable_any io_cv_;
         alignas(CACHE_LINE_SIZE) shared::AdaptiveVersionLock lock_;
 
     public:
-        Page() : id_(0), data_(nullptr), ref_count_(0), flags_(0) {}
+        Page() : id_(PageIdentifier{0}), data_(nullptr), ref_count_(0), flags_(0) {}
 
         /**
          * Data
@@ -59,7 +59,7 @@ namespace db7::storage
          * ID
          */
         PageIdentifier GetId() const { return id_; }
-        page_id GetPageId() const { return id_.pid; }
+        page_id GetPageId() const { return id_.load().pid; }
         void SetId(PageIdentifier id) { id_ = id; }
 
         /**
@@ -87,9 +87,9 @@ namespace db7::storage
         /**
          * Locks
          */
-        void RLock() { latch_.lock_shared(); }
-        void RUnlock() { latch_.unlock_shared(); }
-        bool TryRLock() { return latch_.try_lock_shared(); }
+        // void RLock() { latch_.lock_shared(); }
+        // void RUnlock() { latch_.unlock_shared(); }
+        // bool TryRLock() { return latch_.try_lock_shared(); }
         void WLock() { latch_.lock(); }
         void WUnlock() { latch_.unlock(); }
         bool TryWLock() { return latch_.try_lock(); }

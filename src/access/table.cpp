@@ -89,10 +89,10 @@ namespace db7::access
 
     void Table::PrintPage(storage::Page *page)
     {
-        page->RLock();
+        page->WLock();
         u32 pid = page->GetId().pid;
         u32 tbl = page->GetId().tbl_id;
-        page->RUnlock();
+        page->WUnlock();
 
         page->WaitIO();
 

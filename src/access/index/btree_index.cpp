@@ -132,9 +132,12 @@ namespace db7::access
         return reinterpret_cast<BtreeHeader<T> *>(data);
     }
 
-    void WriteHeader(BtreeHeader<T> *header, byte *data)
+    void WriteHeader(BtreeHeader<T> *header, u64 rlink, u32 count, u8 level, T max_val)
     {
-        std::memcpy(data, header, sizeof(BtreeHeader<T>));
+        header->rlink = rlink;
+        header->count = count;
+        header->level = level;
+        header->max_val = max_val;
     }
 
     page_id BTreeIndex::GetRoot()
@@ -145,7 +148,6 @@ namespace db7::access
     void IncrementHeaderSize(byte *data, BtreeHeader<T> *header)
     {
         header->count++;
-        WriteHeader(header, data);
     }
 
     T BTreeIndex::SplitLeaf(byte *data, page_id &new_pid, T key, R value)
@@ -163,7 +165,7 @@ namespace db7::access
         return sentinel;
     }
 
-    T BTreeIndex::SplitInter(byte *data, page_id &new_pid, T key, R value)
+    T BTreeIndex::SplitInter(byte *data, page_id &new_pid, T key, page_id value)
     {
         auto *right_page = ReserveNode(tbl_id_);
 
@@ -197,7 +199,7 @@ namespace db7::access
 
                 return page;
             }
-            else if (header->max_val != UNDEFINED && key >= header->max_val)
+            else if (key >= header->max_val)
             {
                 page_id new_pid = header->rlink;
 
@@ -246,7 +248,7 @@ namespace db7::access
 
                 return;
             }
-            else if (header->max_val != UNDEFINED && key >= header->max_val)
+            else if (key >= header->max_val)
             {
                 page_id new_pid = header->rlink;
 
@@ -276,7 +278,7 @@ namespace db7::access
 
     void BTreeIndex::GoRight(storage::Page *&page, BtreeHeader<T> *&header, T key)
     {
-        while (header->max_val != UNDEFINED && key >= header->max_val)
+        while (key >= header->max_val)
         {
             page_id pid = header->rlink;
             ReleasePage<LockMode::Write>(page);
@@ -291,9 +293,8 @@ namespace db7::access
 
         byte *new_root_data = new_root_page->GetData();
 
-        auto h = BtreeHeader<T>(UNDEFINED, 1, level + 1, UNDEFINED);
-
-        WriteHeader(&h, new_root_data);
+        auto *header = GetHeader(new_root_data);
+        WriteHeader(header, UNDEFINED, 1, level + 1, UNDEFINED);
 
         layout_inter_.CreateRoot(new_root_data, key, pid, new_pid);
 
@@ -409,7 +410,7 @@ namespace db7::access
 
             BtreeHeader<T> *header = GetHeader(page->GetData());
 
-            if (header->max_val != UNDEFINED && key >= header->max_val)
+            if (key >= header->max_val)
             {
                 page_id new_pid = header->rlink;
 
@@ -460,8 +461,8 @@ namespace db7::access
         }
 
         storage::Page *page = buffer_pool_->Reserve(tbl_id);
-        BtreeHeader<T> header(UNDEFINED, 0, 0, UNDEFINED);
-        WriteHeader(&header, page->GetData());
+        auto *header = GetHeader(page->GetData());
+        WriteHeader(header, UNDEFINED, 0, 0, UNDEFINED);
         ReleasePage<LockMode::None>(page);
     }
 
