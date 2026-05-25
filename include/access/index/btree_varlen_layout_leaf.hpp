@@ -8,6 +8,7 @@
 #include <span>
 #include <limits>
 #include <queue>
+#include <algorithm>
 
 #define START_taken_space = PAGE_SIZE - sizeof(BtreeHeader);
 
@@ -79,22 +80,20 @@ namespace db7::access
             return data + offset;
         }
 
-        SlotVal CastSlot(byte *slot)
+        SlotValHeader *CastSlotHeader(void *slot)
         {
-            auto hdr = *reinterpret_cast<SlotValHeader *>(slot);
-            return SlotVal{hdr, slot + sizeof(hdr)};
+            return reinterpret_cast<SlotValHeader *>(slot);
         }
 
-        SlotVal CastSlot(Slot *slot)
+        SlotVal CastSlot(void *slot)
         {
-            auto hdr = *reinterpret_cast<SlotValHeader *>(slot);
-            return SlotVal{hdr, reinterpret_cast<byte *>(slot) + sizeof(hdr)};
+            auto hdr = *CastSlotHeader(slot);
+            return SlotVal{hdr, static_cast<byte *>(slot) + sizeof(hdr)};
         }
 
         Slot *OffsetHeader(byte *data)
         {
-            Slot *slots = reinterpret_cast<Slot *>(data + key_offset_);
-            return slots;
+            return reinterpret_cast<Slot *>(data + key_offset_);
         }
 
         u32 CalcWorstCaseSize(Key key)
@@ -130,80 +129,107 @@ namespace db7::access
 
         void UpdateHeapSize(byte *data, u32 val)
         {
-            auto hdr = GetVarlenHeader(data);
+            VarlenHeader *hdr = GetVarlenHeader(data);
             hdr->heap_size = val;
         }
 
+        /* Insert to heap */
         u32 AppendHeap(byte *data, u32 heap_size, Key key, R value)
         {
-            /* Insert to heap */
             u32 off = shared::AlignDown(PAGE_SIZE - heap_size - key.len - sizeof(SlotValHeader), alignof(SlotValHeader));
-            byte *dest = data + off;
-            SlotValHeader *hdr = reinterpret_cast<SlotValHeader *>(dest);
+            SlotValHeader *hdr = CastSlotHeader(data + off);
             hdr->result = value;
             hdr->len = key.len;
             std::memcpy(data + off + sizeof(SlotValHeader), key.data, key.len);
+            UpdateHeapSize(data, PAGE_SIZE - off);
             return off;
+        }
+
+        u32 FindSplitPoint(byte *data, Slot *slots, u32 count)
+        {
+            VarlenHeader *var_hdr = GetVarlenHeader(data);
+            u32 target = var_hdr->heap_size / 2;
+            u32 accumulated = 0;
+
+            for (u32 i = 0; i < count; i++)
+            {
+                SlotValHeader *hdr = CastSlotHeader(ReadSlot(data, slots[i]));
+                u32 entry_size = shared::AlignUp(
+                    (u32)(sizeof(SlotValHeader) + hdr->len),
+                    (u32)alignof(SlotValHeader));
+                accumulated += entry_size;
+                if (accumulated >= target)
+                    return i + 1;
+            }
+
+            DB7_UNREACHABLE();
+        }
+
+        void AppendSorted(byte *data, u32 pos, Key key, R value)
+        {
+            Slot *slots = OffsetHeader(data);
+            u32 free_end = (pos == 0) ? PAGE_SIZE : slots[pos - 1].offset;
+            u32 off = shared::AlignDown(
+                free_end - key.len - sizeof(SlotValHeader),
+                alignof(SlotValHeader));
+
+            byte *dest = data + off;
+            CastSlotHeader(dest)->result = value;
+            CastSlotHeader(dest)->len = key.len;
+            std::memcpy(dest + sizeof(SlotValHeader), key.data, key.len);
+
+            slots[pos] = Slot{off};
+        }
+
+        void CopyRange(byte *from, byte *to, Slot *from_slots, u32 start, u32 end)
+        {
+            for (u32 i = start; i < end; i++)
+            {
+                SlotVal val = CastSlot(ReadSlot(from, from_slots[i]));
+                AppendSorted(to, i - start, Key{val.hdr.len, val.data}, val.hdr.result);
+            }
+        }
+
+        void CompactHeap(byte *data, Slot *slots, u32 count)
+        {
+            // sort slot indices by offset descending (highest first = end of page)
+            u32 indices[count];
+            for (u32 i = 0; i < count; i++)
+                indices[i] = i;
+
+            std::sort(indices, indices + count, [&](u32 a, u32 b)
+                      { return slots[a].offset > slots[b].offset; });
+
+            u32 write_pos = 0;
+            for (u32 i = 0; i < count; i++)
+            {
+                u32 idx = indices[i];
+                byte *src = ReadSlot(data, slots[idx]);
+                SlotValHeader *hdr = CastSlotHeader(src);
+                u32 entry_size = sizeof(SlotValHeader) + hdr->len;
+                u32 off = shared::AlignDown(PAGE_SIZE - write_pos - entry_size, alignof(SlotValHeader));
+
+                std::memmove(data + off, src, entry_size);
+                slots[idx].offset = off;
+                write_pos = PAGE_SIZE - off;
+            }
+
+            UpdateHeapSize(data, write_pos);
         }
 
         u32 CopyUpperHalf(byte *from, byte *to, u32 count)
         {
+            DB7_ASSERT(count != 0, "nothing to copy");
+
             Slot *from_slots = OffsetHeader(from);
-            auto var_hdr = GetVarlenHeader(from);
-            u32 total_heap = var_hdr->heap_size;
-            u32 target = total_heap / 2;
 
-            // Find split point by accumulated byte size
-            u32 accumulated = 0;
-            u32 split = 0;
-            for (u32 i = 0; i < count; i++)
-            {
-                SlotVal val = CastSlot(ReadSlot(from, from_slots[i]));
-                u32 entry_size = sizeof(SlotValHeader) + val.hdr.len;
-                entry_size = shared::AlignUp(entry_size, (u32)alignof(SlotValHeader));
-                accumulated += entry_size;
-                if (accumulated >= target)
-                {
-                    split = i + 1; // this entry stays on left, split after it
-                    break;
-                }
-            }
+            u32 split = FindSplitPoint(from, from_slots, count);
 
-            DB7_ASSERT(split != 0, "Tuple size must be so atleast 2 tuples can fit into a single page");
-            DB7_ASSERT(split < count, "Tuple size must be so atleast 2 tuples can fit into a single page");
+            DB7_ASSERT(split > 0 && split < count, "split must leave tuples on both sides");
 
-            // Copy right half (split..count-1) into 'to' page
-            for (u32 i = split; i < count; i++)
-            {
-                SlotVal val = CastSlot(ReadSlot(from, from_slots[i]));
-                Key key = Key{val.hdr.len, val.data};
-                Insert(to, i - split, key, val.hdr.result);
-            }
+            CopyRange(from, to, from_slots, split, count);
 
-            // Compact left half using a priprity queue.
-            std::priority_queue<std::pair<u32, u32>> pq; // {offset, slot_index}
-            for (u32 i = 0; i < split; i++)
-            {
-                pq.push({from_slots[i].offset, i});
-            }
-
-            u32 new_heap_size = 0;
-            while (!pq.empty())
-            {
-                auto [old_off, slot_idx] = pq.top();
-                pq.pop();
-
-                byte *slot_ptr = ReadSlot(from, Slot{old_off});
-                SlotVal val = CastSlot(slot_ptr);
-                u32 entry_size = sizeof(SlotValHeader) + val.hdr.len;
-                u32 off = shared::AlignDown(PAGE_SIZE - new_heap_size - entry_size, alignof(SlotValHeader));
-
-                std::memmove(from + off, slot_ptr, entry_size);
-                from_slots[slot_idx].offset = off;
-                new_heap_size = PAGE_SIZE - off;
-            }
-
-            UpdateHeapSize(from, new_heap_size);
+            CompactHeap(from, from_slots, split);
 
             return split;
         }
@@ -211,6 +237,18 @@ namespace db7::access
         BtreeHeader<u32> *CastHeader(byte *data)
         {
             return reinterpret_cast<BtreeHeader<u32> *>(data);
+        }
+
+        Key ReadKey(byte *data, Slot slot)
+        {
+            byte *ptr = ReadSlot(data, slot);
+            SlotValHeader *hdr = CastSlotHeader(ptr);
+            return Key{hdr->len, ptr + sizeof(SlotValHeader)};
+        }
+
+        Key ReadKey(byte *data, u32 offset)
+        {
+            return ReadKey(data, Slot{offset});
         }
 
     public:
@@ -243,8 +281,6 @@ namespace db7::access
             u32 idx = GetIdx(data, count, key, found);
             Slot slot = Slot{off};
             ShiftRightInsert(slots, count, idx, slot);
-
-            UpdateHeapSize(data, PAGE_SIZE - off);
         }
 
         bool HasSpace(BtreeHeader<u32> *header, Key key)
@@ -253,47 +289,42 @@ namespace db7::access
             return key_offset_ + header->count * sizeof(Slot) + hdr->heap_size + CalcWorstCaseSize(key) < PAGE_SIZE;
         }
 
-        // TODO refactor this
         void Split(byte *left_data, byte *right_data, page_id new_pid, Key key, R value)
         {
             auto *left_header = CastHeader(left_data);
 
             auto *right_header = CastHeader(right_data);
 
-            u32 max_val = left_header->max_val;
-            byte *slot_ptr = ReadSlot(left_data, max_val);
-            auto hdr = CastSlot(slot_ptr);
-            auto key = Key{hdr.hdr.len, slot_ptr};
-            u32 right_max_val = AppendHeap(right_data, 0, key, hdr.hdr.result);
-
             u32 mid = CopyUpperHalf(left_data, right_data, left_header->count);
 
-            Slot *slots = OffsetHeader(right_data);
-            slot_ptr = ReadSlot(left_data, max_val);
-            auto hdr = CastSlot(slot_ptr);
-            auto key = Key{hdr.hdr.len, slot_ptr};
-            u32 left_max_val = AppendHeap(right_data, 0, key, hdr.hdr.result);
+            u32 right_heap_size = GetVarlenHeader(right_data)->heap_size;
+            Key old_high = ReadKey(left_data, left_header->max_val);
+            u32 right_max = AppendHeap(right_data, right_heap_size, old_high, UNDEFINED);
+
+            u32 left_heap_size = GetVarlenHeader(left_data)->heap_size;
+            Key sentinel = ReadKey(right_data, OffsetHeader(right_data)[0]);
+            u32 left_max = AppendHeap(left_data, left_heap_size, sentinel, UNDEFINED);
 
             u32 left_header_count = mid;
             u32 right_header_count = left_header->count - mid;
-            if (Cmp(slot_ptr, key) < 0)
+            byte *sep = ReadSlot(right_data, OffsetHeader(right_data)[0]);
+            if (Cmp(sep, key) < 0)
             {
-                Insert(left_data, left_header_count, key, value);
-                left_header_count++;
+                Insert(left_data, left_header_count++, key, value);
             }
             else
             {
-                Insert(right_data, right_header_count, key, value);
-                right_header_count++;
+                Insert(right_data, right_header_count++, key, value);
             }
 
             right_header->rlink = left_header->rlink;
             right_header->count = right_header_count;
-            right_header->max_val = right_max_val;
+            right_header->level = left_header->level;
+            right_header->max_val = right_max;
 
             left_header->rlink = new_pid;
             left_header->count = left_header_count;
-            left_header->max_val = left_max_val;
+            left_header->max_val = left_max;
         }
     };
 }
