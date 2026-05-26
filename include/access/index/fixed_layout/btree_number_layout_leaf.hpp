@@ -149,6 +149,11 @@ namespace db7::access
             return header->count < max_count_;
         }
 
+        bool HasSplit(BtreeHeader<T> *header, T key)
+        {
+            DB7_UNREACHABLE();
+        }
+
         T Split(byte *left_data, byte *right_data, page_id new_pid, T key, R value)
         {
             auto *left_header = CastHeader(left_data);

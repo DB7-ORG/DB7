@@ -140,14 +140,14 @@ namespace db7::access
         header->max_val = max_val;
     }
 
+    void IncrementHeaderSize(BtreeHeader<T> *header)
+    {
+        header->count++;
+    }
+
     page_id BTreeIndex::GetRoot()
     {
         return root_id_.load();
-    }
-
-    void IncrementHeaderSize(byte *data, BtreeHeader<T> *header)
-    {
-        header->count++;
     }
 
     T BTreeIndex::SplitLeaf(byte *data, page_id &new_pid, T key, R value)
@@ -199,7 +199,7 @@ namespace db7::access
 
                 return page;
             }
-            else if (key >= header->max_val)
+            else if (layout_inter_.HasSplit(header, key))
             {
                 page_id new_pid = header->rlink;
 
@@ -248,7 +248,7 @@ namespace db7::access
 
                 return;
             }
-            else if (key >= header->max_val)
+            else if (layout_inter_.HasSplit(header, key))
             {
                 page_id new_pid = header->rlink;
 
@@ -278,7 +278,7 @@ namespace db7::access
 
     void BTreeIndex::GoRight(storage::Page *&page, BtreeHeader<T> *&header, T key)
     {
-        while (key >= header->max_val)
+        while (layout_inter_.HasSplit(header, key))
         {
             page_id pid = header->rlink;
             ReleasePage<LockMode::Write>(page);
@@ -319,7 +319,7 @@ namespace db7::access
             if (layout_inter_.HasSpace(header, key))
             {
                 layout_inter_.Insert(data, header->count, key, value);
-                IncrementHeaderSize(data, header);
+                IncrementHeaderSize(header);
                 ReleasePage<LM>(page);
                 break;
             }
@@ -364,7 +364,7 @@ namespace db7::access
         if (layout_leaf_.HasSpace(header, key))
         {
             layout_leaf_.Insert(data, header->count, key, value);
-            IncrementHeaderSize(data, header);
+            IncrementHeaderSize(header);
             ReleasePage<LockMode::Write>(page);
         }
         else
@@ -410,7 +410,7 @@ namespace db7::access
 
             BtreeHeader<T> *header = GetHeader(page->GetData());
 
-            if (key >= header->max_val)
+            if (layout_inter_.HasSplit(header, key))
             {
                 page_id new_pid = header->rlink;
 

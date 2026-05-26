@@ -22,7 +22,7 @@
         {
             "label": "build-test",
             "type": "shell",
-            "command": "make test",
+            "command": "make clean-test && make build-test",
             "problemMatcher": [
                 "$gcc"
             ]

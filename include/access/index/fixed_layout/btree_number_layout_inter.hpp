@@ -99,6 +99,11 @@ namespace db7::access
             return header->count < max_count_;
         }
 
+        bool HasSplit(BtreeHeader<T> *header, T key)
+        {
+            return key >= header->max_val;
+        }
+
         void CreateRoot(byte *data, T key, page_id pid, page_id new_pid)
         {
             *OffsetKey(data) = key;
