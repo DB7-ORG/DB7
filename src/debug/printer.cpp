@@ -35,17 +35,17 @@ namespace db7::shared
 
     void PrintVarlenLayout(byte *data)
     {
-        auto *header = reinterpret_cast<access::BtreeHeader<u32> *>(data);
+        auto *header = reinterpret_cast<access::BtreeHeader *>(data);
         u32 count = header->count;
         printf("=== Page Dump ===\n");
-        printf("count=%-4u  level=%-2u  rlink=%lu  max_val=%u\n",
+        printf("count=%-4u  level=%-2u  rlink=%lu  max_val=%lu\n",
                header->count, header->level, header->rlink, header->max_val);
         printf("%-6s  %-7s  %-5s  %-10s  %s\n",
                "slot", "offset", "len", "result", "key");
         printf("---------------------------------------------\n");
 
         /* DANGER does not work if structs change */
-        access::Slot *slots = reinterpret_cast<access::Slot *>(data + sizeof(access::BtreeHeader<u32>) + sizeof(access::VarlenHeader));
+        access::Slot *slots = reinterpret_cast<access::Slot *>(data + sizeof(access::BtreeHeader) + sizeof(access::VarlenHeader));
         for (u32 i = 0; i < count; i++)
         {
             byte *ptr = data + slots[i].offset;

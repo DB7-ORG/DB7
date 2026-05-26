@@ -26,3 +26,5 @@ https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf
 refactor exisitng split for varlen
 
 add some tests after to guarantee ur btree works
+
+// TODO CATALOG UNCOMMENT

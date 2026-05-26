@@ -9,7 +9,6 @@
 #include "access/index/fixed_layout/btree_number_layout_leaf.hpp"
 #include "access/index/varlen_layout/btree_varlen_layout_inter.hpp"
 #include "access/index/varlen_layout/btree_varlen_layout_leaf.hpp"
-#include "access/index/btree_header.hpp"
 
 #include <vector>
 #include <atomic>
@@ -44,7 +43,6 @@ namespace db7::access
         static constexpr u64 UNDEFINED = IS_VARLEN ? static_cast<u64>(std::numeric_limits<u32>::max()) : std::numeric_limits<u64>::max();
         using LeafLayout = std::conditional_t<IS_VARLEN, BtreeVarlenLayoutLeaf, BtreeNumberLayoutLeaf<T>>;
         using InterLayout = std::conditional_t<IS_VARLEN, BtreeVarlenLayoutIntermediate, BtreeNumberLayoutIntermediate<T>>;
-        using Header = BtreeHeader<std::conditional_t<IS_VARLEN, u32, T>>;
 
         InterLayout layout_inter_;
         LeafLayout layout_leaf_;
@@ -58,7 +56,7 @@ namespace db7::access
         void CreateNewRoot(u8 level, T key, page_id pid, page_id new_pid);
         T SplitLeaf(byte *data, page_id &new_pid, T key, R value);
         T SplitInter(byte *data, page_id &new_pid, T key, page_id value);
-        void GoRight(storage::Page *&page, BtreeHeader<T> *&header, T key);
+        void GoRight(storage::Page *&page, BtreeHeader *&header, T key);
         page_id GetRoot();
 
         storage::Page *DropToLevel(T key);
@@ -72,7 +70,7 @@ namespace db7::access
         ~BTreeIndex() = default;
 
         bool Insert(T key, R value);
-        bool Delete(/* ... */) override { return false; }
+        bool Delete(/* ... */) { return false; }
         R Get(T key);
     };
 }

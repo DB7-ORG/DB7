@@ -5,16 +5,22 @@
 namespace db7::access
 {
 
-    template <typename T>
-    struct BtreeHeader
+    class BtreeHeader
     {
-
+    public:
         u64 rlink;
         u32 count;
         u8 level;
-        T max_val;
+        u64 max_val;
 
-        BtreeHeader(u64 rlink, u32 count, u8 level, T max_val)
+        BtreeHeader(u64 rlink, u32 count, u8 level, u64 max_val)
             : rlink(rlink), count(count), level(level), max_val(max_val) {}
     };
+
+    BtreeHeader *CastHeader(byte *data);
+
+    void WriteHeader(BtreeHeader *header, u64 rlink, u32 count, u8 level, u64 max_val);
+
+    void IncrementHeaderSize(BtreeHeader *header);
+
 }

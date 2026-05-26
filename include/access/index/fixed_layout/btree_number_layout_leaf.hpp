@@ -89,11 +89,6 @@ namespace db7::access
             return arr[idx];
         }
 
-        BtreeHeader<T> *CastHeader(byte *data)
-        {
-            return reinterpret_cast<BtreeHeader<T> *>(data);
-        }
-
     public:
         BtreeNumberLayoutLeaf(u64 header_size)
         {
@@ -143,13 +138,13 @@ namespace db7::access
         //     }
         // }
 
-        bool HasSpace(BtreeHeader<T> *header, T key)
+        bool HasSpace(BtreeHeader *header, T key)
         {
             (void)key;
             return header->count < max_count_;
         }
 
-        bool HasSplit(BtreeHeader<T> *header, T key)
+        bool HasSplit(BtreeHeader *header, T key)
         {
             DB7_UNREACHABLE();
         }

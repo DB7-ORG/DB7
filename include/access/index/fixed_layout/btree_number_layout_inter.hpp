@@ -63,11 +63,6 @@ namespace db7::access
             return arr[idx];
         }
 
-        BtreeHeader<T> *CastHeader(byte *data)
-        {
-            return reinterpret_cast<BtreeHeader<T> *>(data);
-        }
-
     public:
         static constexpr T UNDEFINED = std::numeric_limits<T>::max();
 
@@ -93,13 +88,13 @@ namespace db7::access
             ShiftRightInsert(OffsetRef(data), count + 1, idx + 1, value);
         }
 
-        bool HasSpace(BtreeHeader<T> *header, T key)
+        bool HasSpace(BtreeHeader *header, T key)
         {
             (void)key;
             return header->count < max_count_;
         }
 
-        bool HasSplit(BtreeHeader<T> *header, T key)
+        bool HasSplit(BtreeHeader *header, T key)
         {
             return key >= header->max_val;
         }

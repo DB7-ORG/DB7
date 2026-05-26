@@ -1,5 +1,7 @@
 #include "access/index/btree_index.hpp"
 #include "shared/macro_helper.hpp"
+#include "access/index/btree_header.hpp"
+#include "debug/printer.hpp"
 
 #include <cstring>
 
@@ -127,24 +129,6 @@ namespace db7::access
         return buffer_pool_->Reserve(id_);
     }
 
-    BtreeHeader<T> *GetHeader(byte *data)
-    {
-        return reinterpret_cast<BtreeHeader<T> *>(data);
-    }
-
-    void WriteHeader(BtreeHeader<T> *header, u64 rlink, u32 count, u8 level, T max_val)
-    {
-        header->rlink = rlink;
-        header->count = count;
-        header->level = level;
-        header->max_val = max_val;
-    }
-
-    void IncrementHeaderSize(BtreeHeader<T> *header)
-    {
-        header->count++;
-    }
-
     page_id BTreeIndex::GetRoot()
     {
         return root_id_.load();
@@ -190,7 +174,7 @@ namespace db7::access
             constexpr LockMode LM = LockMode::Optimistic;
             Lock<LM>(page);
 
-            BtreeHeader<T> *header = GetHeader(page->GetData());
+            BtreeHeader *header = CastHeader(page->GetData());
 
             if (header->level <= 0)
             {
@@ -237,7 +221,7 @@ namespace db7::access
             constexpr LockMode LM = LockMode::Optimistic;
             Lock<LM>(page);
 
-            BtreeHeader<T> *header = GetHeader(page->GetData());
+            BtreeHeader *header = CastHeader(page->GetData());
 
             if (header->level <= drop_level)
             {
@@ -276,14 +260,14 @@ namespace db7::access
         DB7_UNREACHABLE();
     }
 
-    void BTreeIndex::GoRight(storage::Page *&page, BtreeHeader<T> *&header, T key)
+    void BTreeIndex::GoRight(storage::Page *&page, BtreeHeader *&header, T key)
     {
         while (layout_inter_.HasSplit(header, key))
         {
             page_id pid = header->rlink;
             ReleasePage<LockMode::Write>(page);
             page = GetNode<LockMode::Write>(storage::PageIdentifier(tbl_id_, pid));
-            header = GetHeader(page->GetData());
+            header = CastHeader(page->GetData());
         };
     }
 
@@ -293,7 +277,7 @@ namespace db7::access
 
         byte *new_root_data = new_root_page->GetData();
 
-        auto *header = GetHeader(new_root_data);
+        auto *header = CastHeader(new_root_data);
         WriteHeader(header, UNDEFINED, 1, level + 1, UNDEFINED);
 
         layout_inter_.CreateRoot(new_root_data, key, pid, new_pid);
@@ -311,7 +295,7 @@ namespace db7::access
 
             constexpr LockMode LM = LockMode::Write;
             auto *page = GetNode<LM>(storage::PageIdentifier(tbl_id_, pid));
-            BtreeHeader<T> *header = GetHeader(page->GetData());
+            BtreeHeader *header = CastHeader(page->GetData());
             GoRight(page, header, key);
             pid = page->GetPageId();
 
@@ -356,7 +340,7 @@ namespace db7::access
     {
         Lock<LockMode::Write>(page);
 
-        BtreeHeader<T> *header = GetHeader(page->GetData());
+        BtreeHeader *header = CastHeader(page->GetData());
         GoRight(page, header, key);
         byte *data = page->GetData();
         page_id pid = page->GetPageId();
@@ -408,7 +392,7 @@ namespace db7::access
             constexpr LockMode LM = LockMode::Optimistic;
             Lock<LM>(page);
 
-            BtreeHeader<T> *header = GetHeader(page->GetData());
+            BtreeHeader *header = CastHeader(page->GetData());
 
             if (layout_inter_.HasSplit(header, key))
             {
@@ -422,13 +406,14 @@ namespace db7::access
             else if (header->level == 0)
             {
                 byte *data = page->GetData();
-                BtreeHeader<T> *header = GetHeader(data);
+                BtreeHeader *header = CastHeader(data);
                 R result = layout_leaf_.Get(data, header->count, key);
 
                 if (!Unlock<LM>(page))
                     goto retry;
 
                 ReleasePage<LockMode::None>(page);
+                shared::PrintVarlenLayout(data);
                 return result;
             }
             else
@@ -452,7 +437,7 @@ namespace db7::access
 
     BTreeIndex::BTreeIndex(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, table_id tbl_id)
         : root_id_(1), buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id),
-          layout_inter_(sizeof(BtreeHeader<T>)), layout_leaf_(sizeof(BtreeHeader<T>))
+          layout_inter_(sizeof(BtreeHeader)), layout_leaf_(sizeof(BtreeHeader))
     {
         if (!disk_mng_->CreateOpenFile(tbl_id_, 1))
         {
@@ -461,7 +446,7 @@ namespace db7::access
         }
 
         storage::Page *page = buffer_pool_->Reserve(tbl_id);
-        auto *header = GetHeader(page->GetData());
+        auto *header = CastHeader(page->GetData());
         WriteHeader(header, UNDEFINED, 0, 0, UNDEFINED);
         ReleasePage<LockMode::None>(page);
     }

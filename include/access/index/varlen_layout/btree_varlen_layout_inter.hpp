@@ -194,11 +194,6 @@ namespace db7::access
             return split;
         }
 
-        BtreeHeader<u32> *CastHeader(byte *data)
-        {
-            return reinterpret_cast<BtreeHeader<u32> *>(data);
-        }
-
         Key ReadKey(byte *data, Slot slot)
         {
             byte *ptr = ReadSlot(data, slot);
@@ -243,20 +238,20 @@ namespace db7::access
             ShiftRightInsert(slots, count, idx, slot);
         }
 
-        bool HasSpace(BtreeHeader<u32> *header, Key key)
+        bool HasSpace(BtreeHeader *header, Key key)
         {
             auto hdr = GetVarlenHeader(reinterpret_cast<byte *>(header)); // TODO fix this, this can all fit into taken_space
             return key_offset_ + header->count * sizeof(Slot) + hdr->heap_size + CalcWorstCaseSize(key) < PAGE_SIZE;
         }
 
-        bool HasSplit(BtreeHeader<u32> *header, Key key)
+        bool HasSplit(BtreeHeader *header, Key key)
         {
-            if (header->max_val == (u32)UNDEFINED)
+            if (header->max_val == UNDEFINED)
                 return false; // rightmost page, no high key
             return Cmp(ReadSlot((byte *)header, header->max_val), key) >= 0;
         }
 
-        T Split(byte *left_data, byte *right_data, page_id new_pid, Key key, R value)
+        Key Split(byte *left_data, byte *right_data, page_id new_pid, Key key, R value)
         {
             auto *left_header = CastHeader(left_data);
 
@@ -265,10 +260,11 @@ namespace db7::access
             u32 mid = CopyUpperHalf(left_data, right_data, left_header->count);
 
             Slot *left_slots = OffsetHeader(left_data);
-            if (left_header->max_val != (u32)UNDEFINED)
+            u64 right_max = UNDEFINED;
+            if (left_header->max_val != UNDEFINED)
             {
                 SlotVal val = CastSlot(ReadSlot(left_data, left_header->max_val));
-                right_header->max_val = AppendHeap(right_data, Key{val.hdr.len, val.data}, val.hdr.result);
+                right_max = (u64)AppendHeap(right_data, Key{val.hdr.len, val.data}, val.hdr.result);
             }
 
             CompactHeap(left_data, left_slots, mid);
@@ -288,20 +284,24 @@ namespace db7::access
                 Insert(right_data, right_header_count++, key, value);
             }
 
-            right_header->rlink = left_header->rlink;
-            right_header->count = right_header_count;
-            right_header->level = left_header->level;
-            // right_header->max_val = right_max;
+            WriteHeader(right_header, left_header->rlink, right_header_count, left_header->level, right_max);
 
-            left_header->rlink = new_pid;
-            left_header->count = left_header_count;
-            left_header->max_val = left_max;
+            WriteHeader(left_header, new_pid, left_header_count, left_header->level, left_max);
 
             // shared::PrintVarlenLayout(left_data);
 
             // shared::PrintVarlenLayout(right_data);
 
             return sentinel;
+        }
+
+        void CreateRoot(byte *data, Key key, page_id pid, page_id new_pid)
+        {
+            UpdateHeapSize(data, 0);
+            Insert(data, 0, key, pid);
+
+            Key max_key = Key{};
+            AppendHeap(data, max_key, new_pid);
         }
     };
 }

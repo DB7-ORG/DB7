@@ -64,8 +64,9 @@ namespace db7::catalog
         databases_->Insert(rows);
 
         // TODO insert real values
-        databases_index_datoid->Insert(oid, 0);
-        databases_index_datname->Insert(oid, 0);
+        // TODO CATALOG UNCOMMENT
+        // databases_index_datoid->Insert(oid, 0);
+        // databases_index_datname->Insert(oid, 0);
 
         return true;
     }
