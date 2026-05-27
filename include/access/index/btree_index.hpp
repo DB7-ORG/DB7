@@ -40,7 +40,7 @@ namespace db7::access
         table_id tbl_id_;
 
         static constexpr bool IS_VARLEN = std::is_same_v<T, Key>;
-        static constexpr u64 UNDEFINED = IS_VARLEN ? static_cast<u64>(std::numeric_limits<u32>::max()) : std::numeric_limits<u64>::max();
+        // static constexpr u64 UNDEFINED = IS_VARLEN ? static_cast<u64>(std::numeric_limits<u32>::max()) : std::numeric_limits<u64>::max();
         using LeafLayout = std::conditional_t<IS_VARLEN, BtreeVarlenLayoutLeaf, BtreeNumberLayoutLeaf<T>>;
         using InterLayout = std::conditional_t<IS_VARLEN, BtreeVarlenLayoutIntermediate, BtreeNumberLayoutIntermediate<T>>;
 

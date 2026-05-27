@@ -3,6 +3,7 @@
 #include "common.hpp"
 #include <fmt/core.h>
 #include <random>
+#include <barrier>
 // #include <thread>
 // #include <chrono>
 
@@ -90,7 +91,7 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
 {
     db7::access::BTreeIndex index(buffer_pool, disk_mng_async, 1);
 
-    u32 n = 100;
+    u32 n = 7'000'000;
     // std::vector<u32> keys(n);
     // std::iota(keys.begin(), keys.end(), 1);
     // std::shuffle(keys.begin(), keys.end(), std::mt19937{std::random_device{}()});
@@ -98,7 +99,7 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
     std::vector<std::string> strs(n);
     for (u32 i = 0; i < n; i++)
         strs[i] = "key_" + std::to_string(i + 1);
-    std::shuffle(strs.begin(), strs.end(), std::mt19937{std::random_device{}()});
+    std::shuffle(strs.begin(), strs.end(), std::mt19937{42});
 
     std::vector<db7::access::Key> keys(n);
     for (u32 i = 0; i < n; i++)
@@ -106,25 +107,53 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
 
     u32 num_threads = std::thread::hardware_concurrency();
     std::cout << num_threads << std::endl;
-    std::vector<std::thread> threads;
 
-    bool SINGLE_THREAD = true;
+    bool SINGLE_THREAD = false;
 
-    u64 t0 = now_ns();
+    std::vector<std::thread> threads(num_threads);
+    std::barrier sync_point(num_threads + 1);
+    std::vector<std::thread> read_threads(num_threads);
+    std::barrier read_sync(num_threads + 1);
 
     if (!SINGLE_THREAD)
     {
         for (u32 t = 0; t < num_threads; t++)
         {
-            threads.emplace_back([&, t]()
-                                 {
+            threads[t] = std::thread([&, t]()
+                                     {
         u32 start = (n * t) / num_threads;
         u32 end = (n * (t + 1)) / num_threads;
+        
+        sync_point.arrive_and_wait(); // wait for all threads ready
+        
+        for (u32 i = start; i < end; i++)
+            index.Insert(keys[i], i); });
+        }
+
+        for (u32 t = 0; t < num_threads; t++)
+        {
+            read_threads[t] = std::thread([&, t]()
+                                          {
+        u32 start = (n * t) / num_threads;
+        u32 end = (n * (t + 1)) / num_threads;
+
+        read_sync.arrive_and_wait();
+
         for (u32 i = start; i < end; i++)
         {
-            index.Insert(keys[i], i);
+            auto item = index.Get(keys[i]);
+            if (item != i)
+                throw std::runtime_error("value doesnt match");
         } });
         }
+    }
+
+    u64 t0 = now_ns();
+
+    if (!SINGLE_THREAD)
+    {
+        sync_point.arrive_and_wait(); // release all threads
+
         for (auto &th : threads)
             th.join();
     }
@@ -141,22 +170,8 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
 
     if (!SINGLE_THREAD)
     {
-        std::vector<std::thread> read_threads;
-        for (u32 t = 0; t < num_threads; t++)
-        {
-            read_threads.emplace_back([&, t]()
-                                      {
-        u32 start = (n * t) / num_threads;
-        u32 end = (n * (t + 1)) / num_threads;
-        for (u32 i = start; i < end; i++)
-        {
-            auto item = index.Get(keys[i]);
-            if (item != i)
-            {
-                throw std::runtime_error("value doesnt match");
-            }
-        } });
-        }
+        read_sync.arrive_and_wait();
+
         for (auto &th : read_threads)
             th.join();
     }

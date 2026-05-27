@@ -18,7 +18,6 @@ namespace db7::access
     class BtreeVarlenLayoutLeaf
     {
         using R = u64;
-        static constexpr R UNDEFINED = std::numeric_limits<R>::max();
 
         u64 header_size_;
         u64 key_offset_;
@@ -110,6 +109,9 @@ namespace db7::access
         {
             u32 heap_size = GetVarlenHeader(data)->heap_size;
             u32 off = shared::AlignDown(PAGE_SIZE - heap_size - key.len - sizeof(SlotValHeader<R>), alignof(SlotValHeader<R>));
+            DB7_ASSERT(heap_size < PAGE_SIZE, "heap overflow");
+            DB7_ASSERT(off > 0 && off < PAGE_SIZE, "heap overflow");
+
             SlotValHeader<R> *hdr = CastSlotHeader(data + off);
             hdr->result = value;
             hdr->len = key.len;
@@ -204,6 +206,8 @@ namespace db7::access
         }
 
     public:
+        static constexpr R UNDEFINED = std::numeric_limits<R>::max();
+
         BtreeVarlenLayoutLeaf(u64 header_size) : header_size_(header_size), key_offset_(header_size + sizeof(VarlenHeader)) {}
 
         R Get(byte *data, const u32 count, const Key key)
@@ -241,6 +245,8 @@ namespace db7::access
 
         Key Split(byte *left_data, byte *right_data, page_id new_pid, Key key, R value)
         {
+            UpdateHeapSize(right_data, 0);
+
             auto *left_header = CastHeader(left_data);
 
             auto *right_header = CastHeader(right_data);
@@ -258,7 +264,7 @@ namespace db7::access
             CompactHeap(left_data, left_slots, mid);
 
             Key sentinel = ReadKey(right_data, OffsetHeader(right_data)[0]);
-            u32 left_max = AppendHeap(left_data, sentinel, UNDEFINED);
+            u64 left_max = (u64)AppendHeap(left_data, sentinel, UNDEFINED);
 
             u32 left_header_count = mid;
             u32 right_header_count = left_header->count - mid;
@@ -276,9 +282,10 @@ namespace db7::access
 
             WriteHeader(left_header, new_pid, left_header_count, left_header->level, left_max);
 
-            // shared::PrintVarlenLayout(left_data);
-
-            // shared::PrintVarlenLayout(right_data);
+            // copy sentinel
+            byte *sentinel_copy = new byte[sentinel.len];
+            std::memcpy(sentinel_copy, sentinel.data, sentinel.len);
+            sentinel = Key{sentinel.len, sentinel_copy};
 
             return sentinel;
         }

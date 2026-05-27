@@ -31,7 +31,7 @@
             "name": "Debug Test",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/tests/btree/varlen_layout_test",
+            "program": "${workspaceFolder}/bin/tests/all_tests",
             "args": [],
             "cwd": "${workspaceFolder}",
             "MIMode": "gdb",

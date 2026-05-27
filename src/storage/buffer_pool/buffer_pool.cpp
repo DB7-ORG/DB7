@@ -166,6 +166,8 @@ namespace db7::storage
     Page *BufferPool::Reserve(table_id tbl_id)
     {
         u32 pid = FreeSpaceManagerIndex::Get(tbl_id);
+        // TODO just temporary guard
+        DB7_ASSERT(pid < BUFFER_POOL_PAGE_NUM, "no more pages page");
 
         auto id = PageIdentifier(tbl_id, pid);
         u32 partIdx = GetPartitionIdx(id);

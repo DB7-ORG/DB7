@@ -29,6 +29,7 @@ namespace db7::access
             std::memmove(data + idx + 1, data + idx, (count - idx) * sizeof(Typ));
             data[idx] = value;
         }
+
         /**
          * negative → slot < key
          * zero → slot == key
@@ -76,7 +77,7 @@ namespace db7::access
             return key.len + sizeof(SlotValHeader<R>) + alignof(SlotValHeader<R>);
         }
 
-        u32 GetIdx(byte *data, const u32 count, const Key key, bool &found)
+        u32 GetIdx(byte *data, const u32 count, const Key key)
         {
             Slot *slots = OffsetHeader(data);
             u32 lo = 0, hi = count;
@@ -84,12 +85,7 @@ namespace db7::access
             {
                 u32 mid = lo + (hi - lo) / 2;
                 int res = Cmp(ReadSlot(data, slots[mid]), key);
-                if (res == 0)
-                {
-                    found = true;
-                    return mid;
-                }
-                else if (res < 0)
+                if (res <= 0)
                     lo = mid + 1;
                 else
                     hi = mid;
@@ -104,6 +100,7 @@ namespace db7::access
 
         void UpdateHeapSize(byte *data, u32 val)
         {
+            DB7_ASSERT(val < PAGE_SIZE, "corrupted val");
             VarlenHeader *hdr = GetVarlenHeader(data);
             hdr->heap_size = val;
         }
@@ -113,11 +110,16 @@ namespace db7::access
         {
             u32 heap_size = GetVarlenHeader(data)->heap_size;
             u32 off = shared::AlignDown(PAGE_SIZE - heap_size - key.len - sizeof(SlotValHeader<R>), alignof(SlotValHeader<R>));
+            DB7_ASSERT(heap_size < PAGE_SIZE, "heap overflow");
+            DB7_ASSERT(off > 0 && off < PAGE_SIZE, "heap overflow");
+
             SlotValHeader<R> *hdr = CastSlotHeader(data + off);
             hdr->result = value;
             hdr->len = key.len;
             std::memcpy(data + off + sizeof(SlotValHeader<R>), key.data, key.len);
+
             UpdateHeapSize(data, PAGE_SIZE - off);
+
             return off;
         }
 
@@ -206,6 +208,11 @@ namespace db7::access
             return ReadKey(data, Slot{offset});
         }
 
+        R ReadMaxVal(BtreeHeader *header)
+        {
+            return header->max_val;
+        }
+
     public:
         static constexpr R UNDEFINED = std::numeric_limits<R>::max();
 
@@ -214,14 +221,9 @@ namespace db7::access
         R Get(byte *data, const u32 count, const Key key)
         {
             Slot *slots = OffsetHeader(data);
-            bool found = false;
-            u32 idx = GetIdx(data, count, key, found);
-            if (found)
-            {
-                SlotVal val = CastSlot(ReadSlot(data, slots[idx]));
-                return val.hdr.result;
-            }
-            return UNDEFINED;
+            u32 idx = GetIdx(data, count, key);
+            SlotVal val = CastSlot(ReadSlot(data, slots[idx - 1]));
+            return val.hdr.result;
         }
 
         void Insert(byte *data, u32 count, Key key, R value)
@@ -232,10 +234,11 @@ namespace db7::access
             u32 off = AppendHeap(data, key, value);
 
             /* Insert slot */
-            bool found = false;
-            u32 idx = GetIdx(data, count, key, found);
+            u32 idx = GetIdx(data, count, key);
             Slot slot = Slot{off};
             ShiftRightInsert(slots, count, idx, slot);
+
+            delete[] key.data;
         }
 
         bool HasSpace(BtreeHeader *header, Key key)
@@ -246,13 +249,29 @@ namespace db7::access
 
         bool HasSplit(BtreeHeader *header, Key key)
         {
-            if (header->max_val == UNDEFINED)
+            if (ReadMaxVal(header) == UNDEFINED)
                 return false; // rightmost page, no high key
-            return Cmp(ReadSlot((byte *)header, header->max_val), key) >= 0;
+            auto *slot = ReadSlot((byte *)header, header->max_val);
+            if (header->level > 0)
+            {
+                return Cmp(slot, key) <= 0;
+            }
+
+            auto hdr = *reinterpret_cast<SlotValHeader<u64> *>(slot);
+            SlotVal<u64> val = SlotVal{hdr, static_cast<byte *>(slot) + sizeof(hdr)};
+
+            u16 len = val.hdr.len;
+            u32 min_len = std::min(key.len, len);
+            int cmp = std::memcmp(val.data, key.data, min_len);
+            if (cmp != 0)
+                return cmp <= 0;
+            return (key.len < len) - (key.len > len) <= 0;
         }
 
         Key Split(byte *left_data, byte *right_data, page_id new_pid, Key key, R value)
         {
+            UpdateHeapSize(right_data, 0);
+
             auto *left_header = CastHeader(left_data);
 
             auto *right_header = CastHeader(right_data);
@@ -261,7 +280,7 @@ namespace db7::access
 
             Slot *left_slots = OffsetHeader(left_data);
             u64 right_max = UNDEFINED;
-            if (left_header->max_val != UNDEFINED)
+            if (ReadMaxVal(left_header) != UNDEFINED)
             {
                 SlotVal val = CastSlot(ReadSlot(left_data, left_header->max_val));
                 right_max = (u64)AppendHeap(right_data, Key{val.hdr.len, val.data}, val.hdr.result);
@@ -270,7 +289,7 @@ namespace db7::access
             CompactHeap(left_data, left_slots, mid);
 
             Key sentinel = ReadKey(right_data, OffsetHeader(right_data)[0]);
-            u32 left_max = AppendHeap(left_data, sentinel, UNDEFINED);
+            u64 left_max = (u64)AppendHeap(left_data, sentinel, UNDEFINED);
 
             u32 left_header_count = mid;
             u32 right_header_count = left_header->count - mid;
@@ -288,9 +307,10 @@ namespace db7::access
 
             WriteHeader(left_header, new_pid, left_header_count, left_header->level, left_max);
 
-            // shared::PrintVarlenLayout(left_data);
-
-            // shared::PrintVarlenLayout(right_data);
+            // copy sentinel
+            byte *sentinel_copy = new byte[sentinel.len];
+            std::memcpy(sentinel_copy, sentinel.data, sentinel.len);
+            sentinel = Key{sentinel.len, sentinel_copy};
 
             return sentinel;
         }
@@ -298,10 +318,16 @@ namespace db7::access
         void CreateRoot(byte *data, Key key, page_id pid, page_id new_pid)
         {
             UpdateHeapSize(data, 0);
-            Insert(data, 0, key, pid);
 
-            Key max_key = Key{};
-            AppendHeap(data, max_key, new_pid);
+            Slot *slots = OffsetHeader(data);
+
+            slots[0] = Slot{AppendHeap(data, Key{0, nullptr}, pid)};
+
+            slots[1] = Slot{AppendHeap(data, key, new_pid)};
+
+            CastHeader(data)->count = 2;
+
+            delete[] key.data;
         }
     };
 }

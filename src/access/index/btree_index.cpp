@@ -278,7 +278,7 @@ namespace db7::access
         byte *new_root_data = new_root_page->GetData();
 
         auto *header = CastHeader(new_root_data);
-        WriteHeader(header, UNDEFINED, 1, level + 1, UNDEFINED);
+        WriteHeader(header, layout_inter_.UNDEFINED, 1, level + 1, layout_inter_.UNDEFINED);
 
         layout_inter_.CreateRoot(new_root_data, key, pid, new_pid);
 
@@ -354,7 +354,7 @@ namespace db7::access
         else
         {
             page_id new_pid;
-            T sentinel = SplitLeaf(data, new_pid, key, value);
+            T sentinel = SplitLeaf(data, new_pid, key, value); // TODO should not be a ref but a copy
             u8 level = header->level;
             ReleasePage<LockMode::Write>(page);
 
@@ -388,6 +388,7 @@ namespace db7::access
         do
         {
             storage::Page *page = GetNode<LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
+
         retry:
             constexpr LockMode LM = LockMode::Optimistic;
             Lock<LM>(page);
@@ -413,7 +414,6 @@ namespace db7::access
                     goto retry;
 
                 ReleasePage<LockMode::None>(page);
-                shared::PrintVarlenLayout(data);
                 return result;
             }
             else
@@ -432,7 +432,7 @@ namespace db7::access
         } while (true);
 
         DB7_UNREACHABLE();
-        return UNDEFINED;
+        return layout_inter_.UNDEFINED;
     }
 
     BTreeIndex::BTreeIndex(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, table_id tbl_id)
@@ -447,7 +447,7 @@ namespace db7::access
 
         storage::Page *page = buffer_pool_->Reserve(tbl_id);
         auto *header = CastHeader(page->GetData());
-        WriteHeader(header, UNDEFINED, 0, 0, UNDEFINED);
+        WriteHeader(header, layout_leaf_.UNDEFINED, 0, 0, layout_leaf_.UNDEFINED);
         ReleasePage<LockMode::None>(page);
     }
 
