@@ -32,8 +32,8 @@ namespace db7::catalog
          *  Next available database oid
          */
         access::Table *databases_;
-        access::BTreeIndex *databases_index_datoid;
-        access::BTreeIndex *databases_index_datname;
+        access::BTreeIndex<u64> *databases_index_datoid;
+        access::BTreeIndex<access::Key> *databases_index_datname;
         std::unordered_map<db_oid_t, DatabaseCatalog *> databases_map_;
         std::atomic<db_oid_t> next_db_oid_;
         storage::BufferPool *buffer_pool_;
@@ -49,8 +49,8 @@ namespace db7::catalog
               disk_mng_(disk_mng)
         {
             databases_ = new access::Table(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(), rel_oid_t(0), rel_oid_t(CatalogTableOid::PG_VARLEN));
-            databases_index_datoid = new access::BTreeIndex(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_DATABASE_DATOID));
-            databases_index_datname = new access::BTreeIndex(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_DATABASE_DATNAME));
+            databases_index_datoid = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_DATABASE_DATOID));
+            databases_index_datname = new access::BTreeIndex<access::Key>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_DATABASE_DATNAME));
         }
 
         ~Catalog()

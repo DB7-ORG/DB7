@@ -106,7 +106,7 @@ namespace db7::shared
             auto *hdr = reinterpret_cast<access::SlotValHeader<page_id> *>(ptr);
             byte *key_data = ptr + sizeof(access::SlotValHeader<page_id>);
 
-            printf("[%3u]   %5u    %3u   %10lu  %.*s\n",
+            printf("[%3u]   %5u    %3u   %10u  %.*s\n",
                    i, slots[i].offset, hdr->len, hdr->result,
                    hdr->len, (char *)key_data);
         }

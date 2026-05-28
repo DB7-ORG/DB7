@@ -16,8 +16,6 @@ namespace db7::access
     private:
         using R = u64;
 
-        static constexpr T UNDEFINED = std::numeric_limits<T>::max();
-
         u64 key_offset_;
         u64 ref_offset_;
         u64 max_count_;
@@ -90,6 +88,8 @@ namespace db7::access
         }
 
     public:
+        static constexpr T UNDEFINED = std::numeric_limits<T>::max();
+
         BtreeNumberLayoutLeaf(u64 header_size)
         {
             constexpr u64 pad_keys = sizeof(R) - 1;
