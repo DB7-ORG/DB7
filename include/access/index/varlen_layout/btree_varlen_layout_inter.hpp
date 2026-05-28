@@ -258,11 +258,6 @@ namespace db7::access
             Slot *slots = OffsetHeader(data);
             u32 idx = GetIdx(data, count, key);
 
-            if (idx == 0)
-            {
-                shared::PrintVarlenLayout(data);
-                DB7_ASSERT(false, "key routes before leftmost entry");
-            }
             DB7_ASSERT(idx > 0, "key routes before leftmost entry");
             SlotVal val = CastSlot(ReadSlot(data, slots[idx - 1]));
             return val.hdr.result;

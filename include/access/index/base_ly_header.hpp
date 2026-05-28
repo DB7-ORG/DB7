@@ -1,6 +1,8 @@
 #pragma once
 
-#include "common.hpp"
+#include "storage/storage_common.hpp"
+
+#include <concepts>
 
 namespace db7::access
 {

@@ -82,6 +82,13 @@ namespace db7::access
             return arr[idx];
         }
 
+        void InsertInternal(byte *data, u32 count, T key, page_id value)
+        {
+            u32 idx = GetIdx(OffsetKey(data), count, key);
+            ShiftRightInsert(OffsetKey(data), count, idx, key);
+            ShiftRightInsert(OffsetRef(data), count + 1, idx + 1, value);
+        }
+
     public:
         static constexpr T UNDEFINED = std::numeric_limits<T>::max();
 
@@ -100,11 +107,11 @@ namespace db7::access
             return OffsetRef(data)[idx];
         }
 
-        void Insert(byte *data, u32 count, T key, page_id value)
+        void Insert(byte *data, T key, page_id value)
         {
-            u32 idx = GetIdx(OffsetKey(data), count, key);
-            ShiftRightInsert(OffsetKey(data), count, idx, key);
-            ShiftRightInsert(OffsetRef(data), count + 1, idx + 1, value);
+            u32 count = CastHeader(data)->count;
+            InsertInternal(data, count, key, value);
+            CastHeader(data)->count++;
         }
 
         bool HasSpace(byte *data, T key)
@@ -144,12 +151,12 @@ namespace db7::access
 
             if (key < sentinel)
             {
-                Insert(left_data, left_header_count, key, value);
+                InsertInternal(left_data, left_header_count, key, value);
                 left_header_count++;
             }
             else
             {
-                Insert(right_data, right_header_count, key, value);
+                InsertInternal(right_data, right_header_count, key, value);
                 right_header_count++;
             }
 

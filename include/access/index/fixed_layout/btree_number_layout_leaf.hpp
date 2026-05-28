@@ -106,6 +106,14 @@ namespace db7::access
             return arr[idx];
         }
 
+        void InsertInternal(byte *data, u32 count, T key, R value)
+        {
+            bool found;
+            u32 idx = count == 0 ? 0 : GetIdx(OffsetKey(data), count, key, found);
+            ShiftRightInsert(OffsetKey(data), count, idx, key);
+            ShiftRightInsert(OffsetRef(data), count, idx, value);
+        }
+
     public:
         static constexpr T UNDEFINED = std::numeric_limits<T>::max();
 
@@ -117,14 +125,6 @@ namespace db7::access
             ref_offset_ = shared::AlignUp(key_offset_ + max_count_ * sizeof(T), (u64)sizeof(R));
         }
 
-        // R Get(byte *data, const u32 count, const T value)
-        // {
-        //     T *arr = OffsetKey(data);
-        //     u32 lo = GetIdx(arr, count, value) - 1;
-        //     if (lo < count && arr[lo] == value)
-        //         return (OffsetRef(data))[lo];
-        //     return BtreeNumberLayoutLeaf::UNDEFINED;
-        // }
         R Get(byte *data, const u32 count, const T value)
         {
             bool found;
@@ -134,28 +134,12 @@ namespace db7::access
             return BtreeNumberLayoutLeaf::UNDEFINED;
         }
 
-        void Insert(byte *data, u32 count, T key, R value)
+        void Insert(byte *data, T key, R value)
         {
-            bool found;
-            u32 idx = count == 0 ? 0 : GetIdx(OffsetKey(data), count, key, found);
-            ShiftRightInsert(OffsetKey(data), count, idx, key);
-            ShiftRightInsert(OffsetRef(data), count, idx, value);
+            u32 count = CastHeader(data)->count;
+            InsertInternal(data, count, key, value);
+            CastHeader(data)->count++;
         }
-
-        // void Insert(byte *data, u32 count, T key, R value)
-        // {
-        //     if (UNLIKELY(count == 0))
-        //     {
-        //         *OffsetKey(data) = key;
-        //         *OffsetRef(data) = value;
-        //     }
-        //     else
-        //     {
-        //         u32 idx = GetIdx(OffsetKey(data), count, key);
-        //         ShiftRightInsert(OffsetKey(data), count, idx, key);
-        //         ShiftRightInsert(OffsetRef(data), count, idx, value);
-        //     }
-        // }
 
         bool HasSpace(byte *data, T key)
         {
@@ -186,12 +170,12 @@ namespace db7::access
 
             if (key < sentinel)
             {
-                Insert(left_data, left_header_count, key, value);
+                InsertInternal(left_data, left_header_count, key, value);
                 left_header_count++;
             }
             else
             {
-                Insert(right_data, right_header_count, key, value);
+                InsertInternal(right_data, right_header_count, key, value);
                 right_header_count++;
             }
 

@@ -109,15 +109,26 @@ namespace db7::access
 
         storage::Page *GoRight(storage::Page *page, T key)
         {
-            byte *data = page->GetData();
-            while (layout_inter_.HasSplit(data, key))
+            constexpr shared::LockMode LM = shared::LockMode::Write;
+            do
             {
-                page_id pid = layout_leaf_.GetRLink(data);
-                ReleasePage<shared::LockMode::Write>(page);
-                page = GetNode<shared::LockMode::Write>(storage::PageIdentifier(tbl_id_, pid));
-                data = page->GetData();
-            };
-            return page;
+                auto *data = page->GetData();
+
+                if (!layout_inter_.HasSplit(data, key))
+                {
+                    return page;
+                }
+                else
+                {
+                    page_id new_pid = layout_inter_.GetRLink(data);
+
+                    ReleasePage<LM>(page);
+
+                    page = GetNode<LM>(storage::PageIdentifier(tbl_id_, new_pid));
+                }
+            } while (true);
+
+            DB7_UNREACHABLE();
         }
 
         page_id GetRoot()
@@ -169,6 +180,7 @@ namespace db7::access
             } while (true);
 
             DB7_UNREACHABLE();
+
             return nullptr;
         }
 
@@ -314,15 +326,12 @@ namespace db7::access
             return true;
         }
 
-        // TODO this should not exist i should first drop to level then here move right or whatever
-        R InternalGet(T key)
+        R InternalGet(storage::Page *page, T key)
         {
-            page_id pid = GetRoot();
             do
             {
-                DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
+                DB7_ASSERT(page->GetPageId() != std::numeric_limits<page_id>::max(), "invalid pid");
 
-                storage::Page *page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
                 auto *data = page->GetData();
             retry:
                 constexpr shared::LockMode LM = shared::LockMode::Optimistic;
@@ -331,14 +340,15 @@ namespace db7::access
                 // Check sentinel value
                 if (layout_inter_.HasSplit(data, key))
                 {
-                    page_id new_pid = layout_leaf_.GetRLink(data); // for now this is leaf layout but this method should be changed to use drop to level
+                    page_id new_pid = layout_leaf_.GetRLink(data);
 
                     if (!shared::Unlock<LM>(page))
                         goto retry;
 
-                    pid = new_pid;
+                    ReleasePage<shared::LockMode::None>(page);
+                    page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, new_pid));
                 }
-                else if (GetLevel(data) <= 0)
+                else
                 {
                     R result = layout_leaf_.Get(data, GetCount(data), key);
 
@@ -348,18 +358,6 @@ namespace db7::access
                     ReleasePage<shared::LockMode::None>(page);
                     return result;
                 }
-                else
-                {
-                    page_id new_pid = layout_inter_.Get(data, GetCount(data), key);
-
-                    if (!shared::Unlock<LM>(page))
-                        goto retry;
-
-                    pid = new_pid;
-                }
-
-                ReleasePage<shared::LockMode::None>(page);
-
             } while (true);
 
             DB7_UNREACHABLE();
@@ -398,7 +396,8 @@ namespace db7::access
         R Get(T key)
         {
             shared::TlState::Clear();
-            return InternalGet(key);
+            auto *page = DropToLevel(key);
+            return InternalGet(page, key);
         }
     };
 }
