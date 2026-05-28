@@ -12,8 +12,12 @@ namespace db7::access
 {
     namespace
     {
-        constexpr u32 HSIZE = sizeof(BtreeHeader);
         constexpr u64 UNDEFINED = UINT64_MAX;
+
+        VarlenHeader *CastHeader(byte *data)
+        {
+            return reinterpret_cast<VarlenHeader *>(data);
+        }
 
         // Helper to make a Key from a string
         Key MakeKey(const std::string &s)
@@ -25,7 +29,7 @@ namespace db7::access
         void InitPage(byte *page)
         {
             std::memset(page, 0, PAGE_SIZE);
-            auto *header = reinterpret_cast<BtreeHeader *>(page);
+            auto *header = CastHeader(page);
             header->count = 0;
             header->level = 0;
             header->rlink = UNDEFINED;
@@ -37,14 +41,13 @@ namespace db7::access
         void TestInsertAndGet()
         {
             alignas(16) byte page[PAGE_SIZE];
-            BtreeVarlenLayoutLeaf layout(HSIZE);
+            BtreeVarlenLayoutLeaf layout;
             InitPage(page);
 
-            auto *header = reinterpret_cast<BtreeHeader *>(page);
+            auto *header = CastHeader(page);
 
             // Insert single key
-            layout.Insert(page, header->count, MakeKey("hello"), 42);
-            header->count++;
+            layout.Insert(page, MakeKey("hello"), 42);
 
             // shared::PrintVarlenLayout(page);
 
@@ -62,19 +65,18 @@ namespace db7::access
         void TestMultipleInserts()
         {
             alignas(16) byte page[PAGE_SIZE];
-            BtreeVarlenLayoutLeaf layout(HSIZE);
+            BtreeVarlenLayoutLeaf layout;
             InitPage(page);
 
-            auto *header = reinterpret_cast<BtreeHeader *>(page);
-            auto *var_header = reinterpret_cast<VarlenHeader *>(page + HSIZE);
+            auto *header = CastHeader(page);
+            auto *var_header = CastHeader(page);
 
             std::vector<std::string> keys = {"delta", "alpha", "charlie", "bravo", "echo"};
 
             u32 tot_len = 0;
             for (u32 i = 0; i < keys.size(); i++)
             {
-                layout.Insert(page, header->count, MakeKey(keys[i]), i * 10);
-                header->count++;
+                layout.Insert(page, MakeKey(keys[i]), i * 10);
                 tot_len += keys[i].length();
             }
 
@@ -97,17 +99,16 @@ namespace db7::access
         void TestHasSpace()
         {
             alignas(16) byte page[PAGE_SIZE];
-            BtreeVarlenLayoutLeaf layout(HSIZE);
+            BtreeVarlenLayoutLeaf layout;
             InitPage(page);
 
-            auto *header = reinterpret_cast<BtreeHeader *>(page);
+            auto *header = CastHeader(page);
 
             // Fill page until full
             u32 i = 0;
-            while (layout.HasSpace(header, MakeKey("key_" + std::to_string(i))))
+            while (layout.HasSpace(page, MakeKey("key_" + std::to_string(i))))
             {
-                layout.Insert(page, header->count, MakeKey("key_" + std::to_string(i)), i);
-                header->count++;
+                layout.Insert(page, MakeKey("key_" + std::to_string(i)), i);
                 i++;
             }
 
@@ -123,20 +124,19 @@ namespace db7::access
         {
             alignas(16) byte left_page[PAGE_SIZE];
             alignas(16) byte right_page[PAGE_SIZE];
-            BtreeVarlenLayoutLeaf layout(HSIZE);
+            BtreeVarlenLayoutLeaf layout;
             InitPage(left_page);
             InitPage(right_page);
 
-            auto *left_header = reinterpret_cast<BtreeHeader *>(left_page);
+            auto *left_header = CastHeader(left_page);
 
             // Fill left page
             std::vector<std::string> keys;
             u32 i = 0;
-            while (layout.HasSpace(left_header, MakeKey("key_" + std::to_string(i))))
+            while (layout.HasSpace(left_page, MakeKey("key_" + std::to_string(i))))
             {
                 std::string k = "key_" + std::to_string(i);
-                layout.Insert(left_page, left_header->count, MakeKey(k), i);
-                left_header->count++;
+                layout.Insert(left_page, MakeKey(k), i);
                 keys.push_back(k);
                 i++;
             }
@@ -148,7 +148,7 @@ namespace db7::access
 
             layout.Split(left_page, right_page, /*new_pid=*/99, MakeKey(new_key), 999);
 
-            auto *right_header = reinterpret_cast<BtreeHeader *>(right_page);
+            auto *right_header = CastHeader(right_page);
 
             // All keys should still be findable across both pages
             u32 found_left = 0;

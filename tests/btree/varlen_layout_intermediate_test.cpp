@@ -12,8 +12,12 @@ namespace db7::access
 {
     namespace
     {
-        constexpr u32 HSIZE = sizeof(BtreeHeader);
         constexpr u32 UNDEFINED = UINT32_MAX;
+
+        VarlenHeader *CastHeader(byte *data)
+        {
+            return reinterpret_cast<VarlenHeader *>(data);
+        }
 
         // Helper to make a Key from a string
         Key MakeKey(const std::string &s)
@@ -44,7 +48,7 @@ namespace db7::access
         void TestCreateRootAndRouting()
         {
             alignas(16) byte page[PAGE_SIZE];
-            BtreeVarlenLayoutIntermediate layout(HSIZE);
+            BtreeVarlenLayoutIntermediate layout;
             InitPage(page);
 
             auto *header = CastHeader(page);
@@ -76,7 +80,7 @@ namespace db7::access
         void TestMultipleSeparatorRouting()
         {
             alignas(16) byte page[PAGE_SIZE];
-            BtreeVarlenLayoutIntermediate layout(HSIZE);
+            BtreeVarlenLayoutIntermediate layout;
             InitPage(page);
 
             auto *header = CastHeader(page);
@@ -85,10 +89,8 @@ namespace db7::access
             layout.CreateRoot(page, MakeKey("cherry"), /*left=*/5, /*right=*/20);
 
             // Now insert more separators
-            layout.Insert(page, header->count, MakeKey("mango"), 30);
-            header->count++;
-            layout.Insert(page, header->count, MakeKey("apple"), 10);
-            header->count++;
+            layout.Insert(page, MakeKey("mango"), 30);
+            layout.Insert(page, MakeKey("apple"), 10);
 
             // Routing: key < "apple" -> 5, "apple" <= key < "cherry" -> 10,
             //          "cherry" <= key < "mango" -> 20, key >= "mango" -> 30
@@ -107,17 +109,16 @@ namespace db7::access
         void TestHasSpace()
         {
             alignas(16) byte page[PAGE_SIZE];
-            BtreeVarlenLayoutIntermediate layout(HSIZE);
+            BtreeVarlenLayoutIntermediate layout;
             InitPage(page);
 
             auto *header = CastHeader(page);
 
             // Fill page until full
             u32 i = 0;
-            while (layout.HasSpace(header, MakeKey("key_" + std::to_string(i))))
+            while (layout.HasSpace(page, MakeKey("key_" + std::to_string(i))))
             {
-                layout.Insert(page, header->count, MakeKey("key_" + std::to_string(i)), i);
-                header->count++;
+                layout.Insert(page, MakeKey("key_" + std::to_string(i)), i);
                 i++;
             }
 
@@ -131,7 +132,7 @@ namespace db7::access
         {
             alignas(16) byte left_page[PAGE_SIZE];
             alignas(16) byte right_page[PAGE_SIZE];
-            BtreeVarlenLayoutIntermediate layout(HSIZE);
+            BtreeVarlenLayoutIntermediate layout;
             InitPage(left_page);
             InitPage(right_page);
 
@@ -148,10 +149,9 @@ namespace db7::access
                 char buf[16];
                 snprintf(buf, sizeof(buf), "key_%03u", i);
                 Key k = MakeKey(buf);
-                if (!layout.HasSpace(left_header, k))
+                if (!layout.HasSpace(left_page, k))
                     break;
-                layout.Insert(left_page, left_header->count, k, i);
-                left_header->count++;
+                layout.Insert(left_page, k, i);
                 i++;
             }
 
@@ -187,7 +187,7 @@ namespace db7::access
                 snprintf(buf, sizeof(buf), "key_%03u", j);
                 Key k = MakeKey(buf);
 
-                if (!layout.HasSplit(left_header, k))
+                if (!layout.HasSplit(left_page, k))
                 {
                     page_id result = layout.Get(left_page, left_header->count, k);
                     assert(result == j);
@@ -203,7 +203,7 @@ namespace db7::access
 
             // Check the new key too
             page_id split_result;
-            if (!layout.HasSplit(left_header, MakeKey(new_key_str)))
+            if (!layout.HasSplit(left_page, MakeKey(new_key_str)))
                 split_result = layout.Get(left_page, left_header->count, MakeKey(new_key_str));
             else
                 split_result = layout.Get(right_page, right_header->count, MakeKey(new_key_str));

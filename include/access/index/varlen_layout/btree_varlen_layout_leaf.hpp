@@ -3,7 +3,6 @@
 #include "storage/storage_common.hpp"
 #include "shared/macro_helper.hpp"
 #include "shared/align_util.hpp"
-#include "access/index/btree_header.hpp"
 #include "debug/printer.hpp"
 #include "access/index/varlen_layout/btree_varlen_models.hpp"
 
@@ -19,10 +18,28 @@ namespace db7::access
     {
         using R = u64;
 
-        u64 header_size_;
+    private:
         u64 key_offset_;
 
-    private:
+        VarlenHeader *CastHeader(byte *data)
+        {
+            return reinterpret_cast<VarlenHeader *>(data);
+        }
+
+        void WriteHeader(VarlenHeader *header, u64 rlink, u32 count, u8 level, u64 max_val)
+        {
+            header->rlink = rlink;
+            header->count = count;
+            header->level = level;
+            header->max_val = max_val;
+        }
+
+        void WriteHeader(byte *data, u64 rlink, u32 count, u8 level, u64 max_val)
+        {
+            auto *header = CastHeader(data);
+            WriteHeader(header, rlink, count, level, max_val);
+        }
+
         template <typename Typ>
         void ShiftRightInsert(Typ *data, u32 count, u32 idx, Typ value)
         {
@@ -93,21 +110,16 @@ namespace db7::access
             return lo;
         }
 
-        VarlenHeader *GetVarlenHeader(byte *data)
-        {
-            return reinterpret_cast<VarlenHeader *>(data + header_size_);
-        }
-
         void UpdateHeapSize(byte *data, u32 val)
         {
-            VarlenHeader *hdr = GetVarlenHeader(data);
+            VarlenHeader *hdr = CastHeader(data);
             hdr->heap_size = val;
         }
 
         /* Insert to heap */
         u32 AppendHeap(byte *data, Key key, R value)
         {
-            u32 heap_size = GetVarlenHeader(data)->heap_size;
+            u32 heap_size = CastHeader(data)->heap_size;
             u32 off = shared::AlignDown(PAGE_SIZE - heap_size - key.len - sizeof(SlotValHeader<R>), alignof(SlotValHeader<R>));
             DB7_ASSERT(heap_size < PAGE_SIZE, "heap overflow");
             DB7_ASSERT(off > 0 && off < PAGE_SIZE, "heap overflow");
@@ -122,7 +134,7 @@ namespace db7::access
 
         u32 FindSplitPoint(byte *data, Slot *slots, u32 count)
         {
-            VarlenHeader *var_hdr = GetVarlenHeader(data);
+            VarlenHeader *var_hdr = CastHeader(data);
             u32 target = var_hdr->heap_size / 2;
             u32 accumulated = 0;
 
@@ -212,10 +224,24 @@ namespace db7::access
             return Key{key.len, sentinel_copy};
         }
 
+        void InsertInternal(byte *data, u32 count, Key key, R value)
+        {
+            Slot *slots = OffsetHeader(data);
+
+            /* Insert to heap */
+            u32 off = AppendHeap(data, key, value);
+
+            /* Insert slot */
+            bool found = false;
+            u32 idx = GetIdx(data, count, key, found);
+            Slot slot = Slot{off};
+            ShiftRightInsert(slots, count, idx, slot); // TODO this should increment header count
+        }
+
     public:
         static constexpr R UNDEFINED = std::numeric_limits<R>::max();
 
-        BtreeVarlenLayoutLeaf(u64 header_size) : header_size_(header_size), key_offset_(header_size + sizeof(VarlenHeader)) {}
+        BtreeVarlenLayoutLeaf() : key_offset_(sizeof(VarlenHeader)) {}
 
         R Get(byte *data, const u32 count, const Key key)
         {
@@ -230,24 +256,17 @@ namespace db7::access
             return UNDEFINED;
         }
 
-        void Insert(byte *data, u32 count, Key key, R value)
+        void Insert(byte *data, Key key, R value)
         {
-            Slot *slots = OffsetHeader(data);
-
-            /* Insert to heap */
-            u32 off = AppendHeap(data, key, value);
-
-            /* Insert slot */
-            bool found = false;
-            u32 idx = GetIdx(data, count, key, found);
-            Slot slot = Slot{off};
-            ShiftRightInsert(slots, count, idx, slot);
+            u32 count = CastHeader(data)->count;
+            InsertInternal(data, count, key, value);
+            CastHeader(data)->count++;
         }
 
-        bool HasSpace(BtreeHeader *header, Key key)
+        bool HasSpace(byte *data, Key key)
         {
-            auto hdr = GetVarlenHeader(reinterpret_cast<byte *>(header)); // TODO fix this, this can all fit into taken_space
-            return key_offset_ + header->count * sizeof(Slot) + hdr->heap_size + CalcWorstCaseSize(key) < PAGE_SIZE;
+            auto hdr = CastHeader(data); // TODO fix this, this can all fit into taken_space
+            return key_offset_ + hdr->count * sizeof(Slot) + hdr->heap_size + CalcWorstCaseSize(key) < PAGE_SIZE;
         }
 
         Key Split(byte *left_data, byte *right_data, page_id new_pid, Key key, R value)
@@ -279,11 +298,11 @@ namespace db7::access
             byte *sep = ReadSlot(right_data, OffsetHeader(right_data)[0]);
             if (Cmp(sep, key) > 0)
             {
-                Insert(left_data, left_header_count++, key, value);
+                InsertInternal(left_data, left_header_count++, key, value);
             }
             else
             {
-                Insert(right_data, right_header_count++, key, value);
+                InsertInternal(right_data, right_header_count++, key, value);
             }
 
             WriteHeader(right_header, left_header->rlink, right_header_count, left_header->level, right_max);
@@ -291,6 +310,16 @@ namespace db7::access
             WriteHeader(left_header, new_pid, left_header_count, left_header->level, left_max);
 
             return sentinel;
+        }
+
+        void InitHeader(byte *data, u32 count, u8 level)
+        {
+            WriteHeader(data, UNDEFINED, count, level, UNDEFINED);
+        }
+
+        u64 GetRLink(byte *data)
+        {
+            return CastHeader(data)->rlink;
         }
     };
 }

@@ -35,7 +35,7 @@ namespace db7::shared
 
     void PrintVarlenLeafLayout(byte *data)
     {
-        auto *header = reinterpret_cast<access::BtreeHeader *>(data);
+        auto *header = reinterpret_cast<access::VarlenHeader *>(data);
         u32 count = header->count;
         printf("=== Page Dump ===\n");
         printf("count=%-4u  level=%-2u  rlink=%lu  max_val=%lu\n",
@@ -59,7 +59,7 @@ namespace db7::shared
         printf("---------------------------------------------\n");
 
         /* DANGER does not work if structs change */
-        access::Slot *slots = reinterpret_cast<access::Slot *>(data + sizeof(access::BtreeHeader) + sizeof(access::VarlenHeader));
+        access::Slot *slots = reinterpret_cast<access::Slot *>(data + sizeof(access::VarlenHeader));
         for (u32 i = 0; i < count; i++)
         {
             byte *ptr = data + slots[i].offset;
@@ -75,7 +75,7 @@ namespace db7::shared
 
     void PrintVarlenInterLayout(byte *data)
     {
-        auto *header = reinterpret_cast<access::BtreeHeader *>(data);
+        auto *header = reinterpret_cast<access::VarlenHeader *>(data);
         u32 count = header->count;
         printf("=== Page Dump ===\n");
         printf("count=%-4u  level=%-2u  rlink=%lu  max_val=%lu\n",
@@ -99,7 +99,7 @@ namespace db7::shared
         printf("---------------------------------------------\n");
 
         /* DANGER does not work if structs change */
-        access::Slot *slots = reinterpret_cast<access::Slot *>(data + sizeof(access::BtreeHeader) + sizeof(access::VarlenHeader));
+        access::Slot *slots = reinterpret_cast<access::Slot *>(data + sizeof(access::VarlenHeader));
         for (u32 i = 0; i < count; i++)
         {
             byte *ptr = data + slots[i].offset;
@@ -115,7 +115,7 @@ namespace db7::shared
 
     void PrintVarlenLayout(byte *data)
     {
-        auto *header = reinterpret_cast<access::BtreeHeader *>(data);
+        auto *header = reinterpret_cast<access::VarlenHeader *>(data);
         if (header->level == 0)
             PrintVarlenLeafLayout(data);
         else

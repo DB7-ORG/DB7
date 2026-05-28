@@ -3,7 +3,7 @@
 #include "storage/storage_common.hpp"
 #include "shared/macro_helper.hpp"
 #include "shared/align_util.hpp"
-#include "access/index/btree_header.hpp"
+#include "access/index/fixed_layout/btree_number_models.hpp"
 
 namespace db7::access
 {
@@ -16,6 +16,25 @@ namespace db7::access
         u64 key_offset_;
         u64 ref_offset_;
         u64 max_count_;
+
+        NumberHeader *CastHeader(byte *data)
+        {
+            return reinterpret_cast<NumberHeader *>(data);
+        }
+
+        void WriteHeader(NumberHeader *header, u64 rlink, u32 count, u8 level, u64 max_val)
+        {
+            header->rlink = rlink;
+            header->count = count;
+            header->level = level;
+            header->max_val = max_val;
+        }
+
+        void WriteHeader(byte *data, u64 rlink, u32 count, u8 level, u64 max_val)
+        {
+            auto *header = CastHeader(data);
+            WriteHeader(header, rlink, count, level, max_val);
+        }
 
         template <typename Typ>
         void ShiftRightInsert(Typ *data, u32 count, u32 idx, Typ value)
@@ -66,10 +85,10 @@ namespace db7::access
     public:
         static constexpr T UNDEFINED = std::numeric_limits<T>::max();
 
-        BtreeNumberLayoutIntermediate(u64 header_size)
+        BtreeNumberLayoutIntermediate()
         {
             constexpr u64 pad_keys = sizeof(page_id) - 1;
-            key_offset_ = shared::AlignUp(header_size, (u64)sizeof(T));
+            key_offset_ = shared::AlignUp(sizeof(NumberHeader), (u64)sizeof(T));
             max_count_ = (PAGE_SIZE - key_offset_ - pad_keys - sizeof(page_id)) / (sizeof(T) + sizeof(page_id));
             ref_offset_ = shared::AlignUp(key_offset_ + max_count_ * sizeof(T), (u64)sizeof(page_id));
         }
@@ -88,14 +107,16 @@ namespace db7::access
             ShiftRightInsert(OffsetRef(data), count + 1, idx + 1, value);
         }
 
-        bool HasSpace(BtreeHeader *header, T key)
+        bool HasSpace(byte *data, T key)
         {
             (void)key;
+            auto *header = CastHeader(data);
             return header->count < max_count_;
         }
 
-        bool HasSplit(BtreeHeader *header, T key)
+        bool HasSplit(byte *data, T key)
         {
+            auto *header = CastHeader(data);
             return key >= header->max_val;
         }
 
@@ -142,6 +163,16 @@ namespace db7::access
             left_header->max_val = sentinel;
 
             return sentinel;
+        }
+
+        void InitHeader(byte *data, u32 count, u8 level)
+        {
+            WriteHeader(data, UNDEFINED, count, level, UNDEFINED);
+        }
+
+        u64 GetRLink(byte *data)
+        {
+            return CastHeader(data)->rlink;
         }
     };
 };

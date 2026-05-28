@@ -10,9 +10,9 @@
 #include "access/index/varlen_layout/btree_varlen_layout_inter.hpp"
 #include "access/index/varlen_layout/btree_varlen_layout_leaf.hpp"
 #include "shared/macro_helper.hpp"
-#include "access/index/btree_header.hpp"
 #include "debug/printer.hpp"
 #include "shared/thread_local_util.hpp"
+#include "access/index/base_ly_header.hpp"
 
 #include <vector>
 #include <atomic>
@@ -68,8 +68,7 @@ namespace db7::access
 
             byte *new_root_data = new_root_page->GetData();
 
-            auto *header = CastHeader(new_root_data);
-            WriteHeader(header, layout_inter_.UNDEFINED, 1, level + 1, layout_inter_.UNDEFINED);
+            layout_inter_.InitHeader(new_root_data, 1, level + 1);
 
             layout_inter_.CreateRoot(new_root_data, key, pid, new_pid);
 
@@ -108,16 +107,19 @@ namespace db7::access
             return sentinel;
         }
 
-        void GoRight(storage::Page *&page, BtreeHeader *&header, T key)
+        storage::Page *GoRight(storage::Page *page, T key)
         {
-            while (layout_inter_.HasSplit(header, key))
+            byte *data = page->GetData();
+            while (layout_inter_.HasSplit(data, key))
             {
-                page_id pid = header->rlink;
+                page_id pid = layout_leaf_.GetRLink(data);
                 ReleasePage<shared::LockMode::Write>(page);
                 page = GetNode<shared::LockMode::Write>(storage::PageIdentifier(tbl_id_, pid));
-                header = CastHeader(page->GetData());
+                data = page->GetData();
             };
+            return page;
         }
+
         page_id GetRoot()
         {
             return root_id_.load();
@@ -131,22 +133,21 @@ namespace db7::access
                 DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
 
                 storage::Page *page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
+                auto *data = page->GetData();
             retry:
                 constexpr shared::LockMode LM = shared::LockMode::Optimistic;
                 shared::Lock<LM>(page);
 
-                BtreeHeader *header = CastHeader(page->GetData());
-
-                if (header->level <= 0)
+                if (GetLevel(data) <= 0)
                 {
                     if (!shared::Unlock<LM>(page))
                         goto retry;
 
                     return page;
                 }
-                else if (layout_inter_.HasSplit(header, key))
+                else if (layout_inter_.HasSplit(data, key))
                 {
-                    page_id new_pid = header->rlink;
+                    page_id new_pid = layout_inter_.GetRLink(data);
 
                     if (!shared::Unlock<LM>(page))
                         goto retry;
@@ -155,8 +156,7 @@ namespace db7::access
                 }
                 else
                 {
-                    auto *data = page->GetData();
-                    page_id new_pid = layout_inter_.Get(data, header->count, key);
+                    page_id new_pid = layout_inter_.Get(data, GetCount(data), key);
 
                     if (!shared::Unlock<LM>(page))
                         goto retry;
@@ -180,13 +180,12 @@ namespace db7::access
                 DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
 
                 storage::Page *page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
+                auto *data = page->GetData();
             retry:
                 constexpr shared::LockMode LM = shared::LockMode::Optimistic;
                 shared::Lock<LM>(page);
 
-                BtreeHeader *header = CastHeader(page->GetData());
-
-                if (header->level <= drop_level)
+                if (GetLevel(data) <= drop_level)
                 {
                     if (!shared::Unlock<LM>(page))
                         goto retry;
@@ -195,9 +194,9 @@ namespace db7::access
 
                     return;
                 }
-                else if (layout_inter_.HasSplit(header, key))
+                else if (layout_inter_.HasSplit(data, key))
                 {
-                    page_id new_pid = header->rlink;
+                    page_id new_pid = layout_inter_.GetRLink(data);
 
                     if (!shared::Unlock<LM>(page))
                         goto retry;
@@ -206,8 +205,7 @@ namespace db7::access
                 }
                 else
                 {
-                    auto *data = page->GetData();
-                    page_id new_pid = layout_inter_.Get(data, header->count, key);
+                    page_id new_pid = layout_inter_.Get(data, GetCount(data), key);
 
                     if (!shared::Unlock<LM>(page))
                         goto retry;
@@ -227,22 +225,20 @@ namespace db7::access
         {
             shared::Lock<shared::LockMode::Write>(page);
 
-            BtreeHeader *header = CastHeader(page->GetData());
-            GoRight(page, header, key);
+            page = GoRight(page, key);
             byte *data = page->GetData();
             page_id pid = page->GetPageId();
 
-            if (layout_leaf_.HasSpace(header, key))
+            if (layout_leaf_.HasSpace(data, key))
             {
-                layout_leaf_.Insert(data, header->count, key, value);
-                IncrementHeaderSize(header);
+                layout_leaf_.Insert(data, key, value);
                 ReleasePage<shared::LockMode::Write>(page);
             }
             else
             {
                 page_id new_pid;
                 T sentinel = SplitLeaf(data, new_pid, key, value); // TODO should not be a ref but a copy
-                u8 level = header->level;
+                u8 level = GetLevel(data);
                 ReleasePage<shared::LockMode::Write>(page);
 
                 if (shared::TlState::IsEmpty())
@@ -278,15 +274,14 @@ namespace db7::access
 
                 constexpr shared::LockMode LM = shared::LockMode::Write;
                 auto *page = GetNode<LM>(storage::PageIdentifier(tbl_id_, pid));
-                BtreeHeader *header = CastHeader(page->GetData());
-                GoRight(page, header, key);
+                page = GoRight(page, key);
                 pid = page->GetPageId();
 
                 auto *data = page->GetData();
-                if (layout_inter_.HasSpace(header, key))
+
+                if (layout_inter_.HasSpace(data, key))
                 {
-                    layout_inter_.Insert(data, header->count, key, value);
-                    IncrementHeaderSize(header);
+                    layout_inter_.Insert(data, key, value);
                     ReleasePage<LM>(page);
                     break;
                 }
@@ -295,7 +290,7 @@ namespace db7::access
                     page_id new_pid;
                     key = SplitInter(data, new_pid, key, value);
                     value = new_pid;
-                    u8 level = header->level;
+                    u8 level = GetLevel(data);
                     ReleasePage<LM>(page);
 
                     if (shared::TlState::IsEmpty())
@@ -319,6 +314,7 @@ namespace db7::access
             return true;
         }
 
+        // TODO this should not exist i should first drop to level then here move right or whatever
         R InternalGet(T key)
         {
             page_id pid = GetRoot();
@@ -327,27 +323,24 @@ namespace db7::access
                 DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
 
                 storage::Page *page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
-
+                auto *data = page->GetData();
             retry:
                 constexpr shared::LockMode LM = shared::LockMode::Optimistic;
                 shared::Lock<LM>(page);
 
-                BtreeHeader *header = CastHeader(page->GetData());
-
-                if (layout_inter_.HasSplit(header, key))
+                // Check sentinel value
+                if (layout_inter_.HasSplit(data, key))
                 {
-                    page_id new_pid = header->rlink;
+                    page_id new_pid = layout_leaf_.GetRLink(data); // for now this is leaf layout but this method should be changed to use drop to level
 
                     if (!shared::Unlock<LM>(page))
                         goto retry;
 
                     pid = new_pid;
                 }
-                else if (header->level == 0)
+                else if (GetLevel(data) <= 0)
                 {
-                    byte *data = page->GetData();
-                    BtreeHeader *header = CastHeader(data);
-                    R result = layout_leaf_.Get(data, header->count, key);
+                    R result = layout_leaf_.Get(data, GetCount(data), key);
 
                     if (!shared::Unlock<LM>(page))
                         goto retry;
@@ -357,8 +350,7 @@ namespace db7::access
                 }
                 else
                 {
-                    auto *data = page->GetData();
-                    page_id new_pid = layout_inter_.Get(data, header->count, key);
+                    page_id new_pid = layout_inter_.Get(data, GetCount(data), key);
 
                     if (!shared::Unlock<LM>(page))
                         goto retry;
@@ -377,7 +369,7 @@ namespace db7::access
     public:
         BTreeIndex(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, table_id tbl_id)
             : root_id_(1), buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id),
-              layout_inter_(sizeof(BtreeHeader)), layout_leaf_(sizeof(BtreeHeader))
+              layout_inter_(), layout_leaf_()
         {
             if (!disk_mng_->CreateOpenFile(tbl_id_, 1))
             {
@@ -386,8 +378,9 @@ namespace db7::access
             }
 
             storage::Page *page = buffer_pool_->Reserve(tbl_id);
-            auto *header = CastHeader(page->GetData());
-            WriteHeader(header, layout_leaf_.UNDEFINED, 0, 0, layout_leaf_.UNDEFINED);
+
+            layout_leaf_.InitHeader(page->GetData(), 0, 0);
+
             ReleasePage<shared::LockMode::None>(page);
         }
 

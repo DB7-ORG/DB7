@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.hpp"
+#include "access/index/base_ly_header.hpp"
 
 namespace db7::access
 {
@@ -10,11 +11,16 @@ namespace db7::access
         byte *data;
     };
 
-    struct VarlenHeader
+    struct VarlenHeader : public BaseLyHeader
     {
-        u32 heap_size; // taken heap space
-        // u32 total_taken; // heap_size + taken slot size + headers //TODO optimization for Free space calc
+        u32 heap_size;
     };
+
+    // VarlenHeader *CastHeader(byte *data);
+
+    // void WriteHeader(VarlenHeader *header, u64 rlink, u32 count, u8 level, u64 max_val);
+
+    // void WriteHeader(byte *data, u64 rlink, u32 count, u8 level, u64 max_val);
 
     struct Slot
     {
