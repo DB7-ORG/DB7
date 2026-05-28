@@ -107,6 +107,9 @@ namespace db7::storage
 
     Page *BufferPool::Pin(PageIdentifier id)
     {
+        DB7_ASSERT(id.pid != 0, "invalid pid");
+        DB7_ASSERT(id.pid != std::numeric_limits<page_id>::max(), "invalid pid");
+
         // LOOKUP
         u32 partIdx = GetPartitionIdx(id);
 

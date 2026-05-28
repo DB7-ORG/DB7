@@ -205,6 +205,13 @@ namespace db7::access
             return ReadKey(data, Slot{offset});
         }
 
+        Key DeepCopy(Key key)
+        {
+            byte *sentinel_copy = new byte[key.len];
+            std::memcpy(sentinel_copy, key.data, key.len);
+            return Key{key.len, sentinel_copy};
+        }
+
     public:
         static constexpr R UNDEFINED = std::numeric_limits<R>::max();
 
@@ -261,9 +268,10 @@ namespace db7::access
                 right_max = (u64)AppendHeap(right_data, Key{val.hdr.len, val.data}, val.hdr.result);
             }
 
+            Key sentinel = DeepCopy(ReadKey(left_data, OffsetHeader(left_data)[mid]));
+
             CompactHeap(left_data, left_slots, mid);
 
-            Key sentinel = ReadKey(right_data, OffsetHeader(right_data)[0]);
             u64 left_max = (u64)AppendHeap(left_data, sentinel, UNDEFINED);
 
             u32 left_header_count = mid;
@@ -281,11 +289,6 @@ namespace db7::access
             WriteHeader(right_header, left_header->rlink, right_header_count, left_header->level, right_max);
 
             WriteHeader(left_header, new_pid, left_header_count, left_header->level, left_max);
-
-            // copy sentinel
-            byte *sentinel_copy = new byte[sentinel.len];
-            std::memcpy(sentinel_copy, sentinel.data, sentinel.len);
-            sentinel = Key{sentinel.len, sentinel_copy};
 
             return sentinel;
         }

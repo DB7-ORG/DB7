@@ -146,7 +146,11 @@ namespace db7::access
         void CopyRange(byte *from, byte *to, Slot *from_slots, u32 start, u32 end)
         {
             auto *to_slots = OffsetHeader(to);
-            for (u32 i = start; i < end; i++)
+
+            SlotVal val = CastSlot(ReadSlot(from, from_slots[start]));
+            to_slots[0] = Slot{AppendHeap(to, Key{0, nullptr}, val.hdr.result)};
+
+            for (u32 i = start + 1; i < end; i++)
             {
                 SlotVal val = CastSlot(ReadSlot(from, from_slots[i]));
                 u32 off = AppendHeap(to, Key{val.hdr.len, val.data}, val.hdr.result);
@@ -213,6 +217,13 @@ namespace db7::access
             return header->max_val;
         }
 
+        Key DeepCopy(Key key)
+        {
+            byte *sentinel_copy = new byte[key.len];
+            std::memcpy(sentinel_copy, key.data, key.len);
+            return Key{key.len, sentinel_copy};
+        }
+
     public:
         static constexpr R UNDEFINED = std::numeric_limits<R>::max();
 
@@ -222,6 +233,13 @@ namespace db7::access
         {
             Slot *slots = OffsetHeader(data);
             u32 idx = GetIdx(data, count, key);
+
+            if (idx == 0)
+            {
+                shared::PrintVarlenLayout(data);
+                DB7_ASSERT(false, "key routes before leftmost entry");
+            }
+            DB7_ASSERT(idx > 0, "key routes before leftmost entry");
             SlotVal val = CastSlot(ReadSlot(data, slots[idx - 1]));
             return val.hdr.result;
         }
@@ -286,15 +304,16 @@ namespace db7::access
                 right_max = (u64)AppendHeap(right_data, Key{val.hdr.len, val.data}, val.hdr.result);
             }
 
+            Key sentinel = DeepCopy(ReadKey(left_data, OffsetHeader(left_data)[mid]));
+
             CompactHeap(left_data, left_slots, mid);
 
-            Key sentinel = ReadKey(right_data, OffsetHeader(right_data)[0]);
             u64 left_max = (u64)AppendHeap(left_data, sentinel, UNDEFINED);
 
             u32 left_header_count = mid;
             u32 right_header_count = left_header->count - mid;
-            byte *sep = ReadSlot(right_data, OffsetHeader(right_data)[0]);
-            if (Cmp(sep, key) > 0)
+
+            if (Cmp(sentinel.data, key) > 0)
             {
                 Insert(left_data, left_header_count++, key, value);
             }
@@ -306,11 +325,6 @@ namespace db7::access
             WriteHeader(right_header, left_header->rlink, right_header_count, left_header->level, right_max);
 
             WriteHeader(left_header, new_pid, left_header_count, left_header->level, left_max);
-
-            // copy sentinel
-            byte *sentinel_copy = new byte[sentinel.len];
-            std::memcpy(sentinel_copy, sentinel.data, sentinel.len);
-            sentinel = Key{sentinel.len, sentinel_copy};
 
             return sentinel;
         }

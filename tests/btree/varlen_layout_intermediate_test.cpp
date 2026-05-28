@@ -18,7 +18,16 @@ namespace db7::access
         // Helper to make a Key from a string
         Key MakeKey(const std::string &s)
         {
-            return Key{(u16)s.size(), (byte *)s.data()};
+            byte *buf = new byte[s.size()];
+
+            if (!s.empty())
+            {
+                std::memcpy(buf, s.data(), s.size());
+            }
+
+            return Key{
+                static_cast<u16>(s.size()),
+                buf};
         }
 
         // Initialize a fresh page with zeroed memory and proper headers

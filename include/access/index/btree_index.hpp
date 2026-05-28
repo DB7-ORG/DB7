@@ -128,6 +128,8 @@ namespace db7::access
             page_id pid = GetRoot();
             do
             {
+                DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
+
                 storage::Page *page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
             retry:
                 constexpr shared::LockMode LM = shared::LockMode::Optimistic;
@@ -175,6 +177,8 @@ namespace db7::access
             page_id pid = GetRoot();
             do
             {
+                DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
+
                 storage::Page *page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
             retry:
                 constexpr shared::LockMode LM = shared::LockMode::Optimistic;
@@ -270,6 +274,7 @@ namespace db7::access
             while (!shared::TlState::IsEmpty())
             {
                 page_id pid = shared::TlState::Pop();
+                DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
 
                 constexpr shared::LockMode LM = shared::LockMode::Write;
                 auto *page = GetNode<LM>(storage::PageIdentifier(tbl_id_, pid));
@@ -319,6 +324,8 @@ namespace db7::access
             page_id pid = GetRoot();
             do
             {
+                DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
+
                 storage::Page *page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
 
             retry:
