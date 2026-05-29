@@ -20,11 +20,22 @@ thread safety for file descriptors
 perf report -i perf.data -f
 
 
-https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf
-* Head optimizations seems easy to implement
+
 
 refactor exisitng split for varlen
 
 add some tests after to guarantee ur btree works
 
 // TODO CATALOG UNCOMMENT
+
+
+TODO 
+https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf
+* Head optimizations seems easy to implement
+
+* can store in tl storage root leaf level when i traverse the tree and then decrement it every time i go down so i 
+  dont have to cast header and take locks every time in drop to level
+
+* add utf8 support to my strings 
+
+* check to see what happens w duplicate data in the index and how it holds
