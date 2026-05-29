@@ -5,6 +5,7 @@
 #include "shared/align_util.hpp"
 #include "debug/printer.hpp"
 #include "access/index/varlen_layout/btree_varlen_models.hpp"
+#include "shared/key_encode_util.hpp"
 
 #include <span>
 #include <limits>
@@ -56,6 +57,15 @@ namespace db7::access
             if (cmp != 0)
                 return cmp;
             return (key.len < len) - (key.len > len);
+        }
+
+        int Cmp(Key slot, Key key)
+        {
+            u32 min_len = std::min(key.len, slot.len);
+            int cmp = std::memcmp(slot.data, key.data, min_len);
+            if (cmp != 0)
+                return cmp;
+            return (key.len < slot.len) - (key.len > slot.len);
         }
 
         byte *ReadSlot(byte *data, Slot slot)
@@ -221,7 +231,15 @@ namespace db7::access
         {
             byte *sentinel_copy = new byte[key.len];
             std::memcpy(sentinel_copy, key.data, key.len);
-            return Key{key.len, sentinel_copy};
+            return Key(key.len, sentinel_copy);
+        }
+
+        Key DeepCopyEncoded(Key key)
+        {
+            constexpr u32 BASE_OVERHEAD = 1; // TODO store this somewhere, in the tree for example based on schema
+            byte *sentinel_copy = new byte[key.len + BASE_OVERHEAD];
+            shared::KeyNormEncoder::Encode(sentinel_copy, std::span<const byte>{key.data, key.len}, key.data == nullptr, false, false);
+            return MakeEncodedKey(key.len + BASE_OVERHEAD, sentinel_copy);
         }
 
         void InsertInternal(byte *data, u32 count, Key key, R value)
@@ -238,6 +256,11 @@ namespace db7::access
             ShiftRightInsert(slots, count, idx, slot); // TODO this should increment header count
         }
 
+        R ReadMaxVal(VarlenHeader *header)
+        {
+            return header->max_val;
+        }
+
     public:
         static constexpr R UNDEFINED = std::numeric_limits<R>::max();
 
@@ -245,6 +268,9 @@ namespace db7::access
 
         R Get(byte *data, const u32 count, const Key key)
         {
+            DB7_ASSERT(key.data != nullptr, "invalid key");
+            DB7_ASSERT(key.len != 0, "invalid key");
+
             Slot *slots = OffsetHeader(data);
             bool found = false;
             u32 idx = GetIdx(data, count, key, found);
@@ -258,6 +284,9 @@ namespace db7::access
 
         void Insert(byte *data, Key key, R value)
         {
+            DB7_ASSERT(key.data != nullptr, "invalid key");
+            DB7_ASSERT(key.len != 0, "invalid key");
+
             u32 count = CastHeader(data)->count;
             InsertInternal(data, count, key, value);
             CastHeader(data)->count++;
@@ -265,12 +294,30 @@ namespace db7::access
 
         bool HasSpace(byte *data, Key key)
         {
+            DB7_ASSERT(key.data != nullptr, "invalid key");
+            DB7_ASSERT(key.len != 0, "invalid key");
+
             auto hdr = CastHeader(data); // TODO fix this, this can all fit into taken_space
             return key_offset_ + hdr->count * sizeof(Slot) + hdr->heap_size + CalcWorstCaseSize(key) < PAGE_SIZE;
         }
 
+        bool HasSplit(byte *data, Key key)
+        {
+            DB7_ASSERT(key.data != nullptr, "invalid key");
+            DB7_ASSERT(key.len != 0, "invalid key");
+
+            auto *header = CastHeader(data);
+            if (ReadMaxVal(header) == UNDEFINED)
+                return false; // rightmost page, no high key
+            auto *slot = ReadSlot((byte *)header, header->max_val);
+            return Cmp(slot, key) <= 0;
+        }
+
         Key Split(byte *left_data, byte *right_data, page_id new_pid, Key key, R value)
         {
+            DB7_ASSERT(key.data != nullptr, "invalid key");
+            DB7_ASSERT(key.len != 0, "invalid key");
+
             UpdateHeapSize(right_data, 0);
 
             auto *left_header = CastHeader(left_data);
@@ -289,14 +336,16 @@ namespace db7::access
 
             Key sentinel = DeepCopy(ReadKey(left_data, OffsetHeader(left_data)[mid]));
 
+            Key sentinel_copy = DeepCopyEncoded(sentinel);
+
             CompactHeap(left_data, left_slots, mid);
 
             u64 left_max = (u64)AppendHeap(left_data, sentinel, UNDEFINED);
 
             u32 left_header_count = mid;
             u32 right_header_count = left_header->count - mid;
-            byte *sep = ReadSlot(right_data, OffsetHeader(right_data)[0]);
-            if (Cmp(sep, key) > 0)
+
+            if (Cmp(sentinel, key) > 0)
             {
                 InsertInternal(left_data, left_header_count++, key, value);
             }
@@ -309,7 +358,7 @@ namespace db7::access
 
             WriteHeader(left_header, new_pid, left_header_count, left_header->level, left_max);
 
-            return sentinel;
+            return sentinel_copy;
         }
 
         void InitHeader(byte *data, u32 count, u8 level)

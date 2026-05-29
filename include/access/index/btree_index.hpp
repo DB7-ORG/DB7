@@ -107,7 +107,7 @@ namespace db7::access
             return sentinel;
         }
 
-        storage::Page *GoRight(storage::Page *page, T key)
+        storage::Page *GoRightInter(storage::Page *page, T key)
         {
             constexpr shared::LockMode LM = shared::LockMode::Write;
             do
@@ -121,6 +121,30 @@ namespace db7::access
                 else
                 {
                     page_id new_pid = layout_inter_.GetRLink(data);
+
+                    ReleasePage<LM>(page);
+
+                    page = GetNode<LM>(storage::PageIdentifier(tbl_id_, new_pid));
+                }
+            } while (true);
+
+            DB7_UNREACHABLE();
+        }
+
+        storage::Page *GoRightLeaf(storage::Page *page, T key)
+        {
+            constexpr shared::LockMode LM = shared::LockMode::Write;
+            do
+            {
+                auto *data = page->GetData();
+
+                if (!layout_leaf_.HasSplit(data, key))
+                {
+                    return page;
+                }
+                else
+                {
+                    page_id new_pid = layout_leaf_.GetRLink(data);
 
                     ReleasePage<LM>(page);
 
@@ -145,6 +169,7 @@ namespace db7::access
 
                 storage::Page *page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
                 auto *data = page->GetData();
+
             retry:
                 constexpr shared::LockMode LM = shared::LockMode::Optimistic;
                 shared::Lock<LM>(page);
@@ -237,7 +262,7 @@ namespace db7::access
         {
             shared::Lock<shared::LockMode::Write>(page);
 
-            page = GoRight(page, key);
+            page = GoRightLeaf(page, key);
             byte *data = page->GetData();
             page_id pid = page->GetPageId();
 
@@ -249,7 +274,7 @@ namespace db7::access
             else
             {
                 page_id new_pid;
-                T sentinel = SplitLeaf(data, new_pid, key, value); // TODO should not be a ref but a copy
+                T sentinel = SplitLeaf(data, new_pid, key, value);
                 u8 level = GetLevel(data);
                 ReleasePage<shared::LockMode::Write>(page);
 
@@ -286,7 +311,7 @@ namespace db7::access
 
                 constexpr shared::LockMode LM = shared::LockMode::Write;
                 auto *page = GetNode<LM>(storage::PageIdentifier(tbl_id_, pid));
-                page = GoRight(page, key);
+                page = GoRightInter(page, key);
                 pid = page->GetPageId();
 
                 auto *data = page->GetData();
@@ -338,7 +363,7 @@ namespace db7::access
                 shared::Lock<LM>(page);
 
                 // Check sentinel value
-                if (layout_inter_.HasSplit(data, key))
+                if (layout_leaf_.HasSplit(data, key))
                 {
                     page_id new_pid = layout_leaf_.GetRLink(data);
 

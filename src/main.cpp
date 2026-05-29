@@ -92,24 +92,40 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
     using Typ = access::Key;
     db7::access::BTreeIndex<Typ> index(buffer_pool, disk_mng_async, 1);
 
-    u32 n = 7'000'000;
+    u32 n = 1'000'000;
     // std::vector<u32> keys(n);
     // std::iota(keys.begin(), keys.end(), 1);
     // std::shuffle(keys.begin(), keys.end(), std::mt19937{42});
 
-    std::vector<std::string> strs(n);
+    std::vector<db7::access::Key> strs(n);
     for (u32 i = 0; i < n; i++)
-        strs[i] = "key_" + std::to_string(i + 1);
+    {
+        std::string s = "kEY_" + std::to_string(i + 1);
+        byte *buf = new byte[s.size() + 1];
+        byte *raw = new byte[s.size()]; // ← own copy of raw too
+
+        std::memcpy(raw, s.data(), s.size());
+
+        std::span sp((const byte *)s.data(), (u16)s.size());
+        shared::KeyNormEncoder::Encode(buf, sp, false, false, false);
+
+        strs[i].data = raw;
+        strs[i].len = (u16)s.size();
+        strs[i].encoded = buf;
+        strs[i].enc_len = (u16)(s.size() + 1);
+    }
     std::shuffle(strs.begin(), strs.end(), std::mt19937{42});
 
     std::vector<db7::access::Key> keys(n);
     for (u32 i = 0; i < n; i++)
-        keys[i] = db7::access::Key{(u16)strs[i].size(), (byte *)strs[i].data()};
+    {
+        keys[i] = strs[i];
+    }
 
     u32 num_threads = std::thread::hardware_concurrency();
     std::cout << num_threads << std::endl;
 
-    bool SINGLE_THREAD = false;
+    bool SINGLE_THREAD = true;
 
     std::vector<std::thread> threads(num_threads);
     std::barrier sync_point(num_threads + 1);
