@@ -59,6 +59,21 @@ def getPagesByTableId(result, table_id):
     result["pages"] = arr
 
 
+def getTablesById(result):
+    pages = gdb_eval("buffer_pool.pages_")
+    size = int(atomic_val(gdb_eval("buffer_pool")["pool_size_"]))
+    seen = set()
+    tables = []
+    for i in range(0, size):
+        page = pages[i]
+        page_id_val = atomic_val(page["id_"])
+        tbl_id = int(page_id_val["tbl_id"])
+        if tbl_id not in seen:
+            seen.add(tbl_id)
+            tables.append({"table_id": tbl_id, "name": "table_" + str(tbl_id)})
+    result["tables"] = tables
+
+
 def getPageById(result, index):
     page = gdb_eval(f"buffer_pool.pages_[{index}]")
     data_ptr = int(page["data_"])
@@ -98,6 +113,8 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path.startswith("/pool/pages/"):
                 table_id = int(self.path.split("/")[-1])
                 getPagesByTableId(result, table_id)
+            elif self.path == "/pool/tables":
+                getTablesById(result)
             else:
                 self.send_response(404)
                 self.end_headers()
@@ -132,9 +149,13 @@ class Handler(BaseHTTPRequestHandler):
         pass  # silence request logs
 
 
+class ReusableHTTPServer(HTTPServer):
+    allow_reuse_address = True
+
+
 def start_server():
     try:
-        server = HTTPServer(("127.0.0.1", 8007), Handler)
+        server = ReusableHTTPServer(("127.0.0.1", 8007), Handler)
         print("[inspector] HTTP server on http://127.0.0.1:8007")
         server.serve_forever()
     except Exception as e:
