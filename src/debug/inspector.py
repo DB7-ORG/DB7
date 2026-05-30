@@ -133,9 +133,12 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def start_server():
-    server = HTTPServer(("127.0.0.1", 8007), Handler)
-    print("[inspector] HTTP server on http://127.0.0.1:8007")
-    server.serve_forever()
+    try:
+        server = HTTPServer(("127.0.0.1", 8007), Handler)
+        print("[inspector] HTTP server on http://127.0.0.1:8007")
+        server.serve_forever()
+    except Exception as e:
+        print(f"[inspector] FAILED to start server: {e}")
 
 
 # Start server in background thread when script loads
