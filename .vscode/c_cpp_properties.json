@@ -8,7 +8,8 @@
                 "${workspaceFolder}/src"
             ],
             "defines": [
-                "__AVX2__"
+                "__AVX2__",
+                "DEBUG"
             ],
             "compilerPath": "/usr/bin/g++",
             "cStandard": "c17",

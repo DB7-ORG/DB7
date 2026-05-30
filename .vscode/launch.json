@@ -24,6 +24,11 @@
                     "description": "Set Disassembly Flavor to Intel",
                     "text": "-gdb-set disassembly-flavor intel",
                     "ignoreFailures": true
+                },
+                {
+                    "description": "Load buffer pool inspector",
+                    "text": "source ${workspaceFolder}/src/debug/inspector.py",
+                    "ignoreFailures": false
                 }
             ]
         },

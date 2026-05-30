@@ -7,7 +7,7 @@
 
 namespace db7::storage
 {
-    BufferPool::BufferPool(DiskScheduler *disk_mng) : disk_mng_(disk_mng)
+    BufferPool::BufferPool(DiskScheduler *disk_mng) : disk_mng_(disk_mng), pool_size_(BUFFER_POOL_PAGE_NUM)
     {
         pages_ = new Page[BUFFER_POOL_PAGE_NUM];
         auto data = static_cast<u8 *>(std::aligned_alloc(4096, static_cast<size_t>(BUFFER_POOL_PAGE_NUM) * PAGE_SIZE));

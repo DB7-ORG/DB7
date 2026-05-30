@@ -14,7 +14,7 @@ namespace db7::storage
     private:
         DiskScheduler *disk_mng_;
         Page *pages_;
-        u32 poolSize_;
+        u32 pool_size_;
         std::atomic<u32> sweep_head_;
         BufferPartitions partitions_;
 
