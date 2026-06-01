@@ -22,18 +22,20 @@ namespace db7::access
             return reinterpret_cast<NumberHeader *>(data);
         }
 
-        void WriteHeader(NumberHeader *header, u64 rlink, u32 count, u8 level, u64 max_val)
+        void WriteHeader(NumberHeader *header, page_id pid, u64 rlink, u64 llink, u32 count, u8 level, u64 max_val)
         {
+            header->pid = pid;
             header->rlink = rlink;
+            header->llink = llink;
             header->count = count;
             header->level = level;
             header->max_val = max_val;
         }
 
-        void WriteHeader(byte *data, u64 rlink, u32 count, u8 level, u64 max_val)
+        void WriteHeader(byte *data, page_id pid, u64 rlink, u64 llink, u32 count, u8 level, u64 max_val)
         {
             auto *header = CastHeader(data);
-            WriteHeader(header, rlink, count, level, max_val);
+            WriteHeader(header, pid, rlink, llink, count, level, max_val);
         }
 
         template <typename Typ>
@@ -172,9 +174,9 @@ namespace db7::access
             return sentinel;
         }
 
-        void InitHeader(byte *data, u32 count, u8 level)
+        void InitHeader(byte *data, u32 count, u8 level, page_id pid)
         {
-            WriteHeader(data, UNDEFINED, count, level, UNDEFINED);
+            WriteHeader(data, pid, UNDEFINED, UNDEFINED, count, level, UNDEFINED);
         }
 
         u64 GetRLink(byte *data)

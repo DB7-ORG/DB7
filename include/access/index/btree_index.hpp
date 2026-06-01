@@ -68,7 +68,7 @@ namespace db7::access
 
             byte *new_root_data = new_root_page->GetData();
 
-            layout_inter_.InitHeader(new_root_data, 1, level + 1);
+            layout_inter_.InitHeader(new_root_data, 1, level + 1, new_root_page->GetPageId());
 
             layout_inter_.CreateRoot(new_root_data, key, pid, new_pid);
 
@@ -344,7 +344,11 @@ namespace db7::access
                 else
                 {
                     page_id new_pid;
+
+                    Key old_key = key;
                     key = SplitInter(data, new_pid, key, value);
+                    delete[] old_key.encoded;
+
                     value = new_pid;
                     u8 level = GetLevel(data);
                     ReleasePage<LM>(page);
@@ -423,7 +427,7 @@ namespace db7::access
 
             storage::Page *page = buffer_pool_->Reserve(tbl_id);
 
-            layout_leaf_.InitHeader(page->GetData(), 0, 0);
+            layout_leaf_.InitHeader(page->GetData(), 0, 0, page->GetPageId());
 
             ReleasePage<shared::LockMode::None>(page);
         }

@@ -8,7 +8,9 @@ namespace db7::access
 {
     struct BaseLyHeader
     {
+        page_id pid;
         u64 rlink;
+        u64 llink;
         u32 count;
         u8 level;
         u64 max_val;

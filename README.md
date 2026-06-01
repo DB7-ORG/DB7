@@ -33,6 +33,6 @@ TODO
 https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf
 * Head optimizations seems easy to implement
 
-* add utf8 support to my strings 
-
 * check to see what happens w duplicate data in the index and how it holds
+
+* fix valgrind later

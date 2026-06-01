@@ -83,7 +83,9 @@ def getPageById(result, index):
     # dump is now a pointer — dereference it
     count = int(dump["count"])
     result["page"] = {
+        "pid": int(dump["pid"]),
         "rlink": int(dump["rlink"]),
+        "llink": int(dump["llink"]),
         "count": count,
         "level": int(dump["level"]),
         "max_val": int(dump["max_val"]),
@@ -154,6 +156,7 @@ class ReusableHTTPServer(HTTPServer):
 
 
 def start_server():
+    
     try:
         server = ReusableHTTPServer(("127.0.0.1", 8007), Handler)
         print("[inspector] HTTP server on http://127.0.0.1:8007")

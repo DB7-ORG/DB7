@@ -13,7 +13,9 @@ namespace db7::debug
         dump = {};
         auto *header = reinterpret_cast<access::VarlenHeader *>(data);
 
+        dump.pid = header->pid;
         dump.rlink = header->rlink;
+        dump.llink = header->llink;
         dump.count = header->count;
         dump.level = header->level;
         dump.max_val = header->max_val;

@@ -101,7 +101,7 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
     for (u32 i = 0; i < n; i++)
     {
         std::string s = "kEY_ⅶ_⎞_Љ_۝_" + std::to_string(i + 1);
-        byte *buf = new byte[s.size() + 1];
+        byte *buf = new byte[s.size() * 16];
         byte *raw = new byte[s.size()]; // ← own copy of raw too
 
         std::memcpy(raw, s.data(), s.size());
@@ -205,6 +205,12 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
     }
 
     u64 t2 = now_ns();
+
+    for (u32 i = 0; i < n; i++)
+    {
+        delete[] strs[i].data;
+        delete[] strs[i].encoded;
+    }
 
     // db7::shared::Print(*buffer_pool);
 

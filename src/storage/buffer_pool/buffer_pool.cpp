@@ -184,6 +184,7 @@ namespace db7::storage
         {
             partIdx = GetPartitionIdx(victim_page_id);
             partitions_.Delete(victim_page_id, victim_frame_idx, partIdx);
+            std::memset(page->GetData(), 0, PAGE_SIZE); // TODO i dont needd this
             return page;
         }
 
