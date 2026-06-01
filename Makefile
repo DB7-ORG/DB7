@@ -2,7 +2,7 @@ MAKEFLAGS += -j$(nproc)
 CXX = g++
 CC = gcc
 BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -Iinclude -Isrc -march=native
-LDFLAGS = -lxxhash -lfmt -luring -ljemalloc
+LDFLAGS = -lxxhash -lfmt -luring -ljemalloc -lutf8proc
 
 BUILD ?= release
 
@@ -65,7 +65,7 @@ clean-force:
 	rm -rf $(OBJ_DIR) $(CACHE_OBJ_DIR) $(BIN_DIR)
 	
 install:
-	sudo apt install -y liburing-dev libxxhash-dev libfmt-dev build-essential libjemalloc-dev
+	sudo apt install -y liburing-dev libxxhash-dev libfmt-dev build-essential libjemalloc-dev libutf8proc-dev
 
 .PHONY: all clean clean-force run install test clean-test
 

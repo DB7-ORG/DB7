@@ -100,7 +100,7 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
     std::vector<db7::access::Key> strs(n);
     for (u32 i = 0; i < n; i++)
     {
-        std::string s = "kEY_" + std::to_string(i + 1);
+        std::string s = "kEY_ⅶ_⎞_Љ_۝_" + std::to_string(i + 1);
         byte *buf = new byte[s.size() + 1];
         byte *raw = new byte[s.size()]; // ← own copy of raw too
 

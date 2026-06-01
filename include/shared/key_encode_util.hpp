@@ -5,6 +5,7 @@
 
 #include <span>
 #include <cstring>
+#include <utf8proc.h>
 
 namespace db7::shared
 {
@@ -25,6 +26,35 @@ namespace db7::shared
                 return __builtin_bswap64(val);
 #endif
             return val;
+        }
+
+        static u32 EncodeStringNormalized(byte *buf, std::span<const byte> data, bool is_case_sensitive)
+        {
+            utf8proc_option_t opts = static_cast<utf8proc_option_t>(
+                UTF8PROC_DECOMPOSE | // NFD
+                UTF8PROC_STABLE |    // canonical ordering
+                UTF8PROC_NULLTERM);
+
+            if (!is_case_sensitive)
+                opts = static_cast<utf8proc_option_t>(opts | UTF8PROC_CASEFOLD);
+
+            utf8proc_uint8_t *output = nullptr;
+            utf8proc_ssize_t out_len = utf8proc_map( // TODO this allocates
+                reinterpret_cast<const utf8proc_uint8_t *>(data.data()),
+                static_cast<utf8proc_ssize_t>(data.size()),
+                &output,
+                opts);
+
+            if (out_len < 0 || output == nullptr)
+            {
+                throw std::runtime_error(std::string("utf8proc_map failed: ") + utf8proc_errmsg(out_len));
+            }
+
+            std::memcpy(buf, output, static_cast<size_t>(out_len));
+            buf[out_len] = 0x00;
+            free(output); // TODO this allocates
+
+            return static_cast<u32>(out_len + 1);
         }
 
     public:
@@ -70,17 +100,21 @@ namespace db7::shared
             }
             else if constexpr (std::is_same_v<T, std::span<const byte>>)
             { // strings, bytes ...
-                if (is_case_sensitive)
-                {
-                    std::memcpy(buf, data.data(), data.size());
-                }
-                else
-                {
-                    for (size_t i = 0; i < data.size(); i++)
-                        buf[i] = std::tolower(data[i]);
-                }
-                buf[data.size()] = 0x00;
-                size += data.size() + 1;
+
+                // TODO this can be used if i know my data is ascii
+                // if (is_case_sensitive)
+                // {
+                //     std::memcpy(buf, data.data(), data.size());
+                // }
+                // else
+                // {
+                //     for (size_t i = 0; i < data.size(); i++)
+                //         buf[i] = std::tolower(data[i]);
+                // }
+                // buf[data.size()] = 0x00;
+                // size += data.size() + 1;
+
+                size += EncodeStringNormalized(buf, data, is_case_sensitive);
             }
             else
             {
