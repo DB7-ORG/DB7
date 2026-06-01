@@ -163,21 +163,24 @@ namespace db7::access
         storage::Page *DropToLevel(T key)
         {
             page_id pid = GetRoot();
+            DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
+
+            storage::Page *page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
+            auto *data = page->GetData();
+            u8 level = GetLevel(data);
+
             do
             {
                 DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
+                DB7_ASSERT(level == GetLevel(data), "invalid level node");
 
-                storage::Page *page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
-                auto *data = page->GetData();
-
-            retry:
                 constexpr shared::LockMode LM = shared::LockMode::Optimistic;
                 shared::Lock<LM>(page);
 
-                if (GetLevel(data) <= 0)
+                if (level <= 0)
                 {
                     if (!shared::Unlock<LM>(page))
-                        goto retry;
+                        continue;
 
                     return page;
                 }
@@ -186,7 +189,7 @@ namespace db7::access
                     page_id new_pid = layout_inter_.GetRLink(data);
 
                     if (!shared::Unlock<LM>(page))
-                        goto retry;
+                        continue;
 
                     pid = new_pid;
                 }
@@ -195,13 +198,20 @@ namespace db7::access
                     page_id new_pid = layout_inter_.Get(data, GetCount(data), key);
 
                     if (!shared::Unlock<LM>(page))
-                        goto retry;
+                        continue;
 
                     shared::TlState::Push(pid); // TODO should probably store a pointer and keep pages pinned
                     pid = new_pid;
+                    level--;
                 }
 
+                /* Unlock prev page */
                 ReleasePage<shared::LockMode::None>(page);
+
+                /* Fetch a new page page */
+                page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
+                data = page->GetData();
+
             } while (true);
 
             DB7_UNREACHABLE();
@@ -212,20 +222,24 @@ namespace db7::access
         void DropToLevel(T key, u8 drop_level)
         {
             page_id pid = GetRoot();
+            DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
+
+            storage::Page *page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
+            auto *data = page->GetData();
+            u8 level = GetLevel(data);
+
             do
             {
                 DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
+                DB7_ASSERT(level == GetLevel(data), "invalid level node");
 
-                storage::Page *page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
-                auto *data = page->GetData();
-            retry:
                 constexpr shared::LockMode LM = shared::LockMode::Optimistic;
                 shared::Lock<LM>(page);
 
-                if (GetLevel(data) <= drop_level)
+                if (level <= drop_level)
                 {
                     if (!shared::Unlock<LM>(page))
-                        goto retry;
+                        continue;
 
                     shared::TlState::Push(pid);
 
@@ -236,7 +250,7 @@ namespace db7::access
                     page_id new_pid = layout_inter_.GetRLink(data);
 
                     if (!shared::Unlock<LM>(page))
-                        goto retry;
+                        continue;
 
                     pid = new_pid;
                 }
@@ -245,14 +259,19 @@ namespace db7::access
                     page_id new_pid = layout_inter_.Get(data, GetCount(data), key);
 
                     if (!shared::Unlock<LM>(page))
-                        goto retry;
+                        continue;
 
                     shared::TlState::Push(pid); // TODO should probably store a pointer and keep pages pinned
                     pid = new_pid;
+                    level--;
                 }
 
+                /* Unlock prev page */
                 ReleasePage<shared::LockMode::None>(page);
 
+                /* Fetch a new page page */
+                page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
+                data = page->GetData();
             } while (true);
 
             DB7_UNREACHABLE();
@@ -353,40 +372,42 @@ namespace db7::access
 
         R InternalGet(storage::Page *page, T key)
         {
+            DB7_ASSERT(page->GetPageId() != std::numeric_limits<page_id>::max(), "invalid pid");
+            auto *data = page->GetData();
+
             do
             {
                 DB7_ASSERT(page->GetPageId() != std::numeric_limits<page_id>::max(), "invalid pid");
 
-                auto *data = page->GetData();
-            retry:
                 constexpr shared::LockMode LM = shared::LockMode::Optimistic;
                 shared::Lock<LM>(page);
 
-                // Check sentinel value
+                /* Check sentinel value */
                 if (layout_leaf_.HasSplit(data, key))
                 {
                     page_id new_pid = layout_leaf_.GetRLink(data);
 
                     if (!shared::Unlock<LM>(page))
-                        goto retry;
+                        continue;
 
                     ReleasePage<shared::LockMode::None>(page);
                     page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, new_pid));
+                    data = page->GetData();
                 }
                 else
                 {
                     R result = layout_leaf_.Get(data, GetCount(data), key);
 
                     if (!shared::Unlock<LM>(page))
-                        goto retry;
+                        continue;
 
                     ReleasePage<shared::LockMode::None>(page);
                     return result;
                 }
+
             } while (true);
 
             DB7_UNREACHABLE();
-            return layout_inter_.UNDEFINED;
         }
 
     public:
