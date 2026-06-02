@@ -28,6 +28,8 @@ namespace db7::debug
         u32 heap_size;
         char max_val_key[256];
         SlotDump slots[1024];
+        char prefix_key[256];
+        u16 prefix_len;
     };
 
     extern "C" PageDump *InspectVarlenLayout(byte *data);

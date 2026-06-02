@@ -36,3 +36,5 @@ https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf
 * check to see what happens w duplicate data in the index and how it holds
 
 * fix valgrind later
+
+* need to add different parsing of slots when its max len and prefix handling

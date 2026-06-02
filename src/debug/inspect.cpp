@@ -20,6 +20,7 @@ namespace db7::debug
         dump.level = header->level;
         dump.max_val = header->max_val;
         dump.heap_size = header->heap_size;
+        dump.prefix_len = header->prefix_len;
 
         bool is_leaf = header->level == 0;
 
@@ -53,6 +54,44 @@ namespace db7::debug
         else
         {
             strcpy(dump.max_val_key, "(UNDEFINED)");
+        }
+
+        if (header->prefix_offset != std::numeric_limits<u32>::max())
+        {
+            byte *ptr = data + header->prefix_offset;
+
+            u16 len = 0;
+            char *key_data = nullptr;
+
+            if (is_leaf)
+            {
+                auto *hdr =
+                    reinterpret_cast<access::SlotValHeader<u64> *>(ptr);
+
+                len = hdr->len;
+                key_data =
+                    reinterpret_cast<char *>(
+                        ptr + sizeof(access::SlotValHeader<u64>));
+            }
+            else
+            {
+                auto *hdr =
+                    reinterpret_cast<access::SlotValHeader<page_id> *>(ptr);
+
+                len = hdr->len;
+                key_data =
+                    reinterpret_cast<char *>(
+                        ptr + sizeof(access::SlotValHeader<page_id>));
+            }
+
+            u16 copy = std::min(len, (u16)255);
+
+            memcpy(dump.prefix_key, key_data, copy);
+            dump.prefix_key[copy] = '\0';
+        }
+        else
+        {
+            strcpy(dump.prefix_key, "(NONE)");
         }
 
         // slots

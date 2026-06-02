@@ -196,6 +196,8 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
     {
         for (u32 i = 0; i < n; i++)
         {
+            if (i == 1051)
+                std::cout << "hej";
             auto item = index.Get(keys[i]);
             if (item != i)
             {
@@ -218,6 +220,8 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
     printf("search:        %.3f ms\n", (t2 - t1) / 1e6);
 }
 
+db7::storage::BufferPool *g_buffer_pool;
+
 int main()
 {
     fmt::print("Hello, {}!\n", "world");
@@ -232,6 +236,7 @@ int main()
     disk_scheduler.Start();
 
     db7::storage::BufferPool buffer_pool(&disk_scheduler);
+    g_buffer_pool = &buffer_pool;
 
     test_index_perf(&buffer_pool, &disk_mng_async);
 

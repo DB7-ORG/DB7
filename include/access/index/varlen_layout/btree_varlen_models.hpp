@@ -28,8 +28,11 @@ namespace db7::access
     struct VarlenHeader : public BaseLyHeader
     {
         u32 heap_size;
-        u32 prefix_slot;
+        u32 prefix_offset;
+        u16 prefix_len;
     };
+
+    // TODO
 
     // VarlenHeader *CastHeader(byte *data);
 

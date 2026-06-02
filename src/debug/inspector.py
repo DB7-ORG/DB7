@@ -21,13 +21,13 @@ def atomic_val(node):
 
 
 def getPoolSize(result):
-    result["pool_size"] = int(gdb_eval("buffer_pool")["pool_size_"])
+    result["pool_size"] = int(gdb_eval("g_buffer_pool")["pool_size_"])
 
 
 def getPagesByTableId(result, table_id):
-    pages = gdb_eval("buffer_pool.pages_")
+    pages = gdb_eval("g_buffer_pool.pages_")
     size = int(
-        atomic_val(gdb_eval("buffer_pool")["pool_size_"])
+        atomic_val(gdb_eval("g_buffer_pool")["pool_size_"])
     )  # if pool_size_ is also atomic
     arr = []
 
@@ -60,8 +60,8 @@ def getPagesByTableId(result, table_id):
 
 
 def getTablesById(result):
-    pages = gdb_eval("buffer_pool.pages_")
-    size = int(atomic_val(gdb_eval("buffer_pool")["pool_size_"]))
+    pages = gdb_eval("g_buffer_pool.pages_")
+    size = int(atomic_val(gdb_eval("g_buffer_pool")["pool_size_"]))
     seen = set()
     tables = []
     for i in range(0, size):
@@ -75,7 +75,7 @@ def getTablesById(result):
 
 
 def getPageById(result, index):
-    page = gdb_eval(f"buffer_pool.pages_[{index}]")
+    page = gdb_eval(f"g_buffer_pool.pages_[{index}]")
     data_ptr = int(page["data_"])
 
     dump = gdb.parse_and_eval(f"InspectVarlenLayout((byte *){data_ptr})")
@@ -90,6 +90,8 @@ def getPageById(result, index):
         "level": int(dump["level"]),
         "max_val": int(dump["max_val"]),
         "max_val_key": dump["max_val_key"].string(),
+        "prefix_len": int(dump["prefix_len"]),
+        "prefix_key": dump["prefix_key"].string(),
         "slots": [
             {
                 "slot": int(dump["slots"][i]["slot"]),
