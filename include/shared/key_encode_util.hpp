@@ -32,8 +32,8 @@ namespace db7::shared
         {
             utf8proc_option_t opts = static_cast<utf8proc_option_t>(
                 UTF8PROC_DECOMPOSE | // NFD
-                UTF8PROC_STABLE |    // canonical ordering
-                UTF8PROC_NULLTERM);
+                UTF8PROC_STABLE      //| UTF8PROC_NULLTERM // canonical ordering
+            );
 
             if (!is_case_sensitive)
                 opts = static_cast<utf8proc_option_t>(opts | UTF8PROC_CASEFOLD);

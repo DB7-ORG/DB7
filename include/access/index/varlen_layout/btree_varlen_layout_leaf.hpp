@@ -437,6 +437,8 @@ namespace db7::access
             auto sl1 = CastSlot(ReadSlot(left_data, left_slots[0]));
             auto sl2 = CastSlot(ReadSlot(left_data, left_slots[split]));
             auto sl3 = GetMaxValSlot(left_data);
+            sl3.data += left_header->prefix_len;
+            sl3.hdr.len -= left_header->prefix_len;
 
             u16 prefix_len_l = left_header->llink != UNDEFINED ? CommonPrefixLen(sl1.data, sl2.data, sl1.hdr.len, sl2.hdr.len) : 0;
             u16 prefix_len_r = left_header->rlink != UNDEFINED ? CommonPrefixLen(sl2.data, sl3.data, sl2.hdr.len, sl3.hdr.len) : 0;

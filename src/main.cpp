@@ -92,7 +92,7 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
     using Typ = access::Key;
     db7::access::BTreeIndex<Typ> index(buffer_pool, disk_mng_async, 1);
 
-    u32 n = 1'000'000;
+    u32 n = 10'000'000;
     // std::vector<u32> keys(n);
     // std::iota(keys.begin(), keys.end(), 1);
     // std::shuffle(keys.begin(), keys.end(), std::mt19937{42});
@@ -107,12 +107,12 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
         std::memcpy(raw, s.data(), s.size());
 
         std::span sp((const byte *)s.data(), (u16)s.size());
-        shared::KeyNormEncoder::Encode(buf, sp, false, false, false);
+        u32 len = shared::KeyNormEncoder::Encode(buf, sp, false, false, false);
 
         strs[i].data = raw;
         strs[i].len = (u16)s.size();
         strs[i].encoded = buf;
-        strs[i].enc_len = (u16)(s.size() + 1);
+        strs[i].enc_len = (u16)(len);
     }
     std::shuffle(strs.begin(), strs.end(), std::mt19937{42});
 
