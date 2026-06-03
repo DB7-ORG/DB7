@@ -65,23 +65,15 @@ namespace db7::debug
 
             if (is_leaf)
             {
-                auto *hdr =
-                    reinterpret_cast<access::SlotValHeader<u64> *>(ptr);
-
-                len = hdr->len;
+                len = header->prefix_len;
                 key_data =
-                    reinterpret_cast<char *>(
-                        ptr + sizeof(access::SlotValHeader<u64>));
+                    reinterpret_cast<char *>(ptr);
             }
             else
             {
-                auto *hdr =
-                    reinterpret_cast<access::SlotValHeader<page_id> *>(ptr);
-
-                len = hdr->len;
+                len = header->prefix_len;
                 key_data =
-                    reinterpret_cast<char *>(
-                        ptr + sizeof(access::SlotValHeader<page_id>));
+                    reinterpret_cast<char *>(ptr);
             }
 
             u16 copy = std::min(len, (u16)255);
