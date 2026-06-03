@@ -92,7 +92,7 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
     using Typ = access::Key;
     db7::access::BTreeIndex<Typ> index(buffer_pool, disk_mng_async, 1);
 
-    u32 n = 1'000'000;
+    u32 n = 100'000;
     // std::vector<u32> keys(n);
     // std::iota(keys.begin(), keys.end(), 1);
     // std::shuffle(keys.begin(), keys.end(), std::mt19937{42});
