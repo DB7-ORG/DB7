@@ -262,8 +262,8 @@ namespace db7::access
         {
             u32 BASE_OVERHEAD = key.len * 10; // TODO store this somewhere, in the tree for example based on schema
             byte *sentinel_copy = new byte[key.len + BASE_OVERHEAD];
-            shared::KeyNormEncoder::Encode(sentinel_copy, std::span<const byte>{key.data, key.len}, false, false, false);
-            return MakeEncodedKey(key.len + BASE_OVERHEAD, sentinel_copy);
+            u32 size = shared::KeyNormEncoder::Encode(sentinel_copy, std::span<const byte>{key.data, key.len}, key.data == nullptr, false, false);
+            return MakeEncodedKey(size, sentinel_copy);
         }
 
         Key PrefixNewKey(byte *data, Key key)
@@ -294,8 +294,11 @@ namespace db7::access
 
     public:
         static constexpr R UNDEFINED = std::numeric_limits<R>::max();
+        static constexpr u32 UNDEFINED_OFFSET = std::numeric_limits<u32>::max();
 
-        BtreeVarlenLayoutLeaf() : key_offset_(sizeof(VarlenHeader)) {}
+        BtreeVarlenLayoutLeaf() : key_offset_(sizeof(VarlenHeader))
+        {
+        }
 
         R Get(byte *data, const u32 count, const Key key)
         {
@@ -341,12 +344,12 @@ namespace db7::access
             DB7_ASSERT(key.data != nullptr, "invalid key");
             DB7_ASSERT(key.len != 0, "invalid key");
 
-            Key new_key = PrefixNewKey(data, key);
+            // Key new_key = PrefixNewKey(data, key);
             auto *header = CastHeader(data);
             if (ReadMaxVal(header) == UNDEFINED)
                 return false; // rightmost page, no high key
             auto *slot = ReadSlot((byte *)header, header->max_val);
-            return Cmp(slot, new_key) <= 0;
+            return Cmp(slot, key) <= 0;
         }
 
         Key OffsetCommonPrefix(byte *data, u32 len, u32 prefix_len)
@@ -381,7 +384,7 @@ namespace db7::access
         SlotVal<R> GetPrefixSlot(byte *data)
         {
             auto header = CastHeader(data);
-            if (header->prefix_offset != std::numeric_limits<u32>::max())
+            if (header->prefix_offset != UNDEFINED_OFFSET)
             {
                 return CastSlot(ReadSlot(data, header->prefix_offset));
             }
@@ -405,14 +408,15 @@ namespace db7::access
 
             auto *right_header = CastHeader(right_data);
 
+            Slot *left_slots = OffsetHeader(left_data);
+
+            Slot *right_slots = OffsetHeader(right_data);
+
             u32 count = left_header->count;
             DB7_ASSERT(count != 0, "nothing to copy");
 
             // copy half elements up
-            Slot *left_slots = OffsetHeader(left_data);
-
             u32 split = FindSplitPoint(left_data, left_slots, count);
-
             DB7_ASSERT(split > 0 && split < count, "split must leave tuples on both sides");
 
             // calc prefixes
@@ -441,7 +445,7 @@ namespace db7::access
             u16 right_prefix_len = old_prefix.hdr.len + prefix_len_r;
 
             // copy range of upper slots
-            auto *right_slots = OffsetHeader(right_data);
+
             for (u32 i = split; i < count; i++)
             {
                 SlotVal val = CastSlot(ReadSlot(left_data, left_slots[i]));
@@ -450,7 +454,7 @@ namespace db7::access
             }
 
             // append right prefixes
-            u32 right_prefix = std::numeric_limits<u32>::max();
+            u32 right_prefix = UNDEFINED_OFFSET;
             if (left_header->rlink != UNDEFINED)
             {
                 right_prefix = ReserveSlot(right_data, right_prefix_len);
@@ -466,13 +470,13 @@ namespace db7::access
             if (left_header->max_val != UNDEFINED)
             {
                 SlotVal val = CastSlot(ReadSlot(left_data, left_header->max_val));
-                right_max = (u64)AppendHeap(right_data, Key{static_cast<u16>(val.hdr.len - prefix_len_r), val.data + prefix_len_r}, val.hdr.result);
+                right_max = (u64)AppendHeap(right_data, Key{static_cast<u16>(val.hdr.len), val.data}, val.hdr.result);
             }
 
             // chose sentinel from rightmost page
 
             Key tmp = ReadKey(right_data, OffsetHeader(right_data)[0]);
-            auto prefix = right_prefix != std::numeric_limits<u32>::max()
+            auto prefix = right_prefix != UNDEFINED_OFFSET
                               ? CastSlot(ReadSlot(right_data, right_prefix))
                               : SlotVal<R>{{0, 0}, 0};
             u16 len = tmp.len + prefix.hdr.len;
@@ -487,11 +491,11 @@ namespace db7::access
             CompactHeap(left_data, left_slots, split, prefix_len_l);
 
             // append left max val
-            auto temp = Key{static_cast<u16>(sentinel.len - left_prefix_len), sentinel.data + left_prefix_len};
+            auto temp = Key{static_cast<u16>(sentinel.len), sentinel.data};
             u64 left_max = (u64)AppendHeap(left_data, temp, UNDEFINED);
 
             // append prefixes
-            u32 left_prefix = std::numeric_limits<u32>::max();
+            u32 left_prefix = UNDEFINED_OFFSET;
             if (left_header->llink != UNDEFINED)
             {
                 left_prefix = ReserveSlot(left_data, left_prefix_len);
@@ -569,7 +573,7 @@ namespace db7::access
 
         void InitHeader(byte *data, u32 count, u8 level, page_id pid)
         {
-            WriteHeader(data, pid, UNDEFINED, UNDEFINED, count, level, UNDEFINED, std::numeric_limits<u32>::max(), 0);
+            WriteHeader(data, pid, UNDEFINED, UNDEFINED, count, level, UNDEFINED, UNDEFINED_OFFSET, 0);
         }
 
         u64 GetRLink(byte *data)

@@ -38,3 +38,5 @@ https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf
 * fix valgrind later
 
 * need to add different parsing of slots when its max len and prefix handling
+
+* when i get the bug i get invalid prefix len for some reason
