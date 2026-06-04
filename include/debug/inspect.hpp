@@ -46,9 +46,18 @@ namespace db7::debug
         ColumnVal columns[1024][64]; // [row][col]
     };
 
+    enum LayoutType
+    {
+        Index,
+        Table,
+        Unknown
+    };
+
     extern "C" HeapDump *InspectHeapLayout(byte *data, table_id tbl_id);
 
     extern "C" PageDump *InspectVarlenLayout(byte *data);
+
+    extern "C" LayoutType GetLayoutType(table_id tbl_id);
 }
 
 #endif

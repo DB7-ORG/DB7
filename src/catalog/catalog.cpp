@@ -61,6 +61,8 @@ namespace db7::catalog
         pr_builder_.Push({entry});
         auto rows = pr_builder_.Build();
 
+        for (u32 i = 0; i < 220; i++)
+            access::TupleId tup = databases_->Insert(rows);
         access::TupleId tup = databases_->Insert(rows);
 
         // TODO insert real values
