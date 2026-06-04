@@ -416,7 +416,7 @@ namespace db7::access
             InsertInternal(data, count, new_key, value);
             CastHeader(data)->count++;
 
-            // delete[] key.encoded;
+            delete[] key.encoded;
         }
 
         bool HasSpace(byte *data, Key key)
@@ -524,10 +524,10 @@ namespace db7::access
             /* copy sentinel value since we use it after compaction so it does not get corrupted */
             Key tmp_sentinel = ReadKey(left_data, left_slots[split]);
             u16 len = tmp_sentinel.enc_len + prefix_copy_len;
-            auto sentinel_buf = std::make_unique<byte[]>(len);
-            std::memcpy(sentinel_buf.get(), prefix_copy.get(), prefix_copy_len);
-            std::memcpy(sentinel_buf.get() + prefix_copy_len, tmp_sentinel.encoded, tmp_sentinel.enc_len);
-            Key sentinel = MakeEncodedKey(len, sentinel_buf.get());
+            auto sentinel_buf = new byte[len];
+            std::memcpy(sentinel_buf, prefix_copy.get(), prefix_copy_len);
+            std::memcpy(sentinel_buf + prefix_copy_len, tmp_sentinel.encoded, tmp_sentinel.enc_len);
+            Key sentinel = MakeEncodedKey(len, sentinel_buf);
 
             DB7_ASSERT(sentinel.enc_len >= 0, "invalid len");
 
@@ -604,6 +604,7 @@ namespace db7::access
                 auto new_key = OffsetCommonPrefix(key, right_prefix_len);
                 InsertInternal(right_data, right_header_count++, new_key, value);
             }
+            delete[] key.encoded;
 
             /* update headers */
             WriteHeader(right_header, new_pid, left_header->rlink, left_header->pid, right_header_count, left_header->level, right_max, right_prefix, right_prefix_len);
@@ -629,7 +630,7 @@ namespace db7::access
 
             CastHeader(data)->count = 2;
 
-            // delete[] key.encoded;
+            delete[] key.encoded;
         }
 
         void InitHeader(byte *data, u32 count, u8 level, page_id pid)

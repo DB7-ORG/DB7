@@ -345,9 +345,9 @@ namespace db7::access
                 {
                     page_id new_pid;
 
-                    Key old_key = key;
+                    // Key old_key = key;
                     key = SplitInter(data, new_pid, key, value);
-                    delete[] old_key.encoded;
+                    // delete[] old_key.encoded;
 
                     value = new_pid;
                     u8 level = GetLevel(data);

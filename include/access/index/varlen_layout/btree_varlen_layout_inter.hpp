@@ -349,6 +349,7 @@ namespace db7::access
             {
                 InsertInternal(right_data, right_header_count++, key, value);
             }
+            delete[] key.encoded;
 
             WriteHeader(right_header, new_pid, left_header->rlink, left_header->pid, right_header_count, left_header->level, right_max);
 
