@@ -22,6 +22,15 @@
  */
 namespace db7::access
 {
+    union TupleId
+    {
+        struct
+        {
+            u32 index;
+            u32 pid;
+        };
+        u64 value;
+    };
     /**
      * Table abstraction
      */
@@ -55,7 +64,7 @@ namespace db7::access
             }
         }
 
-        void Insert(const ProjectedRows &rows);
+        TupleId Insert(const ProjectedRows &rows);
 
         std::pair<u32, u32> Insert(std::span<const byte> data);
 

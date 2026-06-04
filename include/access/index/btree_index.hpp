@@ -13,6 +13,7 @@
 #include "debug/printer.hpp"
 #include "shared/thread_local_util.hpp"
 #include "access/index/base_ly_header.hpp"
+#include "access/index/index_schema.hpp"
 
 #include <vector>
 #include <atomic>
@@ -40,6 +41,8 @@ namespace db7::access
 
         InterLayout layout_inter_;
         LeafLayout layout_leaf_;
+
+        access::IndexSchema schema_;
 
         storage::Page *ReserveNode(table_id id_)
         {
@@ -415,9 +418,9 @@ namespace db7::access
         }
 
     public:
-        BTreeIndex(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, table_id tbl_id)
+        BTreeIndex(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, table_id tbl_id, IndexSchema schema = {})
             : root_id_(1), buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id),
-              layout_inter_(), layout_leaf_()
+              layout_inter_(), layout_leaf_(), schema_(std::move(schema))
         {
             if (!disk_mng_->CreateOpenFile(tbl_id_, 1))
             {

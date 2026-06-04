@@ -32,6 +32,22 @@ namespace db7::debug
         u16 prefix_len;
     };
 
+    struct ColumnVal
+    {
+        char name[64];
+        char val[1024];
+    };
+
+    struct HeapDump
+    {
+        u32 row_count;
+        u32 column_count;
+        bool deleted[1024];          // per row
+        ColumnVal columns[1024][64]; // [row][col]
+    };
+
+    extern "C" HeapDump *InspectHeapLayout(byte *data, table_id tbl_id);
+
     extern "C" PageDump *InspectVarlenLayout(byte *data);
 }
 

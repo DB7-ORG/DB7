@@ -61,12 +61,17 @@ namespace db7::catalog
         pr_builder_.Push({entry});
         auto rows = pr_builder_.Build();
 
-        databases_->Insert(rows);
+        access::TupleId tup = databases_->Insert(rows);
 
         // TODO insert real values
         // TODO CATALOG UNCOMMENT
-        // databases_index_datoid->Insert(oid, 0);
-        // databases_index_datname->Insert(oid, 0);
+
+        databases_index_datoid->Insert(oid, tup.value);
+
+        byte *buf = new byte[name.size() * 16];
+        u16 len = shared::KeyNormEncoder::Encode(buf, name, false, false, false);
+        auto k = access::Key{(u16)name.size(), name.data(), len, buf};
+        databases_index_datname->Insert(k, tup.value);
 
         return true;
     }

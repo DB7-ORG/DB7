@@ -59,7 +59,7 @@ def getPagesByTableId(result, table_id):
     result["pages"] = arr
 
 
-def getTablesById(result):
+def getTables(result):
     pages = gdb_eval("g_buffer_pool.pages_")
     size = int(atomic_val(gdb_eval("g_buffer_pool")["pool_size_"]))
     seen = set()
@@ -74,7 +74,7 @@ def getTablesById(result):
     result["tables"] = tables
 
 
-def getPageById(result, index):
+def getIndexPageById(result, index):
     page = gdb_eval(f"g_buffer_pool.pages_[{index}]")
     data_ptr = int(page["data_"])
 
@@ -104,6 +104,36 @@ def getPageById(result, index):
         ],
     }
 
+def getHeapPageById(result, index):
+    page = gdb_eval(f"g_buffer_pool.pages_[{index}]")
+    data_ptr = int(page["data_"])
+    page_id_val = atomic_val(page["id_"])
+    tbl_id = int(page_id_val["tbl_id"])
+
+    dump = gdb.parse_and_eval(f"InspectHeapLayout((byte *){data_ptr}, (table_id){tbl_id})")
+
+    row_count = int(dump["row_count"])
+    col_count = int(dump["column_count"])
+
+    result["page"] = {
+        "row_count": row_count,
+        "column_count": col_count,
+        "rows": [
+            {
+                "row_idx": i,
+                "deleted": bool(dump["deleted"][i]),
+                "columns": [
+                    {
+                        "name": dump["columns"][i][c]["name"].string(),
+                        "val":  dump["columns"][i][c]["val"].string(),
+                    }
+                    for c in range(col_count)
+                ],
+            }
+            for i in range(row_count)
+        ],
+    }
+
 
 class Handler(BaseHTTPRequestHandler):
 
@@ -111,14 +141,17 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if self.path == "/pool/size":
                 getPoolSize(result)
+            elif self.path.startswith("/pool/page/heap/"):
+                index = int(self.path.split("/")[-1])
+                getHeapPageById(result, index)
             elif self.path.startswith("/pool/page/"):
                 index = int(self.path.split("/")[-1])
-                getPageById(result, index)
+                getIndexPageById(result, index)
             elif self.path.startswith("/pool/pages/"):
                 table_id = int(self.path.split("/")[-1])
                 getPagesByTableId(result, table_id)
             elif self.path == "/pool/tables":
-                getTablesById(result)
+                getTables(result)
             else:
                 self.send_response(404)
                 self.end_headers()

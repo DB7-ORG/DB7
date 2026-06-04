@@ -9,7 +9,7 @@
 
 namespace db7::access
 {
-    void Table::Insert(const ProjectedRows &rows)
+    TupleId Table::Insert(const ProjectedRows &rows)
     {
         u32 page_id = storage::FreeSpaceManager::Get(rows.total_size); // TODO table oid
         storage::PageIdentifier id(oid_, page_id);
@@ -43,6 +43,8 @@ namespace db7::access
         PrintPage(insert_page);
 
         buffer_->Unpin(insert_page, true);
+
+        return {prev_count, page_id};
     }
 
     std::pair<u32, u32> Table::Insert(std::span<const byte> data)
@@ -66,7 +68,7 @@ namespace db7::access
         return {offset, page_id};
     }
 
-    void Table::Delete(u32 idx, catalog::rel_oid_t pid)
+        void Table::Delete(u32 idx, catalog::rel_oid_t pid)
     {
         storage::PageIdentifier id(oid_, pid);
         storage::Page *page = buffer_->Pin(id);

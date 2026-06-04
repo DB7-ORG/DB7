@@ -98,7 +98,7 @@ namespace db7::shared
                 std::memcpy(buf, &u, sizeof(u));
                 size += sizeof(T);
             }
-            else if constexpr (std::is_same_v<T, std::span<const byte>>)
+            else if constexpr (std::is_same_v<T, std::span<const byte>> || std::is_same_v<T, std::span<byte>>)
             { // strings, bytes ...
 
                 // TODO this can be used if i know my data is ascii

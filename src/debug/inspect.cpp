@@ -2,8 +2,15 @@
 
 #ifdef DEBUG
 
+#include "third_party/unordered_dense.h"
+#define private public
+#include "catalog/catalog.hpp"
+#undef private
+
 #include <cstring>
 #include <limits>
+
+extern db7::catalog::Catalog *g_catalog;
 
 namespace db7::debug
 {
@@ -119,6 +126,147 @@ namespace db7::debug
             u16 copy = std::min(len, (u16)255);
             memcpy(dump.slots[i].key, key_data, copy);
             dump.slots[i].key[copy] = '\0';
+        }
+
+        return &dump;
+    }
+
+    using OID = catalog::CatalogTableOid;
+    static const std::unordered_map<u32, access::Table * catalog::DatabaseCatalog::*> tbl_map = {
+        {static_cast<u32>(OID::PG_NAMESPACE), &catalog::DatabaseCatalog::namespaces_},
+        {static_cast<u32>(OID::PG_CLASS), &catalog::DatabaseCatalog::classes_},
+        {static_cast<u32>(OID::PG_ATTRIBUTE), &catalog::DatabaseCatalog::attributes_},
+        {static_cast<u32>(OID::PG_TYPE), &catalog::DatabaseCatalog::types_},
+        {static_cast<u32>(OID::PG_CONSTRAINT), &catalog::DatabaseCatalog::constraints_},
+        {static_cast<u32>(OID::PG_LANGUAGE), &catalog::DatabaseCatalog::languages_},
+        {static_cast<u32>(OID::PG_PROC), &catalog::DatabaseCatalog::procs_},
+    };
+    static const std::unordered_map<u32, access::Index * catalog::DatabaseCatalog::*> idx_map = {
+        // pg_namespace indexes
+        {static_cast<u32>(OID::PG_INDEX_NAMESPACE_NSPOID), &catalog::DatabaseCatalog::namespaces_index_nspoid_},
+        {static_cast<u32>(OID::PG_INDEX_NAMESPACE_NSPNAME), &catalog::DatabaseCatalog::namespaces_index_nspname_},
+
+        // pg_class indexes
+        {static_cast<u32>(OID::PG_INDEX_CLASS_RELOID), &catalog::DatabaseCatalog::classes_index_reloid_},
+        {static_cast<u32>(OID::PG_INDEX_CLASS_RELNAME), &catalog::DatabaseCatalog::classes_index_relname_},
+        {static_cast<u32>(OID::PG_INDEX_CLASS_RELNAMESPACE), &catalog::DatabaseCatalog::classes_index_relnamespace_},
+
+        // pg_attribute indexes
+        {static_cast<u32>(OID::PG_INDEX_ATTRIBUTE_ATTNUM), &catalog::DatabaseCatalog::attributes_index_attnum_},
+        {static_cast<u32>(OID::PG_INDEX_ATTRIBUTE_ATTRELID), &catalog::DatabaseCatalog::attributes_index_attrelid_},
+        {static_cast<u32>(OID::PG_INDEX_ATTRIBUTE_ATTNAME), &catalog::DatabaseCatalog::attributes_index_attname_},
+
+        // pg_type indexes
+        {static_cast<u32>(OID::PG_INDEX_TYPE_TYPOID), &catalog::DatabaseCatalog::types_index_typoid_},
+        {static_cast<u32>(OID::PG_INDEX_TYPE_TYPNAME), &catalog::DatabaseCatalog::types_index_typname_},
+        {static_cast<u32>(OID::PG_INDEX_TYPE_TYPNAMESPACE), &catalog::DatabaseCatalog::types_index_typnamespace_},
+
+        // pg_constraint indexes
+        {static_cast<u32>(OID::PG_INDEX_CONSTRAINT_CONOID), &catalog::DatabaseCatalog::constraints_index_conoid_},
+        {static_cast<u32>(OID::PG_INDEX_CONSTRAINT_CONNAME), &catalog::DatabaseCatalog::constraints_index_conname_},
+        {static_cast<u32>(OID::PG_INDEX_CONSTRAINT_CONNAMESPACE), &catalog::DatabaseCatalog::constraints_index_connamespace_},
+        {static_cast<u32>(OID::PG_INDEX_CONSTRAINT_CONRELID), &catalog::DatabaseCatalog::constraints_index_conrelid_},
+        {static_cast<u32>(OID::PG_INDEX_CONSTRAINT_CONINDID), &catalog::DatabaseCatalog::constraints_index_conindid_},
+        {static_cast<u32>(OID::PG_INDEX_CONSTRAINT_CONFRELID), &catalog::DatabaseCatalog::constraints_index_confrelid_},
+
+        // pg_language indexes
+        {static_cast<u32>(OID::PG_INDEX_LANGUAGE_LANOID), &catalog::DatabaseCatalog::languages_index_lanoid_},
+        {static_cast<u32>(OID::PG_INDEX_LANGUAGE_LANNAME), &catalog::DatabaseCatalog::languages_index_lanname_},
+
+        // pg_proc indexes
+        {static_cast<u32>(OID::PG_INDEX_PROC_PROOID), &catalog::DatabaseCatalog::procs_index_prooid_},
+        {static_cast<u32>(OID::PG_INDEX_PROC_PRONAME), &catalog::DatabaseCatalog::procs_index_proname_},
+    };
+
+    static access::Index *FindIndex(u32 tbl_id)
+    {
+        if (!g_catalog)
+            return nullptr;
+
+        if (tbl_id == static_cast<u32>(OID::PG_DATABASE_DATOID))
+            return g_catalog->databases_index_datoid;
+        if (tbl_id == static_cast<u32>(OID::PG_DATABASE_DATNAME))
+            return g_catalog->databases_index_datname;
+
+        auto dbc = g_catalog->databases_map_.at(0);
+
+        if (!dbc)
+            return nullptr;
+
+        auto it = idx_map.find(tbl_id);
+        if (it != idx_map.end())
+            return dbc->*(it->second);
+
+        return nullptr;
+    }
+
+    static access::Table *FindTable(u32 tbl_id)
+    {
+        if (!g_catalog)
+            return nullptr;
+
+        if (tbl_id == static_cast<u32>(OID::DATABASES))
+            return g_catalog->databases_;
+
+        auto dbc = g_catalog->databases_map_.at(0);
+
+        if (!dbc)
+            return nullptr;
+
+        auto it = tbl_map.find(tbl_id);
+        if (it != tbl_map.end())
+            return dbc->*(it->second);
+
+        return nullptr;
+    }
+
+    extern "C" HeapDump *InspectHeapLayout(byte *data, table_id tbl_id)
+    {
+        static HeapDump dump{};
+        dump = {};
+
+        access::Table *tbl = FindTable(tbl_id); // todo will need to add this to index also
+        if (!tbl)
+            return &dump;
+
+        storage::PageHeader header(data);
+        dump.row_count = std::min(header.GetCount(), (u32)1024);
+
+        const auto &map = tbl->schema_.GetOffsetMap();
+        const auto &columns = tbl->schema_.GetColumns();
+        dump.column_count = std::min((u32)columns.size(), (u32)64);
+
+        for (u32 i = 0; i < dump.row_count; i++)
+        {
+            u32 byte_offset = storage::HEADER_SIZE + i / 8;
+            dump.deleted[i] = (data[byte_offset] >> (i % 8)) & 1;
+
+            for (u32 c = 0; c < dump.column_count; c++)
+            {
+                const auto &column = columns[c];
+                u32 type_size = column.GetTypeSize();
+                u32 offset = map.at(column.GetOid()) + i * type_size;
+                const byte *val_ptr = data + offset;
+
+                auto name = column.GetName();
+                u32 name_copy = std::min((u32)name.size(), (u32)63);
+                std::memcpy(dump.columns[i][c].name, name.data(), name_copy);
+                dump.columns[i][c].name[name_copy] = '\0';
+
+                if (type_size <= 8)
+                {
+                    i64 ival = 0;
+                    std::memcpy(&ival, val_ptr, type_size);
+                    snprintf(dump.columns[i][c].val, sizeof(dump.columns[i][c].val), "%ld", ival);
+                }
+                else
+                {
+                    auto entry = *reinterpret_cast<const storage::VarlenEntry *>(val_ptr);
+                    u32 copy = std::min(entry.GetSize(), (u32)1023);
+                    std::memcpy(dump.columns[i][c].val, entry.GetInline(), copy);
+                    dump.columns[i][c].val[copy] = '\0';
+                }
+            }
         }
 
         return &dump;

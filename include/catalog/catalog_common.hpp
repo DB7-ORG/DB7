@@ -20,6 +20,7 @@ namespace db7::catalog
         PG_LANGUAGE = 6,
         PG_PROC = 7,
         PG_VARLEN = 8,
+        DATABASES = 127,
 
         // pg_namespace indexes
         PG_INDEX_NAMESPACE_NSPOID = 9,

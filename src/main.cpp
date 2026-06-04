@@ -90,9 +90,9 @@ void test_buffer_pool(db7::storage::BufferPool &buffer_pool)
 void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskManagerAsync *disk_mng_async)
 {
     using Typ = access::Key;
-    db7::access::BTreeIndex<Typ> index(buffer_pool, disk_mng_async, 1);
+    db7::access::BTreeIndex<Typ> index(buffer_pool, disk_mng_async, 100);
 
-    u32 n = 1'000'000;
+    u32 n = 100'000;
     // std::vector<u32> keys(n);
     // std::iota(keys.begin(), keys.end(), 1);
     // std::shuffle(keys.begin(), keys.end(), std::mt19937{42});
@@ -219,6 +219,7 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
 }
 
 db7::storage::BufferPool *g_buffer_pool;
+db7::catalog::Catalog *g_catalog;
 
 int main()
 {
@@ -238,21 +239,22 @@ int main()
 
     test_index_perf(&buffer_pool, &disk_mng_async);
 
-    // auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
+    auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
+    g_catalog = cat;
 
-    // std::string s = "sssssssssssssssssssssssssssssss";
-    // std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
+    std::string s = "sssssssssssssssssssssssssssssss";
+    std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
 
-    // std::string sa = "aaaa";
-    // std::span<byte> sdataa(reinterpret_cast<byte *>(s.data()), s.size());
+    std::string sa = "aaaa";
+    std::span<byte> sdataa(reinterpret_cast<byte *>(s.data()), s.size());
 
-    // cat->CreateDatabase(nullptr, sdata, true);
+    cat->CreateDatabase(nullptr, sdata, true);
     // cat->DeleteDatabase(nullptr, 1);
     // cat->CreateDatabase(nullptr, sdataa, true);
 
     // std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    // delete cat;
+    delete cat;
 
     disk_scheduler.Stop();
 

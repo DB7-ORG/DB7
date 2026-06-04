@@ -152,7 +152,8 @@ namespace db7::access
 
         bool HasSplit(byte *data, T key)
         {
-            DB7_UNREACHABLE();
+            auto *header = CastHeader(data);
+            return key >= header->max_val;
         }
 
         T Split(byte *left_data, byte *right_data, page_id new_pid, T key, R value)

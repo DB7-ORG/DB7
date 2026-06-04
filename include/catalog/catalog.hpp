@@ -48,7 +48,7 @@ namespace db7::catalog
               buffer_pool_(buffer_pool),
               disk_mng_(disk_mng)
         {
-            databases_ = new access::Table(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(), rel_oid_t(0), rel_oid_t(CatalogTableOid::PG_VARLEN));
+            databases_ = new access::Table(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(), rel_oid_t(CatalogTableOid::DATABASES), rel_oid_t(CatalogTableOid::PG_VARLEN));
             databases_index_datoid = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_DATABASE_DATOID));
             databases_index_datname = new access::BTreeIndex<access::Key>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_DATABASE_DATNAME));
         }

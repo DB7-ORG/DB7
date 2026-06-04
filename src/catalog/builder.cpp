@@ -11,6 +11,7 @@
 
 namespace db7::catalog
 {
+
     access::Schema Builder::CreateDatabaseSchema()
     {
         //"datoid", "datname"
