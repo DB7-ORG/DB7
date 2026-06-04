@@ -125,7 +125,7 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
     u32 num_threads = std::thread::hardware_concurrency();
     std::cout << num_threads << std::endl;
 
-    bool SINGLE_THREAD = false;
+    bool SINGLE_THREAD = true;
 
     std::vector<std::thread> threads(num_threads);
     std::barrier sync_point(num_threads + 1);

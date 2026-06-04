@@ -380,6 +380,7 @@ namespace db7::access
             if (ReadMaxVal(header) == UNDEFINED)
                 return false; // rightmost page, no high key
             auto *slot = ReadSlot((byte *)header, header->max_val);
+            // DB7_ASSERT((Cmp(slot, key) <= 0) == false, "node has split(this is for single thread only)"); // TODO comment
             return Cmp(slot, key) <= 0;
         }
 
