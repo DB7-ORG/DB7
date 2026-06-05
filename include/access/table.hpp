@@ -5,7 +5,6 @@
 #include "catalog/catalog_common.hpp"
 #include "storage/storage_common.hpp"
 #include "shared/macro_helper.hpp"
-#include "access/projected_rows.hpp"
 #include "storage/storage_common.hpp"
 #include "storage/disk_manager/disk_manager_async.hpp"
 #include "storage/varlen_entry.hpp"

@@ -5,7 +5,6 @@
 #include "catalog/database_catalog.hpp"
 #include "access/table.hpp"
 #include "catalog/builder.hpp"
-#include "access/projected_rows_builder.hpp"
 #include "access/index/btree_index.hpp"
 
 #include <atomic>

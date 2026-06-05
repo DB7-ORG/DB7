@@ -42,3 +42,4 @@ https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf
 * take a look at new EncodeFields
 * make varlen more compatible 
 * consider moving layout to storage
+* schema should not calc offsets i should create a layout for pax
