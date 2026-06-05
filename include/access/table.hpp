@@ -9,6 +9,7 @@
 #include "storage/storage_common.hpp"
 #include "storage/disk_manager/disk_manager_async.hpp"
 #include "storage/varlen_entry.hpp"
+#include "access/data_chunk.hpp"
 
 #include <unordered_map>
 #include <memory>
@@ -64,9 +65,9 @@ namespace db7::access
             }
         }
 
-        TupleId Insert(const ProjectedRows &rows);
+        // TupleId Insert(const ProjectedRows &rows);
 
-        std::pair<u32, u32> Insert(std::span<const byte> data);
+        TupleId Insert(DataChunk &chunk);
 
         void Delete(u32 idx, catalog::rel_oid_t pid);
 

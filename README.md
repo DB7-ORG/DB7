@@ -36,3 +36,6 @@ https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf
 * check to see what happens w duplicate data in the index and how it holds
 
 * allocators can be added later
+
+* check out when encoding utf8proc_decompose
+* so i have more controle and less allocations

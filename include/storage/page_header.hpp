@@ -6,32 +6,11 @@
 
 namespace db7::storage
 {
-    class PageHeader
+    struct PageHeader
     {
-    private:
-        page_id pid_;
-        u32 count_; // this is also offset for varlen storage
+        u32 count; // this is also offset for varlen storage
 
-    public:
-        PageHeader(byte *page_body)
-        {
-            std::memcpy(this, page_body, sizeof(PageHeader));
-        }
-
-        void WriteHeader(byte *page_body)
-        {
-            std::memcpy(page_body, this, sizeof(PageHeader));
-        }
-
-        u32 GetCount() { return count_; }
-        u32 IncCount() { return count_++; }
-        u32 FetchAddCount(u32 count)
-        {
-            u32 tmp = count_;
-            count_ += count;
-            return tmp;
-        }
-        void SetCount(u32 count) { count_ = count; }
+        static PageHeader *CastHeader(byte *data) { return reinterpret_cast<PageHeader *>(data); }
     };
 
     constexpr size_t HEADER_SIZE = sizeof(PageHeader);

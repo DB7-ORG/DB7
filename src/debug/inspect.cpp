@@ -132,6 +132,7 @@ namespace db7::debug
     }
 
     using OID = catalog::CatalogTableOid;
+
     static const std::unordered_map<u32, access::Table * catalog::DatabaseCatalog::*> tbl_map = {
         {static_cast<u32>(OID::PG_NAMESPACE), &catalog::DatabaseCatalog::namespaces_},
         {static_cast<u32>(OID::PG_CLASS), &catalog::DatabaseCatalog::classes_},
@@ -183,9 +184,9 @@ namespace db7::debug
         if (!g_catalog)
             return nullptr;
 
-        if (tbl_id == static_cast<u32>(OID::PG_DATABASE_DATOID))
+        if (tbl_id == static_cast<u32>(OID::PG_INDEX_DATABASE_DATOID))
             return g_catalog->databases_index_datoid;
-        if (tbl_id == static_cast<u32>(OID::PG_DATABASE_DATNAME))
+        if (tbl_id == static_cast<u32>(OID::PG_INDEX_DATABASE_DATNAME))
             return g_catalog->databases_index_datname;
 
         auto dbc = g_catalog->databases_map_.at(0);
@@ -205,7 +206,7 @@ namespace db7::debug
         if (!g_catalog)
             return nullptr;
 
-        if (tbl_id == static_cast<u32>(OID::DATABASES))
+        if (tbl_id == static_cast<u32>(OID::PG_DATABASES))
             return g_catalog->databases_;
 
         auto dbc = g_catalog->databases_map_.at(0);
@@ -229,8 +230,8 @@ namespace db7::debug
         if (!tbl)
             return &dump;
 
-        storage::PageHeader header(data);
-        dump.row_count = std::min(header.GetCount(), (u32)1024);
+        auto *header = storage::PageHeader::CastHeader(data);
+        dump.row_count = std::min(header->count, (u32)1024);
 
         const auto &map = tbl->schema_.GetOffsetMap();
         const auto &columns = tbl->schema_.GetColumns();

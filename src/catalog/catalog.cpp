@@ -37,9 +37,7 @@ namespace db7::catalog
 
         (void)bootstrap;
 
-        (void)name;
-
-        return db_oid_t(0);
+        return oid;
     }
 
     bool Catalog::CreateDatabaseEntry(transaction::TransactionContext *txn, const std::span<byte> name, DatabaseCatalog *const dbc)
@@ -47,27 +45,23 @@ namespace db7::catalog
         db_oid_t oid = dbc->GetDbOid();
         (void)txn;
 
-        storage::VarlenEntry entry = access::AccessBuilder::CreateVarlenEntry(name, databases_);
+        // storage::VarlenEntry entry = access::AccessBuilder::CreateVarlenEntry(name, databases_);
+        const auto sp = std::span<byte>((byte *)"ssss", 4); // TODO need to create and figure out how to manage varlen entries
+        // also refactor varlen entry to store different sizes
+        storage::VarlenEntry entry;
+        entry.Set(sp);
 
-        auto db_schema = databases_->GetSchema();
+        // auto db_schema = databases_->GetSchema();
+
         const u32 row_count = 1;
-
-        u32 max_size = db_schema->CalculateMaxSize(row_count);
-        auto block_owner = shared::AllocAligned(max_size, 16);
-        auto *block = block_owner.get(); // TODO allocator
-
-        access::ProjectedRowsBuilder pr_builder_(databases_->GetSchema(), block, row_count);
-        pr_builder_.Push({oid});
-        pr_builder_.Push({entry});
-        auto rows = pr_builder_.Build();
-
-        access::TupleId tup = databases_->Insert(rows);
-
-        // TODO insert real values
-        // TODO CATALOG UNCOMMENT
+        access::DataChunk chunk(CatalogTableColCount::DATABASE, row_count);
+        chunk.Set(access::Vector(access::type_id::INTEGER, SizeOf(access::type_id::INTEGER), (byte *)(&oid)));
+        chunk.Set(access::Vector(access::type_id::VARCHAR, SizeOf(access::type_id::VARCHAR), (byte *)(&entry)));
+        access::TupleId tup = databases_->Insert(chunk);
 
         databases_index_datoid->Insert(oid, tup.value);
 
+        // TODO fix this
         byte *buf = new byte[name.size() * 16];
         u16 len = shared::KeyNormEncoder::Encode(buf, name, false, false, false);
         auto k = access::Key{(u16)name.size(), name.data(), len, buf};

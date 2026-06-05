@@ -10,56 +10,68 @@ namespace db7::catalog
     using rel_oid_t = u32;
     using col_oid_t = u32;
 
+    struct CatalogTableColCount
+    {
+        static constexpr u32 DATABASE = 2;    // DATOID, DATNAME
+        static constexpr u32 NAMESPACE = 2;   // NSPOID, NSPNAME
+        static constexpr u32 CLASS = 5;       // RELOID, RELNAME, RELNAMESPACE, RELKIND, RELOPTIONS
+        static constexpr u32 ATTRIBUTE = 7;   // ATTNUM, ATTRELID, ATTNAME, ATTTYPID, ATTLEN, ATTTYPMOD, ATTNOTNULL
+        static constexpr u32 TYPE = 6;        // TYPOID, TYPNAME, TYPNAMESPACE, TYPLEN, TYPBYVAL, TYPTYPE
+        static constexpr u32 CONSTRAINT = 12; // CONOID..CONBIN
+        static constexpr u32 LANGUAGE = 7;    // LANOID..LANVALIDATOR
+        static constexpr u32 PROC = 22;       // PROOID..PROCONFIG
+    };
+
     enum class CatalogTableOid : rel_oid_t
     {
-        PG_NAMESPACE = 1,
-        PG_CLASS = 2,
-        PG_ATTRIBUTE = 3,
-        PG_TYPE = 4,
-        PG_CONSTRAINT = 5,
-        PG_LANGUAGE = 6,
-        PG_PROC = 7,
-        PG_VARLEN = 8,
-        DATABASES = 127,
+        PG_DATABASES = 1,
+        PG_NAMESPACE,
+        PG_CLASS,
+        PG_ATTRIBUTE,
+        PG_TYPE,
+        PG_CONSTRAINT,
+        PG_LANGUAGE,
+        PG_PROC,
+        PG_VARLEN,
 
         // pg_namespace indexes
-        PG_INDEX_NAMESPACE_NSPOID = 9,
-        PG_INDEX_NAMESPACE_NSPNAME = 10,
+        PG_INDEX_NAMESPACE_NSPOID,
+        PG_INDEX_NAMESPACE_NSPNAME,
 
         // pg_class indexes
-        PG_INDEX_CLASS_RELOID = 11,
-        PG_INDEX_CLASS_RELNAME = 12,
-        PG_INDEX_CLASS_RELNAMESPACE = 13,
+        PG_INDEX_CLASS_RELOID,
+        PG_INDEX_CLASS_RELNAME,
+        PG_INDEX_CLASS_RELNAMESPACE,
 
         // pg_attribute indexes
-        PG_INDEX_ATTRIBUTE_ATTNUM = 14,
-        PG_INDEX_ATTRIBUTE_ATTRELID = 15,
-        PG_INDEX_ATTRIBUTE_ATTNAME = 16,
+        PG_INDEX_ATTRIBUTE_ATTNUM,
+        PG_INDEX_ATTRIBUTE_ATTRELID,
+        PG_INDEX_ATTRIBUTE_ATTNAME,
 
         // pg_type indexes
-        PG_INDEX_TYPE_TYPOID = 17,
-        PG_INDEX_TYPE_TYPNAME = 18,
-        PG_INDEX_TYPE_TYPNAMESPACE = 19,
+        PG_INDEX_TYPE_TYPOID,
+        PG_INDEX_TYPE_TYPNAME,
+        PG_INDEX_TYPE_TYPNAMESPACE,
 
         // pg_constraint indexes
-        PG_INDEX_CONSTRAINT_CONOID = 20,
-        PG_INDEX_CONSTRAINT_CONNAME = 21,
-        PG_INDEX_CONSTRAINT_CONNAMESPACE = 22,
-        PG_INDEX_CONSTRAINT_CONRELID = 23,
-        PG_INDEX_CONSTRAINT_CONINDID = 24,
-        PG_INDEX_CONSTRAINT_CONFRELID = 25,
+        PG_INDEX_CONSTRAINT_CONOID,
+        PG_INDEX_CONSTRAINT_CONNAME,
+        PG_INDEX_CONSTRAINT_CONNAMESPACE,
+        PG_INDEX_CONSTRAINT_CONRELID,
+        PG_INDEX_CONSTRAINT_CONINDID,
+        PG_INDEX_CONSTRAINT_CONFRELID,
 
         // pg_language indexes
-        PG_INDEX_LANGUAGE_LANOID = 26,
-        PG_INDEX_LANGUAGE_LANNAME = 27,
+        PG_INDEX_LANGUAGE_LANOID,
+        PG_INDEX_LANGUAGE_LANNAME,
 
         // pg_proc indexes
-        PG_INDEX_PROC_PROOID = 28,
-        PG_INDEX_PROC_PRONAME = 29,
+        PG_INDEX_PROC_PROOID,
+        PG_INDEX_PROC_PRONAME,
 
         // database index
-        PG_DATABASE_DATOID = 30,
-        PG_DATABASE_DATNAME = 31,
+        PG_INDEX_DATABASE_DATOID,
+        PG_INDEX_DATABASE_DATNAME,
     };
 
     enum class CatalogColumnOid : col_oid_t

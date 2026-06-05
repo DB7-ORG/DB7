@@ -9,66 +9,82 @@
 
 namespace db7::access
 {
-    TupleId Table::Insert(const ProjectedRows &rows)
+    u32 IncrementHeaderCount(byte *body, u32 count)
     {
-        u32 page_id = storage::FreeSpaceManager::Get(rows.total_size); // TODO table oid
-        storage::PageIdentifier id(oid_, page_id);
-        storage::Page *insert_page = buffer_->Pin(id);
-        insert_page->WaitIO();
-
-        const auto &map = schema_.GetOffsetMap();
-        auto curr = rows.data;
-
-        insert_page->WDataLock();
-
-        auto body = insert_page->GetData();
-        storage::PageHeader header(body);
-        u32 prev_count = header.IncCount();
-        header.WriteHeader(body);
-
-        for (const auto &column : schema_.GetColumns())
-        {
-            u32 type_size = column.GetTypeSize();
-            u32 size = rows.row_count * type_size;
-
-            catalog::col_oid_t oid = column.GetOid();
-            u32 offset = map.at(oid) + prev_count * type_size;
-
-            curr = shared::AlignUp(curr, type_size);
-            insert_page->WriteOffset(offset, curr, size);
-            curr += size;
-        }
-        insert_page->WDataUnlock();
-
-        PrintPage(insert_page);
-
-        buffer_->Unpin(insert_page, true);
-
-        return {prev_count, page_id};
+        auto *header = storage::PageHeader::CastHeader(body);
+        u32 old = header->count;
+        header->count += count;
+        return old;
     }
 
-    std::pair<u32, u32> Table::Insert(std::span<const byte> data)
+    // TupleId Table::Insert(DataChunk &chunk)
+    // {
+    //     u32 page_id = storage::FreeSpaceManager::Get(rows.total_size); // TODO table oid
+    //     storage::PageIdentifier id(oid_, page_id);
+    //     storage::Page *insert_page = buffer_->Pin(id);
+    //     insert_page->WaitIO();
+
+    //     const auto &map = schema_.GetOffsetMap();
+    //     auto curr = rows.data;
+
+    //     insert_page->WDataLock();
+
+    //     byte *body = insert_page->GetData();
+    //     IncrementHeaderCount(body, chunk.GetCount());
+
+    //     for (const auto &column : schema_.GetColumns())
+    //     {
+    //         u32 type_size = column.GetTypeSize();
+    //         u32 size = rows.row_count * type_size;
+
+    //         catalog::col_oid_t oid = column.GetOid();
+    //         u32 offset = map.at(oid) + prev_count * type_size;
+
+    //         curr = shared::AlignUp(curr, type_size);
+    //         insert_page->WriteOffset(offset, curr, size);
+    //         curr += size;
+    //     }
+    //     insert_page->WDataUnlock();
+
+    //     PrintPage(insert_page);
+
+    //     buffer_->Unpin(insert_page, true);
+
+    //     return {prev_count, page_id};
+    // }
+
+    TupleId Table::Insert(DataChunk &chunk)
     {
-        u32 page_id = storage::FreeSpaceManagerVarlen::Get(data.size()); // TODO table oid
+        u32 page_id = storage::FreeSpaceManagerVarlen::Get(chunk.GetTotalSpace()); // TODO table oid
         storage::PageIdentifier id(varlen_oid_, page_id);
         storage::Page *insert_page = buffer_->Pin(id);
         insert_page->WaitIO();
 
         insert_page->WDataLock();
 
-        auto body = insert_page->GetData();
-        storage::PageHeader header(body);
-        u32 offset = header.FetchAddCount(data.size()) + sizeof(header);
-        header.WriteHeader(body);
+        byte *body = insert_page->GetData();
+        u32 old_count = IncrementHeaderCount(body, chunk.GetCount());
 
-        insert_page->WriteOffset(offset, data.data(), data.size());
+        u32 col_idx = 0;
+        for (auto &cols : schema_.GetColumns())
+        {
+            u32 off = schema_.GetOffset(cols.GetOid()) + old_count * cols.GetTypeSize();
+            std::span<byte> vec = chunk.GetVectorByIdx(col_idx);
+            insert_page->WriteOffset(off, vec.data(), vec.size());
+            col_idx++;
+        }
 
         insert_page->WDataUnlock();
 
-        return {offset, page_id};
+        buffer_->Unpin(insert_page, true);
+
+        PrintPage(insert_page);
+
+        /* returns index insede page and page id */
+        return {old_count, page_id};
     }
 
-        void Table::Delete(u32 idx, catalog::rel_oid_t pid)
+    void Table::Delete(u32 idx, catalog::rel_oid_t pid)
     {
         storage::PageIdentifier id(oid_, pid);
         storage::Page *page = buffer_->Pin(id);
@@ -101,8 +117,8 @@ namespace db7::access
         page->RDataLock(); // read lock
 
         auto body = page->GetData();
-        storage::PageHeader header(body);
-        u32 row_count = header.GetCount();
+        auto *header = storage::PageHeader::CastHeader(body);
+        u32 row_count = header->count;
 
         const auto &map = schema_.GetOffsetMap();
 

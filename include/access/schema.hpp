@@ -60,6 +60,17 @@ namespace db7::access
             return columns_;
         }
 
+        u32 GetOffset(catalog::col_oid_t oid) const
+        {
+            auto it = col_to_offset_map_.find(oid);
+            if (it == col_to_offset_map_.end())
+            {
+                throw std::runtime_error("column oid not found");
+                // or DB7_UNREACHABLE() if caller guarantees validity
+            }
+            return it->second;
+        }
+
         const std::unordered_map<catalog::col_oid_t, u32> &GetOffsetMap()
         {
             return col_to_offset_map_;

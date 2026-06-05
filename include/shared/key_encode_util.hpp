@@ -100,20 +100,7 @@ namespace db7::shared
             }
             else if constexpr (std::is_same_v<T, std::span<const byte>> || std::is_same_v<T, std::span<byte>>)
             { // strings, bytes ...
-
-                // TODO this can be used if i know my data is ascii
-                // if (is_case_sensitive)
-                // {
-                //     std::memcpy(buf, data.data(), data.size());
-                // }
-                // else
-                // {
-                //     for (size_t i = 0; i < data.size(); i++)
-                //         buf[i] = std::tolower(data[i]);
-                // }
-                // buf[data.size()] = 0x00;
-                // size += data.size() + 1;
-
+                // TODO can be optimized heavily for ascii
                 size += EncodeStringNormalized(buf, data, is_case_sensitive);
             }
             else
@@ -124,4 +111,25 @@ namespace db7::shared
             return size;
         }
     };
+
+    // static std::unique_ptr<byte> EncodeFields(access::DataChunk &chunk)
+    // {
+    //     byte *buf = new byte[chunk.GetTotalSpace() * 16 + 8]; // TODO worst case from lib
+    //     std::vector<byte *> values;
+    //     values.reserve(chunk.GetCount());
+
+    //     auto cols = std::make_unique<access::Vector[]>(chunk.GetColumnCount());
+    //     for (u32 i = 0; i < chunk.GetColumnCount(); i++)
+    //     {
+    //         cols[i] = chunk.GetVectorByIdx2(i);
+    //     }
+
+    //     for (u32 j = 0; j < chunk.GetCount(); j++)
+    //     {
+    //         for (u32 i = 0; i < chunk.GetColumnCount(); i++)
+    //         {
+    //             byte* ptr = cols[i].GetData() + j*SizeOf(cols[i].GteType());
+    //         }
+    //     }
+    // }
 }
