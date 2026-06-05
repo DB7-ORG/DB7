@@ -1,9 +1,9 @@
-#include "shared/key_encode_util.hpp"
+#include "access/key_encoder.hpp"
 #include <cstdio>
 #include <cassert>
 #include <cstring>
 
-namespace db7::shared
+namespace db7::access
 {
     namespace
     {
@@ -114,13 +114,13 @@ namespace db7::shared
 
 int TESTS_KEY_NORM_ENCODER()
 {
-    db7::shared::TestUnsignedEncoding();
-    db7::shared::TestSignedEncoding();
-    db7::shared::TestDoubleEncoding();
-    db7::shared::TestStringCaseSensitive();
-    db7::shared::TestStringCaseInsensitive();
-    db7::shared::TestNullable();
-    db7::shared::TestNullableEarlyReturn();
+    db7::access::TestUnsignedEncoding();
+    db7::access::TestSignedEncoding();
+    db7::access::TestDoubleEncoding();
+    db7::access::TestStringCaseSensitive();
+    db7::access::TestStringCaseInsensitive();
+    db7::access::TestNullable();
+    db7::access::TestNullableEarlyReturn();
 
     printf("\nAll KeyNormEncoder tests passed!\n");
     return 0;

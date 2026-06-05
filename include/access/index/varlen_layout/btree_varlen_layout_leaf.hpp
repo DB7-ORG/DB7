@@ -5,7 +5,7 @@
 #include "shared/align_util.hpp"
 #include "debug/printer.hpp"
 #include "access/index/varlen_layout/btree_varlen_models.hpp"
-#include "shared/key_encode_util.hpp"
+#include "access/key_encoder.hpp"
 
 #include <span>
 #include <limits>
@@ -244,7 +244,7 @@ namespace db7::access
         {
             u32 BASE_OVERHEAD = key.len * 10; // TODO store this somewhere, in the tree for example based on schema
             byte *sentinel_copy = new byte[key.len + BASE_OVERHEAD];
-            u32 size = shared::KeyNormEncoder::Encode(sentinel_copy, std::span<const byte>{key.data, key.len}, key.data == nullptr, false, false);
+            u32 size = access::KeyNormEncoder::Encode(sentinel_copy, std::span<const byte>{key.data, key.len}, key.data == nullptr, false, false);
             return MakeEncodedKey(size, sentinel_copy);
         }
 

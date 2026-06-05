@@ -6,7 +6,7 @@
 #include "shared/align_util.hpp"
 #include "debug/printer.hpp"
 #include "access/index/varlen_layout/btree_varlen_models.hpp"
-#include "shared/key_encode_util.hpp"
+#include "access/key_encoder.hpp"
 
 #include <span>
 #include <limits>

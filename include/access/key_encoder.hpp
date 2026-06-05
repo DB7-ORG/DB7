@@ -1,13 +1,15 @@
 #pragma once
 
-#include "common.hpp"
+#include "access/access_common.hpp"
 #include "shared/macro_helper.hpp"
+#include "access/data_chunk.hpp"
+#include "storage/varlen_entry.hpp"
 
 #include <span>
 #include <cstring>
 #include <utf8proc.h>
 
-namespace db7::shared
+namespace db7::access
 {
     struct KeyNormEncoder
     {
@@ -110,26 +112,83 @@ namespace db7::shared
 
             return size;
         }
+
+        static u32 SwitchType(byte *buf, byte *ptr, type_id type, bool is_data_null, bool is_nullable, bool is_case_sensitive)
+        {
+            switch (type)
+            {
+            case type_id::BOOLEAN:
+            case type_id::UTINYINT:
+                return Encode(buf, *(u8 *)ptr, is_data_null, is_nullable, is_case_sensitive);
+
+            case type_id::TINYINT:
+                return Encode(buf, *(i8 *)ptr, is_data_null, is_nullable, is_case_sensitive);
+
+            case type_id::USMALLINT:
+                return Encode(buf, *(u16 *)ptr, is_data_null, is_nullable, is_case_sensitive);
+
+            case type_id::SMALLINT:
+                return Encode(buf, *(i16 *)ptr, is_data_null, is_nullable, is_case_sensitive);
+
+            case type_id::UINTEGER:
+                return Encode(buf, *(u32 *)ptr, is_data_null, is_nullable, is_case_sensitive);
+
+            case type_id::INTEGER:
+                return Encode(buf, *(i32 *)ptr, is_data_null, is_nullable, is_case_sensitive);
+
+            case type_id::UBIGINT:
+                return Encode(buf, *(u64 *)ptr, is_data_null, is_nullable, is_case_sensitive);
+
+            case type_id::BIGINT:
+                return Encode(buf, *(i64 *)ptr, is_data_null, is_nullable, is_case_sensitive);
+
+            case type_id::DOUBLE:
+                return Encode(buf, *(double *)ptr, is_data_null, is_nullable, is_case_sensitive);
+
+            case type_id::VARCHAR:
+            case type_id::VARBINARY:
+            {
+                auto *entry = (storage::VarlenEntry *)ptr;
+                std::span<const byte> data = entry->IsInline()
+                                                 ? std::span<const byte>((const byte *)entry->GetInline(), entry->GetSize())
+                                                 : std::span<const byte>(/* fetch from varlen page */);
+                return Encode(buf, data, is_data_null, is_nullable, is_case_sensitive);
+            }
+            default:
+                DB7_UNREACHABLE();
+            }
+        }
+
+        static std::vector<std::span<byte>> EncodeFields(byte *result_buffer, access::DataChunk &chunk)
+        {
+            // byte *og_buf = new byte[chunk.GetTotalSpace() * 16 + 8]; // TODO worst case from lib
+            byte *buf = result_buffer;
+            std::vector<std::span<byte>> values;
+            values.reserve(chunk.GetCount());
+
+            auto cols = std::make_unique<access::Vector[]>(chunk.GetColumnCount());
+            for (u32 i = 0; i < chunk.GetColumnCount(); i++)
+            {
+                cols[i] = chunk.GetVectorByIdx2(i);
+            }
+
+            for (u32 j = 0; j < chunk.GetCount(); j++)
+            {
+                byte *old_buf = buf;
+                for (u32 i = 0; i < chunk.GetColumnCount(); i++)
+                {
+                    access::Vector vec = cols[i];
+                    u32 typ_size = SizeOf(vec.GetType());
+                    byte *ptr = vec.GetData() + j * typ_size;
+                    u32 size = SwitchType(buf, ptr, vec.GetType(), false, false, false);
+                    buf += size;
+                    ptr += typ_size;
+                }
+                values.emplace_back(std::span<byte>(old_buf, buf - old_buf));
+            }
+
+            return values;
+        }
     };
 
-    // static std::unique_ptr<byte> EncodeFields(access::DataChunk &chunk)
-    // {
-    //     byte *buf = new byte[chunk.GetTotalSpace() * 16 + 8]; // TODO worst case from lib
-    //     std::vector<byte *> values;
-    //     values.reserve(chunk.GetCount());
-
-    //     auto cols = std::make_unique<access::Vector[]>(chunk.GetColumnCount());
-    //     for (u32 i = 0; i < chunk.GetColumnCount(); i++)
-    //     {
-    //         cols[i] = chunk.GetVectorByIdx2(i);
-    //     }
-
-    //     for (u32 j = 0; j < chunk.GetCount(); j++)
-    //     {
-    //         for (u32 i = 0; i < chunk.GetColumnCount(); i++)
-    //         {
-    //             byte* ptr = cols[i].GetData() + j*SizeOf(cols[i].GteType());
-    //         }
-    //     }
-    // }
 }

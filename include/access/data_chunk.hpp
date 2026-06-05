@@ -15,12 +15,15 @@ namespace db7::access
         byte *data_;
 
     public:
+        Vector() : type_(type_id::BOOLEAN), size_(0), data_(nullptr) {}
+
         Vector(type_id type, u32 size, byte *data)
             : type_(type), size_(size), data_(data) {}
 
         u32 GetSize() const { return size_; }
         byte *GetData() const { return data_; }
-        type_id GteType() const { return type_; }
+        void SetData(byte *data) { data_ = data; }
+        type_id GetType() const { return type_; }
     };
 
     class DataChunk
@@ -40,7 +43,8 @@ namespace db7::access
         u32 total_space_;
 
     public:
-        DataChunk(u32 col_count, u32 vec_count) : vec_count_(vec_count)
+        DataChunk(u32 col_count, u32 vec_count)
+            : vec_count_(vec_count), total_space_(0)
         {
             data_.reserve(col_count);
         }
@@ -52,7 +56,7 @@ namespace db7::access
         Vector GetVectorByIdx2(u32 idx) { return data_[idx]; }
         void Set(Vector vec)
         {
-            data_.push_back(vec);
+            data_.emplace_back(vec);
             total_space_ += vec.GetSize();
         }
     };

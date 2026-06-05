@@ -39,3 +39,6 @@ https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf
 
 * check out when encoding utf8proc_decompose
 * so i have more controle and less allocations
+* take a look at new EncodeFields
+* make varlen more compatible 
+* consider moving layout to storage

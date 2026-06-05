@@ -107,7 +107,7 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
         std::memcpy(raw, s.data(), s.size());
 
         std::span sp((const byte *)s.data(), (u16)s.size());
-        u32 len = shared::KeyNormEncoder::Encode(buf, sp, false, false, false);
+        u32 len = access::KeyNormEncoder::Encode(buf, sp, false, false, false);
 
         strs[i].data = raw;
         strs[i].len = (u16)s.size();

@@ -5,7 +5,6 @@
 #include "catalog/catalog_common.hpp"
 #include "storage/varlen_entry.hpp"
 #include "shared/align_util.hpp"
-#include "access/access_builder.hpp"
 
 #include <cstring>
 
@@ -51,8 +50,6 @@ namespace db7::catalog
         storage::VarlenEntry entry;
         entry.Set(sp);
 
-        // auto db_schema = databases_->GetSchema();
-
         const u32 row_count = 1;
         access::DataChunk chunk(CatalogTableColCount::DATABASE, row_count);
         chunk.Set(access::Vector(access::type_id::INTEGER, SizeOf(access::type_id::INTEGER), (byte *)(&oid)));
@@ -63,7 +60,7 @@ namespace db7::catalog
 
         // TODO fix this
         byte *buf = new byte[name.size() * 16];
-        u16 len = shared::KeyNormEncoder::Encode(buf, name, false, false, false);
+        u16 len = access::KeyNormEncoder::Encode(buf, name, false, false, false);
         auto k = access::Key{(u16)name.size(), name.data(), len, buf};
         databases_index_datname->Insert(k, tup.value);
 
