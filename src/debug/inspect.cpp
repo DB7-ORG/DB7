@@ -189,7 +189,10 @@ namespace db7::debug
         if (tbl_id == static_cast<u32>(OID::PG_INDEX_DATABASE_DATNAME))
             return g_catalog->databases_index_datname;
 
-        auto dbc = g_catalog->databases_map_.at(0);
+        auto it2 = g_catalog->databases_map_.begin();
+        if (it2 == g_catalog->databases_map_.end())
+            return nullptr;
+        auto dbc = it2->second;
 
         if (!dbc)
             return nullptr;
@@ -209,7 +212,10 @@ namespace db7::debug
         if (tbl_id == static_cast<u32>(OID::PG_DATABASES))
             return g_catalog->databases_;
 
-        auto dbc = g_catalog->databases_map_.at(0);
+        auto it2 = g_catalog->databases_map_.begin();
+        if (it2 == g_catalog->databases_map_.end())
+            return nullptr;
+        auto dbc = it2->second;
 
         if (!dbc)
             return nullptr;
@@ -219,6 +225,19 @@ namespace db7::debug
             return dbc->*(it->second);
 
         return nullptr;
+    }
+
+    extern "C" LayoutType GetLayoutType(table_id tbl_id)
+    {
+        if (FindIndex(tbl_id) != nullptr)
+        {
+            return LayoutType::Index; // 0
+        }
+        if (FindTable(tbl_id) != nullptr)
+        {
+            return LayoutType::Table; // 1
+        }
+        return LayoutType::Unknown; // 2
     }
 
     extern "C" HeapDump *InspectHeapLayout(byte *data, table_id tbl_id)

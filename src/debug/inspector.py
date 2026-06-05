@@ -64,13 +64,17 @@ def getTables(result):
     size = int(atomic_val(gdb_eval("g_buffer_pool")["pool_size_"]))
     seen = set()
     tables = []
+
     for i in range(0, size):
         page = pages[i]
         page_id_val = atomic_val(page["id_"])
         tbl_id = int(page_id_val["tbl_id"])
         if tbl_id not in seen:
+            type = gdb.parse_and_eval(f"GetLayoutType((table_id){tbl_id})")
             seen.add(tbl_id)
-            tables.append({"table_id": tbl_id, "name": "table_" + str(tbl_id)})
+            tables.append(
+                {"table_id": tbl_id, "name": "table_" + str(tbl_id), "type": int(type)}
+            )
     result["tables"] = tables
 
 
@@ -104,13 +108,16 @@ def getIndexPageById(result, index):
         ],
     }
 
+
 def getHeapPageById(result, index):
     page = gdb_eval(f"g_buffer_pool.pages_[{index}]")
     data_ptr = int(page["data_"])
     page_id_val = atomic_val(page["id_"])
     tbl_id = int(page_id_val["tbl_id"])
 
-    dump = gdb.parse_and_eval(f"InspectHeapLayout((byte *){data_ptr}, (table_id){tbl_id})")
+    dump = gdb.parse_and_eval(
+        f"InspectHeapLayout((byte *){data_ptr}, (table_id){tbl_id})"
+    )
 
     row_count = int(dump["row_count"])
     col_count = int(dump["column_count"])
@@ -125,7 +132,7 @@ def getHeapPageById(result, index):
                 "columns": [
                     {
                         "name": dump["columns"][i][c]["name"].string(),
-                        "val":  dump["columns"][i][c]["val"].string(),
+                        "val": dump["columns"][i][c]["val"].string(),
                     }
                     for c in range(col_count)
                 ],
@@ -191,7 +198,7 @@ class ReusableHTTPServer(HTTPServer):
 
 
 def start_server():
-    
+
     try:
         server = ReusableHTTPServer(("127.0.0.1", 8007), Handler)
         print("[inspector] HTTP server on http://127.0.0.1:8007")
