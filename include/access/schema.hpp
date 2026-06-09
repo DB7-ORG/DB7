@@ -26,16 +26,5 @@ namespace db7::access
         {
             return columns_;
         }
-
-        u32 CalculateMaxSize(u32 row_count)
-        {
-            u32 max_size = 0;
-            for (const auto &col : columns_)
-            {
-                max_size = shared::AlignUp(max_size, col.GetTypeSize());
-                max_size += col.GetTypeSize() * row_count;
-            }
-            return max_size;
-        }
     };
 }

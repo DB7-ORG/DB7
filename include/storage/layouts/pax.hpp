@@ -18,6 +18,18 @@ namespace db7::storage
 
         void CalculateOffsets();
 
+        // TODO not used
+        u32 CalculateMaxSize(u32 row_count)
+        {
+            u32 max_size = 0;
+            for (const auto size : sizes_)
+            {
+                max_size = shared::AlignUp(max_size, (u32)size);
+                max_size += size * row_count;
+            }
+            return max_size;
+        }
+
     public:
         PaxLayout() = default;
 
