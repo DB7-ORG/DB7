@@ -269,7 +269,7 @@ namespace db7::access
             u32 idx = GetIdx(data, count, key, found);
             if (found)
             {
-                throw new EXECUTION_EXCEPTION("Key already exists", shared::ErrorCode::ERRCODE_UNIQUE_VIOLATION);
+                throw EXECUTION_EXCEPTION("Key already exists", shared::ErrorCode::ERRCODE_UNIQUE_VIOLATION);
             }
             Slot slot = Slot{off};
             ShiftRightInsert(slots, count, idx, slot); // TODO this should increment header count

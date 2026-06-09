@@ -165,7 +165,7 @@ namespace db7::storage
     {
         if (cache_->Get(tbl_id).fd != -1)
         {
-            throw new IO_EXCEPTION("File already exists");
+            throw IO_EXCEPTION("File already exists");
         }
 
         char path[MAX_PATH_LEN];
@@ -174,7 +174,7 @@ namespace db7::storage
         int fd = open(path, O_RDWR | O_CREAT | O_EXCL | O_DIRECT, 0644);
         if (fd < 0)
         {
-            throw new IO_EXCEPTION("File not found");
+            throw IO_EXCEPTION("File not found");
         }
 
         FdCacheEntry entry(fd, initial_pages);
@@ -197,7 +197,7 @@ namespace db7::storage
         int fd = open(path, O_RDWR | O_DIRECT, 0644);
         if (fd < 0)
         {
-            throw new IO_EXCEPTION("File not found");
+            throw IO_EXCEPTION("File not found");
         }
 
         struct stat st;

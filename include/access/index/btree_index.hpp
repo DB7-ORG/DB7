@@ -425,7 +425,7 @@ namespace db7::access
         {
             if (!disk_mng_->CreateOpenFile(tbl_id_, 1))
             {
-                throw new IO_EXCEPTION("IO exception could not open file");
+                throw IO_EXCEPTION("IO exception could not open file");
             }
 
             storage::Page *page = buffer_pool_->Reserve(tbl_id);

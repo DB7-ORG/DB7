@@ -115,7 +115,7 @@ namespace db7::access
             u32 idx = count == 0 ? 0 : GetIdx(OffsetKey(data), count, key, found);
             if (found)
             {
-                throw new EXECUTION_EXCEPTION("Key already exists", shared::ErrorCode::ERRCODE_UNIQUE_VIOLATION);
+                throw EXECUTION_EXCEPTION("Key already exists", shared::ErrorCode::ERRCODE_UNIQUE_VIOLATION);
             }
             ShiftRightInsert(OffsetKey(data), count, idx, key);
             ShiftRightInsert(OffsetRef(data), count, idx, value);

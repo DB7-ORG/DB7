@@ -13,6 +13,7 @@
 #include "storage/disk_manager/disk_scheduler.hpp"
 #include "debug/printer.hpp"
 #include "access/index/btree_index.hpp"
+#include "shared/error/exception.hpp"
 
 using namespace db7;
 
@@ -120,6 +121,17 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
     for (u32 i = 0; i < n; i++)
     {
         keys[i] = strs[i];
+    }
+
+    try
+    {
+        index.Insert(keys[0], 1);
+        index.Insert(keys[0], 2);
+    }
+    catch (db7::Exception &ex)
+    {
+        std::cout << ex << std::endl;
+        throw ex;
     }
 
     u32 num_threads = std::thread::hardware_concurrency();

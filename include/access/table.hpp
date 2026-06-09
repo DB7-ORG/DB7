@@ -54,12 +54,12 @@ namespace db7::access
             // TODO initialize a table file using disk manager
             if (!disk_mng_->CreateOpenFile(oid_, 1))
             {
-                throw new IO_EXCEPTION("Could not create/open file");
+                throw IO_EXCEPTION("Could not create/open file");
             }
 
             if (varlen_oid_ != INVALID_REL_OID && !disk_mng_->CreateOpenFile(varlen_oid_, 1))
             {
-                throw new IO_EXCEPTION("Could not create/open file");
+                throw IO_EXCEPTION("Could not create/open file");
             }
         }
 
