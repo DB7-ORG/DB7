@@ -4,55 +4,12 @@
 #include "storage/fsm/fsm_varlen.hpp"
 #include "shared/align_util.hpp"
 #include "storage/page_header.hpp"
+#include "storage/layouts/pax.hpp"
 
 #include <iomanip>
 
 namespace db7::access
 {
-    u32 IncrementHeaderCount(byte *body, u32 count)
-    {
-        auto *header = storage::PageHeader::CastHeader(body);
-        u32 old = header->count;
-        header->count += count;
-        return old;
-    }
-
-    // TupleId Table::Insert(DataChunk &chunk)
-    // {
-    //     u32 page_id = storage::FreeSpaceManager::Get(rows.total_size); // TODO table oid
-    //     storage::PageIdentifier id(oid_, page_id);
-    //     storage::Page *insert_page = buffer_->Pin(id);
-    //     insert_page->WaitIO();
-
-    //     const auto &map = schema_.GetOffsetMap();
-    //     auto curr = rows.data;
-
-    //     insert_page->WDataLock();
-
-    //     byte *body = insert_page->GetData();
-    //     IncrementHeaderCount(body, chunk.GetCount());
-
-    //     for (const auto &column : schema_.GetColumns())
-    //     {
-    //         u32 type_size = column.GetTypeSize();
-    //         u32 size = rows.row_count * type_size;
-
-    //         catalog::col_oid_t oid = column.GetOid();
-    //         u32 offset = map.at(oid) + prev_count * type_size;
-
-    //         curr = shared::AlignUp(curr, type_size);
-    //         insert_page->WriteOffset(offset, curr, size);
-    //         curr += size;
-    //     }
-    //     insert_page->WDataUnlock();
-
-    //     PrintPage(insert_page);
-
-    //     buffer_->Unpin(insert_page, true);
-
-    //     return {prev_count, page_id};
-    // }
-
     TupleId Table::Insert(DataChunk &chunk)
     {
         u32 page_id = storage::FreeSpaceManagerVarlen::Get(chunk.GetTotalSpace()); // TODO table oid
@@ -63,15 +20,11 @@ namespace db7::access
         insert_page->WDataLock();
 
         byte *body = insert_page->GetData();
-        u32 old_count = IncrementHeaderCount(body, chunk.GetCount());
+        u32 old_count = layout_.IncrementHeaderCount(body, chunk.GetCount());
 
-        u32 col_idx = 0;
-        for (auto &cols : schema_.GetColumns())
+        for (u32 col_idx = 0; col_idx < schema_.GetColumns().size(); col_idx++)
         {
-            u32 off = schema_.GetOffset(cols.GetOid()) + old_count * cols.GetTypeSize();
-            std::span<byte> vec = chunk.GetVectorByIdx(col_idx);
-            insert_page->WriteOffset(off, vec.data(), vec.size());
-            col_idx++;
+            layout_.Insert(body, chunk.GetVectorByIdx(col_idx), col_idx, old_count);
         }
 
         insert_page->WDataUnlock();
@@ -90,14 +43,11 @@ namespace db7::access
         storage::Page *page = buffer_->Pin(id);
         page->WaitIO();
 
-        u32 byte_offset = storage::HEADER_SIZE + idx / 8;
-        byte mask = byte(1 << (idx % 8));
-
-        page->WDataLock();
-        byte current = *page->GetOffset(byte_offset);
-        page->WriteOffset(byte_offset, byte(current | mask));
-        // TODO change mvcc headers also
+        page->WDataLock(); // TODO this could be done atomically also
+        layout_.Delete(page->GetData(), idx);
         page->WDataUnlock();
+
+        PrintPage(page);
     }
 
     u32 Table::PageCount()
@@ -120,8 +70,6 @@ namespace db7::access
         auto *header = storage::PageHeader::CastHeader(body);
         u32 row_count = header->count;
 
-        const auto &map = schema_.GetOffsetMap();
-
         std::cout << "=== Page Contents ===" << std::endl;
         std::cout << "  Row count : " << row_count << std::endl;
         std::cout << "  Table id  : " << tbl << std::endl;
@@ -136,13 +84,11 @@ namespace db7::access
             std::cout << "  Row " << std::setw(3) << i
                       << (deleted ? "  [DELETED]  " : "             ") << "| ";
 
+            u32 col_idx = 0;
             for (const auto &column : schema_.GetColumns())
             {
+                const byte *val_ptr = layout_.Get(body, col_idx++, i);
                 u32 type_size = column.GetTypeSize();
-                catalog::col_oid_t oid = column.GetOid();
-                u32 offset = map.at(oid) + i * type_size;
-
-                const byte *val_ptr = body + offset;
 
                 std::cout << column.GetName() << "=";
                 if (type_size == 1)

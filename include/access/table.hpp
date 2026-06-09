@@ -10,6 +10,7 @@
 #include "storage/varlen_entry.hpp"
 #include "access/data_chunk.hpp"
 #include "shared/error/exception.hpp"
+#include "storage/layouts/pax.hpp"
 
 #include <unordered_map>
 #include <memory>
@@ -44,12 +45,22 @@ namespace db7::access
         Schema schema_;
         catalog::rel_oid_t oid_;
         catalog::rel_oid_t varlen_oid_;
+        storage::PaxLayout layout_;
+
+        static storage::PaxLayout CreateLayoutFromSchema(const Schema &schema)
+        {
+            std::vector<u16> sizes;
+            sizes.reserve(schema.GetColumns().size());
+            for (const auto &col : schema.GetColumns())
+                sizes.emplace_back(col.GetTypeSize());
+            return storage::PaxLayout(std::move(sizes));
+        }
 
     public:
         DB7_DISALLOW_COPY(Table);
 
         Table(storage::BufferPool *buffer, storage::DiskManagerAsync *disk_mng, Schema schema, catalog::rel_oid_t oid, catalog::rel_oid_t varlen_oid = 0)
-            : buffer_(buffer), disk_mng_(disk_mng), schema_(std::move(schema)), oid_(oid), varlen_oid_(varlen_oid)
+            : buffer_(buffer), disk_mng_(disk_mng), schema_(std::move(schema)), oid_(oid), varlen_oid_(varlen_oid), layout_(CreateLayoutFromSchema(schema_))
         {
             // TODO initialize a table file using disk manager
             if (!disk_mng_->CreateOpenFile(oid_, 1))

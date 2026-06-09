@@ -23,7 +23,7 @@ namespace db7::catalog
 
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::DATNAME), access::type_id::VARCHAR, "datname");
 
-        return access::Schema(columns);
+        return access::Schema(std::move(columns));
     }
 
     access::Schema Builder::CreateNamespaceSchema()
@@ -37,7 +37,7 @@ namespace db7::catalog
 
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::NSPNAME), access::type_id::VARCHAR, "nspname");
 
-        return access::Schema(columns);
+        return access::Schema(std::move(columns));
     }
 
     access::Schema Builder::CreateClassSchema()
@@ -52,7 +52,7 @@ namespace db7::catalog
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::RELKIND), access::type_id::TINYINT, "relkind");
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::RELOPTIONS), access::type_id::VARCHAR, "reloptions");
 
-        return access::Schema(columns);
+        return access::Schema(std::move(columns));
     }
 
     access::Schema Builder::CreateAttributeSchema()
@@ -69,7 +69,7 @@ namespace db7::catalog
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::ATTTYPMOD), access::type_id::INTEGER, "atttypmod");
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::ATTNOTNULL), access::type_id::BOOLEAN, "attnotnull");
 
-        return access::Schema(columns);
+        return access::Schema(std::move(columns));
     }
 
     access::Schema Builder::CreateTypeSchema()
@@ -85,7 +85,7 @@ namespace db7::catalog
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::TYPBYVAL), access::type_id::BOOLEAN, "typbyval");
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::TYPTYPE), access::type_id::TINYINT, "typtype");
 
-        return access::Schema(columns);
+        return access::Schema(std::move(columns));
     }
 
     access::Schema Builder::CreateConstraintSchema()
@@ -106,7 +106,7 @@ namespace db7::catalog
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::CONFRELID), access::type_id::INTEGER, "confrelid");
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::CONBIN), access::type_id::VARCHAR, "conbin");
 
-        return access::Schema(columns);
+        return access::Schema(std::move(columns));
     }
 
     access::Schema Builder::CreateLanguageSchema()
@@ -123,7 +123,7 @@ namespace db7::catalog
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::LANINLINE), access::type_id::INTEGER, "laninline");
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::LANVALIDATOR), access::type_id::INTEGER, "lanvalidator");
 
-        return access::Schema(columns);
+        return access::Schema(std::move(columns));
     }
 
     access::Schema Builder::CreateProcSchema()
@@ -155,7 +155,7 @@ namespace db7::catalog
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::PROSRC), access::type_id::VARCHAR, "prosrc");
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::PROCONFIG), access::type_id::VARBINARY, "proconfig");
 
-        return access::Schema(columns);
+        return access::Schema(std::move(columns));
     }
 
     DatabaseCatalog *Builder::CreateDatabaseCatalog(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng)

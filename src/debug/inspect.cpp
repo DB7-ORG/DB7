@@ -252,7 +252,6 @@ namespace db7::debug
         auto *header = storage::PageHeader::CastHeader(data);
         dump.row_count = std::min(header->count, (u32)1024);
 
-        const auto &map = tbl->schema_.GetOffsetMap();
         const auto &columns = tbl->schema_.GetColumns();
         dump.column_count = std::min((u32)columns.size(), (u32)64);
 
@@ -265,8 +264,7 @@ namespace db7::debug
             {
                 const auto &column = columns[c];
                 u32 type_size = column.GetTypeSize();
-                u32 offset = map.at(column.GetOid()) + i * type_size;
-                const byte *val_ptr = data + offset;
+                const byte *val_ptr = tbl->layout_.Get(data, c, i);
 
                 auto name = column.GetName();
                 u32 name_copy = std::min((u32)name.size(), (u32)63);

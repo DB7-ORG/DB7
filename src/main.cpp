@@ -123,17 +123,6 @@ void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskMa
         keys[i] = strs[i];
     }
 
-    try
-    {
-        index.Insert(keys[0], 1);
-        index.Insert(keys[0], 2);
-    }
-    catch (db7::Exception &ex)
-    {
-        std::cout << ex << std::endl;
-        throw ex;
-    }
-
     u32 num_threads = std::thread::hardware_concurrency();
     std::cout << num_threads << std::endl;
 
@@ -249,7 +238,7 @@ int main()
     db7::storage::BufferPool buffer_pool(&disk_scheduler);
     g_buffer_pool = &buffer_pool;
 
-    test_index_perf(&buffer_pool, &disk_mng_async);
+    // test_index_perf(&buffer_pool, &disk_mng_async);
 
     auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
     g_catalog = cat;
@@ -261,8 +250,7 @@ int main()
     std::span<byte> sdataa(reinterpret_cast<byte *>(s.data()), s.size());
 
     cat->CreateDatabase(nullptr, sdata, true);
-
-    // cat->DeleteDatabase(nullptr, 1);
+    cat->DeleteDatabase(nullptr, 1);
     // cat->CreateDatabase(nullptr, sdataa, true);
 
     // std::this_thread::sleep_for(std::chrono::seconds(1));
