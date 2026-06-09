@@ -14,6 +14,7 @@
 #include "shared/thread_local_util.hpp"
 #include "access/index/base_ly_header.hpp"
 #include "access/index/index_schema.hpp"
+#include "shared/error/exception.hpp"
 
 #include <vector>
 #include <atomic>
@@ -424,8 +425,7 @@ namespace db7::access
         {
             if (!disk_mng_->CreateOpenFile(tbl_id_, 1))
             {
-                // TODO handle error
-                DB7_ASSERT(false, "Table could not be created/opened");
+                throw new IO_EXCEPTION("IO exception could not open file");
             }
 
             storage::Page *page = buffer_pool_->Reserve(tbl_id);

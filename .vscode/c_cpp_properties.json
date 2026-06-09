@@ -9,7 +9,7 @@
             ],
             "defines": [
                 "__AVX2__",
-                "DEBUG"
+                "DB7_DEBUG_FLAG"
             ],
             "compilerPath": "/usr/bin/g++",
             "cStandard": "c17",

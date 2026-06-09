@@ -1,4 +1,5 @@
 #include "storage/disk_manager/disk_manager_async.hpp"
+#include "shared/error/exception.hpp"
 
 #include <stdexcept>
 #include <cstring>
@@ -164,8 +165,7 @@ namespace db7::storage
     {
         if (cache_->Get(tbl_id).fd != -1)
         {
-            DB7_ASSERT(false, "File already exists");
-            return false;
+            throw new IO_EXCEPTION("File already exists");
         }
 
         char path[MAX_PATH_LEN];
@@ -174,8 +174,7 @@ namespace db7::storage
         int fd = open(path, O_RDWR | O_CREAT | O_EXCL | O_DIRECT, 0644);
         if (fd < 0)
         {
-            DB7_ASSERT(false, "File not found");
-            return false;
+            throw new IO_EXCEPTION("File not found");
         }
 
         FdCacheEntry entry(fd, initial_pages);
@@ -198,8 +197,7 @@ namespace db7::storage
         int fd = open(path, O_RDWR | O_DIRECT, 0644);
         if (fd < 0)
         {
-            DB7_ASSERT(false, "File not found");
-            return false;
+            throw new IO_EXCEPTION("File not found");
         }
 
         struct stat st;

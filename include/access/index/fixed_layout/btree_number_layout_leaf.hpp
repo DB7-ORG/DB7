@@ -4,6 +4,7 @@
 #include "shared/macro_helper.hpp"
 #include "shared/align_util.hpp"
 #include "access/index/fixed_layout/btree_number_models.hpp"
+#include "shared/error/exception.hpp"
 
 namespace db7::access
 {
@@ -110,8 +111,12 @@ namespace db7::access
 
         void InsertInternal(byte *data, u32 count, T key, R value)
         {
-            bool found;
+            bool found = false;
             u32 idx = count == 0 ? 0 : GetIdx(OffsetKey(data), count, key, found);
+            if (found)
+            {
+                throw new EXECUTION_EXCEPTION("Key already exists", shared::ErrorCode::ERRCODE_UNIQUE_VIOLATION);
+            }
             ShiftRightInsert(OffsetKey(data), count, idx, key);
             ShiftRightInsert(OffsetRef(data), count, idx, value);
         }

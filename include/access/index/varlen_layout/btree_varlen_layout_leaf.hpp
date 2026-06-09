@@ -6,6 +6,7 @@
 #include "debug/printer.hpp"
 #include "access/index/varlen_layout/btree_varlen_models.hpp"
 #include "access/key_encoder.hpp"
+#include "shared/error/exception.hpp"
 
 #include <span>
 #include <limits>
@@ -266,6 +267,10 @@ namespace db7::access
             /* Insert slot */
             bool found = false;
             u32 idx = GetIdx(data, count, key, found);
+            if (found)
+            {
+                throw new EXECUTION_EXCEPTION("Key already exists", shared::ErrorCode::ERRCODE_UNIQUE_VIOLATION);
+            }
             Slot slot = Slot{off};
             ShiftRightInsert(slots, count, idx, slot); // TODO this should increment header count
         }
@@ -494,7 +499,7 @@ namespace db7::access
             }
             else
             {
-                auto new_key = OffsetCommonPrefix(key, right_prefix_len); // Key{static_cast<u16>(key.len - right_prefix_len), key.data + right_prefix_len};
+                auto new_key = OffsetCommonPrefix(key, right_prefix_len);
                 InsertInternal(right_data, right_header_count++, new_key, value);
             }
 

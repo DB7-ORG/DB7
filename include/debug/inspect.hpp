@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef DEBUG
+#ifdef DB7_DEBUG_FLAG
 
 #include "common.hpp"
 #include "access/index/varlen_layout/btree_varlen_models.hpp"

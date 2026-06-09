@@ -12,5 +12,13 @@ namespace db7::transaction
     {
     private:
         timestamp_t start_time_;
+        bool rollback_;
+
+    public:
+        TransactionContext() = delete;
+        TransactionContext(timestamp_t time)
+            : start_time_(time), rollback_(false) {}
+
+        void Abort();
     };
 }

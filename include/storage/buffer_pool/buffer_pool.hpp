@@ -31,11 +31,10 @@ namespace db7::storage
         void Unpin(Page *page, bool dirty = false);
         Page *Reserve(table_id tbl_id);
 
-#ifdef DB7_DEBUG
+        // TODO remove
         Page *GetPagesDebug() const
         {
             return pages_;
         };
-#endif
     };
 }

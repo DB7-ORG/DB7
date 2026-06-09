@@ -66,8 +66,7 @@ namespace db7::storage
             }
         }
 
-        DB7_ASSERT(false, "Unreachable");
-        return nullptr;
+        DB7_UNREACHABLE();
     }
 
     void BufferPool::UndoState(Page *victim_page, PageIdentifier victim_page_id)
@@ -188,8 +187,6 @@ namespace db7::storage
             return page;
         }
 
-        DB7_ASSERT(false, "invalid state reserved page could not be inserted");
-
-        return nullptr;
+        DB7_UNREACHABLE();
     }
 }

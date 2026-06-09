@@ -1,7 +1,5 @@
 #include "catalog/catalog.hpp"
 #include "catalog/builder.hpp"
-#include "access/projected_rows.hpp"
-#include "access/projected_rows_builder.hpp"
 #include "catalog/catalog_common.hpp"
 #include "storage/varlen_entry.hpp"
 #include "shared/align_util.hpp"
@@ -25,6 +23,8 @@ namespace db7::catalog
     db_oid_t Catalog::CreateDatabase(transaction::TransactionContext *txn, const std::span<byte> name, const bool bootstrap)
     {
         db_oid_t oid = next_db_oid_++;
+
+        // TODO register redo event
 
         DatabaseCatalog *dbc = Builder::CreateDatabaseCatalog(buffer_pool_, disk_mng_);
         databases_map_[oid] = dbc;

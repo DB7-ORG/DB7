@@ -7,11 +7,11 @@ LDFLAGS = -lxxhash -lfmt -luring -ljemalloc -lutf8proc
 BUILD ?= release
 
 ifeq ($(BUILD),debug)
-    CXXFLAGS = $(BASE_CXXFLAGS) -g -O0 -DDEBUG -fno-inline
-    CCO3FLAGS = -g -O0 -DDEBUG -fno-inline
+    CXXFLAGS = $(BASE_CXXFLAGS) -g -O0 -DDB7_DEBUG_FLAG  -fno-inline
+    CCO3FLAGS = -g -O0 -DDB7_DEBUG_FLAG  -fno-inline
 else
-    CXXFLAGS = $(BASE_CXXFLAGS) -O2 -DNDEBUG
-    CCO3FLAGS = -O3 -DNDEBUG
+    CXXFLAGS = $(BASE_CXXFLAGS) -O2 -DNDB7_DEBUG_FLAG 
+    CCO3FLAGS = -O3 -DNDB7_DEBUG_FLAG 
 endif
 
 BIN_DIR := bin

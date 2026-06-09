@@ -1,6 +1,6 @@
 #include "debug/inspect.hpp"
 
-#ifdef DEBUG
+#ifdef DB7_DEBUG_FLAG
 
 #include "third_party/unordered_dense.h"
 #define private public
