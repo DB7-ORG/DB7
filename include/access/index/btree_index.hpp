@@ -45,15 +45,15 @@ namespace db7::access
 
         access::IndexSchema schema_;
 
-        storage::Page *ReserveNode(table_id id_)
+        storage::Page *ReserveNode(table_id id)
         {
-            return buffer_pool_->Reserve(id_);
+            return buffer_pool_->Reserve(id);
         }
 
         template <shared::LockMode Mode>
-        storage::Page *GetNode(storage::PageIdentifier id_)
+        storage::Page *GetNode(storage::PageIdentifier id)
         {
-            storage::Page *page = buffer_pool_->Pin(id_);
+            storage::Page *page = buffer_pool_->Pin(id);
             page->WaitIO();
             shared::Lock<Mode>(page);
             return page;

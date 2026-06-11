@@ -23,5 +23,7 @@ namespace db7::transaction
          * @return transaction context for the newly begun transaction
          */
         TransactionContext *BeginTransaction();
+
+        timestamp_t Commit(TransactionContext *txn);
     };
 }

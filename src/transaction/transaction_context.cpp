@@ -2,8 +2,5 @@
 
 namespace db7::transaction
 {
-    void TransactionContext::Abort()
-    {
-        rollback_ = true;
-    }
+
 }

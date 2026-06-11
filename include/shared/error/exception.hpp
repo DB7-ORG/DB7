@@ -27,6 +27,7 @@ namespace db7
 #define SYNTAX_EXCEPTION(msg) SyntaxException(msg, __FILE__, __LINE__)
 #define ABORT_EXCEPTION(msg) AbortException(msg, __FILE__, __LINE__)
 #define IO_EXCEPTION(msg) IOException(msg, __FILE__, __LINE__)
+#define MEMORY_EXCEPTION(msg) MemoryException(msg, __FILE__, __LINE__)
 #define EXECUTION_EXCEPTION(msg, code) ExecutionException(msg, __FILE__, __LINE__, (code))
 #define BINDER_EXCEPTION(msg, code) BinderException(msg, __FILE__, __LINE__, (code))
 #define SETTINGS_EXCEPTION(msg, code) SettingsException(msg, __FILE__, __LINE__, (code))
@@ -51,7 +52,8 @@ namespace db7
         OPTIMIZER,
         SYNTAX,
         EXECUTION,
-        IO
+        IO,
+        MEMORY
     };
 
     /**
@@ -181,6 +183,7 @@ namespace db7
     DEFINE_EXCEPTION(SyntaxException, ExceptionType::SYNTAX);
     DEFINE_EXCEPTION(AbortException, ExceptionType::EXECUTION);
     DEFINE_EXCEPTION(IOException, ExceptionType::IO);
+    DEFINE_EXCEPTION(MemoryException, ExceptionType::MEMORY);
     DEFINE_EXCEPTION_WITH_ERRCODE(ExecutionException, ExceptionType::EXECUTION);
     DEFINE_EXCEPTION_WITH_ERRCODE(BinderException, ExceptionType::BINDER);
     DEFINE_EXCEPTION_WITH_ERRCODE(SettingsException, ExceptionType::SETTINGS);
