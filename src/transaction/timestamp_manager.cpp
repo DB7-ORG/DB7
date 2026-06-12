@@ -16,4 +16,10 @@ namespace db7::transaction
         } // Release latch on current running transactions
         return start_time;
     }
+
+    void TimestampManager::Commit()
+    {
+        shared::AdaptiveVersionLock::WriteGuard running_guard(lock);
+        curr_running_txns_.clear(); // TODO
+    }
 }

@@ -32,7 +32,6 @@ namespace db7::catalog
         CreateDatabaseEntry(txn, name, dbc);
 
         // TODO register abort action in transaction ctx
-        (void)txn;
 
         (void)bootstrap;
 
@@ -52,9 +51,10 @@ namespace db7::catalog
 
         const u32 row_count = 1;
         access::DataChunk chunk(CatalogTableColCount::DATABASE, row_count);
+        chunk.Set({CatalogTableOid::PG_INDEX_DATABASE_DATOID, CatalogTableOid::PG_INDEX_DATABASE_DATNAME});
         chunk.Set(access::Vector(access::type_id::INTEGER, SizeOf(access::type_id::INTEGER), (byte *)(&oid)));
         chunk.Set(access::Vector(access::type_id::VARCHAR, SizeOf(access::type_id::VARCHAR), (byte *)(&entry)));
-        access::TupleId tup = databases_->Insert(chunk);
+        access::TupleId tup = databases_->Insert(txn, chunk);
 
         databases_index_datoid->Insert(oid, tup.value);
 
@@ -95,7 +95,7 @@ namespace db7::catalog
         u32 idx = 0;
         u32 pid = 1;
 
-        databases_->Delete(idx, pid);
+        databases_->Delete(txn, idx, pid);
 
         return true;
     }

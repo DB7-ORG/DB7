@@ -1,7 +1,7 @@
 #pragma once
 
 #include "shared/locks/adaptive_version_lock.hpp"
-#include "third_party/concurrentqueue.h"
+#include "third_party/concurrentqueue_safe.hpp"
 #include "shared/error/exception.hpp"
 #include "shared/macro_helper.hpp"
 

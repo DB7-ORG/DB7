@@ -21,6 +21,8 @@ namespace db7::transaction
         std::unordered_set<timestamp_t> curr_running_txns_;
 
     public:
+        TimestampManager() = default;
+
         ~TimestampManager()
         {
             DB7_ASSERT(curr_running_txns_.empty(),
@@ -38,5 +40,7 @@ namespace db7::transaction
         timestamp_t CurrentTime() const { return time_.load(); }
 
         timestamp_t BeginTransaction();
+
+        void Commit();
     };
 }

@@ -7,7 +7,8 @@
 
 namespace db7::storage
 {
-    BufferPool::BufferPool(DiskScheduler *disk_mng) : disk_mng_(disk_mng), pool_size_(BUFFER_POOL_PAGE_NUM)
+    BufferPool::BufferPool(DiskScheduler *disk_mng, MappingTableManager *version_table)
+        : disk_mng_(disk_mng), pool_size_(BUFFER_POOL_PAGE_NUM), version_table_(version_table)
     {
         pages_ = new Page[BUFFER_POOL_PAGE_NUM];
         auto data = static_cast<u8 *>(std::aligned_alloc(4096, static_cast<size_t>(BUFFER_POOL_PAGE_NUM) * PAGE_SIZE));
@@ -138,6 +139,9 @@ namespace db7::storage
 
                 partIdx = GetPartitionIdx(victim_page_id);
                 partitions_.Delete(victim_page_id, victim_frame_idx, partIdx);
+
+                auto *new_versions = version_table_->Get(id);
+                page->SetVersions(new_versions);
 
                 IoTask task(IoTask::READ, IoPriority::HIGH, page, id);
                 disk_mng_->Enqueue(task);

@@ -16,6 +16,9 @@
 #include "shared/error/exception.hpp"
 #include "shared/arena/object_pool.hpp"
 #include "shared/arena/fixed_bump_arena.hpp"
+#include "transaction/transaction_manager.hpp"
+#include "shared/arena/object_pool.hpp"
+#include "shared/arena/fixed_bump_arena.hpp"
 
 using namespace db7;
 
@@ -230,67 +233,47 @@ int main()
 
     // // populate_table();
 
-    // db7::storage::DiskManagerAsync disk_mng_async(".data");
-    // disk_mng_async.CreateOpenFile(1, 3);
-    // // disk_mng_async.TruncateFile(2, PAGES);
+    db7::storage::DiskManagerAsync disk_mng_async(".data");
+    disk_mng_async.CreateOpenFile(1, 3);
+    // disk_mng_async.TruncateFile(2, PAGES);
 
-    // db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
-    // disk_scheduler.Start();
+    db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
+    disk_scheduler.Start();
 
-    // db7::storage::BufferPool buffer_pool(&disk_scheduler);
-    // g_buffer_pool = &buffer_pool;
+    db7::storage::MappingTableManager version_manager;
 
-    // // test_index_perf(&buffer_pool, &disk_mng_async);
+    db7::storage::BufferPool buffer_pool(&disk_scheduler, &version_manager);
+    g_buffer_pool = &buffer_pool;
 
-    // auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
-    // g_catalog = cat;
+    db7::transaction::TimestampManager timestamp_manager;
 
-    // std::string s = "sssssssssssssssssssssssssssssss";
-    // std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
+    db7::shared::ObjectPool<shared::FixedBumpArena> pool(10'000, 2000);
 
-    // std::string sa = "aaaa";
-    // std::span<byte> sdataa(reinterpret_cast<byte *>(s.data()), s.size());
+    db7::transaction::TransactionManager txn_manager(&timestamp_manager, &buffer_pool, &version_manager, &pool);
 
-    // cat->CreateDatabase(nullptr, sdata, true);
-    // cat->DeleteDatabase(nullptr, 1);
-    // // cat->CreateDatabase(nullptr, sdataa, true);
+    db7::transaction::TransactionContext *context = txn_manager.BeginTransaction();
+    // test_index_perf(&buffer_pool, &disk_mng_async);
 
-    // // std::this_thread::sleep_for(std::chrono::seconds(1));
+    auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
+    g_catalog = cat;
 
-    // delete cat;
+    std::string s = "sssssssssssssssssssssssssssssss";
+    std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
 
-    // disk_scheduler.Stop();
-    u32 num_threads = std::thread::hardware_concurrency();
-    std::cout << num_threads << std::endl;
+    std::string sa = "aaaa";
+    std::span<byte> sdataa(reinterpret_cast<byte *>(s.data()), s.size());
 
-    std::vector<std::thread> threads(num_threads);
-    std::barrier sync_point(num_threads + 1);
-    std::vector<std::thread> read_threads(num_threads);
-    std::barrier read_sync(num_threads + 1);
+    cat->CreateDatabase(context, sdata, true);
+    cat->DeleteDatabase(context, 1);
+    // cat->CreateDatabase(nullptr, sdataa, true);
 
-    shared::ObjectPool<shared::FixedBumpArena> pool(500, 50);
+    // std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    u32 n = 15;
+    txn_manager.Commit(context);
 
-    for (u32 t = 0; t < num_threads; t++)
-    {
-        threads[t] = std::thread([&, t]()
-                                 {
-                                     sync_point.arrive_and_wait(); // wait for all threads ready
-                                    
-                                     for (u32 i = 0; i < n; i++)
-                                     {
-                                         auto obj = pool.Get();
-                                         pool.Release(obj);
-                                     } });
-    }
+    delete cat;
 
-    sync_point.arrive_and_wait(); // release all threads
-
-    for (auto &th : threads)
-        th.join();
-
-    std::cout << pool.GetCurrentSize() << std::endl;
+    disk_scheduler.Stop();
 
     return 0;
 }

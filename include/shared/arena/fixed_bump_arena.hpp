@@ -10,8 +10,8 @@ namespace db7::shared
     class FixedBumpArena
     {
     private:
-        static constexpr u32 BLOCK_SIZE = 4096;
-        byte data_[BLOCK_SIZE];
+        static constexpr u32 ALLOCATOR_BLOCK_SIZE = 4096;
+        byte data_[ALLOCATOR_BLOCK_SIZE];
         u32 size_;
 
     public:
@@ -29,7 +29,7 @@ namespace db7::shared
 
         bool HasAvailableSpace(u32 size)
         {
-            return size_ + AlignUp(size, u32(8)) <= BLOCK_SIZE;
+            return size_ + AlignUp(size, u32(8)) <= ALLOCATOR_BLOCK_SIZE;
         }
     };
 }

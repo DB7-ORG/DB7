@@ -2,8 +2,7 @@
 
 #include "storage/disk_manager/disk_manager_async.hpp"
 #include "storage/page.hpp"
-#undef BLOCK_SIZE
-#include "third_party/concurrentqueue.h"
+#include "third_party/concurrentqueue_safe.hpp"
 
 #include <queue>
 #include <mutex>

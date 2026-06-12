@@ -22,7 +22,7 @@ namespace db7::catalog
         static constexpr u32 PROC = 22;       // PROOID..PROCONFIG
     };
 
-    enum class CatalogTableOid : rel_oid_t
+    enum CatalogTableOid : rel_oid_t
     {
         PG_DATABASES = 1,
         PG_NAMESPACE,

@@ -3,6 +3,7 @@
 #include "storage_common.hpp"
 #include "shared/macro_helper.hpp"
 #include "shared/locks/adaptive_version_lock.hpp"
+#include "storage/mvcc/mapping_table_manager.hpp"
 
 #include <cstring>
 #include <shared_mutex>
@@ -17,11 +18,12 @@ namespace db7::storage
     class Page
     { // TODO padding
     private:
-        std::atomic<PageIdentifier> id_; // 8 bytes
-        byte *data_;                     // 8 bytes
-        std::atomic<u32> ref_count_;     // 4 bytes
-        std::atomic<u8> flags_;          // 1 byte
-        u8 pad_[3];                      // 3 bytes padding
+        std::atomic<PageIdentifier> id_;     // 8 bytes
+        std::atomic<VersionPtr *> versions_; // 8 bytes
+        byte *data_;                         // 8 bytes
+        std::atomic<u32> ref_count_;         // 4 bytes
+        std::atomic<u8> flags_;              // 1 byte
+        u8 pad_[3];                          // 3 bytes padding
 
         alignas(CACHE_LINE_SIZE) std::mutex latch_; // ~56 bytes typically
         std::condition_variable_any io_cv_;
@@ -30,6 +32,8 @@ namespace db7::storage
     public:
         Page() : id_(PageIdentifier{0}), data_(nullptr), ref_count_(0), flags_(0) {}
 
+        VersionPtr *GetVersions() { return versions_.load(); }
+        void SetVersions(VersionPtr *ptr) { versions_.store(ptr); }
         /**
          * Data
          */

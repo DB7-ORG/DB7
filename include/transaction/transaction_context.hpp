@@ -21,13 +21,24 @@ namespace db7::transaction
         timestamp_t finish_time_;
         bool rollback_;
         storage::BufferPool *buffer_pool_;
+        storage::MappingTableManager *version_manager_;
         storage::UndoBuffer undo_buffer_;
 
     public:
         TransactionContext() = delete;
 
-        TransactionContext(timestamp_t time, timestamp_t finish_time, storage::BufferPool *buffer_pool, shared::ObjectPool<shared::FixedBumpArena> *pool)
-            : start_time_(time), finish_time_(finish_time), rollback_(false), buffer_pool_(buffer_pool), undo_buffer_(pool) {}
+        TransactionContext(
+            timestamp_t time,
+            timestamp_t finish_time,
+            storage::BufferPool *buffer_pool,
+            storage::MappingTableManager *version_manager,
+            shared::ObjectPool<shared::FixedBumpArena> *pool)
+            : start_time_(time),
+              finish_time_(finish_time),
+              rollback_(false),
+              buffer_pool_(buffer_pool),
+              version_manager_(version_manager),
+              undo_buffer_(pool) {}
 
         timestamp_t StartTime() const { return start_time_; }
 
@@ -37,22 +48,33 @@ namespace db7::transaction
 
         bool GetState() { return rollback_; }
 
-        storage::UndoRecord *UndoRecordForInsert(storage::PageIdentifier id, u32 idx)
+        /**
+         * @warning make sure to hold the page data lock like w other columns
+         */
+        storage::VersionPtr *GetVersions(storage::Page *page, storage::PageIdentifier id, u32 count)
         {
-            byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord));
-            return storage::UndoRecord::InitializeInsert(result, finish_time_, id, idx);
+            storage::VersionPtr *versions_arr = page->GetVersions();
+            if (versions_arr == nullptr)
+                return version_manager_->InitializeVersions(id, count);
+            return versions_arr;
         }
 
-        storage::UndoRecord *UndoRecordForDelete(storage::PageIdentifier id, u32 idx)
+        storage::UndoRecord *UndoRecordForInsert(table_id tbl_id, page_id pid, u32 idx)
         {
             byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord));
-            return storage::UndoRecord::InitializeDelete(result, finish_time_, id, idx);
+            return storage::UndoRecord::InitializeInsert(result, finish_time_, tbl_id, pid, idx);
         }
 
-        storage::UndoRecord *UndoRecordForUpdate(storage::PageIdentifier id, u32 idx, access::DataChunk *data)
+        storage::UndoRecord *UndoRecordForDelete(table_id tbl_id, page_id pid, u32 idx)
+        {
+            byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord));
+            return storage::UndoRecord::InitializeDelete(result, finish_time_, tbl_id, pid, idx);
+        }
+
+        storage::UndoRecord *UndoRecordForUpdate(table_id tbl_id, page_id pid, u32 idx, access::DataChunk *data)
         {
             byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord) + data->GetRowSize());
-            return storage::UndoRecord::InitializeUpdate(result, finish_time_, id, idx, data->GetColumnsRaw());
+            return storage::UndoRecord::InitializeUpdate(result, finish_time_, tbl_id, pid, idx, data->GetColumnsRaw());
         }
     };
 }

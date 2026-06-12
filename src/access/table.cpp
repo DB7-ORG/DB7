@@ -5,12 +5,27 @@
 #include "shared/align_util.hpp"
 #include "storage/page_header.hpp"
 #include "storage/layouts/pax.hpp"
+#include "transaction/transaction_util.hpp"
 
 #include <iomanip>
 
 namespace db7::access
 {
-    TupleId Table::Insert(DataChunk &chunk)
+    /**
+     * @warning make sure to hold the page data lock like w other columns
+     */
+    void Table::InsertUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page)
+    {
+        u32 count = layout_.GetRowCount();
+
+        storage::UndoRecord *record = txn->UndoRecordForInsert(oid_, tup_id.pid, tup_id.index);
+
+        storage::VersionPtr *versions = txn->GetVersions(page, storage::PageIdentifier{oid_, tup_id.pid}, count);
+
+        versions[tup_id.index].Set(record);
+    }
+
+    TupleId Table::Insert(transaction::TransactionContext *txn, DataChunk &chunk)
     {
         u32 page_id = storage::FreeSpaceManagerVarlen::Get(chunk.GetTotalSpace()); // TODO table oid
         storage::PageIdentifier id(varlen_oid_, page_id);
@@ -27,17 +42,65 @@ namespace db7::access
             layout_.Insert(body, chunk.GetVectorByIdx(col_idx), col_idx, old_count);
         }
 
-        insert_page->WDataUnlock();
+        TupleId tup_id = {old_count, page_id};
 
-        buffer_->Unpin(insert_page, true);
+        InsertUndo(txn, tup_id, insert_page);
+
+        insert_page->WDataUnlock();
 
         PrintPage(insert_page);
 
+        buffer_->Unpin(insert_page, true);
+
         /* returns index insede page and page id */
-        return {old_count, page_id};
+        return tup_id;
     }
 
-    void Table::Delete(u32 idx, catalog::rel_oid_t pid)
+    bool HasConflict(transaction::TransactionContext *txn, storage::UndoRecord *version_ptr)
+    {
+        /* Nobody modified this tuple */
+        if (version_ptr == nullptr)
+            return false;
+
+        const transaction::timestamp_t version_timestamp = version_ptr->GetTimestamp();
+        const transaction::timestamp_t txn_id = txn->FinishTime();
+        const transaction::timestamp_t start_time = txn->StartTime();
+
+        /* Check if there is write-write conflict with another transaction */
+        const bool owned_by_other_txn = (!transaction::TransactionUtil::IsCommitted(version_timestamp) && version_timestamp != txn_id);
+
+        /* Check if someone commited after we started */
+        const bool newer_committed_version = transaction::TransactionUtil::IsCommitted(version_timestamp) &&
+                                             transaction::TransactionUtil::IsNewerThan(version_timestamp, start_time);
+
+        return owned_by_other_txn || newer_committed_version;
+    }
+
+    /**
+     * @warning make sure to hold the page data lock like w other columns
+     */
+    bool Table::DeleteUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page)
+    {
+        u32 count = layout_.GetRowCount();
+
+        storage::UndoRecord *record = txn->UndoRecordForDelete(oid_, tup_id.pid, tup_id.index);
+
+        storage::VersionPtr *versions = txn->GetVersions(page, storage::PageIdentifier{oid_, tup_id.pid}, count);
+
+        do
+        {
+            storage::UndoRecord *version_ptr = versions[tup_id.index].Get();
+
+            if (HasConflict(txn, version_ptr))
+            { //|| !Visible() why do i need this here
+                record->Invalidate();
+                return false;
+            }
+
+        } while (true); // TODO !CompareAndSwapVersionPtr(slot, accessor_, version_ptr, undo)
+    }
+
+    void Table::Delete(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid)
     {
         storage::PageIdentifier id(oid_, pid);
         storage::Page *page = buffer_->Pin(id);
@@ -45,7 +108,12 @@ namespace db7::access
 
         page->WDataLock(); // TODO this could be done atomically also
         layout_.Delete(page->GetData(), idx);
+        bool is_valid = DeleteUndo(txn, {idx, id.pid}, page);
         page->WDataUnlock();
+
+        if (!is_valid)
+        {
+        }
 
         PrintPage(page);
     }

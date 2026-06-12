@@ -13,7 +13,8 @@ namespace db7::storage
     {
         UPDATE = 0,
         INSERT,
-        DELETE
+        DELETE,
+        INVALID
     };
 
     class UndoRecord
@@ -22,40 +23,54 @@ namespace db7::storage
         DeltaRecordType type_;
         std::atomic<UndoRecord *> next_;
         std::atomic<transaction::timestamp_t> timestamp_;
-        PageIdentifier p_id_;
+        table_id t_id_;
+        page_id p_id_;
         u32 idx_;
         u64 varlen_contents_[0];
 
     public:
-        static UndoRecord *InitializeInsert(byte *head, const transaction::timestamp_t timestamp, PageIdentifier p_id, u32 idx)
+        transaction::timestamp_t GetTimestamp()
+        {
+            return timestamp_.load();
+        }
+
+        void Invalidate()
+        {
+            type_ = DeltaRecordType::INVALID;
+        }
+
+        static UndoRecord *InitializeInsert(byte *head, const transaction::timestamp_t timestamp, table_id tbl_id, page_id pid, u32 idx)
         {
             auto *result = reinterpret_cast<UndoRecord *>(head);
             result->type_ = DeltaRecordType::INSERT;
             result->next_ = nullptr;
             result->timestamp_.store(timestamp);
-            result->p_id_ = p_id;
+            result->t_id_ = tbl_id;
+            result->p_id_ = pid;
             result->idx_ = idx;
             return result;
         }
 
-        static UndoRecord *InitializeDelete(byte *head, const transaction::timestamp_t timestamp, PageIdentifier p_id, u32 idx)
+        static UndoRecord *InitializeDelete(byte *head, const transaction::timestamp_t timestamp, table_id tbl_id, page_id pid, u32 idx)
         {
             auto *result = reinterpret_cast<UndoRecord *>(head);
             result->type_ = DeltaRecordType::DELETE;
             result->next_ = nullptr;
             result->timestamp_.store(timestamp);
-            result->p_id_ = p_id;
+            result->t_id_ = tbl_id;
+            result->p_id_ = pid;
             result->idx_ = idx;
             return result;
         }
 
-        static UndoRecord *InitializeUpdate(byte *head, const transaction::timestamp_t timestamp, PageIdentifier p_id, u32 idx, std::span<byte> columns)
+        static UndoRecord *InitializeUpdate(byte *head, const transaction::timestamp_t timestamp, table_id tbl_id, page_id pid, u32 idx, std::span<byte> columns)
         {
             auto *result = reinterpret_cast<UndoRecord *>(head);
             result->type_ = DeltaRecordType::UPDATE;
             result->next_ = nullptr;
             result->timestamp_.store(timestamp);
-            result->p_id_ = p_id;
+            result->t_id_ = tbl_id;
+            result->p_id_ = pid;
             result->idx_ = idx;
             std::memcpy(result->varlen_contents_, columns.data(), columns.size());
             return result;

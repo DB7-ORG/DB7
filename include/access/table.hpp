@@ -11,6 +11,8 @@
 #include "access/data_chunk.hpp"
 #include "shared/error/exception.hpp"
 #include "storage/layouts/pax.hpp"
+#include "transaction/transaction_context.hpp"
+#include "storage/mvcc/mapping_table_manager.hpp"
 
 #include <unordered_map>
 #include <memory>
@@ -56,6 +58,10 @@ namespace db7::access
             return storage::PaxLayout(std::move(sizes));
         }
 
+        void InsertUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page);
+
+        bool DeleteUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page);
+
     public:
         DB7_DISALLOW_COPY(Table);
 
@@ -76,9 +82,9 @@ namespace db7::access
 
         // TupleId Insert(const ProjectedRows &rows);
 
-        TupleId Insert(DataChunk &chunk);
+        TupleId Insert(transaction::TransactionContext *txn, DataChunk &chunk);
 
-        void Delete(u32 idx, catalog::rel_oid_t pid);
+        void Delete(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid);
 
         u32 PageCount();
 

@@ -84,5 +84,10 @@ namespace db7::access
             data_.emplace_back(vec);
             total_space_ += vec.GetSize();
         }
+
+        void Set(std::vector<catalog::col_oid_t> column_ids)
+        {
+            column_ids_ = std::move(column_ids);
+        }
     };
 }
