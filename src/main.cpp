@@ -240,7 +240,7 @@ int main()
     db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
     disk_scheduler.Start();
 
-    db7::storage::MappingTableManager version_manager;
+    db7::storage::PageVersionManager version_manager;
 
     db7::storage::BufferPool buffer_pool(&disk_scheduler, &version_manager);
     g_buffer_pool = &buffer_pool;

@@ -3,7 +3,7 @@
 #include "storage_common.hpp"
 #include "shared/macro_helper.hpp"
 #include "shared/locks/adaptive_version_lock.hpp"
-#include "storage/mvcc/mapping_table_manager.hpp"
+#include "storage/mvcc/page_version_manager.hpp"
 
 #include <cstring>
 #include <shared_mutex>

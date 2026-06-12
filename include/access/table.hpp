@@ -12,7 +12,7 @@
 #include "shared/error/exception.hpp"
 #include "storage/layouts/pax.hpp"
 #include "transaction/transaction_context.hpp"
-#include "storage/mvcc/mapping_table_manager.hpp"
+#include "storage/mvcc/page_version_manager.hpp"
 
 #include <unordered_map>
 #include <memory>

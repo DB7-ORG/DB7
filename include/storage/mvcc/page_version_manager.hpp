@@ -9,7 +9,7 @@
 
 namespace db7::storage
 {
-    class MappingTableManager
+    class PageVersionManager
     {
     private:
         shared::AdaptiveVersionLock lock_; // TODO should be cas hash map
@@ -18,9 +18,9 @@ namespace db7::storage
         std::unordered_map<PageIdentifier, VersionPtr *> table_;
 
     public:
-        MappingTableManager() = default;
+        PageVersionManager() = default;
 
-        ~MappingTableManager()
+        ~PageVersionManager()
         {
             for (auto &[id, versions] : table_)
                 delete[] versions;

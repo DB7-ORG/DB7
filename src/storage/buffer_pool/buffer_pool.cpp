@@ -7,7 +7,7 @@
 
 namespace db7::storage
 {
-    BufferPool::BufferPool(DiskScheduler *disk_mng, MappingTableManager *version_table)
+    BufferPool::BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_table)
         : disk_mng_(disk_mng), pool_size_(BUFFER_POOL_PAGE_NUM), version_table_(version_table)
     {
         pages_ = new Page[BUFFER_POOL_PAGE_NUM];

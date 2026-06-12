@@ -13,14 +13,14 @@ namespace db7::transaction
     private:
         TimestampManager *timestamp_manager_;
         storage::BufferPool *buffer_pool_;
-        storage::MappingTableManager *version_manager_;
+        storage::PageVersionManager *version_manager_;
         shared::ObjectPool<shared::FixedBumpArena> *mem_pool_;
 
     public:
         TransactionManager(
             TimestampManager *timestamp_manager,
             storage::BufferPool *buffer_pool,
-            storage::MappingTableManager *version_manager,
+            storage::PageVersionManager *version_manager,
             shared::ObjectPool<shared::FixedBumpArena> *mem_pool)
             : timestamp_manager_(timestamp_manager), buffer_pool_(buffer_pool), version_manager_(version_manager), mem_pool_(mem_pool) {}
 

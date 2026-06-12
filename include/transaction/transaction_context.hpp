@@ -21,7 +21,7 @@ namespace db7::transaction
         timestamp_t finish_time_;
         bool rollback_;
         storage::BufferPool *buffer_pool_;
-        storage::MappingTableManager *version_manager_;
+        storage::PageVersionManager *version_manager_;
         storage::UndoBuffer undo_buffer_;
 
     public:
@@ -31,7 +31,7 @@ namespace db7::transaction
             timestamp_t time,
             timestamp_t finish_time,
             storage::BufferPool *buffer_pool,
-            storage::MappingTableManager *version_manager,
+            storage::PageVersionManager *version_manager,
             shared::ObjectPool<shared::FixedBumpArena> *pool)
             : start_time_(time),
               finish_time_(finish_time),
