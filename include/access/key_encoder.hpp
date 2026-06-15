@@ -159,35 +159,42 @@ namespace db7::access
             }
         }
 
-        static std::vector<std::span<byte>> EncodeFields(byte *result_buffer, access::DataChunk &chunk)
+        static std::span<byte> EncodeFields(byte *result_buffer, access::DataChunk &chunk)
         {
-            // byte *og_buf = new byte[chunk.GetTotalSpace() * 16 + 8]; // TODO worst case from lib
             byte *buf = result_buffer;
-            std::vector<std::span<byte>> values;
-            values.reserve(chunk.GetCount());
 
-            auto cols = std::make_unique<access::Vector[]>(chunk.GetColumnCount());
-            for (u32 i = 0; i < chunk.GetColumnCount(); i++)
+            // auto cols = std::make_unique<access::Vector[]>(chunk.GetColumnCount());
+            // for (u32 i = 0; i < chunk.GetColumnCount(); i++)
+            // {
+            //     cols[i] = chunk.GetVector(i);
+            // }
+
+            // for (u32 j = 0; j < chunk.GetCount(); j++)
+            // {
+            //     byte *old_buf = buf;
+            //     for (u32 i = 0; i < chunk.GetColumnCount(); i++)
+            //     {
+            //         access::Vector vec = cols[i];
+            //         u32 typ_size = chunk.GetColumnSize(i);
+            //         byte *ptr = vec.GetData() + j * typ_size;
+            //         u32 size = SwitchType(buf, ptr, chunk.GetColumnType(i), false, false, false);
+            //         buf += size;
+            //         ptr += typ_size;
+            //     }
+            //     values.emplace_back(std::span<byte>(old_buf, buf - old_buf));
+            // }
+
+            Schema schema_({}); // TODO fix this send schema as param
+
+            for (u32 i = 0; i < chunk.GetCount(); i++)
             {
-                cols[i] = chunk.GetVectorByIdx2(i);
+                u32 size = schema_.GetColumn(i).GetPosiiton();
+                byte *ptr = chunk.Next();
+                u32 encoded_size = SwitchType(buf, ptr, schema_.GetColumn(i).GetType(), false, false, false);
+                buf += encoded_size;
             }
 
-            for (u32 j = 0; j < chunk.GetCount(); j++)
-            {
-                byte *old_buf = buf;
-                for (u32 i = 0; i < chunk.GetColumnCount(); i++)
-                {
-                    access::Vector vec = cols[i];
-                    u32 typ_size = SizeOf(vec.GetType());
-                    byte *ptr = vec.GetData() + j * typ_size;
-                    u32 size = SwitchType(buf, ptr, vec.GetType(), false, false, false);
-                    buf += size;
-                    ptr += typ_size;
-                }
-                values.emplace_back(std::span<byte>(old_buf, buf - old_buf));
-            }
-
-            return values;
+            return std::span<byte>(buf, buf - result_buffer);
         }
     };
 

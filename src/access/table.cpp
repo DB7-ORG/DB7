@@ -11,51 +11,6 @@
 
 namespace db7::access
 {
-    /**
-     * @warning make sure to hold the page data lock like w other columns
-     */
-    void Table::InsertUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page)
-    {
-        u32 count = layout_.GetRowCount();
-
-        storage::UndoRecord *record = txn->UndoRecordForInsert(oid_, tup_id.pid, tup_id.index);
-
-        storage::VersionPtr *versions = txn->GetVersions(page, storage::PageIdentifier{oid_, tup_id.pid}, count);
-
-        versions[tup_id.index].Set(record);
-    }
-
-    TupleId Table::Insert(transaction::TransactionContext *txn, DataChunk &chunk)
-    {
-        u32 page_id = storage::FreeSpaceManagerVarlen::Get(chunk.GetTotalSpace()); // TODO table oid
-        storage::PageIdentifier id(varlen_oid_, page_id);
-        storage::Page *insert_page = buffer_->Pin(id);
-        insert_page->WaitIO();
-
-        insert_page->WDataLock();
-
-        byte *body = insert_page->GetData();
-        u32 old_count = layout_.IncrementHeaderCount(body, chunk.GetCount());
-
-        for (u32 col_idx = 0; col_idx < schema_.GetColumns().size(); col_idx++)
-        {
-            layout_.Insert(body, chunk.GetVectorByIdx(col_idx), col_idx, old_count);
-        }
-
-        TupleId tup_id = {old_count, page_id};
-
-        InsertUndo(txn, tup_id, insert_page);
-
-        insert_page->WDataUnlock();
-
-        PrintPage(insert_page);
-
-        buffer_->Unpin(insert_page, true);
-
-        /* returns index insede page and page id */
-        return tup_id;
-    }
-
     bool HasConflict(transaction::TransactionContext *txn, storage::UndoRecord *version_ptr)
     {
         /* Nobody modified this tuple */
@@ -79,6 +34,93 @@ namespace db7::access
     /**
      * @warning make sure to hold the page data lock like w other columns
      */
+    bool Table::UpdateUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page, DataChunk &chunk)
+    {
+        u32 count = layout_.GetRowCount();
+
+        storage::UndoRecord *record = txn->UndoRecordForUpdate(oid_, tup_id.pid, tup_id.index, chunk);
+
+        storage::VersionPtr *versions = txn->GetVersions(page, storage::PageIdentifier{oid_, tup_id.pid}, count);
+
+        storage::UndoRecord *version_ptr;
+
+        do
+        {
+            version_ptr = versions[tup_id.index].Get();
+
+            if (HasConflict(txn, version_ptr))
+            {
+                record->Invalidate();
+                return false;
+            }
+
+            std::vector<u32> indexes = schema_.GetColumnIndexes(chunk.GetColumnIds()); // TODO Move this outside of the api
+            for (u32 i = 0; i < indexes.size(); i++)
+            {
+                u32 size = schema_.GetColumn(indexes[i]).GetTypeSize();
+                byte *ptr = layout_.Get(page->GetData(), indexes[i], tup_id.index); // TODO need to copy current values and insert to delta store
+                layout_.Update(ptr, std::span<byte>(chunk.Access(indexes[i]), size));
+            }
+
+            record->SetNext(version_ptr);
+
+        } while (versions[tup_id.index].CompareAndSwap(version_ptr, record));
+
+        return true;
+    }
+
+    TupleId Table::Update(transaction::TransactionContext *txn, DataChunk &chunk)
+    {
+    }
+
+    /**
+     * @warning make sure to hold the page data lock like w other columns
+     */
+    void Table::InsertUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page)
+    {
+        u32 count = layout_.GetRowCount();
+
+        storage::UndoRecord *record = txn->UndoRecordForInsert(oid_, tup_id.pid, tup_id.index);
+
+        storage::VersionPtr *versions = txn->GetVersions(page, storage::PageIdentifier{oid_, tup_id.pid}, count);
+
+        versions[tup_id.index].Set(record);
+    }
+
+    TupleId Table::Insert(transaction::TransactionContext *txn, DataChunk &chunk)
+    {
+        u32 page_id = storage::FreeSpaceManagerVarlen::Get(chunk.GetSize()); // TODO table oid
+        storage::PageIdentifier id(varlen_oid_, page_id);
+        storage::Page *insert_page = buffer_->Pin(id);
+        insert_page->WaitIO();
+
+        insert_page->WDataLock();
+
+        byte *body = insert_page->GetData();
+        u32 old_count = layout_.IncrementHeaderCount(body, 1);
+
+        for (auto &col : schema_.GetColumns())
+        {
+            layout_.Insert(body, std::span<byte>(chunk.Access(col.GetPosiiton()), col.GetTypeSize()), col.GetPosiiton(), old_count);
+        }
+
+        TupleId tup_id = {old_count, page_id};
+
+        InsertUndo(txn, tup_id, insert_page);
+
+        insert_page->WDataUnlock();
+
+        PrintPage(insert_page);
+
+        buffer_->Unpin(insert_page, true);
+
+        /* returns index insede page and page id */
+        return tup_id;
+    }
+
+    /**
+     * @warning make sure to hold the page data lock like w other columns
+     */
     bool Table::DeleteUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page)
     {
         u32 count = layout_.GetRowCount();
@@ -87,40 +129,60 @@ namespace db7::access
 
         storage::VersionPtr *versions = txn->GetVersions(page, storage::PageIdentifier{oid_, tup_id.pid}, count);
 
+        storage::UndoRecord *version_ptr;
+
         do
         {
-            storage::UndoRecord *version_ptr = versions[tup_id.index].Get();
+            version_ptr = versions[tup_id.index].Get();
 
             if (HasConflict(txn, version_ptr))
-            { //|| !Visible() why do i need this here
+            {
                 record->Invalidate();
                 return false;
             }
 
-        } while (true); // TODO !CompareAndSwapVersionPtr(slot, accessor_, version_ptr, undo)
+            record->SetNext(version_ptr);
+
+        } while (versions[tup_id.index].CompareAndSwap(version_ptr, record));
+
+        return true;
     }
 
-    void Table::Delete(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid)
+    bool Table::Delete(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid)
     {
         storage::PageIdentifier id(oid_, pid);
         storage::Page *page = buffer_->Pin(id);
         page->WaitIO();
 
         page->WDataLock(); // TODO this could be done atomically also
-        layout_.Delete(page->GetData(), idx);
         bool is_valid = DeleteUndo(txn, {idx, id.pid}, page);
+        layout_.Delete(page->GetData(), idx);
         page->WDataUnlock();
 
-        if (!is_valid)
-        {
-        }
-
         PrintPage(page);
+
+        page->Unpin();
+
+        return is_valid;
     }
 
     u32 Table::PageCount()
     {
         return disk_mng_->PageCount(oid_);
+    }
+
+    void Table::ScanIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page, DataChunk &chunk)
+    {
+        byte *data = page->GetData();
+
+        std::vector<u32> indexes = schema_.GetColumnIndexes(chunk.GetColumnIds());
+
+        for (auto &column_idx : indexes)
+        {
+            u32 size = schema_.GetColumn(column_idx).GetPosiiton();
+            byte *ptr = layout_.Get(data, column_idx, idx);
+            chunk.PushBack(std::span<byte>(ptr, size));
+        }
     }
 
     void Table::PrintPage(storage::Page *page)

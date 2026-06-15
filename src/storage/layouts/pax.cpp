@@ -45,9 +45,22 @@ namespace db7::storage
         return old;
     }
 
+    u32 PaxLayout::CalcOffset(u32 row_idx, u32 column_idx) { return row_idx * sizes_[column_idx] + offsets_[column_idx]; }
+
+    void PaxLayout::Update(byte *dest, std::span<byte> update_data)
+    {
+        std::memcpy(dest, update_data.data(), update_data.size());
+    }
+
+    void PaxLayout::Update(byte *page_data, std::span<byte> update_data, u16 column_idx, u32 row_idx)
+    {
+        u32 off = CalcOffset(row_idx, column_idx);
+        std::memcpy(page_data + off, update_data.data(), update_data.size());
+    }
+
     void PaxLayout::Insert(byte *page_data, std::span<byte> insert_data, u16 column_idx, u32 row_idx)
     {
-        u32 off = row_idx * sizes_[column_idx] + offsets_[column_idx];
+        u32 off = CalcOffset(row_idx, column_idx);
         InternalWrite(page_data + off, insert_data);
     }
 
@@ -60,7 +73,7 @@ namespace db7::storage
 
     byte *PaxLayout::Get(byte *page_data, u16 column_idx, u32 row_idx)
     {
-        u32 off = row_idx * sizes_[column_idx] + offsets_[column_idx];
+        u32 off = CalcOffset(row_idx, column_idx);
         return page_data + off;
     }
 }

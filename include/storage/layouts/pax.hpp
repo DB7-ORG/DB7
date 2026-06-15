@@ -38,6 +38,12 @@ namespace db7::storage
 
         u32 IncrementHeaderCount(byte *data, u32 count);
 
+        u32 CalcOffset(u32 row_idx, u32 column_idx) { return row_idx * sizes_[column_idx] + offsets_[column_idx]; }
+
+        void Update(byte *dest, std::span<byte> update_data);
+
+        void Update(byte *page_data, std::span<byte> update_data, u16 column_idx, u32 row_idx);
+
         void Insert(byte *page_data, std::span<byte> insert_data, u16 column_idx, u32 row_idx);
 
         void Delete(byte *data, u32 row_idx);

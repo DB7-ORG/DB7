@@ -3,6 +3,7 @@
 #include "shared/arena/fixed_bump_arena.hpp"
 #include "shared/arena/object_pool.hpp"
 #include "transaction/transaction_common.hpp"
+#include "storage/storage_common.hpp"
 
 #include <vector>
 #include <span>
@@ -39,6 +40,11 @@ namespace db7::storage
             type_ = DeltaRecordType::INVALID;
         }
 
+        void SetNext(UndoRecord *next)
+        {
+            next_.store(next);
+        }
+
         static UndoRecord *InitializeInsert(byte *head, const transaction::timestamp_t timestamp, table_id tbl_id, page_id pid, u32 idx)
         {
             auto *result = reinterpret_cast<UndoRecord *>(head);
@@ -63,7 +69,7 @@ namespace db7::storage
             return result;
         }
 
-        static UndoRecord *InitializeUpdate(byte *head, const transaction::timestamp_t timestamp, table_id tbl_id, page_id pid, u32 idx, std::span<byte> columns)
+        static UndoRecord *InitializeUpdate(byte *head, const transaction::timestamp_t timestamp, table_id tbl_id, page_id pid, u32 idx, std::span<store_column_id> columns)
         {
             auto *result = reinterpret_cast<UndoRecord *>(head);
             result->type_ = DeltaRecordType::UPDATE;

@@ -9,6 +9,7 @@
 
 using page_id = uint32_t;
 using table_id = uint32_t;
+using store_column_id = uint32_t;
 
 namespace db7::storage
 {
