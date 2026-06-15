@@ -4,6 +4,7 @@
 #include "shared/macro_helper.hpp"
 #include "access/data_chunk.hpp"
 #include "storage/varlen_entry.hpp"
+#include "access/schema.hpp"
 
 #include <span>
 #include <cstring>
@@ -159,42 +160,18 @@ namespace db7::access
             }
         }
 
-        static std::span<byte> EncodeFields(byte *result_buffer, access::DataChunk &chunk)
+        static std::span<byte> EncodeFields(byte *result_buffer, Schema schema_, access::DataChunk &chunk)
         {
             byte *buf = result_buffer;
-
-            // auto cols = std::make_unique<access::Vector[]>(chunk.GetColumnCount());
-            // for (u32 i = 0; i < chunk.GetColumnCount(); i++)
-            // {
-            //     cols[i] = chunk.GetVector(i);
-            // }
-
-            // for (u32 j = 0; j < chunk.GetCount(); j++)
-            // {
-            //     byte *old_buf = buf;
-            //     for (u32 i = 0; i < chunk.GetColumnCount(); i++)
-            //     {
-            //         access::Vector vec = cols[i];
-            //         u32 typ_size = chunk.GetColumnSize(i);
-            //         byte *ptr = vec.GetData() + j * typ_size;
-            //         u32 size = SwitchType(buf, ptr, chunk.GetColumnType(i), false, false, false);
-            //         buf += size;
-            //         ptr += typ_size;
-            //     }
-            //     values.emplace_back(std::span<byte>(old_buf, buf - old_buf));
-            // }
-
-            Schema schema_({}); // TODO fix this send schema as param
-
+            auto iter = chunk.InitIterator();
             for (u32 i = 0; i < chunk.GetCount(); i++)
             {
-                u32 size = schema_.GetColumn(i).GetPosiiton();
-                byte *ptr = chunk.Next();
+                byte *ptr = iter.Next();
                 u32 encoded_size = SwitchType(buf, ptr, schema_.GetColumn(i).GetType(), false, false, false);
                 buf += encoded_size;
             }
 
-            return std::span<byte>(buf, buf - result_buffer);
+            return std::span<byte>(result_buffer, buf - result_buffer);
         }
     };
 

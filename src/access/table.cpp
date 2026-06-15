@@ -54,12 +54,13 @@ namespace db7::access
                 return false;
             }
 
-            std::vector<u32> indexes = schema_.GetColumnIndexes(chunk.GetColumnIds()); // TODO Move this outside of the api
-            for (u32 i = 0; i < indexes.size(); i++)
+            std::span<store_column_id> column_ids = chunk.GetColumnIds();
+            for (u32 i = 0; i < chunk.GetCount(); i++)
             {
-                u32 size = schema_.GetColumn(indexes[i]).GetTypeSize();
-                byte *ptr = layout_.Get(page->GetData(), indexes[i], tup_id.index); // TODO need to copy current values and insert to delta store
-                layout_.Update(ptr, std::span<byte>(chunk.Access(indexes[i]), size));
+                u32 index = schema_.GetColumnIndex(column_ids[i]);
+                u32 size = schema_.GetColumn(index).GetTypeSize();
+                byte *ptr = layout_.Get(page->GetData(), index, tup_id.index); // TODO need to copy current values and insert to delta store
+                layout_.Update(ptr, std::span<byte>(chunk.Access(index), size));
             }
 
             record->SetNext(version_ptr);
@@ -71,6 +72,9 @@ namespace db7::access
 
     TupleId Table::Update(transaction::TransactionContext *txn, DataChunk &chunk)
     {
+        (void)txn;
+        (void)chunk;
+        return TupleId(0);
     }
 
     /**
@@ -173,15 +177,16 @@ namespace db7::access
 
     void Table::ScanIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page, DataChunk &chunk)
     {
+        (void)txn;
         byte *data = page->GetData();
 
-        std::vector<u32> indexes = schema_.GetColumnIndexes(chunk.GetColumnIds());
-
-        for (auto &column_idx : indexes)
+        auto iter = chunk.InitIterator();
+        for (auto &column_id : chunk.GetColumnIds())
         {
-            u32 size = schema_.GetColumn(column_idx).GetPosiiton();
-            byte *ptr = layout_.Get(data, column_idx, idx);
-            chunk.PushBack(std::span<byte>(ptr, size));
+            u32 index = schema_.GetColumnIndex(column_id);
+            u32 size = schema_.GetColumn(index).GetPosiiton();
+            byte *ptr = layout_.Get(data, index, idx);
+            iter.PushBack(std::span<byte>(ptr, size));
         }
     }
 

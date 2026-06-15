@@ -49,14 +49,12 @@ namespace db7::catalog
         storage::VarlenEntry entry;
         entry.Set(sp);
 
-        constexpr u32 row_count = 1;
         constexpr u32 col_count = 2;
-        access::DataChunk chunk(col_count, row_count, 33333); // TODO calculate size
+        access::DataChunk chunk(col_count, 33333); // TODO calculate size
         chunk.SetColumnIds({CatalogTableOid::PG_INDEX_DATABASE_DATOID, CatalogTableOid::PG_INDEX_DATABASE_DATNAME});
-        chunk.InitIterator();
-        chunk.PushBack(oid);
-        chunk.PushBack(entry);
-
+        auto iter = chunk.InitIterator();
+        iter.PushBack(oid);
+        iter.PushBack(entry);
         access::TupleId tup = databases_->Insert(txn, chunk);
 
         databases_index_datoid->Insert(oid, tup.value);

@@ -8,6 +8,7 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
+#include <span>
 
 namespace db7::access
 {
@@ -27,31 +28,15 @@ namespace db7::access
             u32 i = 0;
             for (auto &col : columns_)
             {
+                col.SetPosition(i);
                 oid_to_index_[col.GetOid()] = i++;
             }
         }
 
-        const std::vector<SchemaColumn> &GetColumns() const
-        {
-            return columns_;
-        }
+        const std::vector<SchemaColumn> &GetColumns() const { return columns_; }
 
-        std::vector<u32> GetColumnIndexes(std::span<catalog::col_oid_t> column_ids)
-        {
-            std::vector<u32> result;
-            result.reserve(column_ids.size());
+        u32 GetColumnIndex(catalog::col_oid_t column_id) { return oid_to_index_[column_id]; }
 
-            for (auto col_id : column_ids)
-            {
-                result.emplace_back(oid_to_index_[col_id]);
-            }
-
-            return result;
-        }
-
-        SchemaColumn &GetColumn(u32 idx)
-        {
-            return columns_[idx];
-        }
+        SchemaColumn &GetColumn(u32 idx) { return columns_[idx]; }
     };
 }
