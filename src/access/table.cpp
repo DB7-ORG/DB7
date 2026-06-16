@@ -36,7 +36,7 @@ namespace db7::access
      */
     bool Table::UpdateUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page, DataChunk &chunk)
     {
-        u32 count = layout_.GetRowCount();
+        u32 count = layout_.GetMaxRowCount();
 
         storage::UndoRecord *record = txn->UndoRecordForUpdate(oid_, tup_id.pid, tup_id.index, chunk);
 
@@ -60,12 +60,12 @@ namespace db7::access
                 u32 index = schema_.GetColumnIndex(column_ids[i]);
                 u32 size = schema_.GetColumn(index).GetTypeSize();
                 byte *ptr = layout_.Get(page->GetData(), index, tup_id.index); // TODO need to copy current values and insert to delta store
-                layout_.Update(ptr, std::span<byte>(chunk.Access(index), size));
+                layout_.Update(ptr, std::span<byte>(chunk.Access(i), size));   // TODO or should it be index
             }
 
             record->SetNext(version_ptr);
 
-        } while (versions[tup_id.index].CompareAndSwap(version_ptr, record));
+        } while (!versions[tup_id.index].CompareAndSwap(version_ptr, record));
 
         return true;
     }
@@ -82,7 +82,7 @@ namespace db7::access
      */
     void Table::InsertUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page)
     {
-        u32 count = layout_.GetRowCount();
+        u32 count = layout_.GetMaxRowCount();
 
         storage::UndoRecord *record = txn->UndoRecordForInsert(oid_, tup_id.pid, tup_id.index);
 
@@ -94,7 +94,7 @@ namespace db7::access
     TupleId Table::Insert(transaction::TransactionContext *txn, DataChunk &chunk)
     {
         u32 page_id = storage::FreeSpaceManagerVarlen::Get(chunk.GetSize()); // TODO table oid
-        storage::PageIdentifier id(varlen_oid_, page_id);
+        storage::PageIdentifier id(oid_, page_id);
         storage::Page *insert_page = buffer_->Pin(id);
         insert_page->WaitIO();
 
@@ -114,7 +114,7 @@ namespace db7::access
 
         insert_page->WDataUnlock();
 
-        PrintPage(insert_page);
+        // PrintPage(insert_page);
 
         buffer_->Unpin(insert_page, true);
 
@@ -127,7 +127,7 @@ namespace db7::access
      */
     bool Table::DeleteUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page)
     {
-        u32 count = layout_.GetRowCount();
+        u32 count = layout_.GetMaxRowCount();
 
         storage::UndoRecord *record = txn->UndoRecordForDelete(oid_, tup_id.pid, tup_id.index);
 
@@ -147,7 +147,7 @@ namespace db7::access
 
             record->SetNext(version_ptr);
 
-        } while (versions[tup_id.index].CompareAndSwap(version_ptr, record));
+        } while (!versions[tup_id.index].CompareAndSwap(version_ptr, record));
 
         return true;
     }
@@ -158,12 +158,12 @@ namespace db7::access
         storage::Page *page = buffer_->Pin(id);
         page->WaitIO();
 
-        page->WDataLock(); // TODO this could be done atomically also
+        page->WDataLock(); // TODO this could be done atomically also or it can use a read lock if i remove a bitmap
         bool is_valid = DeleteUndo(txn, {idx, id.pid}, page);
         layout_.Delete(page->GetData(), idx);
         page->WDataUnlock();
 
-        PrintPage(page);
+        // PrintPage(page);
 
         page->Unpin();
 
@@ -175,19 +175,73 @@ namespace db7::access
         return disk_mng_->PageCount(oid_);
     }
 
-    void Table::ScanIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page, DataChunk &chunk)
+    bool Table::SelectIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page, DataChunk &chunk)
     {
         (void)txn;
         byte *data = page->GetData();
 
         auto iter = chunk.InitIterator();
-        for (auto &column_id : chunk.GetColumnIds())
+        for (auto column_id : chunk.GetColumnIds())
         {
             u32 index = schema_.GetColumnIndex(column_id);
-            u32 size = schema_.GetColumn(index).GetPosiiton();
+            u32 size = schema_.GetColumn(index).GetTypeSize();
             byte *ptr = layout_.Get(data, index, idx);
             iter.PushBack(std::span<byte>(ptr, size));
         }
+
+        u32 count = layout_.GetMaxRowCount();
+        DB7_ASSERT(idx < count, "Out of range index");
+
+        storage::VersionPtr *versions = txn->GetVersions(page, storage::PageIdentifier{oid_, page->GetPageId()}, count);
+
+        storage::UndoRecord *version_ptr = versions[idx].Get();
+
+        if (version_ptr == nullptr || version_ptr->GetTimestamp() == txn->FinishTime())
+        {
+            return true;
+        }
+
+        while (version_ptr != nullptr &&
+               transaction::TransactionUtil::IsNewerThan(version_ptr->GetTimestamp(), txn->StartTime()))
+        {
+            switch (version_ptr->GetType())
+            {
+            case storage::DeltaRecordType::UPDATE:
+                // TODO apply delta
+                break;
+            case storage::DeltaRecordType::INSERT:
+            case storage::DeltaRecordType::DELETE:
+                return false;
+            case storage::DeltaRecordType::INVALID:
+                break;
+            }
+            version_ptr = version_ptr->GetNext();
+        }
+
+        return true;
+    }
+
+    void Table::Select(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid, DataChunk &chunk)
+    {
+        storage::PageIdentifier id(oid_, pid);
+        storage::Page *page = buffer_->Pin(id);
+        page->WaitIO();
+
+        page->RDataLock();
+        bool valid = SelectIntoChunk(txn, idx, page, chunk);
+        page->RDataUnlock();
+
+        // TODO test
+        if (valid)
+        {
+            chunk.Print(&schema_);
+        }
+        else
+        {
+            std::cout << "nothing to see" << std::endl;
+        }
+
+        page->Unpin();
     }
 
     void Table::PrintPage(storage::Page *page)

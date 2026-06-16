@@ -19,15 +19,15 @@ namespace db7::storage
             worst_case_pad += size - 1;
         }
 
-        row_count_ = (PAGE_SIZE - header_size - worst_case_pad) * 8 / (1 + 8 * row_size);
+        max_row_count_ = (PAGE_SIZE - header_size - worst_case_pad) * 8 / (1 + 8 * row_size);
 
-        u32 curr_offset = header_size + (row_count_ + 7) / 8;
+        u32 curr_offset = header_size + (max_row_count_ + 7) / 8;
         for (auto &size : sizes_)
         {
             // pad to type
             curr_offset = shared::AlignUp(curr_offset, (u32)size);
             offsets_.emplace_back(curr_offset);
-            curr_offset += row_count_ * size;
+            curr_offset += max_row_count_ * size;
         }
     }
 

@@ -54,8 +54,16 @@ namespace db7::transaction
         storage::VersionPtr *GetVersions(storage::Page *page, storage::PageIdentifier id, u32 count)
         {
             storage::VersionPtr *versions_arr = page->GetVersions();
+
             if (versions_arr == nullptr)
-                return version_manager_->InitializeVersions(id, count);
+            {
+                auto *new_version = version_manager_->InitializeVersions(id, count);
+
+                page->SetVersions(new_version);
+
+                return new_version;
+            }
+
             return versions_arr;
         }
 

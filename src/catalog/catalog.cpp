@@ -49,9 +49,7 @@ namespace db7::catalog
         storage::VarlenEntry entry;
         entry.Set(sp);
 
-        constexpr u32 col_count = 2;
-        access::DataChunk chunk(col_count, 33333); // TODO calculate size
-        chunk.SetColumnIds({CatalogTableOid::PG_INDEX_DATABASE_DATOID, CatalogTableOid::PG_INDEX_DATABASE_DATNAME});
+        access::DataChunk chunk = data_chunk_layout_.CreateDataChunk();
         auto iter = chunk.InitIterator();
         iter.PushBack(oid);
         iter.PushBack(entry);
@@ -99,5 +97,15 @@ namespace db7::catalog
         databases_->Delete(txn, idx, pid);
 
         return true;
+    }
+
+    void Catalog::Select(transaction::TransactionContext *txn)
+    {
+        u32 pid = 1;
+        auto chunk = data_chunk_layout_.CreateDataChunk();
+        databases_->Select(txn, 0, pid, chunk);
+        databases_->Select(txn, 1, pid, chunk);
+        databases_->Select(txn, 2, pid, chunk);
+        databases_->Select(txn, 3, pid, chunk);
     }
 }

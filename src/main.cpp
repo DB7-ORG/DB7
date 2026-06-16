@@ -252,6 +252,7 @@ int main()
     db7::transaction::TransactionManager txn_manager(&timestamp_manager, &buffer_pool, &version_manager, &pool);
 
     db7::transaction::TransactionContext *context = txn_manager.BeginTransaction();
+
     // test_index_perf(&buffer_pool, &disk_mng_async);
 
     auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
@@ -264,10 +265,15 @@ int main()
     std::span<byte> sdataa(reinterpret_cast<byte *>(s.data()), s.size());
 
     cat->CreateDatabase(context, sdata, true);
-    cat->DeleteDatabase(context, 1);
+    // cat->DeleteDatabase(context, 1);
+    cat->Select(context);
     // cat->CreateDatabase(nullptr, sdataa, true);
 
     // std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    db7::transaction::TransactionContext *context2 = txn_manager.BeginTransaction();
+
+    cat->Select(context2);
 
     txn_manager.Commit(context);
 

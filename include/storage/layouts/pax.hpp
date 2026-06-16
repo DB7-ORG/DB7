@@ -15,7 +15,7 @@ namespace db7::storage
     private:
         std::vector<u32> offsets_;
         std::vector<u16> sizes_;
-        u32 row_count_;
+        u32 max_row_count_;
 
         void CalculateOffsets();
 
@@ -50,6 +50,6 @@ namespace db7::storage
 
         byte *Get(byte *page_data, u16 column_idx, u32 row_idx);
 
-        u32 GetRowCount() { return row_count_; }
+        u32 GetMaxRowCount() { return max_row_count_; }
     };
 }

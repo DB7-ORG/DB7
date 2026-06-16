@@ -30,20 +30,15 @@ namespace db7::storage
         u64 varlen_contents_[0];
 
     public:
-        transaction::timestamp_t GetTimestamp()
-        {
-            return timestamp_.load();
-        }
+        transaction::timestamp_t GetTimestamp() { return timestamp_.load(); }
 
-        void Invalidate()
-        {
-            type_ = DeltaRecordType::INVALID;
-        }
+        DeltaRecordType GetType() { return type_; }
 
-        void SetNext(UndoRecord *next)
-        {
-            next_.store(next);
-        }
+        void Invalidate() { type_ = DeltaRecordType::INVALID; }
+
+        UndoRecord *GetNext() { return next_.load(); }
+
+        void SetNext(UndoRecord *next) { next_.store(next); }
 
         static UndoRecord *InitializeInsert(byte *head, const transaction::timestamp_t timestamp, table_id tbl_id, page_id pid, u32 idx)
         {

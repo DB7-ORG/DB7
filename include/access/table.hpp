@@ -64,7 +64,7 @@ namespace db7::access
 
         bool DeleteUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page);
 
-        void ScanIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page, DataChunk &chunk);
+        bool SelectIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page, DataChunk &chunk);
 
     public:
         DB7_DISALLOW_COPY(Table);
@@ -89,6 +89,8 @@ namespace db7::access
         TupleId Insert(transaction::TransactionContext *txn, DataChunk &chunk);
 
         bool Delete(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid);
+
+        void Select(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid, DataChunk &chunk);
 
         u32 PageCount();
 

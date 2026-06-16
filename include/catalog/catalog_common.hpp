@@ -74,7 +74,7 @@ namespace db7::catalog
         PG_INDEX_DATABASE_DATNAME,
     };
 
-    enum class CatalogColumnOid : col_oid_t
+    enum CatalogColumnOid : col_oid_t
     {
         // database
         DATOID = 1,

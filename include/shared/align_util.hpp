@@ -27,6 +27,12 @@ namespace db7::shared
         return value & ~(alignment - 1);
     }
 
+    template <typename T>
+    static bool IsAligned(void *ptr)
+    {
+        return reinterpret_cast<uintptr_t>(ptr) % alignof(T) == 0;
+    }
+
     struct AlignedDeleter
     {
         void operator()(void *ptr) const noexcept { std::free(ptr); }

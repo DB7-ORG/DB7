@@ -35,6 +35,7 @@ namespace db7::catalog
         std::atomic<db_oid_t> next_db_oid_;
         storage::BufferPool *buffer_pool_;
         storage::DiskManagerAsync *disk_mng_;
+        access::DataChunkLayout data_chunk_layout_;
 
         /**
          * Removes from databases_map_
@@ -71,7 +72,10 @@ namespace db7::catalog
             : databases_map_({}),
               next_db_oid_(catalog::db_oid_t(1)),
               buffer_pool_(buffer_pool),
-              disk_mng_(disk_mng)
+              disk_mng_(disk_mng),
+              data_chunk_layout_(
+                  {CatalogColumnOid::DATOID, CatalogColumnOid::DATNAME},
+                  {SizeOf(access::type_id::INTEGER), SizeOf(access::type_id::VARCHAR)})
         {
             databases_ = new access::Table(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(), rel_oid_t(CatalogTableOid::PG_DATABASES), rel_oid_t(CatalogTableOid::PG_VARLEN));
             databases_index_datoid = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_DATABASE_DATOID));
@@ -104,6 +108,8 @@ namespace db7::catalog
          * @result success flag
          */
         bool DeleteDatabase(transaction::TransactionContext *txn, db_oid_t oid);
+
+        void Select(transaction::TransactionContext *txn);
     };
 
 }
