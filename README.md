@@ -35,3 +35,6 @@ https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf
 * figure out what to do about mvcc
 
 * tbb::spin_mutex latch_; consider this latch
+
+
+//TODO need to continue testing update and probably make it nicer

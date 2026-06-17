@@ -74,6 +74,8 @@ namespace db7::access
 
         std::span<byte> GetUnderlying() { return std::span<byte>(underlying_, total_size_); }
 
+        std::span<byte> GetHeaderPtr() { return std::span<byte>(underlying_, GetHeaderSize()); }
+
         std::span<catalog::col_oid_t> GetColumnIds() { return std::span<catalog::col_oid_t>(column_ids_, column_count_); }
 
         byte *Access(u32 idx) { return underlying_ + offsets_[idx]; }

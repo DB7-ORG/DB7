@@ -79,10 +79,10 @@ namespace db7::transaction
             return storage::UndoRecord::InitializeDelete(result, finish_time_, tbl_id, pid, idx);
         }
 
-        storage::UndoRecord *UndoRecordForUpdate(table_id tbl_id, page_id pid, u32 idx, access::DataChunk &data)
+        storage::UndoRecord *UndoRecordForUpdate(table_id tbl_id, page_id pid, u32 idx, access::DataChunk &chunk)
         {
-            byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord) + data.GetSize());
-            return storage::UndoRecord::InitializeUpdate(result, finish_time_, tbl_id, pid, idx, data.GetColumnIds());
+            byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord) + chunk.GetSize());
+            return storage::UndoRecord::InitializeUpdate(result, finish_time_, tbl_id, pid, idx, chunk.GetHeaderPtr());
         }
     };
 }

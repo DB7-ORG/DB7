@@ -40,6 +40,8 @@ namespace db7::access
 
         storage::UndoRecord *record = txn->UndoRecordForUpdate(oid_, tup_id.pid, tup_id.index, chunk);
 
+        DataChunk *delta = reinterpret_cast<DataChunk *>(record->GetDelta());
+
         storage::VersionPtr *versions = txn->GetVersions(page, storage::PageIdentifier{oid_, tup_id.pid}, count);
 
         storage::UndoRecord *version_ptr;
@@ -54,18 +56,36 @@ namespace db7::access
                 return false;
             }
 
-            std::span<store_column_id> column_ids = chunk.GetColumnIds();
-            for (u32 i = 0; i < chunk.GetCount(); i++)
+            auto iter = delta->InitIterator();
+            for (auto col_id : chunk.GetColumnIds())
             {
-                u32 index = schema_.GetColumnIndex(column_ids[i]);
+                u32 index = schema_.GetColumnIndex(col_id);
                 u32 size = schema_.GetColumn(index).GetTypeSize();
-                byte *ptr = layout_.Get(page->GetData(), index, tup_id.index); // TODO need to copy current values and insert to delta store
-                layout_.Update(ptr, std::span<byte>(chunk.Access(i), size));   // TODO or should it be index
+                byte *ptr = layout_.Get(page->GetData(), index, tup_id.index);
+                iter.PushBack({ptr, size});
             }
 
             record->SetNext(version_ptr);
 
         } while (!versions[tup_id.index].CompareAndSwap(version_ptr, record));
+
+        u32 i = 0;
+        for (auto col_id : chunk.GetColumnIds())
+        {
+            u32 index = schema_.GetColumnIndex(col_id);
+            u32 size = schema_.GetColumn(index).GetTypeSize();
+            byte *ptr = layout_.Get(page->GetData(), index, tup_id.index);
+            layout_.Update(ptr, std::span<byte>(chunk.Access(i++), size)); // TODO or should it be index
+        }
+
+        // std::span<store_column_id> column_ids = chunk.GetColumnIds();
+        // for (u32 i = 0; i < chunk.GetCount(); i++)
+        // {
+        //     u32 index = schema_.GetColumnIndex(column_ids[i]);
+        //     u32 size = schema_.GetColumn(index).GetTypeSize();
+        //     byte *ptr = layout_.Get(page->GetData(), index, tup_id.index); // TODO need to copy current values and insert to delta store
+        //     layout_.Update(ptr, std::span<byte>(chunk.Access(i), size));   // TODO or should it be index
+        // }
 
         return true;
     }
