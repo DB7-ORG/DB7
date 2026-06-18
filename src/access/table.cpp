@@ -34,7 +34,7 @@ namespace db7::access
     /**
      * @warning make sure to hold the page data lock like w other columns
      */
-    bool Table::UpdateUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page, DataChunk &chunk)
+    bool Table::UpdateUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page, DataChunk *chunk)
     {
         u32 count = layout_.GetMaxRowCount();
 
@@ -57,44 +57,42 @@ namespace db7::access
             }
 
             auto iter = delta->InitIterator();
-            for (auto col_id : chunk.GetColumnIds())
+            for (auto info : schema_.GetProjectedSchemaInfo(chunk->GetColumnIds()))
             {
-                u32 index = schema_.GetColumnIndex(col_id);
-                u32 size = schema_.GetColumn(index).GetTypeSize();
-                byte *ptr = layout_.Get(page->GetData(), index, tup_id.index);
-                iter.PushBack({ptr, size});
+                byte *ptr = layout_.Get(page->GetData(), info.GetPosition(), tup_id.index);
+                iter.PushBack({ptr, info.GetAttrSize()});
             }
 
             record->SetNext(version_ptr);
 
         } while (!versions[tup_id.index].CompareAndSwap(version_ptr, record));
 
-        u32 i = 0;
-        for (auto col_id : chunk.GetColumnIds())
+        auto iter = chunk->InitIterator();
+        for (auto info : schema_.GetProjectedSchemaInfo(chunk->GetColumnIds()))
         {
-            u32 index = schema_.GetColumnIndex(col_id);
-            u32 size = schema_.GetColumn(index).GetTypeSize();
-            byte *ptr = layout_.Get(page->GetData(), index, tup_id.index);
-            layout_.Update(ptr, std::span<byte>(chunk.Access(i++), size)); // TODO or should it be index
+            byte *ptr = layout_.Get(page->GetData(), info.GetPosition(), tup_id.index);
+            layout_.Update(ptr, std::span<byte>(iter.Next(), info.GetAttrSize()));
         }
-
-        // std::span<store_column_id> column_ids = chunk.GetColumnIds();
-        // for (u32 i = 0; i < chunk.GetCount(); i++)
-        // {
-        //     u32 index = schema_.GetColumnIndex(column_ids[i]);
-        //     u32 size = schema_.GetColumn(index).GetTypeSize();
-        //     byte *ptr = layout_.Get(page->GetData(), index, tup_id.index); // TODO need to copy current values and insert to delta store
-        //     layout_.Update(ptr, std::span<byte>(chunk.Access(i), size));   // TODO or should it be index
-        // }
 
         return true;
     }
 
-    TupleId Table::Update(transaction::TransactionContext *txn, DataChunk &chunk)
+    bool Table::Update(transaction::TransactionContext *txn, u32 idx, DataChunk *chunk)
     {
-        (void)txn;
-        (void)chunk;
-        return TupleId(0);
+        u32 page_id = 1;
+        storage::PageIdentifier id(oid_, page_id);
+        storage::Page *page = buffer_->Pin(id);
+        page->WaitIO();
+
+        page->WDataLock();
+
+        bool valid = UpdateUndo(txn, {idx, page_id}, page, chunk);
+
+        page->WDataUnlock();
+
+        page->Unpin();
+
+        return valid;
     }
 
     /**
@@ -111,9 +109,9 @@ namespace db7::access
         versions[tup_id.index].Set(record);
     }
 
-    TupleId Table::Insert(transaction::TransactionContext *txn, DataChunk &chunk)
+    TupleId Table::Insert(transaction::TransactionContext *txn, DataChunk *chunk)
     {
-        u32 page_id = storage::FreeSpaceManagerVarlen::Get(chunk.GetSize()); // TODO table oid
+        u32 page_id = storage::FreeSpaceManagerVarlen::Get(chunk->GetSize()); // TODO table oid
         storage::PageIdentifier id(oid_, page_id);
         storage::Page *insert_page = buffer_->Pin(id);
         insert_page->WaitIO();
@@ -121,11 +119,12 @@ namespace db7::access
         insert_page->WDataLock();
 
         byte *body = insert_page->GetData();
+
         u32 old_count = layout_.IncrementHeaderCount(body, 1);
 
-        for (auto &col : schema_.GetColumns())
+        for (auto info : schema_.GetProjectedSchemaInfo(chunk->GetColumnIds()))
         {
-            layout_.Insert(body, std::span<byte>(chunk.Access(col.GetPosiiton()), col.GetTypeSize()), col.GetPosiiton(), old_count);
+            layout_.Insert(body, std::span<byte>(chunk->Access(info.GetPosition()), info.GetAttrSize()), info.GetPosition(), old_count);
         }
 
         TupleId tup_id = {old_count, page_id};
@@ -195,18 +194,16 @@ namespace db7::access
         return disk_mng_->PageCount(oid_);
     }
 
-    bool Table::SelectIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page, DataChunk &chunk)
+    bool Table::SelectIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page, DataChunk *chunk)
     {
         (void)txn;
         byte *data = page->GetData();
 
-        auto iter = chunk.InitIterator();
-        for (auto column_id : chunk.GetColumnIds())
+        auto iter = chunk->InitIterator();
+        for (auto info : schema_.GetProjectedSchemaInfo(chunk->GetColumnIds()))
         {
-            u32 index = schema_.GetColumnIndex(column_id);
-            u32 size = schema_.GetColumn(index).GetTypeSize();
-            byte *ptr = layout_.Get(data, index, idx);
-            iter.PushBack(std::span<byte>(ptr, size));
+            byte *ptr = layout_.Get(data, info.GetPosition(), idx);
+            iter.PushBack(std::span<byte>(ptr, info.GetAttrSize()));
         }
 
         u32 count = layout_.GetMaxRowCount();
@@ -241,7 +238,7 @@ namespace db7::access
         return true;
     }
 
-    void Table::Select(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid, DataChunk &chunk)
+    void Table::Select(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid, DataChunk *chunk)
     {
         storage::PageIdentifier id(oid_, pid);
         storage::Page *page = buffer_->Pin(id);
@@ -254,7 +251,7 @@ namespace db7::access
         // TODO test
         if (valid)
         {
-            chunk.Print(&schema_);
+            chunk->Print(&schema_);
         }
         else
         {

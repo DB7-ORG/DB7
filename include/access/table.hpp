@@ -58,13 +58,13 @@ namespace db7::access
             return storage::PaxLayout(std::move(sizes));
         }
 
-        bool UpdateUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page, DataChunk &chunk);
+        bool UpdateUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page, DataChunk *chunk);
 
         void InsertUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page);
 
         bool DeleteUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page);
 
-        bool SelectIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page, DataChunk &chunk);
+        bool SelectIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page, DataChunk *chunk);
 
     public:
         DB7_DISALLOW_COPY(Table);
@@ -84,13 +84,13 @@ namespace db7::access
             }
         }
 
-        TupleId Update(transaction::TransactionContext *txn, DataChunk &chunk);
+        bool Update(transaction::TransactionContext *txn, u32 idx, DataChunk *chunk);
 
-        TupleId Insert(transaction::TransactionContext *txn, DataChunk &chunk);
+        TupleId Insert(transaction::TransactionContext *txn, DataChunk *chunk);
 
         bool Delete(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid);
 
-        void Select(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid, DataChunk &chunk);
+        void Select(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid, DataChunk *chunk);
 
         u32 PageCount();
 

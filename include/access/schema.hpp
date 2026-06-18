@@ -12,6 +12,23 @@
 
 namespace db7::access
 {
+    class ProjectedSchemaInfo
+    {
+    private:
+        u32 position_;
+        u32 attr_size_;
+
+    public:
+        ProjectedSchemaInfo() = default;
+
+        ProjectedSchemaInfo(u32 position, u32 attr_size)
+            : position_(position), attr_size_(attr_size) {}
+
+        u32 GetPosition() { return position_; }
+
+        u32 GetAttrSize() { return attr_size_; }
+    };
+
     class Schema
     {
     private:
@@ -38,5 +55,20 @@ namespace db7::access
         u32 GetColumnIndex(catalog::col_oid_t column_id) { return oid_to_index_[column_id]; }
 
         SchemaColumn &GetColumn(u32 idx) { return columns_[idx]; }
+
+        std::vector<ProjectedSchemaInfo> // TODO i hate this
+        GetProjectedSchemaInfo(std::span<catalog::col_oid_t> column_ids)
+        {
+            std::vector<ProjectedSchemaInfo> result;
+            result.reserve(column_ids.size());
+
+            for (auto col_id : column_ids)
+            {
+                auto item = columns_[oid_to_index_[col_id]];
+                result.push_back({item.GetTypeSize(), item.GetPosiiton()});
+            }
+
+            return result; // NRVO/move
+        }
     };
 }

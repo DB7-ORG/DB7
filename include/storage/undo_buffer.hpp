@@ -115,10 +115,11 @@ namespace db7::storage
             if (buffers_.empty() || !buffers_.back()->HasAvailableSpace(size))
             {
                 Segment *new_segment = pool_->Get();
-                DB7_ASSERT(reinterpret_cast<uintptr_t>(new_segment) % 8 == 0, "a delta entry should be aligned to 8 bytes");
+                DB7_ASSERT(shared::IsAligned<u64>(new_segment), "a delta entry should be aligned to 8 bytes");
                 buffers_.push_back(new_segment);
             }
             last_record_ = buffers_.back()->Allocate(size);
+            DB7_ASSERT(shared::IsAligned<u64>(last_record_), "unaligned ptr");
             return last_record_;
         }
     };

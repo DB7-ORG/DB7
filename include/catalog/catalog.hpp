@@ -109,6 +109,8 @@ namespace db7::catalog
          */
         bool DeleteDatabase(transaction::TransactionContext *txn, db_oid_t oid);
 
+        bool UpdateDatabaseName(transaction::TransactionContext *txn, db_oid_t oid, std::span<char> name);
+
         void Select(transaction::TransactionContext *txn);
     };
 

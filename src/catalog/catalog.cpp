@@ -43,14 +43,12 @@ namespace db7::catalog
         db_oid_t oid = dbc->GetDbOid();
         (void)txn;
 
-        // storage::VarlenEntry entry = access::AccessBuilder::CreateVarlenEntry(name, databases_);
-        const auto sp = std::span<byte>((byte *)"ssss", 4); // TODO need to create and figure out how to manage varlen entries
-        // also refactor varlen entry to store different sizes
+        // TODO figure out what to do w varlen
         storage::VarlenEntry entry;
-        entry.Set(sp);
+        entry.Set(name);
 
-        access::DataChunk chunk = data_chunk_layout_.CreateDataChunk();
-        auto iter = chunk.InitIterator();
+        access::DataChunk *chunk = data_chunk_layout_.CreateDataChunk();
+        auto iter = chunk->InitIterator();
         iter.PushBack(oid);
         iter.PushBack(entry);
         access::TupleId tup = databases_->Insert(txn, chunk);
@@ -98,6 +96,24 @@ namespace db7::catalog
 
         return true;
     }
+
+    bool Catalog::UpdateDatabaseName(transaction::TransactionContext *txn, db_oid_t oid, std::span<char> name)
+    {
+        u32 idx = 0;
+
+        storage::VarlenEntry entry;
+        entry.Set(name);
+
+        access::DataChunk *chunk = data_chunk_layout_.CreateDataChunk();
+        auto iter = chunk->InitIterator();
+        iter.PushBack(oid);
+        iter.PushBack(entry);
+        return databases_->Update(txn, idx, chunk);
+    }
+
+    // bool Catalog::UpdateDatabaseEntry(transaction::TransactionContext *txn, db_oid_t oid, std::span<char> name)
+    // {
+    // }
 
     void Catalog::Select(transaction::TransactionContext *txn)
     {

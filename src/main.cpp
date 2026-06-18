@@ -258,15 +258,16 @@ int main()
     auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
     g_catalog = cat;
 
-    std::string s = "sssssssssssssssssssssssssssssss";
+    std::string s = "ssss";
     std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
 
-    std::string sa = "aaaa";
-    std::span<byte> sdataa(reinterpret_cast<byte *>(s.data()), s.size());
-
-    cat->CreateDatabase(context, sdata, true);
+    auto db_oid = cat->CreateDatabase(context, sdata, true);
     // cat->DeleteDatabase(context, 1);
     cat->Select(context);
+
+    std::string new_name = "jovo";
+    cat->UpdateDatabaseName(context, db_oid, std::span<char>(new_name.data(), new_name.size()));
+
     // cat->CreateDatabase(nullptr, sdataa, true);
 
     // std::this_thread::sleep_for(std::chrono::seconds(1));

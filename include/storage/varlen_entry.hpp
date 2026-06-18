@@ -42,6 +42,12 @@ namespace db7::storage
             std::memcpy(&prefix_, data.data(), std::min(data.size(), INLINE_SIZE_CAP));
         }
 
+        void Set(const std::span<char> data)
+        {
+            size_ = data.size();
+            std::memcpy(&prefix_, data.data(), std::min(data.size(), INLINE_SIZE_CAP));
+        }
+
         void Set(const std::span<byte> data, page_id pid, u32 offset)
         {
             size_ = data.size();

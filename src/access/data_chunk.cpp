@@ -39,27 +39,24 @@ namespace db7::access
         *((u32 *)header_underlying_ + 1) = total_size_;
     }
 
-    DataChunk DataChunkLayout::CreateDataChunk()
+    DataChunk *DataChunkLayout::CreateDataChunk()
     {
-        return DataChunk(this);
+        byte *dest = new byte[total_size_];
+        std::memcpy(dest, header_underlying_, header_size_);
+        return reinterpret_cast<DataChunk *>(dest);
     }
 
-    DataChunk::DataChunk(DataChunkLayout *layout)
+    DataChunk *DataChunkLayout::CreateDataChunk(void *dest)
     {
-        underlying_ = new byte[layout->total_size_];
-        column_ids_ = reinterpret_cast<catalog::col_oid_t *>(underlying_ + layout->column_ids_);
-        offsets_ = reinterpret_cast<u32 *>(underlying_ + layout->offsets_);
-        data_ = underlying_ + layout->header_size_;
-        total_size_ = layout->total_size_;
-        column_count_ = layout->column_count_;
-        std::memcpy(underlying_, layout->header_underlying_, layout->header_size_);
+        std::memcpy(dest, header_underlying_, header_size_);
+        return reinterpret_cast<DataChunk *>(dest);
     }
 
     void DataChunk::Print(Schema *schema)
     {
         for (u32 i = 0; i < column_count_; i++)
         {
-            auto col_id = column_ids_[i];
+            auto col_id = GetColumnIdsPtr()[i];
 
             auto idx = schema->GetColumnIndex(col_id);
 
