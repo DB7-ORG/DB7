@@ -65,7 +65,7 @@ namespace db7::access
             for (auto col_id : column_ids)
             {
                 auto item = columns_[oid_to_index_[col_id]];
-                result.push_back({item.GetTypeSize(), item.GetPosiiton()});
+                result.push_back({item.GetPosiiton(), item.GetTypeSize()});
             }
 
             return result; // NRVO/move

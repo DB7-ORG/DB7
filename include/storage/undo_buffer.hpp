@@ -91,7 +91,9 @@ namespace db7::storage
 
     private:
         Pool *pool_;
+
         std::vector<Segment *> buffers_;
+
         byte *last_record_;
 
     public:
@@ -103,7 +105,7 @@ namespace db7::storage
                 pool_->Release(segment);
         }
 
-        byte *LastRecord() const { return last_record_; }
+        byte *GetLastRecord() const { return last_record_; }
 
         /**
          * Reserve an undo record with the given size.

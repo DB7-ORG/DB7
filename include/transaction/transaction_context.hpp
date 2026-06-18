@@ -5,8 +5,10 @@
 #include "storage/undo_buffer.hpp"
 #include "storage/storage_common.hpp"
 #include "access/data_chunk.hpp"
+#include "storage/redo_buffer.hpp"
 
 #include <span>
+#include <forward_list>
 
 namespace db7::transaction
 {
@@ -22,7 +24,12 @@ namespace db7::transaction
         bool rollback_;
         storage::BufferPool *buffer_pool_;
         storage::PageVersionManager *version_manager_;
+
         storage::UndoBuffer undo_buffer_;
+        storage::RedoBuffer redo_buffer_;
+
+        // std::forward_list<TransactionEndAction> abort_actions_;
+        // std::forward_list<TransactionEndAction> commit_actions_;
 
     public:
         TransactionContext() = delete;
@@ -38,7 +45,8 @@ namespace db7::transaction
               rollback_(false),
               buffer_pool_(buffer_pool),
               version_manager_(version_manager),
-              undo_buffer_(pool) {}
+              undo_buffer_(pool),
+              redo_buffer_(nullptr, pool) {} // TODO
 
         timestamp_t StartTime() const { return start_time_; }
 

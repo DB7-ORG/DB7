@@ -61,7 +61,7 @@ namespace db7::access
         u32 total_size_;
         u64 varlen_contents_[0];
 
-        byte *GetUnderlyingPtr() { return reinterpret_cast<byte *>(&column_count_); }
+        byte *GetUnderlyingPtr() { return reinterpret_cast<byte *>(this); }
 
         catalog::col_oid_t *GetColumnIdsPtr() { return reinterpret_cast<catalog::col_oid_t *>(GetUnderlyingPtr() + COLUMN_IDS_START); }
 
