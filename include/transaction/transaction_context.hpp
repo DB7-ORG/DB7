@@ -28,6 +28,8 @@ namespace db7::transaction
         storage::UndoBuffer undo_buffer_;
         storage::RedoBuffer redo_buffer_;
 
+        DurabilityPolicy durability_policy_ = DurabilityPolicy::SYNC;
+
         // std::forward_list<TransactionEndAction> abort_actions_;
         // std::forward_list<TransactionEndAction> commit_actions_;
 
@@ -91,6 +93,15 @@ namespace db7::transaction
         {
             byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord) + chunk->GetSize());
             return storage::UndoRecord::InitializeUpdate(result, finish_time_, tbl_id, pid, idx, chunk->GetHeaderPtr());
+        }
+
+        storage::RedoRecord *StageWrite(table_id t_id, page_id p_id, u32 idx,
+                                        access::DataChunkLayout *initializer)
+        {
+            const u32 size = storage::RedoRecord::GetHeadersSize();
+            auto *const log_record = storage::RedoRecord::Initialize(redo_buffer_.NewEntry(size, durability_policy_),
+                                                                     start_time_, initializer, t_id, p_id, idx);
+            return reinterpret_cast<storage::RedoRecord *>(log_record->GetDelta());
         }
     };
 }

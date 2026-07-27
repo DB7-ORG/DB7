@@ -113,7 +113,7 @@ namespace db7::storage
                 else
                 {
                     // Ring full — re-enqueue this task and all remaining ones
-                    queue_.enqueue_bulk(tasks + i, count - i);
+                    queue_.enqueue_bulk(tasks + i, count - i); // should probl use try_enqueue
                     break;
                 }
             }

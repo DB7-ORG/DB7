@@ -3,6 +3,8 @@
 #include "transaction/transaction_common.hpp"
 #include "shared/arena/fixed_bump_arena.hpp"
 #include "shared/arena/object_pool.hpp"
+#include "storage/wal/log_record.hpp"
+#include "access/data_chunk.hpp"
 
 #include <vector>
 
@@ -11,7 +13,33 @@ namespace db7::storage
     class RedoRecord
     {
     private:
+        table_id t_id_;
+        page_id p_id_;
+        u32 idx_;
+        u64 varlen_contents_[0];
+
     public:
+        static u32 GetHeadersSize() { return sizeof(RedoRecord) + sizeof(LogRecord); }
+
+        void *GetDelta() { return varlen_contents_; }
+
+        table_id GetTableId() { return t_id_; }
+
+        page_id GetPageId() { return p_id_; }
+
+        u32 GetRowIndex() { return idx_; }
+
+        static LogRecord *Initialize(byte *const head, const transaction::timestamp_t txn_begin,
+                                     access::DataChunkLayout *initializer, table_id t_id, page_id p_id, u32 idx)
+        {
+            LogRecord *result = LogRecord::InitializeHeader(head, LogRecordType::REDO, initializer->GetTotalSize(), txn_begin);
+            auto *body = reinterpret_cast<RedoRecord *>(result->GetDelta());
+            body->t_id_ = t_id;
+            body->p_id_ = p_id;
+            body->idx_ = idx;
+            initializer->CreateDataChunk(body->GetDelta());
+            return result;
+        }
     };
 
     class RedoBuffer
