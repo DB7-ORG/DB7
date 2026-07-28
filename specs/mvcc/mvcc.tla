@@ -4,7 +4,7 @@ EXTENDS Integers, Sequences, FiniteSets, TLC
 
 CONSTANTS NUM_THREADS, OPERATIONS_COUNT, NUM_DISK_PAGES, NUM_POOL_PAGES
 
-UncommitedFlag == 2^31 
+UncommitedFlag == 1000000
 
 InPool(pid) == \E s \in 1..NUM_POOL_PAGES : buffer_pool[s].pageId = pid
 
