@@ -203,7 +203,7 @@ Delete(t) ==
 IncCount(t) ==
     /\ pc[t] = "IncCount"
     /\ count' = [count EXCEPT ![t] = count[t] + 1]
-    /\ pc' = [pc EXCEPT ![t] = IF count[t] + 1 = OPERATIONS_COUNT THEN "Done" ELSE "Pick"]
+    /\ pc' = [pc EXCEPT ![t] = IF count[t] + 1 = OPERATIONS_COUNT THEN "Commit" ELSE "Pick"]
     /\ UNCHANGED <<disk, buffer_pool, delta_hm, timestamp, undo_buffer, value, page_id, txn_ts, read_set>>
 
 WrotePages(t) == { undo_buffer[t][i].pid : i \in 1..Len(undo_buffer[t]) }
@@ -235,9 +235,12 @@ Abort(t) ==
 
 Commit(t) ==
     /\ pc[t] = "Commit"
-    /\ 
+    /\ undo_buffer' = [undo_buffer EXCEPT ![t] =
+           [i \in 1..Len(undo_buffer[t]) |->
+               [undo_buffer[t][i] EXCEPT !.timestamp = timestamp]]]
+    /\ timestamp' = timestamp + 1
     /\ pc' = [pc EXCEPT ![t] = "Done"]
-    /\ UNCHANGED <<timestamp, value, page_id, txn_ts, count>>
+    /\ UNCHANGED <<disk, buffer_pool, delta_hm, value, page_id, txn_ts, count, read_set>>
 
 Done ==
     /\ \A t \in Threads : pc[t] = "Done"
@@ -247,7 +250,7 @@ Next ==
     \/ \E t \in Threads :
          \/ Start(t)  \/ Pick(t)    
          \/ Read(t)   \/ Insert(t) \/ Update(t) \/ Delete(t)  
-         \/ IncCount(t) \/ Abort(t)
+         \/ IncCount(t) \/ Commit(t) \/ Abort(t)
     \/ Done
 
 Spec == Init /\ [][Next]_vars /\ WF_vars(Next)

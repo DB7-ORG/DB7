@@ -49,4 +49,5 @@ perf.*
 .data
 !perf/*.data
 specs/**/*.old
+specs/**/*.tlc
 specs/**/states
