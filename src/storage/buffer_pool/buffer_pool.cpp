@@ -134,9 +134,6 @@ namespace db7::storage
             u32 new_frame_idx;
             if (partitions_.Put(id, victim_frame_idx, new_frame_idx, partIdx))
             {
-                // TODO FetchPage
-                (void)disk_mng_;
-
                 partIdx = GetPartitionIdx(victim_page_id);
                 partitions_.Delete(victim_page_id, victim_frame_idx, partIdx);
 

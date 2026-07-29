@@ -38,7 +38,7 @@ Init ==
     /\ page_id     = [t \in Threads |-> EMPTY]
     /\ txn_ts      = [t \in Threads |-> EMPTY]
     /\ count       = [t \in Threads |-> EMPTY]
-    /\ read_set    = [t \in Threads |-> <<>>]
+    /\ read_set    = [t \in Threads |-> <<>>] \* this is used just for validation
     /\ pc          = [t \in Threads |-> "Start"]
 
 Start(t) ==
@@ -99,18 +99,17 @@ ChainWalk(ptr, cur_value, ts) ==
             THEN cur_value
             ELSE ChainWalk(rec.next, rec.value, ts)
 
-VisibleValue(pid, ts) == [
-    val |-> ChainWalk(HeadOf(pid), LatestOf(pid), ts),
-    pid |-> pid
-]
+WrotePages(t) == { undo_buffer[t][i].pid : i \in 1..Len(undo_buffer[t]) }
 
-ReadValue(t, pid, ts) == 
-    LET val == VisibleValue(pid, ts)
-    IN [read_set EXCEPT ![t] = Append(@, val)]
+VisibleValue(t, pid, ts) == [ pid |-> pid,
+                              val |-> ChainWalk(HeadOf(pid), LatestOf(pid), ts),
+                              own |-> pid \in WrotePages(t) ]
 
-EmptyValue(t) == 
-    LET v == [val |-> EMPTY, pid |-> page_id[t]]
-    IN [read_set EXCEPT ![t] = Append(@, v)]
+ReadValue(t, pid, ts) == [read_set EXCEPT ![t] = Append(@, VisibleValue(t, pid, ts))]
+
+EmptyValue(t) == [read_set EXCEPT ![t] =
+                     Append(@, [pid |-> page_id[t], val |-> EMPTY,
+                                own |-> page_id[t] \in WrotePages(t)])]
 
 Read(t) ==
     /\ pc[t] = "Read"
@@ -206,8 +205,6 @@ IncCount(t) ==
     /\ pc' = [pc EXCEPT ![t] = IF count[t] + 1 = OPERATIONS_COUNT THEN "Commit" ELSE "Pick"]
     /\ UNCHANGED <<disk, buffer_pool, delta_hm, timestamp, undo_buffer, value, page_id, txn_ts, read_set>>
 
-WrotePages(t) == { undo_buffer[t][i].pid : i \in 1..Len(undo_buffer[t]) }
-
 FirstRec(t, p) == LET i == CHOOSE i \in 1..Len(undo_buffer[t]) :
                              /\ undo_buffer[t][i].pid = p
                              /\ \A j \in 1..i-1 : undo_buffer[t][j].pid /= p
@@ -257,4 +254,46 @@ Spec == Init /\ [][Next]_vars /\ WF_vars(Next)
 
 Termination == <>(\A t \in Threads : pc[t] = "Done")
 
+\* .
+\* .
+\* INVARIANTS
+\* .
+\* .
+IsNull(ptr) == ptr.thread \notin Threads
+
+RECURSIVE SnapWalk(_, _, _)
+SnapWalk(ptr, cur_value, ts) ==
+    IF IsNull(ptr)
+    THEN cur_value
+    ELSE LET rec == undo_buffer[ptr.thread][ptr.idx]
+         IN IF ~IsUncommitted(rec.timestamp) /\ rec.timestamp <= ts
+            THEN cur_value
+            ELSE SnapWalk(rec.next, rec.value, ts)
+
+SnapshotValue(pid, ts) == SnapWalk(HeadOf(pid), LatestOf(pid), ts)
+
+PtrOK(p) == \/ p = NULL_DELTA
+            \/ /\ p.thread \in Threads
+               /\ p.idx \in 1..Len(undo_buffer[p.thread])
+
+DeltaOK ==
+    /\ \A s \in 1..NUM_POOL_PAGES : PtrOK(buffer_pool[s].delta)
+    /\ \A p \in 1..NUM_DISK_PAGES : PtrOK(delta_hm[p])
+    /\ \A t \in Threads : \A i \in 1..Len(undo_buffer[t]) : PtrOK(undo_buffer[t][i].next)
+
+SnapshotStable ==
+    \A t \in Threads:
+      \A i \in 1..Len(read_set[t]) :
+        ~read_set[t][i].own =>
+            read_set[t][i].val = SnapshotValue(read_set[t][i].pid, txn_ts[t])
+
+NoWriteWriteConflict ==
+    ~ \E t1, t2 \in Threads :
+        /\ t1 /= t2
+        /\ \E i \in 1..Len(undo_buffer[t1]), j \in 1..Len(undo_buffer[t2]) :
+             /\ undo_buffer[t1][i].pid = undo_buffer[t2][j].pid
+             /\ IsUncommitted(undo_buffer[t1][i].timestamp)
+             /\ IsUncommitted(undo_buffer[t2][j].timestamp)
+
+SnapshotIsolation == SnapshotStable /\ NoWriteWriteConflict /\ DeltaOK 
 ====
