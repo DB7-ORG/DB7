@@ -1,163 +1,299 @@
 ---- MODULE mvcc ----
-
 EXTENDS Integers, Sequences, FiniteSets, TLC
 
-CONSTANTS NUM_THREADS, OPERATIONS_COUNT, NUM_DISK_PAGES, NUM_POOL_PAGES
+CONSTANTS NUM_THREADS, OPERATIONS, OPERATIONS_COUNT, NUM_DISK_PAGES, NUM_POOL_PAGES
 
-UncommitedFlag == 1000000
+VARIABLES disk, buffer_pool, delta_hm, timestamp, undo_buffer, value, page_id, txn_ts, count, read_set, pc
+
+vars == <<disk, buffer_pool, delta_hm, timestamp, undo_buffer, value, page_id, txn_ts, count, read_set, pc>>
+
+Threads == 1..NUM_THREADS
+
+UNCOMMITTED == 1000000
+
+EMPTY == 0
+
+TOMBSTONE == -1
+
+IsUncommitted(ts) == ts >= UNCOMMITTED
+
+TxnIdOf(ts) == ts - UNCOMMITTED
+
+UncommitedTs(ts) == ts + UNCOMMITTED
+
+NULL_DELTA == [thread |-> EMPTY, idx |-> EMPTY]
+Ptr(t, i)  == [thread |-> t, idx |-> i]
 
 InPool(pid) == \E s \in 1..NUM_POOL_PAGES : buffer_pool[s].pageId = pid
-
-DeltaHMGet(pid) == delta_hm[pid]
-
-DeltaHMSet(pid, delta) == delta_hm' = [delta_hm EXCEPT ![pid] = delta]
-
+InDisk(pid) == disk[pid].values /= EMPTY
 SlotOf(pid) == CHOOSE i \in 1..NUM_POOL_PAGES : buffer_pool[i].pageId = pid
 
-BufferPoolGet(pid) ==
-    IF InPool(pid)
-    THEN UNCHANGED <<disk, buffer_pool>>          \* hit
-    ELSE \E victim \in 1..NUM_POOL_PAGES :
-            /\ DeltaHMSet(pid, disk[victim]) 
-            /\ disk' = [disk EXCEPT
-                          ![buffer_pool[victim].pageId].values = buffer_pool[victim].values]
-            /\ buffer_pool' = [buffer_pool EXCEPT
-                          ![victim] = [pageId |-> pid,
-                                       values |-> disk[pid].values,
-                                       delta  |-> DeltaHMGet(pid)]]      
+Init ==
+    /\ disk        = [p \in 1..NUM_DISK_PAGES |-> [values |-> EMPTY]]
+    /\ buffer_pool = [s \in 1..NUM_POOL_PAGES |-> [pageId |-> EMPTY, values |-> EMPTY, delta |-> NULL_DELTA]]
+    /\ delta_hm    = [p \in 1..NUM_DISK_PAGES |-> NULL_DELTA]
+    /\ timestamp   = 1
+    /\ undo_buffer = [t \in Threads |-> <<>>]
+    /\ value       = [t \in Threads |-> EMPTY]
+    /\ page_id     = [t \in Threads |-> EMPTY]
+    /\ txn_ts      = [t \in Threads |-> EMPTY]
+    /\ count       = [t \in Threads |-> EMPTY]
+    /\ read_set    = [t \in Threads |-> <<>>] \* this is used just for validation
+    /\ pc          = [t \in Threads |-> "Start"]
 
-BeginTransaction() == 
-    /\ txn_timestamp' = timestamp
+Start(t) ==
+    /\ pc[t] = "Start"
+    /\ value'     = [value  EXCEPT ![t] = t]
+    /\ txn_ts'    = [txn_ts EXCEPT ![t] = timestamp]
     /\ timestamp' = timestamp + 1
+    /\ pc'        = [pc EXCEPT ![t] = "Pick"]
+    /\ UNCHANGED <<disk, buffer_pool, delta_hm, undo_buffer, page_id, count, read_set>>
 
-DeltaType == {"UPDATE", "INSERT", "DELETE"}
+Pick(t) ==
+    /\ pc[t] = "Pick"
+    /\ \E pid \in 1..NUM_DISK_PAGES, op \in OPERATIONS :
+         /\ page_id' = [page_id EXCEPT ![t] = pid]
+         /\ value'   = [value   EXCEPT ![t] = value[t] + 1000]
+         /\ pc'      = [pc EXCEPT ![t] =
+              CASE op = "read"   -> "Read"
+                [] op = "insert" -> "Insert"
+                [] op = "update" -> "Update"
+                [] op = "delete" -> "Delete"]
+    /\ UNCHANGED <<disk, buffer_pool, delta_hm, timestamp, undo_buffer, txn_ts, count, read_set>>
 
-NULL_DELTA   == [thread |-> 0, idx |-> 0]
-Ptr(t, i) == [thread |-> t, idx |-> i]
+MoveToDisk(victim) == 
+    IF buffer_pool[victim].pageId = EMPTY
+    THEN disk
+    ELSE [disk EXCEPT ![buffer_pool[victim].pageId].values = buffer_pool[victim].values]
 
-AppendUndo(t, rtype, ts, pid, val) ==
-    LET newIdx == Len(undo_buffer[t]) + 1
-        rec    == [ type      |-> rtype,
-                    timestamp |-> ts,
-                    pid       |-> pid,
-                    next      |-> delta_hm[pid],
-                    value     |-> val ]   \* old head becomes this record's next
-    IN  undo_buffer' = [undo_buffer EXCEPT ![t] = Append(@, rec)]
+MoveDeltaHead(victim) ==
+    IF buffer_pool[victim].pageId = EMPTY
+    THEN delta_hm
+    ELSE [delta_hm EXCEPT ![buffer_pool[victim].pageId] = buffer_pool[victim].delta]
 
-(*--algorithm btree_index
+MoveToPool(t, victim, val, delta) == [buffer_pool EXCEPT ![victim] = [
+                                                pageId |-> page_id[t],
+                                                values |-> val,
+                                                delta  |-> delta]]
 
-variables
-    disk = [p \in 1..NUM_DISK_PAGES |-> [pageId |-> p, values |-> 0]]
-    buffer_pool = [p \in 1..NUM_POOL_PAGES |-> [pageId |-> p, values |-> 0, delta |-> NULL_DELTA]]
-    delta_hm = [p \in 1..NUM_DISK_PAGES |-> NULL_DELTA]
-    timestamp = 1
-    undo_buffer = [p \in 1..NUM_THREADS |-> <<>>]
-process Thread \in 1..NUM_THREADS
-variables 
-    value = 0;
-    page_id = 0;
-    txn_timestamp = 0;
-    count = 0
-    page  = []
-begin
-    Start:
-        value := self;
-        txn_timestamp := BeginTransaction();
-        goto PickOperation;
-        
-    PickOperation:
-        value := value + 1000; 
-        with pid \in 1 .. NUM_DISK_PAGES do
-            page_id := pid; 
-            with op \in OPERATIONS do
-                if op = "read" then
-                    goto Read;
-                elsif op = "insert" then
-                    goto Insert;
-                elsif op = "update" then
-                    goto Update;
-                elsif op = "delete" then
-                    goto Delete;
-                end if;
-            end with;    
-        end with; 
+GetUndoRecordSlot(t) == Ptr(t,Len(undo_buffer[t]) + 1) 
 
-    Read:
-        BufferPoolGet(page_id);
-        goto IncCount;
+AppendUndoRecord(t, op, delta, val) == LET rec    == [   
+                            type      |-> op,
+                            timestamp |-> UncommitedTs(txn_ts[t]),
+                            pid       |-> page_id[t],
+                            next      |-> delta,
+                            value     |-> val ]   
+                      IN [undo_buffer EXCEPT ![t] = Append(@, rec)]
 
-    Insert:
-        BufferPoolGet(page_id);
-        if page.values /= 0 then 
-            goto IncCount;
-        else 
-            AppendUndo(self, "INSERT", txn_timestamp, page_id, page.values);
-            buffer_pool[SlotOf(page_id)].values := value;
-            goto IncCount;
-        end if;
-        
-    Update:
+HeadOf(pid)   == IF InPool(pid) THEN buffer_pool[SlotOf(pid)].delta  ELSE delta_hm[pid]
 
-        page := BufferPoolGet(page_id);
-        if page.values = 0 then 
-            goto IncCount;
-        else
-            AppendUndo(self, "UPDATE", txn_timestamp, page_id, page.values);
-            buffer_pool[SlotOf(page_id)].values := value;
-            goto IncCount;
-        end if;
+LatestOf(pid) == IF InPool(pid) THEN buffer_pool[SlotOf(pid)].values ELSE disk[pid].values
 
-    Delete:
-        page := BufferPoolGet(page_id);
-        if page.values = 0 then 
-            goto IncCount;
-        else
-            AppendUndo(self, "DELETE", txn_timestamp, page_id, page.values);
-            buffer_pool[SlotOf(page_id)].values := value;
-            goto IncCount;
-        end if;
+RECURSIVE ChainWalk(_, _, _)
+ChainWalk(ptr, cur_value, ts) == 
+    IF ptr = NULL_DELTA
+    THEN cur_value
+    ELSE LET rec == undo_buffer[ptr.thread][ptr.idx]
+         IN IF rec.timestamp <= ts \/ (IsUncommitted(rec.timestamp) /\  TxnIdOf(rec.timestamp) = ts)
+            THEN cur_value
+            ELSE ChainWalk(rec.next, rec.value, ts)
 
-    IncCount:
-        count:=count+1;
-        if count = OPERATIONS_COUNT then
-            goto Done;
-        else
-            goto PickOperation;
-        end if;
+WrotePages(t) == { undo_buffer[t][i].pid : i \in 1..Len(undo_buffer[t]) }
 
-end process;
+VisibleValue(t, pid, ts) == [ pid |-> pid,
+                              val |-> ChainWalk(HeadOf(pid), LatestOf(pid), ts),
+                              own |-> pid \in WrotePages(t) ]
 
-end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "18366ab5" /\ chksum(tla) = "ea0576ae")
-VARIABLES pc, nodes, txn
+ReadValue(t, pid, ts) == [read_set EXCEPT ![t] = Append(@, VisibleValue(t, pid, ts))]
 
-vars == << pc, nodes, txn >>
+EmptyValue(t) == [read_set EXCEPT ![t] =
+                     Append(@, [pid |-> page_id[t], val |-> EMPTY,
+                                own |-> page_id[t] \in WrotePages(t)])]
 
-ProcSet == (1..NUM_THREADS)
+Read(t) ==
+    /\ pc[t] = "Read"
+    /\ \/ /\ InPool(page_id[t])
+          /\ read_set' = ReadValue(t, page_id[t], txn_ts[t])
+          /\ UNCHANGED <<disk, buffer_pool, delta_hm>>
+       \/ /\ ~InPool(page_id[t]) /\ InDisk(page_id[t])
+          /\ \E victim \in 1..NUM_POOL_PAGES :
+             /\ disk' = MoveToDisk(victim)
+             /\ buffer_pool' = MoveToPool(t, victim, disk[page_id[t]].values, delta_hm[page_id[t]])
+             /\ delta_hm' = MoveDeltaHead(victim)
+             /\ read_set' = ReadValue(t, page_id[t], txn_ts[t])
+       \/ /\ ~InPool(page_id[t]) /\ ~InDisk(page_id[t])
+          /\ read_set' = EmptyValue(t)
+          /\ UNCHANGED <<disk, buffer_pool, delta_hm>>
+    /\ pc'        = [pc EXCEPT ![t] = "IncCount"]
+    /\ UNCHANGED <<timestamp, undo_buffer, value, page_id, txn_ts, count>>
 
-Init == (* Global variables *)
-        /\ nodes = {}
-        (* Process Thread *)
-        /\ txn = [self \in 1..NUM_THREADS |-> 1]
-        /\ pc = [self \in ProcSet |-> "Start"]
+Insert(t) == 
+    /\ pc[t] = "Insert"
+    /\ \/ /\ ~InPool(page_id[t]) /\ ~InDisk(page_id[t])
+          /\ \E victim \in 1..NUM_POOL_PAGES :
+             /\ disk' = MoveToDisk(victim)
+             /\ buffer_pool' = MoveToPool(t, victim, value[t], GetUndoRecordSlot(t))
+             /\ delta_hm' = MoveDeltaHead(victim)
+             /\ undo_buffer' = AppendUndoRecord(t, "insert", NULL_DELTA, EMPTY)
+       \/ /\ (InPool(page_id[t]) \/ InDisk(page_id[t]))
+          /\ UNCHANGED <<disk, buffer_pool, delta_hm, undo_buffer>> 
+    /\ pc'        = [pc EXCEPT ![t] = "IncCount"]
+    /\ UNCHANGED <<timestamp, value, page_id, txn_ts, count, read_set>>
 
-Start(self) == /\ pc[self] = "Start"
-               /\ pc' = [pc EXCEPT ![self] = "Done"]
-               /\ UNCHANGED << nodes, txn >>
+CanWrite(pid, ts) ==
+    LET h == HeadOf(pid) IN
+        IF h = NULL_DELTA THEN
+            TRUE
+        ELSE
+            LET rec == undo_buffer[h.thread][h.idx] IN
+                TxnIdOf(rec.timestamp) = ts
+                \/ (~IsUncommitted(rec.timestamp)
+                    /\ rec.timestamp <= ts)
 
-Thread(self) == Start(self)
+UpdateReal(t) == 
+    /\ \/ /\ InPool(page_id[t])
+          /\ buffer_pool' = MoveToPool(t, SlotOf(page_id[t]), value[t], GetUndoRecordSlot(t))
+          /\ undo_buffer' = AppendUndoRecord(t, "update", buffer_pool[SlotOf(page_id[t])].delta, buffer_pool[SlotOf(page_id[t])].values)
+          /\ UNCHANGED <<disk, delta_hm>>
+       \/ /\ ~InPool(page_id[t]) /\ InDisk(page_id[t])
+          /\ \E victim \in 1..NUM_POOL_PAGES :
+             /\ disk' = MoveToDisk(victim)
+             /\ buffer_pool' = MoveToPool(t, victim, value[t], GetUndoRecordSlot(t))
+             /\ delta_hm' = MoveDeltaHead(victim)
+             /\ undo_buffer' = AppendUndoRecord(t, "update", delta_hm[page_id[t]], disk[page_id[t]].values)
+       \/ /\ ~InPool(page_id[t]) /\ ~InDisk(page_id[t])
+          /\ UNCHANGED <<disk, delta_hm, undo_buffer, buffer_pool>>
+    /\ UNCHANGED <<timestamp, value, page_id, txn_ts, count, read_set>>
 
-(* Allow infinite stuttering to prevent deadlock on termination. *)
-Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
-               /\ UNCHANGED vars
+Update(t) == 
+    /\ pc[t] = "Update"
+    /\ \/ /\ CanWrite(page_id[t], txn_ts[t])
+          /\ UpdateReal(t)
+          /\ pc' = [pc EXCEPT ![t] = "IncCount"]
+       \/ /\ ~CanWrite(page_id[t], txn_ts[t])
+          /\ pc' = [pc EXCEPT ![t] = "Abort"]          
+          /\ UNCHANGED <<disk, buffer_pool, delta_hm, timestamp, undo_buffer, value, page_id, txn_ts, count, read_set>>
+    
+DeleteReal(t) == 
+    /\ \/ /\ InPool(page_id[t])
+          /\ buffer_pool' = MoveToPool(t, SlotOf(page_id[t]), TOMBSTONE, GetUndoRecordSlot(t))
+          /\ undo_buffer' = AppendUndoRecord(t, "delete", buffer_pool[SlotOf(page_id[t])].delta, buffer_pool[SlotOf(page_id[t])].values) 
+          /\ UNCHANGED <<disk, delta_hm>>
+       \/ /\ ~InPool(page_id[t]) /\ InDisk(page_id[t])
+          /\ \E victim \in 1..NUM_POOL_PAGES :
+             /\ disk' = MoveToDisk(victim)
+             /\ buffer_pool' = MoveToPool(t, victim, TOMBSTONE, GetUndoRecordSlot(t))
+             /\ delta_hm' = MoveDeltaHead(victim)
+             /\ undo_buffer' = AppendUndoRecord(t, "delete", delta_hm[page_id[t]], disk[page_id[t]].values) 
+       \/ /\ ~InPool(page_id[t]) /\ ~InDisk(page_id[t])
+          /\ UNCHANGED <<disk, delta_hm, undo_buffer, buffer_pool>>
+    /\ UNCHANGED <<timestamp, value, page_id, txn_ts, count, read_set>>
 
-Next == (\E self \in 1..NUM_THREADS: Thread(self))
-           \/ Terminating
+Delete(t) == 
+    /\ pc[t] = "Delete"
+    /\ \/ /\ CanWrite(page_id[t], txn_ts[t])
+          /\ DeleteReal(t)
+          /\ pc' = [pc EXCEPT ![t] = "IncCount"]
+       \/ /\ ~CanWrite(page_id[t], txn_ts[t])
+          /\ pc' = [pc EXCEPT ![t] = "Abort"]          
+          /\ UNCHANGED <<disk, buffer_pool, delta_hm, timestamp, undo_buffer, value, page_id, txn_ts, count, read_set>>
 
-Spec == Init /\ [][Next]_vars
+IncCount(t) ==
+    /\ pc[t] = "IncCount"
+    /\ count' = [count EXCEPT ![t] = count[t] + 1]
+    /\ pc' = [pc EXCEPT ![t] = IF count[t] + 1 = OPERATIONS_COUNT THEN "Commit" ELSE "Pick"]
+    /\ UNCHANGED <<disk, buffer_pool, delta_hm, timestamp, undo_buffer, value, page_id, txn_ts, read_set>>
 
-Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+FirstRec(t, p) == LET i == CHOOSE i \in 1..Len(undo_buffer[t]) :
+                             /\ undo_buffer[t][i].pid = p
+                             /\ \A j \in 1..i-1 : undo_buffer[t][j].pid /= p
+                  IN undo_buffer[t][i]
 
-\* END TRANSLATION 
+Abort(t) ==
+    /\ pc[t] = "Abort"
+    /\ buffer_pool' = [s \in 1..NUM_POOL_PAGES |->
+           IF buffer_pool[s].pageId \in WrotePages(t)
+           THEN [buffer_pool[s] EXCEPT !.values = FirstRec(t, buffer_pool[s].pageId).value,
+                                       !.delta  = FirstRec(t, buffer_pool[s].pageId).next]
+           ELSE buffer_pool[s]]
+    /\ disk' = [p \in 1..NUM_DISK_PAGES |->
+           IF p \in WrotePages(t) /\ ~InPool(p)
+           THEN [values |-> FirstRec(t, p).value]
+           ELSE disk[p]]
+    /\ delta_hm' = [p \in 1..NUM_DISK_PAGES |->
+           IF p \in WrotePages(t) /\ ~InPool(p)
+           THEN FirstRec(t, p).next
+           ELSE delta_hm[p]]
+    /\ undo_buffer' = [undo_buffer EXCEPT ![t] = <<>>]
+    /\ read_set'    = [read_set    EXCEPT ![t] = <<>>]
+    /\ pc' = [pc EXCEPT ![t] = "Done"]
+    /\ UNCHANGED <<timestamp, value, page_id, txn_ts, count>>
 
+Commit(t) ==
+    /\ pc[t] = "Commit"
+    /\ undo_buffer' = [undo_buffer EXCEPT ![t] =
+           [i \in 1..Len(undo_buffer[t]) |->
+               [undo_buffer[t][i] EXCEPT !.timestamp = timestamp]]]
+    /\ timestamp' = timestamp + 1
+    /\ pc' = [pc EXCEPT ![t] = "Done"]
+    /\ UNCHANGED <<disk, buffer_pool, delta_hm, value, page_id, txn_ts, count, read_set>>
+
+Done ==
+    /\ \A t \in Threads : pc[t] = "Done"
+    /\ UNCHANGED vars
+
+Next ==
+    \/ \E t \in Threads :
+         \/ Start(t)  \/ Pick(t)    
+         \/ Read(t)   \/ Insert(t) \/ Update(t) \/ Delete(t)  
+         \/ IncCount(t) \/ Commit(t) \/ Abort(t)
+    \/ Done
+
+Spec == Init /\ [][Next]_vars /\ WF_vars(Next)
+
+Termination == <>(\A t \in Threads : pc[t] = "Done")
+
+\* .
+\* .
+\* INVARIANTS
+\* .
+\* .
+IsNull(ptr) == ptr.thread \notin Threads
+
+RECURSIVE SnapWalk(_, _, _)
+SnapWalk(ptr, cur_value, ts) ==
+    IF IsNull(ptr)
+    THEN cur_value
+    ELSE LET rec == undo_buffer[ptr.thread][ptr.idx]
+         IN IF ~IsUncommitted(rec.timestamp) /\ rec.timestamp <= ts
+            THEN cur_value
+            ELSE SnapWalk(rec.next, rec.value, ts)
+
+SnapshotValue(pid, ts) == SnapWalk(HeadOf(pid), LatestOf(pid), ts)
+
+PtrOK(p) == \/ p = NULL_DELTA
+            \/ /\ p.thread \in Threads
+               /\ p.idx \in 1..Len(undo_buffer[p.thread])
+
+DeltaOK ==
+    /\ \A s \in 1..NUM_POOL_PAGES : PtrOK(buffer_pool[s].delta)
+    /\ \A p \in 1..NUM_DISK_PAGES : PtrOK(delta_hm[p])
+    /\ \A t \in Threads : \A i \in 1..Len(undo_buffer[t]) : PtrOK(undo_buffer[t][i].next)
+
+SnapshotStable ==
+    \A t \in Threads:
+      \A i \in 1..Len(read_set[t]) :
+        ~read_set[t][i].own =>
+            read_set[t][i].val = SnapshotValue(read_set[t][i].pid, txn_ts[t])
+
+NoWriteWriteConflict ==
+    ~ \E t1, t2 \in Threads :
+        /\ t1 /= t2
+        /\ \E i \in 1..Len(undo_buffer[t1]), j \in 1..Len(undo_buffer[t2]) :
+             /\ undo_buffer[t1][i].pid = undo_buffer[t2][j].pid
+             /\ IsUncommitted(undo_buffer[t1][i].timestamp)
+             /\ IsUncommitted(undo_buffer[t2][j].timestamp)
+
+SnapshotIsolation == SnapshotStable /\ NoWriteWriteConflict /\ DeltaOK 
 ====
