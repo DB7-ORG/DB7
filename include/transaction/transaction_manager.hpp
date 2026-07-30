@@ -5,6 +5,7 @@
 #include "transaction/transaction_context.hpp"
 #include "shared/arena/object_pool.hpp"
 #include "shared/arena/fixed_bump_arena.hpp"
+#include "shared/locks/adaptive_spin_lock.hpp"
 
 namespace db7::transaction
 {
@@ -15,6 +16,7 @@ namespace db7::transaction
         storage::BufferPool *buffer_pool_;
         storage::PageVersionManager *version_manager_;
         shared::ObjectPool<shared::FixedBumpArena> *mem_pool_;
+        shared::AdaptiveSpinLock commit_latch_;
 
     public:
         TransactionManager(

@@ -58,6 +58,14 @@ namespace db7::transaction
 
         bool GetState() { return rollback_; }
 
+        void RestampVersions(timestamp_t commit_time)
+        {
+            for (auto &item : undo_buffer_)
+            {
+                item.SetTimestamp(commit_time);
+            }
+        }
+
         /**
          * @warning make sure to hold the page data lock like w other columns
          */

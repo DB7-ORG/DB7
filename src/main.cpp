@@ -277,9 +277,18 @@ int main()
 
     db7::transaction::TransactionContext *context2 = txn_manager.BeginTransaction();
 
+    std::string new_name2 = "jovo222";
+    cat->UpdateDatabaseName(context2, db_oid, std::span<char>(new_name2.data(), new_name2.size()));
+
     cat->Select(context2);
 
+    db7::transaction::TransactionContext *context3 = txn_manager.BeginTransaction();
+
+    cat->Select(context3);
+
     txn_manager.Commit(context2);
+
+    txn_manager.Commit(context3);
 
     delete cat;
 

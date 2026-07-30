@@ -3,12 +3,20 @@
 #include "common.hpp"
 #include "shared/macro_helper.hpp"
 #include "shared/align_util.hpp"
+#include "storage/undo_buffer.hpp"
+
+namespace db7::storage
+{
+    class UndoBuffer;
+}
 
 namespace db7::shared
 {
 
     class FixedBumpArena
     {
+        friend class db7::storage::UndoBuffer;
+
     private:
         static constexpr u32 ALLOCATOR_BLOCK_SIZE = 4096;
         byte data_[ALLOCATOR_BLOCK_SIZE];

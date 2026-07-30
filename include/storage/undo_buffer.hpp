@@ -4,6 +4,7 @@
 #include "shared/arena/object_pool.hpp"
 #include "transaction/transaction_common.hpp"
 #include "storage/storage_common.hpp"
+#include "access/data_chunk.hpp"
 
 #include <vector>
 #include <span>
@@ -31,6 +32,8 @@ namespace db7::storage
 
     public:
         transaction::timestamp_t GetTimestamp() { return timestamp_.load(); }
+
+        void SetTimestamp(const transaction::timestamp_t time) { timestamp_.store(time); }
 
         DeltaRecordType GetType() { return type_; }
 
@@ -124,5 +127,60 @@ namespace db7::storage
             DB7_ASSERT(shared::IsAligned<u64>(last_record_), "unaligned ptr");
             return last_record_;
         }
+
+        class Iterator
+        {
+        private:
+            friend class UndoBuffer;
+
+            std::vector<Segment *>::iterator curr_segment_;
+            u32 segment_offset_;
+
+            Iterator(std::vector<Segment *>::iterator curr_segment, uint32_t segment_offset)
+                : curr_segment_(curr_segment), segment_offset_(segment_offset) {}
+
+        public:
+            UndoRecord &operator*() const
+            {
+                return *reinterpret_cast<UndoRecord *>((*curr_segment_)->data_ + segment_offset_);
+            }
+
+            UndoRecord *operator->() const
+            {
+                return reinterpret_cast<UndoRecord *>((*curr_segment_)->data_ + segment_offset_);
+            }
+
+            Iterator &operator++()
+            {
+                UndoRecord &me = this->operator*();
+                segment_offset_ += sizeof(UndoRecord) + reinterpret_cast<access::DataChunk *>(me.GetDelta())->GetSize();
+                if (segment_offset_ == (*curr_segment_)->size_)
+                {
+                    // need to advance into the next segment
+                    ++curr_segment_;
+                    segment_offset_ = 0;
+                }
+
+                return *this;
+            }
+
+            Iterator operator++(int)
+            {
+                Iterator copy = *this;
+                operator++();
+                return copy;
+            }
+
+            bool operator==(const Iterator &other) const
+            {
+                return segment_offset_ == other.segment_offset_ && curr_segment_ == other.curr_segment_;
+            }
+
+            bool operator!=(const Iterator &other) const { return !(*this == other); }
+        };
+
+        Iterator begin() { return {buffers_.begin(), 0}; }
+
+        Iterator end() { return {buffers_.end(), 0}; }
     };
 }

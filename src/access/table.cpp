@@ -224,6 +224,12 @@ namespace db7::access
             switch (version_ptr->GetType())
             {
             case storage::DeltaRecordType::UPDATE:
+                DataChunk *delta = reinterpret_cast<DataChunk *>(version_ptr->GetDelta());
+                auto iterator = delta->InitIterator();
+                for (auto i = 0; i < delta->GetCount(); i++)
+                {
+                    byte *ptr = iterator.Next();
+                }
                 // TODO apply delta
                 break;
             case storage::DeltaRecordType::INSERT:
