@@ -24,9 +24,6 @@ namespace db7::access
         u32 header_size_;
         byte *header_underlying_;
 
-        u32 column_ids_;
-        u32 offsets_;
-
         catalog::col_oid_t *GetColumnIdsPtr() { return reinterpret_cast<catalog::col_oid_t *>(header_underlying_ + COLUMN_IDS_START); }
 
     public:
@@ -82,15 +79,33 @@ namespace db7::access
 
         std::span<catalog::col_oid_t> GetColumnIds() { return std::span<catalog::col_oid_t>(GetColumnIdsPtr(), column_count_); }
 
-        // std::span<ProjectedSchemaInfo> GetSchemaInfo() { return std::span<ProjectedSchemaInfo>(schema_info_, column_count_); }
-
         byte *Access(u32 idx) { return GetUnderlyingPtr() + GetOffsetsPtr()[idx]; }
 
         u32 GetSize() { return total_size_; }
 
         u32 GetHeaderSize() { return GetDataPtr() - GetUnderlyingPtr(); }
 
-        u32 GetCount() { return column_count_; }
+        u32 GetColumnCount() { return column_count_; }
+
+        static void Merge(DataChunk *curr_chunk, DataChunk *new_chunk, Schema *schema)
+        {
+            int new_idx = 0;
+            for (auto new_id : new_chunk->GetColumnIds())
+            {
+                int cur_idx = 0;
+                for (auto cur_id : curr_chunk->GetColumnIds())
+                {
+                    if (cur_id == new_id)
+                    {
+                        u32 size = schema->GetColumn(new_id).GetTypeSize();
+                        memcpy(curr_chunk->Access(cur_idx), new_chunk->Access(new_idx), size);
+                        break;
+                    }
+                    cur_idx++;
+                }
+                new_idx++;
+            }
+        }
 
         class Iterator
         {

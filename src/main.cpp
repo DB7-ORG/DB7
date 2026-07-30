@@ -263,6 +263,7 @@ int main()
 
     auto db_oid = cat->CreateDatabase(context, sdata, true);
     // cat->DeleteDatabase(context, 1);
+    cat->Select(context);
 
     std::string new_name = "jovo";
     cat->UpdateDatabaseName(context, db_oid, std::span<char>(new_name.data(), new_name.size()));
@@ -283,7 +284,6 @@ int main()
     cat->Select(context2);
 
     db7::transaction::TransactionContext *context3 = txn_manager.BeginTransaction();
-
     cat->Select(context3);
 
     txn_manager.Commit(context2);

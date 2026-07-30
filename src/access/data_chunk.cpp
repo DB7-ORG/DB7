@@ -9,9 +9,9 @@ namespace db7::access
         std::span<const u32> attr_sizes)
         : column_count_(col_ids.size())
     {
-        column_ids_ = 2 * sizeof(u32);
+        u32 column_ids_ = 2 * sizeof(u32);
         header_size_ = column_ids_ + sizeof(catalog::col_oid_t) * col_ids.size();
-        offsets_ = shared::AlignUp(header_size_, (u32)sizeof(u32));
+        u32 offsets_ = shared::AlignUp(header_size_, (u32)sizeof(u32));
         header_size_ = offsets_ + sizeof(u32) * col_ids.size();
 
         header_underlying_ = new byte[header_size_];
@@ -58,9 +58,7 @@ namespace db7::access
         {
             auto col_id = GetColumnIdsPtr()[i];
 
-            auto idx = schema->GetColumnIndex(col_id);
-
-            auto &col = schema->GetColumn(idx);
+            auto &col = schema->GetColumn(col_id);
 
             std::cout << col.GetName() << " | ";
 
@@ -73,10 +71,6 @@ namespace db7::access
                 if (entry.IsInline())
                 {
                     std::cout.write(entry.GetInline(), entry.GetSize());
-                }
-                else
-                {
-                    std::cout << "not inlined";
                 }
                 break;
             }

@@ -56,23 +56,19 @@ namespace db7::access
                 return false;
             }
 
-            auto iter = delta->InitIterator();
-            for (auto info : schema_.GetProjectedSchemaInfo(chunk->GetColumnIds()))
+            auto delta_iter = delta->InitIterator();
+            auto chunk_iter = chunk->InitIterator();
+            for (auto id : chunk->GetColumnIds())
             {
-                byte *ptr = layout_.Get(page->GetData(), info.GetPosition(), tup_id.index);
-                iter.PushBack({ptr, info.GetAttrSize()});
+                auto column_info = schema_.GetColumn(id);
+                byte *ptr = layout_.Get(page->GetData(), column_info.GetPosiiton(), tup_id.index);
+                delta_iter.PushBack({ptr, column_info.GetTypeSize()});
+                memcpy(ptr, chunk_iter.Next(), column_info.GetTypeSize());
             }
 
             record->SetNext(version_ptr);
 
         } while (!versions[tup_id.index].CompareAndSwap(version_ptr, record));
-
-        auto iter = chunk->InitIterator();
-        for (auto info : schema_.GetProjectedSchemaInfo(chunk->GetColumnIds()))
-        {
-            byte *ptr = layout_.Get(page->GetData(), info.GetPosition(), tup_id.index);
-            layout_.Update(ptr, std::span<byte>(iter.Next(), info.GetAttrSize()));
-        }
 
         return true;
     }
@@ -122,9 +118,10 @@ namespace db7::access
 
         u32 old_count = layout_.IncrementHeaderCount(body, 1);
 
-        for (auto info : schema_.GetProjectedSchemaInfo(chunk->GetColumnIds()))
+        for (auto id : chunk->GetColumnIds())
         {
-            layout_.Insert(body, std::span<byte>(chunk->Access(info.GetPosition()), info.GetAttrSize()), info.GetPosition(), old_count);
+            auto info = schema_.GetColumn(id);
+            layout_.Insert(body, std::span<byte>(chunk->Access(info.GetPosiiton()), info.GetTypeSize()), info.GetPosiiton(), old_count);
         }
 
         TupleId tup_id = {old_count, page_id};
@@ -196,14 +193,14 @@ namespace db7::access
 
     bool Table::SelectIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page, DataChunk *chunk)
     {
-        (void)txn;
         byte *data = page->GetData();
 
         auto iter = chunk->InitIterator();
-        for (auto info : schema_.GetProjectedSchemaInfo(chunk->GetColumnIds()))
+        for (auto id : chunk->GetColumnIds())
         {
-            byte *ptr = layout_.Get(data, info.GetPosition(), idx);
-            iter.PushBack(std::span<byte>(ptr, info.GetAttrSize()));
+            auto info = schema_.GetColumn(id);
+            byte *ptr = layout_.Get(data, info.GetPosiiton(), idx);
+            iter.PushBack(std::span<byte>(ptr, info.GetTypeSize()));
         }
 
         u32 count = layout_.GetMaxRowCount();
@@ -224,14 +221,11 @@ namespace db7::access
             switch (version_ptr->GetType())
             {
             case storage::DeltaRecordType::UPDATE:
+            {
                 DataChunk *delta = reinterpret_cast<DataChunk *>(version_ptr->GetDelta());
-                auto iterator = delta->InitIterator();
-                for (auto i = 0; i < delta->GetCount(); i++)
-                {
-                    byte *ptr = iterator.Next();
-                }
-                // TODO apply delta
+                DataChunk::Merge(chunk, delta, &schema_);
                 break;
+            }
             case storage::DeltaRecordType::INSERT:
             case storage::DeltaRecordType::DELETE:
                 return false;
@@ -297,7 +291,7 @@ namespace db7::access
                       << (deleted ? "  [DELETED]  " : "             ") << "| ";
 
             u32 col_idx = 0;
-            for (const auto &column : schema_.GetColumns())
+            for (const auto &column : schema_)
             {
                 const byte *val_ptr = layout_.Get(body, col_idx++, i);
                 u32 type_size = column.GetTypeSize();

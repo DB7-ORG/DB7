@@ -159,20 +159,6 @@ namespace db7::access
                 DB7_UNREACHABLE();
             }
         }
-
-        static std::span<byte> EncodeFields(byte *result_buffer, Schema schema_, access::DataChunk &chunk)
-        {
-            byte *buf = result_buffer;
-            auto iter = chunk.InitIterator();
-            for (u32 i = 0; i < chunk.GetCount(); i++)
-            {
-                byte *ptr = iter.Next();
-                u32 encoded_size = SwitchType(buf, ptr, schema_.GetColumn(i).GetType(), false, false, false);
-                buf += encoded_size;
-            }
-
-            return std::span<byte>(result_buffer, buf - result_buffer);
-        }
     };
 
 }

@@ -252,17 +252,16 @@ namespace db7::debug
         auto *header = storage::PageHeader::CastHeader(data);
         dump.row_count = std::min(header->count, (u32)1024);
 
-        const auto &columns = tbl->schema_.GetColumns();
-        dump.column_count = std::min((u32)columns.size(), (u32)64);
+        dump.column_count = std::min((u32)tbl->schema_.GetCount(), (u32)64);
 
         for (u32 i = 0; i < dump.row_count; i++)
         {
             u32 byte_offset = storage::HEADER_SIZE + i / 8;
             dump.deleted[i] = (data[byte_offset] >> (i % 8)) & 1;
 
-            for (u32 c = 0; c < dump.column_count; c++)
+            u32 c = 0;
+            for (auto column : tbl->schema_)
             {
-                const auto &column = columns[c];
                 u32 type_size = column.GetTypeSize();
                 const byte *val_ptr = tbl->layout_.Get(data, c, i);
 

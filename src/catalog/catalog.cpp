@@ -41,7 +41,6 @@ namespace db7::catalog
     bool Catalog::CreateDatabaseEntry(transaction::TransactionContext *txn, const std::span<byte> name, DatabaseCatalog *const dbc)
     {
         db_oid_t oid = dbc->GetDbOid();
-        (void)txn;
 
         // TODO figure out what to do w varlen
         storage::VarlenEntry entry;
@@ -66,8 +65,6 @@ namespace db7::catalog
 
     bool Catalog::DeleteDatabase(transaction::TransactionContext *txn, const db_oid_t oid)
     {
-        (void)txn;
-
         if (!DeleteDatabaseEntry(txn, oid))
         {
             DB7_ASSERT(false, "Failed to delete entry");
@@ -85,12 +82,9 @@ namespace db7::catalog
 
     bool Catalog::DeleteDatabaseEntry(transaction::TransactionContext *txn, const db_oid_t oid)
     {
-        (void)oid;
-        (void)txn;
-
-        // scan the index of the table and get the idx of the row
-        u32 idx = 0;
-        u32 pid = 1;
+        access::TupleId res{.value = databases_index_datoid->Get(oid)};
+        u32 idx = res.index;
+        u32 pid = res.pid;
 
         databases_->Delete(txn, idx, pid);
 
@@ -99,7 +93,8 @@ namespace db7::catalog
 
     bool Catalog::UpdateDatabaseName(transaction::TransactionContext *txn, db_oid_t oid, std::span<char> name)
     {
-        u32 idx = 0;
+        access::TupleId res{.value = databases_index_datoid->Get(oid)};
+        u32 idx = res.index;
 
         storage::VarlenEntry entry;
         entry.Set(name);
@@ -110,10 +105,6 @@ namespace db7::catalog
         iter.PushBack(entry);
         return databases_->Update(txn, idx, chunk);
     }
-
-    // bool Catalog::UpdateDatabaseEntry(transaction::TransactionContext *txn, db_oid_t oid, std::span<char> name)
-    // {
-    // }
 
     void Catalog::Select(transaction::TransactionContext *txn)
     {

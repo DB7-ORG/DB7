@@ -52,8 +52,8 @@ namespace db7::access
         static storage::PaxLayout CreateLayoutFromSchema(const Schema &schema)
         {
             std::vector<u16> sizes;
-            sizes.reserve(schema.GetColumns().size());
-            for (const auto &col : schema.GetColumns())
+            sizes.reserve(schema.GetCount());
+            for (const auto &col : schema)
                 sizes.emplace_back(col.GetTypeSize());
             return storage::PaxLayout(std::move(sizes));
         }
