@@ -77,6 +77,8 @@ namespace db7::catalog
             return false;
         }
 
+        // TODO remove all files
+
         return true;
     }
 
@@ -86,9 +88,7 @@ namespace db7::catalog
         u32 idx = res.index;
         u32 pid = res.pid;
 
-        databases_->Delete(txn, idx, pid);
-
-        return true;
+        return databases_->Delete(txn, idx, pid);
     }
 
     bool Catalog::UpdateDatabaseName(transaction::TransactionContext *txn, db_oid_t oid, std::span<char> name)

@@ -87,26 +87,6 @@ namespace db7::access
 
         u32 GetColumnCount() { return column_count_; }
 
-        static void Merge(DataChunk *curr_chunk, DataChunk *new_chunk, Schema *schema)
-        {
-            int new_idx = 0;
-            for (auto new_id : new_chunk->GetColumnIds())
-            {
-                int cur_idx = 0;
-                for (auto cur_id : curr_chunk->GetColumnIds())
-                {
-                    if (cur_id == new_id)
-                    {
-                        u32 size = schema->GetColumn(new_id).GetTypeSize();
-                        memcpy(curr_chunk->Access(cur_idx), new_chunk->Access(new_idx), size);
-                        break;
-                    }
-                    cur_idx++;
-                }
-                new_idx++;
-            }
-        }
-
         class Iterator
         {
         private:

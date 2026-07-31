@@ -262,11 +262,11 @@ int main()
     std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
 
     auto db_oid = cat->CreateDatabase(context, sdata, true);
-    // cat->DeleteDatabase(context, 1);
+    // cat->DeleteDatabase(context, db_oid);
     cat->Select(context);
 
     std::string new_name = "jovo";
-    cat->UpdateDatabaseName(context, db_oid, std::span<char>(new_name.data(), new_name.size()));
+    std::cout << cat->UpdateDatabaseName(context, db_oid, std::span<char>(new_name.data(), new_name.size())) << std::endl;
 
     cat->Select(context);
 
@@ -279,16 +279,15 @@ int main()
     db7::transaction::TransactionContext *context2 = txn_manager.BeginTransaction();
 
     std::string new_name2 = "jovo222";
-    cat->UpdateDatabaseName(context2, db_oid, std::span<char>(new_name2.data(), new_name2.size()));
+    std::cout << cat->UpdateDatabaseName(context2, db_oid, std::span<char>(new_name2.data(), new_name2.size())) << std::endl;
 
     cat->Select(context2);
 
     db7::transaction::TransactionContext *context3 = txn_manager.BeginTransaction();
     cat->Select(context3);
+    txn_manager.Commit(context3);
 
     txn_manager.Commit(context2);
-
-    txn_manager.Commit(context3);
 
     delete cat;
 

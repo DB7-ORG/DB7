@@ -31,7 +31,7 @@ namespace db7::access
             }
         }
 
-        SchemaColumn &GetColumn(catalog::col_oid_t id) { return mapping_[id]; }
+        const SchemaColumn &GetColumn(catalog::col_oid_t id) const { return mapping_.at(id); }
 
         u32 GetCount() const { return mapping_.size(); }
 

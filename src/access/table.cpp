@@ -6,6 +6,7 @@
 #include "storage/page_header.hpp"
 #include "storage/layouts/pax.hpp"
 #include "transaction/transaction_util.hpp"
+#include "access/chunk_utils.hpp"
 
 #include <iomanip>
 
@@ -50,21 +51,13 @@ namespace db7::access
         {
             version_ptr = versions[tup_id.index].Get();
 
-            if (HasConflict(txn, version_ptr))
+            if (HasConflict(txn, version_ptr) || layout_.IsDeleted(page->GetData(), tup_id.index))
             {
                 record->Invalidate();
                 return false;
             }
 
-            auto delta_iter = delta->InitIterator();
-            auto chunk_iter = chunk->InitIterator();
-            for (auto id : chunk->GetColumnIds())
-            {
-                auto column_info = schema_.GetColumn(id);
-                byte *ptr = layout_.Get(page->GetData(), column_info.GetPosiiton(), tup_id.index);
-                delta_iter.PushBack({ptr, column_info.GetTypeSize()});
-                memcpy(ptr, chunk_iter.Next(), column_info.GetTypeSize());
-            }
+            ChunkUtils::UpdateSingle(schema_, layout_, chunk, delta, page, tup_id.index);
 
             record->SetNext(version_ptr);
 
@@ -107,6 +100,7 @@ namespace db7::access
 
     TupleId Table::Insert(transaction::TransactionContext *txn, DataChunk *chunk)
     {
+        // TODO shouldnt use GetSize that seems wastfull
         u32 page_id = storage::FreeSpaceManagerVarlen::Get(chunk->GetSize()); // TODO table oid
         storage::PageIdentifier id(oid_, page_id);
         storage::Page *insert_page = buffer_->Pin(id);
@@ -114,15 +108,7 @@ namespace db7::access
 
         insert_page->WDataLock();
 
-        byte *body = insert_page->GetData();
-
-        u32 old_count = layout_.IncrementHeaderCount(body, 1);
-
-        for (auto id : chunk->GetColumnIds())
-        {
-            auto info = schema_.GetColumn(id);
-            layout_.Insert(body, std::span<byte>(chunk->Access(info.GetPosiiton()), info.GetTypeSize()), info.GetPosiiton(), old_count);
-        }
+        u32 old_count = ChunkUtils::InsertBulk(schema_, layout_, chunk, insert_page);
 
         TupleId tup_id = {old_count, page_id};
 
@@ -155,7 +141,7 @@ namespace db7::access
         {
             version_ptr = versions[tup_id.index].Get();
 
-            if (HasConflict(txn, version_ptr))
+            if (HasConflict(txn, version_ptr) || layout_.IsDeleted(page->GetData(), tup_id.index))
             {
                 record->Invalidate();
                 return false;
@@ -176,7 +162,8 @@ namespace db7::access
 
         page->WDataLock(); // TODO this could be done atomically also or it can use a read lock if i remove a bitmap
         bool is_valid = DeleteUndo(txn, {idx, id.pid}, page);
-        layout_.Delete(page->GetData(), idx);
+        if (is_valid)
+            layout_.Delete(page->GetData(), idx);
         page->WDataUnlock();
 
         // PrintPage(page);
@@ -193,15 +180,7 @@ namespace db7::access
 
     bool Table::SelectIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page, DataChunk *chunk)
     {
-        byte *data = page->GetData();
-
-        auto iter = chunk->InitIterator();
-        for (auto id : chunk->GetColumnIds())
-        {
-            auto info = schema_.GetColumn(id);
-            byte *ptr = layout_.Get(data, info.GetPosiiton(), idx);
-            iter.PushBack(std::span<byte>(ptr, info.GetTypeSize()));
-        }
+        ChunkUtils::ReadSingleIntoChunk(schema_, layout_, chunk, page, idx);
 
         u32 count = layout_.GetMaxRowCount();
         DB7_ASSERT(idx < count, "Out of range index");
@@ -210,9 +189,10 @@ namespace db7::access
 
         storage::UndoRecord *version_ptr = versions[idx].Get();
 
+        bool is_deleted = layout_.IsDeleted(page->GetData(), idx);
         if (version_ptr == nullptr || version_ptr->GetTimestamp() == txn->FinishTime())
         {
-            return true;
+            return !is_deleted;
         }
 
         while (version_ptr != nullptr &&
@@ -223,7 +203,7 @@ namespace db7::access
             case storage::DeltaRecordType::UPDATE:
             {
                 DataChunk *delta = reinterpret_cast<DataChunk *>(version_ptr->GetDelta());
-                DataChunk::Merge(chunk, delta, &schema_);
+                ChunkUtils::Merge(schema_, chunk, delta);
                 break;
             }
             case storage::DeltaRecordType::INSERT:
@@ -235,7 +215,7 @@ namespace db7::access
             version_ptr = version_ptr->GetNext();
         }
 
-        return true;
+        return !is_deleted;
     }
 
     void Table::Select(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid, DataChunk *chunk)
@@ -255,7 +235,7 @@ namespace db7::access
         }
         else
         {
-            std::cout << "nothing to see" << std::endl;
+            std::cout << "deleted" << std::endl;
         }
 
         page->Unpin();

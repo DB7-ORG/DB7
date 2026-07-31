@@ -36,20 +36,22 @@ namespace db7::storage
 
         PaxLayout(std::vector<u16> &&sizes);
 
-        u32 IncrementHeaderCount(byte *data, u32 count);
+        u32 IncrementHeaderCount(byte *data, u32 count) const;
 
-        u32 CalcOffset(u32 row_idx, u32 column_idx);
+        u32 CalcOffset(u32 row_idx, u32 column_idx) const;
 
-        void Update(byte *dest, std::span<byte> update_data);
+        void Update(byte *dest, std::span<byte> update_data) const;
 
-        void Update(byte *page_data, std::span<byte> update_data, u16 column_idx, u32 row_idx);
+        void Update(byte *page_data, std::span<byte> update_data, u16 column_idx, u32 row_idx) const;
 
-        void Insert(byte *page_data, std::span<byte> insert_data, u16 column_idx, u32 row_idx);
+        void Insert(byte *page_data, std::span<byte> insert_data, u16 column_idx, u32 row_idx) const;
 
-        void Delete(byte *data, u32 row_idx);
+        void Delete(byte *data, u32 row_idx) const;
 
-        byte *Get(byte *page_data, u16 column_idx, u32 row_idx);
+        bool IsDeleted(byte *data, u32 row_idx) const;
 
-        u32 GetMaxRowCount() { return max_row_count_; }
+        byte *Get(byte *page_data, u16 column_idx, u32 row_idx) const;
+
+        u32 GetMaxRowCount() const { return max_row_count_; }
     };
 }
