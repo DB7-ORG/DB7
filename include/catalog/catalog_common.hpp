@@ -6,9 +6,11 @@
 
 namespace db7::catalog
 {
+    constexpr u32 INVALID_OID = 0;
     using db_oid_t = u32;
     using rel_oid_t = u32;
     using col_oid_t = u32;
+    using namespace_oid_t = u32;
 
     struct CatalogTableColCount
     {

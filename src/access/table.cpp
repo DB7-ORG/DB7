@@ -18,18 +18,7 @@ namespace db7::access
         if (version_ptr == nullptr)
             return false;
 
-        const transaction::timestamp_t version_timestamp = version_ptr->GetTimestamp();
-        const transaction::timestamp_t txn_id = txn->FinishTime();
-        const transaction::timestamp_t start_time = txn->StartTime();
-
-        /* Check if there is write-write conflict with another transaction */
-        const bool owned_by_other_txn = (!transaction::TransactionUtil::IsCommitted(version_timestamp) && version_timestamp != txn_id);
-
-        /* Check if someone commited after we started */
-        const bool newer_committed_version = transaction::TransactionUtil::IsCommitted(version_timestamp) &&
-                                             transaction::TransactionUtil::IsNewerThan(version_timestamp, start_time);
-
-        return owned_by_other_txn || newer_committed_version;
+        return transaction::TransactionUtil::HasConflict(version_ptr->GetTimestamp(), txn->FinishTime(), txn->StartTime());
     }
 
     /**
@@ -218,7 +207,7 @@ namespace db7::access
         return !is_deleted;
     }
 
-    void Table::Select(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid, DataChunk *chunk)
+    bool Table::Select(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid, DataChunk *chunk)
     {
         storage::PageIdentifier id(oid_, pid);
         storage::Page *page = buffer_->Pin(id);
@@ -239,6 +228,8 @@ namespace db7::access
         }
 
         page->Unpin();
+
+        return valid;
     }
 
     void Table::PrintPage(storage::Page *page)

@@ -19,5 +19,17 @@ namespace db7::transaction
         {
             return a > b;
         }
+
+        static bool HasConflict(const timestamp_t version_timestamp, const timestamp_t txn_id, const timestamp_t start_time)
+        {
+            /* Check if there is write-write conflict with another transaction */
+            const bool owned_by_other_txn = (!transaction::TransactionUtil::IsCommitted(version_timestamp) && version_timestamp != txn_id);
+
+            /* Check if someone commited after we started */
+            const bool newer_committed_version = transaction::TransactionUtil::IsCommitted(version_timestamp) &&
+                                                 transaction::TransactionUtil::IsNewerThan(version_timestamp, start_time);
+
+            return owned_by_other_txn || newer_committed_version;
+        }
     };
 }

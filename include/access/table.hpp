@@ -90,11 +90,11 @@ namespace db7::access
 
         bool Delete(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid);
 
-        void Select(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid, DataChunk *chunk);
+        bool Select(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid, DataChunk *chunk);
 
         u32 PageCount();
 
-        Schema *GetSchema()
+        const Schema *GetSchema() const
         {
             return &schema_;
         }

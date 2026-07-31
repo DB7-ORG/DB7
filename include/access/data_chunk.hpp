@@ -29,6 +29,8 @@ namespace db7::access
     public:
         DB7_DISALLOW_COPY(DataChunkLayout);
 
+        DataChunkLayout(const Schema &schema);
+
         DataChunkLayout(
             std::span<const catalog::col_oid_t> col_ids,
             std::span<const u32> attr_sizes);
@@ -80,6 +82,51 @@ namespace db7::access
         std::span<catalog::col_oid_t> GetColumnIds() { return std::span<catalog::col_oid_t>(GetColumnIdsPtr(), column_count_); }
 
         byte *Access(u32 idx) { return GetUnderlyingPtr() + GetOffsetsPtr()[idx]; }
+
+        byte *Get(catalog::col_oid_t oid)
+        {
+            int idx = 0;
+            for (auto id : GetColumnIds())
+            {
+                if (id == oid)
+                {
+                    return Access(idx);
+                }
+                idx++;
+            }
+
+            throw std::runtime_error("Tried to access invalid column");
+        }
+
+        template <typename T>
+        void Write(catalog::col_oid_t oid, T new_data)
+        {
+            int idx = 0;
+            for (auto id : GetColumnIds())
+            {
+                if (id == oid)
+                {
+                    *(T *)(Access(idx)) = new_data;
+                    // std::memcpy(, &new_data, sizeof(new_data));
+                    break;
+                }
+                idx++;
+            }
+        }
+
+        void Write(catalog::col_oid_t oid, std::span<byte> new_data)
+        {
+            int idx = 0;
+            for (auto id : GetColumnIds())
+            {
+                if (id == oid)
+                {
+                    std::memcpy(Access(idx), new_data.data(), new_data.size());
+                    break;
+                }
+                idx++;
+            }
+        }
 
         u32 GetSize() { return total_size_; }
 

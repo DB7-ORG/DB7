@@ -2,8 +2,10 @@
 
 #include "access/table.hpp"
 #include "access/index/index.hpp"
+#include "access/index/btree_index.hpp"
 
 #include <vector>
+#include <atomic>
 
 namespace db7::catalog
 {
@@ -18,11 +20,22 @@ namespace db7::catalog
     private:
         catalog::db_oid_t db_id_;
 
+        std::atomic<namespace_oid_t> next_namespace_oid_;
+
+        std::atomic<transaction::timestamp_t> write_lock_;
+
+        bool TryLock(transaction::TransactionContext *txn);
+
+        namespace_oid_t CreateNamespaceEntry(transaction::TransactionContext *txn, namespace_oid_t oid, const std::span<byte> name);
+
+        bool DeleteNamespaceEntry(transaction::TransactionContext *txn, namespace_oid_t oid);
+
     public:
         // cached data
         access::Table *namespaces_;
-        access::Index *namespaces_index_nspoid_;
-        access::Index *namespaces_index_nspname_;
+        access::BTreeIndex<u32> *namespaces_index_nspoid_;
+        access::BTreeIndex<access::Key> *namespaces_index_nspname_;
+        access::DataChunkLayout *namespace_data_chunk_layout_;
 
         access::Table *classes_;
         access::Index *classes_index_reloid_;
@@ -99,5 +112,9 @@ namespace db7::catalog
         {
             return db_id_;
         }
+
+        namespace_oid_t CreateNamespace(transaction::TransactionContext *txn, const std::span<byte> name);
+
+        bool DeleteNamespace(transaction::TransactionContext *txn, namespace_oid_t oid);
     };
 }

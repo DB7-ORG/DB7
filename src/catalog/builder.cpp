@@ -208,6 +208,8 @@ namespace db7::catalog
         dbc->procs_index_prooid_ = new access::BTreeIndex<u32>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_PROC_PROOID));
         dbc->procs_index_proname_ = new access::BTreeIndex<access::Key>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_PROC_PRONAME));
 
+        dbc->namespace_data_chunk_layout_ = new access::DataChunkLayout(*dbc->namespaces_->GetSchema());
+
         return dbc;
     }
 }

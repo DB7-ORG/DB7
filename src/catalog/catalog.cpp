@@ -52,13 +52,13 @@ namespace db7::catalog
         iter.PushBack(entry);
         access::TupleId tup = databases_->Insert(txn, chunk);
 
-        databases_index_datoid->Insert(oid, tup.value);
-
         // TODO fix this
         byte *buf = new byte[name.size() * 16];
         u16 len = access::KeyNormEncoder::Encode(buf, name, false, false, false);
         auto k = access::Key{(u16)name.size(), name.data(), len, buf};
-        databases_index_datname->Insert(k, tup.value);
+        databases_index_datname->Insert(k, tup.value); // TODO validate no duplicate error
+
+        databases_index_datoid->Insert(oid, tup.value);
 
         return true;
     }
@@ -88,7 +88,31 @@ namespace db7::catalog
         u32 idx = res.index;
         u32 pid = res.pid;
 
-        return databases_->Delete(txn, idx, pid);
+        auto chunk = data_chunk_layout_.CreateDataChunk();
+        if (!databases_->Select(txn, res.index, res.pid, chunk))
+        {
+            return false;
+        }
+        auto name = *reinterpret_cast<storage::VarlenEntry *>(
+            chunk->Get(catalog::col_oid_t(CatalogColumnOid::DATNAME))); // TODO get by index is better
+        (void)name;
+
+        if (!databases_->Delete(txn, idx, pid))
+        {
+            return false;
+        }
+
+        // if (!databases_index_datoid->Delete(txn, oid))
+        // {
+        //     return false;
+        // }
+
+        // if (!databases_index_datname->Delete(txn, name))
+        // {
+        //     return false;
+        // }
+
+        return true;
     }
 
     bool Catalog::UpdateDatabaseName(transaction::TransactionContext *txn, db_oid_t oid, std::span<char> name)

@@ -4,6 +4,31 @@
 
 namespace db7::access
 {
+    static std::vector<catalog::col_oid_t> BuildColumnIds(const Schema &schema)
+    {
+        std::vector<catalog::col_oid_t> ids;
+        ids.reserve(schema.GetCount());
+
+        for (const auto &col : schema)
+            ids.push_back(col.GetOid());
+
+        return ids;
+    }
+
+    static std::vector<u32> BuildAttrSizes(const Schema &schema)
+    {
+        std::vector<u32> sizes;
+        sizes.reserve(schema.GetCount());
+
+        for (const auto &col : schema)
+            sizes.push_back(col.GetTypeSize());
+
+        return sizes;
+    }
+
+    DataChunkLayout::DataChunkLayout(const Schema &schema)
+        : DataChunkLayout(BuildColumnIds(schema), BuildAttrSizes(schema)) {}
+
     DataChunkLayout::DataChunkLayout(
         std::span<const catalog::col_oid_t> col_ids,
         std::span<const u32> attr_sizes)
