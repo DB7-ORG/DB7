@@ -176,7 +176,7 @@ namespace db7::access
             }
 
             u16 len = cur - original;
-            return access::Key{, , (u16)len, buf};
+            return access::Key{0, nullptr, (u16)len, cur};
         }
     };
 

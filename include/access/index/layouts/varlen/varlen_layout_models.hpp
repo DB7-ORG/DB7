@@ -65,18 +65,4 @@ namespace db7::access
     {
         u32 offset;
     };
-
-    template <typename R>
-    struct SlotValHeader
-    {
-        R result;
-        u16 len;
-    };
-
-    template <typename R>
-    struct SlotVal
-    {
-        SlotValHeader<R> hdr;
-        byte *data;
-    };
 };

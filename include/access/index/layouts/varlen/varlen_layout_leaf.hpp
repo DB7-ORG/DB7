@@ -14,6 +14,21 @@ namespace db7::access
 {
 #define DB7_MAX_SLOTS_PER_PAGE (DB7_PAGE_SIZE - sizeof(VarlenHeader<ValTyp>)) / sizeof(u32)
 
+    template <typename R>
+    struct SlotValHeaderLeaf
+    {
+        R result;
+        u16 len;
+        u16 enc_len;
+    };
+
+    template <typename R>
+    struct SlotVal
+    {
+        SlotValHeaderLeaf<R> hdr;
+        byte *data;
+    };
+
     template <typename ValTyp>
     class BtreeVarlenLayoutLeaf
     {

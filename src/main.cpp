@@ -358,7 +358,7 @@ void prep_keys(std::vector<access::Key> &strs, u32 n)
 
         std::memcpy(raw, &i, sizeof(u64));
 
-        u32 len = access::KeyNormEncoder::Encode(buf, {&i, sizeof(U64)}, false, false, false);
+        u32 len = access::KeyNormEncoder::Encode(buf, std::span(reinterpret_cast<byte *>(&i), sizeof(u64)), false, false, false);
 
         strs[i].data = raw;
         strs[i].len = (u16)sizeof(u64);
