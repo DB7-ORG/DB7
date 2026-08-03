@@ -47,7 +47,7 @@ namespace db7::access
             SlotVal<ValTyp> val = CastSlot(slot);
             u16 len = val.hdr.len;
             u32 min_len = std::min(key.enc_len, len);
-            int cmp = std::memcmp(val.data, key.encoded, min_len);
+            int cmp = std::memcmp(val.data, key.data, min_len);
             if (cmp != 0)
                 return cmp;
             return (key.enc_len < len) - (key.enc_len > len);
@@ -56,7 +56,7 @@ namespace db7::access
         int Cmp(Key slot, Key key)
         {
             u32 min_len = std::min(key.enc_len, slot.enc_len);
-            int cmp = std::memcmp(slot.encoded, key.encoded, min_len);
+            int cmp = std::memcmp(slot.data, key.data, min_len);
             if (cmp != 0)
                 return cmp;
             return (key.enc_len < slot.enc_len) - (key.enc_len > slot.enc_len);
@@ -146,7 +146,7 @@ namespace db7::access
             SlotValHeader<ValTyp> *hdr = CastSlotHeader(data + off);
             hdr->result = value;
             hdr->len = key.enc_len;
-            std::memcpy(data + off + sizeof(SlotValHeader<ValTyp>), key.encoded, key.enc_len);
+            std::memcpy(data + off + sizeof(SlotValHeader<ValTyp>), key.data, key.enc_len);
 
             return off;
         }
@@ -243,7 +243,7 @@ namespace db7::access
         {
             DB7_ASSERT(key.enc_len >= prefix_len, "Invalid resulting len");
             DB7_ASSERT(key.enc_len - prefix_len <= std::numeric_limits<u16>::max(), "key too long");
-            return MakeEncodedKey((u16)(key.enc_len - prefix_len), key.encoded + prefix_len);
+            return MakeEncodedKey((u16)(key.enc_len - prefix_len), key.data + prefix_len);
         }
 
         u32 CommonPrefixLen(const byte *a, const byte *b, u32 len_a, u32 len_b)
@@ -287,7 +287,7 @@ namespace db7::access
             auto *header = VarlenHeader<ValTyp>::CastHeader(data);
             u16 len = header->prefix_len;
             DB7_ASSERT(key.enc_len >= len, "key shorter than page prefix");
-            return MakeEncodedKey(static_cast<u16>(key.enc_len - len), key.encoded + len);
+            return MakeEncodedKey(static_cast<u16>(key.enc_len - len), key.data + len);
         }
 
     public:
@@ -315,23 +315,21 @@ namespace db7::access
 
         void Insert(byte *data, Key key, ValTyp value)
         {
-            DB7_ASSERT(key.encoded != nullptr, "invalid key");
+            DB7_ASSERT(key.data != nullptr, "invalid key");
             DB7_ASSERT(key.enc_len != 0, "invalid key");
-            DB7_ASSERT(key.data == nullptr && key.len == 0, "invalid key");
 
             u32 count = VarlenHeader<ValTyp>::CastHeader(data)->count;
             Key new_key = RemoveKeyPrefix(data, key);
             InsertInternal(data, count, new_key, value);
             VarlenHeader<ValTyp>::CastHeader(data)->count++;
 
-            delete[] key.encoded;
+            delete[] key.data;
         }
 
         bool HasSpace(byte *data, Key key)
         {
-            DB7_ASSERT(key.encoded != nullptr, "invalid key");
+            DB7_ASSERT(key.data != nullptr, "invalid key");
             DB7_ASSERT(key.enc_len != 0, "invalid key");
-            DB7_ASSERT(key.data == nullptr && key.len == 0, "invalid key");
 
             Key new_key = RemoveKeyPrefix(data, key);
             auto *hdr = VarlenHeader<ValTyp>::CastHeader(data); // TODO fix this, this can all fit into taken_space
@@ -340,7 +338,7 @@ namespace db7::access
 
         bool HasSplit(byte *data, Key key)
         {
-            DB7_ASSERT(key.encoded != nullptr, "invalid key");
+            DB7_ASSERT(key.data != nullptr, "invalid key");
             DB7_ASSERT(key.enc_len != 0, "invalid key");
 
             auto *header = VarlenHeader<ValTyp>::CastHeader(data);
@@ -357,9 +355,8 @@ namespace db7::access
          */
         Key Split(byte *__restrict left_data, byte *__restrict right_data, ValTyp new_pid, Key key, ValTyp value)
         {
-            DB7_ASSERT(key.encoded != nullptr, "invalid key");
+            DB7_ASSERT(key.data != nullptr, "invalid key");
             DB7_ASSERT(key.enc_len != 0, "invalid key");
-            DB7_ASSERT(key.data == nullptr && key.len == 0, "invalid key");
 
             UpdateHeapSize(right_data, 0);
 
@@ -388,7 +385,7 @@ namespace db7::access
             u16 len = tmp_sentinel.enc_len + prefix_copy_len;
             auto sentinel_buf = new byte[len];
             std::memcpy(sentinel_buf, prefix_copy.get(), prefix_copy_len);
-            std::memcpy(sentinel_buf + prefix_copy_len, tmp_sentinel.encoded, tmp_sentinel.enc_len);
+            std::memcpy(sentinel_buf + prefix_copy_len, tmp_sentinel.data, tmp_sentinel.enc_len);
             Key sentinel = MakeEncodedKey(len, sentinel_buf);
 
             DB7_ASSERT(sentinel.enc_len >= 0, "invalid len");
@@ -397,7 +394,7 @@ namespace db7::access
             if (left_header->llink != UNDEFINED)
             {
                 auto fence_l_val = CastSlot(ReadSlot(left_data, left_slots[0]));
-                prefix_len_l = CommonPrefixLen(fence_l_val.data, tmp_sentinel.encoded, fence_l_val.hdr.len, tmp_sentinel.enc_len);
+                prefix_len_l = CommonPrefixLen(fence_l_val.data, tmp_sentinel.data, fence_l_val.hdr.len, tmp_sentinel.enc_len);
             }
             u16 left_prefix_len = prefix_copy_len + prefix_len_l;
 
@@ -409,7 +406,7 @@ namespace db7::access
                 fence_r_val.data += left_header->prefix_len;
                 fence_r_val.hdr.len -= left_header->prefix_len;
 
-                prefix_len_r = CommonPrefixLen(tmp_sentinel.encoded, fence_r_val.data, tmp_sentinel.enc_len, fence_r_val.hdr.len);
+                prefix_len_r = CommonPrefixLen(tmp_sentinel.data, fence_r_val.data, tmp_sentinel.enc_len, fence_r_val.hdr.len);
             }
             u16 right_prefix_len = prefix_copy_len + prefix_len_r;
 
@@ -426,7 +423,7 @@ namespace db7::access
             if (left_header->rlink != UNDEFINED)
             {
                 right_prefix = ReserveSlotRaw(right_data, right_prefix_len);
-                std::memcpy(right_data + right_prefix, sentinel.encoded, right_prefix_len);
+                std::memcpy(right_data + right_prefix, sentinel.data, right_prefix_len);
             }
 
             /* append max val from left node to right */
@@ -448,7 +445,7 @@ namespace db7::access
             if (left_header->llink != UNDEFINED)
             {
                 left_prefix = ReserveSlotRaw(left_data, left_prefix_len);
-                std::memcpy(left_data + left_prefix, sentinel.encoded, left_prefix_len);
+                std::memcpy(left_data + left_prefix, sentinel.data, left_prefix_len);
             }
 
             /* finally insert main key */
@@ -464,7 +461,7 @@ namespace db7::access
                 auto new_key = OffsetCommonPrefix(key, right_prefix_len);
                 InsertInternal(right_data, right_header_count++, new_key, value);
             }
-            delete[] key.encoded;
+            delete[] key.data;
 
             /* update headers */
             right_header->WriteHeader(new_pid, left_header->rlink, left_header->pid, right_header_count, left_header->level, right_max, right_prefix, right_prefix_len);
@@ -483,9 +480,8 @@ namespace db7::access
 
         void CreateRoot(byte *data, Key key, ValTyp pid, ValTyp new_pid)
         {
-            DB7_ASSERT(key.encoded != nullptr, "invalid key");
+            DB7_ASSERT(key.data != nullptr, "invalid key");
             DB7_ASSERT(key.enc_len != 0, "invalid key");
-            DB7_ASSERT(key.data == nullptr && key.len == 0, "invalid key");
 
             UpdateHeapSize(data, 0);
 
@@ -497,7 +493,7 @@ namespace db7::access
 
             VarlenHeader<ValTyp>::CastHeader(data)->count = 2;
 
-            delete[] key.encoded;
+            delete[] key.data;
         }
 
         void InitHeader(byte *data, u32 count, u8 level, ValTyp pid)

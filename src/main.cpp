@@ -354,15 +354,13 @@ void prep_keys(std::vector<access::Key> &strs, u32 n)
     for (u64 i = 0; i < n; i++)
     {
         byte *buf = new byte[sizeof(u64) * 16];
-        byte *raw = new byte[sizeof(u64)]; // ← own copy of raw too
 
-        std::memcpy(raw, &i, sizeof(u64));
+        u32 len = access::KeyNormEncoder::Encode(buf, i, false, false, false);
 
-        u32 len = access::KeyNormEncoder::Encode(buf, std::span(reinterpret_cast<byte *>(&i), sizeof(u64)), false, false, false);
+        std::memcpy(buf + len, &i, sizeof(u64));
 
-        strs[i].data = raw;
-        strs[i].len = (u16)sizeof(u64);
-        strs[i].encoded = buf;
+        strs[i].data = buf;
+        strs[i].len = len + sizeof(u64);
         strs[i].enc_len = (u16)(len);
     }
     //}
@@ -459,6 +457,7 @@ int main()
 
         for (u32 i = 0; i < n; i++)
         {
+            std::cout << i << std::endl;
             auto res = btree.Insert(strs[i], 1000 + i);
             DB7_ASSERT(res.success, "Failed to insert");
             auto v = btree.Get(strs[i]);

@@ -32,4 +32,5 @@ https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf
 * understand nomove_if
 
 * consider hyper delete w garbage collection.
-* 
+
+     // TODO fix index

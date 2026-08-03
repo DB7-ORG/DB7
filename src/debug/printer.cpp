@@ -2,7 +2,8 @@
 
 #include "storage/storage_common.hpp"
 #include "storage/buffer_pool/buffer_pool.hpp"
-#include "access/index/layouts/varlen/varlen_layout_models.hpp"
+#include "access/index/layouts/varlen/varlen_layout_intermediate.hpp"
+#include "access/index/layouts/varlen/varlen_layout_leaf.hpp"
 
 namespace db7::shared
 {

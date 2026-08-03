@@ -8,22 +8,18 @@ namespace db7::access
     struct Key
     {
         u16 len;
-        byte *data;
         u16 enc_len;
-        byte *encoded;
+        byte *data;
 
-        Key() : len(0), data(nullptr), enc_len(0), encoded(nullptr) {}
+        Key() : len(0), enc_len(0), data(nullptr) {}
 
-        Key(u16 len, byte *data)
-            : len(len), data(data), enc_len(0), encoded(nullptr) {}
-
-        Key(u16 len, byte *data, u16 enc_len, byte *encoded)
-            : len(len), data(data), enc_len(enc_len), encoded(encoded) {}
+        Key(u16 len, u16 enc_len, byte *data)
+            : len(len), enc_len(enc_len), data(data) {}
     };
 
-    inline Key MakeEncodedKey(u16 enc_len, byte *encoded)
+    inline Key MakeEncodedKey(u16 len, byte *data)
     {
-        return Key{0, nullptr, enc_len, encoded};
+        return Key{len, len, data};
     }
 
     template <typename Typ>

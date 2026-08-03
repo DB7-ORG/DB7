@@ -170,13 +170,13 @@ namespace db7::access
             byte *original = new byte[total_size * 16]; // TODO too much
             byte *cur = original;
 
-            for (int i = 0; i < types.size(); i++)
+            for (size_t i = 0; i < types.size(); i++)
             {
                 cur += SwitchType(cur, items[i].data(), types[i], is_data_null, is_nullable, is_case_sensitive);
             }
 
             u16 len = cur - original;
-            return access::Key{0, nullptr, (u16)len, cur};
+            return access::Key{0, (u16)len, cur};
         }
     };
 

@@ -53,15 +53,16 @@ namespace db7::catalog
         access::TupleId tup = databases_->Insert(txn, chunk);
 
         // TODO fix this
-        byte *buf = new byte[name.size() * 16];
-        u16 len = access::KeyNormEncoder::Encode(buf, name, false, false, false);
-        auto k = access::Key{(u16)name.size(), name.data(), len, buf};
-        databases_index_datname->Insert(k, tup.value); // TODO validate no duplicate error
+        // TODO fix index
+        // byte *buf = new byte[name.size() * 16];
+        // u16 len = access::KeyNormEncoder::Encode(buf, name, false, false, false);
+        // auto k = access::Key{(u16)name.size(), name.data(), len, buf};
+        // databases_index_datname->Insert(k, tup.value); // TODO validate no duplicate error
 
-        byte *buf2 = new byte[sizeof(db_oid_t) * 4];
-        u32 len2 = access::KeyNormEncoder::Encode(buf2, oid, false, false, false);
-        auto k2 = access::Key{(u16)sizeof(db_oid_t), reinterpret_cast<byte *>(&oid), (u16)len2, buf2};
-        databases_index_datoid->Insert(k2, tup.value);
+        // byte *buf2 = new byte[sizeof(db_oid_t) * 4];
+        // u32 len2 = access::KeyNormEncoder::Encode(buf2, oid, false, false, false);
+        // auto k2 = access::Key{(u16)sizeof(db_oid_t), reinterpret_cast<byte *>(&oid), (u16)len2, buf2};
+        // databases_index_datoid->Insert(k2, tup.value);
 
         return true;
     }
@@ -87,9 +88,10 @@ namespace db7::catalog
 
     bool Catalog::DeleteDatabaseEntry(transaction::TransactionContext *txn, db_oid_t oid)
     {
-        byte *buf = new byte[sizeof(db_oid_t) * 4];
-        u32 len = access::KeyNormEncoder::Encode(buf, oid, false, false, false);
-        auto k = access::Key{(u16)sizeof(db_oid_t), reinterpret_cast<byte *>(&oid), (u16)len, buf};
+        // byte *buf = new byte[sizeof(db_oid_t) * 4];
+        // u32 len = access::KeyNormEncoder::Encode(buf, oid, false, false, false);
+        // auto k = access::Key{(u16)sizeof(db_oid_t), reinterpret_cast<byte *>(&oid), (u16)len, buf};     // TODO fix index
+        auto k = access::Key{};
         auto result = databases_index_datoid->Get(k);
         if (!result.success)
         {
@@ -128,9 +130,10 @@ namespace db7::catalog
 
     bool Catalog::UpdateDatabaseName(transaction::TransactionContext *txn, db_oid_t oid, std::span<char> name)
     {
-        byte *buf = new byte[sizeof(db_oid_t) * 16];
-        u32 len = access::KeyNormEncoder::Encode(buf, oid, false, false, false);
-        auto k = access::Key{(u16)sizeof(db_oid_t), reinterpret_cast<byte *>(&oid), (u16)len, buf};
+        // byte *buf = new byte[sizeof(db_oid_t) * 16];
+        // u32 len = access::KeyNormEncoder::Encode(buf, oid, false, false, false);
+        // auto k = access::Key{(u16)sizeof(db_oid_t), reinterpret_cast<byte *>(&oid), (u16)len, buf};     // TODO fix index
+        auto k = access::Key{};
         auto result = databases_index_datoid->Get(k);
         if (!result.success)
         {

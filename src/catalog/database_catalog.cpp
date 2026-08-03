@@ -38,16 +38,16 @@ namespace db7::catalog
         chunk->Write(catalog::col_oid_t(CatalogColumnOid::NSPNAME), entry);
         access::TupleId tup = namespaces_->Insert(txn, chunk);
 
-        // TODO fix this
-        byte *buf = new byte[name.size() * 16];
-        u16 len = access::KeyNormEncoder::Encode(buf, name, false, false, false);
-        auto k = access::Key{(u16)name.size(), name.data(), len, buf};
-        namespaces_index_nspname_->Insert(k, tup.value);
+        // TODO fix index
+        // byte *buf = new byte[name.size() * 16];
+        // u16 len = access::KeyNormEncoder::Encode(buf, name, false, false, false);
+        // auto k = access::Key{(u16)name.size(), name.data(), len, buf};
+        // namespaces_index_nspname_->Insert(k, tup.value);
 
-        byte *buf2 = new byte[sizeof(namespace_oid_t) * 16];
-        u16 len2 = access::KeyNormEncoder::Encode(buf2, oid, false, false, false);
-        auto k2 = access::Key{(u16)sizeof(namespace_oid_t), reinterpret_cast<byte *>(&oid), len2, buf2};
-        namespaces_index_nspoid_->Insert(k2, tup.value);
+        // byte *buf2 = new byte[sizeof(namespace_oid_t) * 16];
+        // u16 len2 = access::KeyNormEncoder::Encode(buf2, oid, false, false, false);
+        // auto k2 = access::Key{(u16)sizeof(namespace_oid_t), reinterpret_cast<byte *>(&oid), len2, buf2};
+        // namespaces_index_nspoid_->Insert(k2, tup.value);
 
         return oid;
     }
