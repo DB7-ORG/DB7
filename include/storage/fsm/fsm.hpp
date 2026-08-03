@@ -9,7 +9,7 @@ namespace db7::storage
     {
     private:
         inline static u32 next_page_id = 1;
-        inline static u32 free_space = PAGE_SIZE - sizeof(PageHeader); // TODO should be max index
+        inline static u32 free_space = DB7_PAGE_SIZE - sizeof(PageHeader); // TODO should be max index
 
     public:
         static u32 Get(u32 space)
@@ -17,7 +17,7 @@ namespace db7::storage
             if (free_space < space)
             {
                 next_page_id++;
-                free_space = PAGE_SIZE - sizeof(PageHeader);
+                free_space = DB7_PAGE_SIZE - sizeof(PageHeader);
             }
             free_space -= space;
             return next_page_id;

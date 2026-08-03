@@ -8,7 +8,7 @@ namespace db7::transaction
     TransactionContext *TransactionManager::BeginTransaction()
     {
         timestamp_t start_time = timestamp_manager_->BeginTransaction();
-        TransactionContext *result = new TransactionContext(start_time, start_time + INT64_MIN, buffer_pool_, version_manager_, mem_pool_);
+        TransactionContext *result = new TransactionContext(start_time, start_time + INT64_MIN, version_manager_, mem_pool_);
         commit_latch_.Try();
         return result;
     }

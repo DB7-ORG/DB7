@@ -9,11 +9,6 @@ namespace db7::storage
     struct BufferPool;
 }
 
-namespace db7::access
-{
-    class BtreeVarlenLayoutLeaf;
-}
-
 namespace db7::shared
 {
     void Print(const storage::PageIdentifier &pid);

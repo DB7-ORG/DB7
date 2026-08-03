@@ -19,7 +19,7 @@ namespace db7::storage
             worst_case_pad += size - 1;
         }
 
-        max_row_count_ = (PAGE_SIZE - header_size - worst_case_pad) * 8 / (1 + 8 * row_size);
+        max_row_count_ = (DB7_PAGE_SIZE - header_size - worst_case_pad) * 8 / (1 + 8 * row_size);
 
         u32 curr_offset = header_size + (max_row_count_ + 7) / 8;
         for (auto &size : sizes_)

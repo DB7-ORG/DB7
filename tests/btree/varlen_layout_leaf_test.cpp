@@ -28,7 +28,7 @@ namespace db7::access
         // Initialize a fresh page with zeroed memory and proper headers
         void InitPage(byte *page)
         {
-            std::memset(page, 0, PAGE_SIZE);
+            std::memset(page, 0, DB7_PAGE_SIZE);
             auto *header = CastHeader(page);
             header->count = 0;
             header->level = 0;
@@ -40,7 +40,7 @@ namespace db7::access
 
         void TestInsertAndGet()
         {
-            alignas(16) byte page[PAGE_SIZE];
+            alignas(16) byte page[DB7_PAGE_SIZE];
             BtreeVarlenLayoutLeaf layout;
             InitPage(page);
 
@@ -64,7 +64,7 @@ namespace db7::access
 
         void TestMultipleInserts()
         {
-            alignas(16) byte page[PAGE_SIZE];
+            alignas(16) byte page[DB7_PAGE_SIZE];
             BtreeVarlenLayoutLeaf layout;
             InitPage(page);
 
@@ -98,7 +98,7 @@ namespace db7::access
 
         void TestHasSpace()
         {
-            alignas(16) byte page[PAGE_SIZE];
+            alignas(16) byte page[DB7_PAGE_SIZE];
             BtreeVarlenLayoutLeaf layout;
             InitPage(page);
 
@@ -122,8 +122,8 @@ namespace db7::access
 
         void TestSplit()
         {
-            alignas(16) byte left_page[PAGE_SIZE];
-            alignas(16) byte right_page[PAGE_SIZE];
+            alignas(16) byte left_page[DB7_PAGE_SIZE];
+            alignas(16) byte right_page[DB7_PAGE_SIZE];
             BtreeVarlenLayoutLeaf layout;
             InitPage(left_page);
             InitPage(right_page);

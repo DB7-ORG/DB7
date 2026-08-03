@@ -58,7 +58,10 @@ namespace db7::catalog
         auto k = access::Key{(u16)name.size(), name.data(), len, buf};
         databases_index_datname->Insert(k, tup.value); // TODO validate no duplicate error
 
-        databases_index_datoid->Insert(oid, tup.value);
+        byte *buf2 = new byte[sizeof(db_oid_t) * 4];
+        u32 len2 = access::KeyNormEncoder::Encode(buf2, oid, false, false, false);
+        auto k2 = access::Key{(u16)sizeof(db_oid_t), reinterpret_cast<byte *>(&oid), (u16)len2, buf2};
+        databases_index_datoid->Insert(k2, tup.value);
 
         return true;
     }
@@ -82,9 +85,17 @@ namespace db7::catalog
         return true;
     }
 
-    bool Catalog::DeleteDatabaseEntry(transaction::TransactionContext *txn, const db_oid_t oid)
+    bool Catalog::DeleteDatabaseEntry(transaction::TransactionContext *txn, db_oid_t oid)
     {
-        access::TupleId res{.value = databases_index_datoid->Get(oid)};
+        byte *buf = new byte[sizeof(db_oid_t) * 4];
+        u32 len = access::KeyNormEncoder::Encode(buf, oid, false, false, false);
+        auto k = access::Key{(u16)sizeof(db_oid_t), reinterpret_cast<byte *>(&oid), (u16)len, buf};
+        auto result = databases_index_datoid->Get(k);
+        if (!result.success)
+        {
+            return false;
+        }
+        access::TupleId res{.value = result.value};
         u32 idx = res.index;
         u32 pid = res.pid;
 
@@ -117,7 +128,15 @@ namespace db7::catalog
 
     bool Catalog::UpdateDatabaseName(transaction::TransactionContext *txn, db_oid_t oid, std::span<char> name)
     {
-        access::TupleId res{.value = databases_index_datoid->Get(oid)};
+        byte *buf = new byte[sizeof(db_oid_t) * 16];
+        u32 len = access::KeyNormEncoder::Encode(buf, oid, false, false, false);
+        auto k = access::Key{(u16)sizeof(db_oid_t), reinterpret_cast<byte *>(&oid), (u16)len, buf};
+        auto result = databases_index_datoid->Get(k);
+        if (!result.success)
+        {
+            return false;
+        }
+        access::TupleId res{.value = result.value};
         u32 idx = res.index;
 
         storage::VarlenEntry entry;

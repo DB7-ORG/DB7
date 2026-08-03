@@ -37,7 +37,7 @@ namespace db7::access
         // Initialize a fresh page with zeroed memory and proper headers
         void InitPage(byte *page)
         {
-            std::memset(page, 0, PAGE_SIZE);
+            std::memset(page, 0, DB7_PAGE_SIZE);
             auto *header = CastHeader(page);
             header->count = 0;
             header->level = 1; // intermediate nodes are level >= 1
@@ -47,7 +47,7 @@ namespace db7::access
 
         void TestCreateRootAndRouting()
         {
-            alignas(16) byte page[PAGE_SIZE];
+            alignas(16) byte page[DB7_PAGE_SIZE];
             BtreeVarlenLayoutIntermediate layout;
             InitPage(page);
 
@@ -79,7 +79,7 @@ namespace db7::access
         // Routes: <apple->10, <cherry->20, <mango->30, >=mango->40
         void TestMultipleSeparatorRouting()
         {
-            alignas(16) byte page[PAGE_SIZE];
+            alignas(16) byte page[DB7_PAGE_SIZE];
             BtreeVarlenLayoutIntermediate layout;
             InitPage(page);
 
@@ -108,7 +108,7 @@ namespace db7::access
 
         void TestHasSpace()
         {
-            alignas(16) byte page[PAGE_SIZE];
+            alignas(16) byte page[DB7_PAGE_SIZE];
             BtreeVarlenLayoutIntermediate layout;
             InitPage(page);
 
@@ -130,8 +130,8 @@ namespace db7::access
 
         void TestSplit()
         {
-            alignas(16) byte left_page[PAGE_SIZE];
-            alignas(16) byte right_page[PAGE_SIZE];
+            alignas(16) byte left_page[DB7_PAGE_SIZE];
+            alignas(16) byte right_page[DB7_PAGE_SIZE];
             BtreeVarlenLayoutIntermediate layout;
             InitPage(left_page);
             InitPage(right_page);

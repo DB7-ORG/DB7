@@ -53,7 +53,7 @@ namespace db7::storage
 
             FdCacheEntry hdr;
             hdr.fd = fd;
-            hdr.page_count = st.st_size / PAGE_SIZE;
+            hdr.page_count = st.st_size / DB7_PAGE_SIZE;
 
             cache_->Set(tbl_id, hdr);
         }
@@ -182,7 +182,7 @@ namespace db7::storage
 
         // TruncateFile(tbl_id, initial_pages);
         // TODO move this to truncate
-        int ret = fallocate(fd, 0, 0, (off_t)initial_pages * PAGE_SIZE);
+        int ret = fallocate(fd, 0, 0, (off_t)initial_pages * DB7_PAGE_SIZE);
         (void)ret;
         DB7_ASSERT(ret == 0, "fallocate failed");
 
@@ -202,7 +202,7 @@ namespace db7::storage
 
         struct stat st;
         fstat(fd, &st);
-        u32 page_count = st.st_size / PAGE_SIZE;
+        u32 page_count = st.st_size / DB7_PAGE_SIZE;
 
         FdCacheEntry entry(fd, page_count);
         cache_->Set(tbl_id, entry);
@@ -251,7 +251,7 @@ namespace db7::storage
         FdCacheEntry hdr = cache_->Get(tbl_id);
         DB7_ASSERT(hdr.fd >= 0, "File not found");
 
-        int ret = fallocate(hdr.fd, 0, hdr.page_count * PAGE_SIZE, (off_t)pages_num * PAGE_SIZE);
+        int ret = fallocate(hdr.fd, 0, hdr.page_count * DB7_PAGE_SIZE, (off_t)pages_num * DB7_PAGE_SIZE);
         (void)ret;
         DB7_ASSERT(ret == 0, "fallocate failed");
 

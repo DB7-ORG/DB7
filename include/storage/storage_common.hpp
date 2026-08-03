@@ -2,7 +2,7 @@
 
 #include "common.hpp"
 
-#define PAGE_SIZE (1 << 13)
+#define DB7_PAGE_SIZE (1 << 13)
 #define BUFFER_POOL_PAGE_NUM 80000
 #define BUFFER_POOL_PARTITION_NUM 128
 #define IOURING_QUEUE_SIZE 512
@@ -30,10 +30,10 @@ namespace db7::storage
 
         PageIdentifier() {}
 
-        explicit PageIdentifier(table_id tbl_id, page_id pid)
+        PageIdentifier(table_id tbl_id, page_id pid)
             : tbl_id(tbl_id), pid(pid) {}
 
-        explicit PageIdentifier(u64 packed)
+        PageIdentifier(u64 packed)
             : packed(packed) {}
 
         bool operator==(const PageIdentifier &other) const

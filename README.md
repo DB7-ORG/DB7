@@ -1,6 +1,3 @@
-
-figure out how to structure ProjectedRowsBuilder!!!!
-
 in buffer pool i can hold partition lock while checking the page and if its a stale entry i can remove it right away without starting from scratch!!!!
 much better than current design?????
 
@@ -30,13 +27,9 @@ https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf
 
 * check out when encoding utf8proc_decompose
   so i have more controle and less allocations
-* take a look at new EncodeFields
 * make varlen more compatible
-* figure out what to do about mvcc
-
-* tbb::spin_mutex latch_; consider this latch
-
-
-//TODO need to continue testing update and probably make it nicer
 
 * understand nomove_if
+
+* consider hyper delete w garbage collection.
+* 

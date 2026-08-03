@@ -3,7 +3,8 @@
 #ifdef DB7_DEBUG_FLAG
 
 #include "common.hpp"
-#include "access/index/varlen_layout/btree_varlen_models.hpp"
+#include "access/index/layouts/varlen/varlen_layout_models.hpp"
+#include "storage/storage_common.hpp"
 
 namespace db7::debug
 {

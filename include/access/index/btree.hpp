@@ -1,33 +1,22 @@
 #pragma once
 
-#include "access/index/index.hpp"
-#include "storage/storage_common.hpp"
-#include "storage/page.hpp"
+#include "common.hpp"
 #include "storage/buffer_pool/buffer_pool.hpp"
-#include "shared/align_util.hpp"
-#include "access/index/fixed_layout/btree_number_layout_inter.hpp"
-#include "access/index/fixed_layout/btree_number_layout_leaf.hpp"
-#include "access/index/varlen_layout/btree_varlen_layout_inter.hpp"
-#include "access/index/varlen_layout/btree_varlen_layout_leaf.hpp"
-#include "shared/macro_helper.hpp"
-#include "debug/printer.hpp"
 #include "shared/thread_local_util.hpp"
-#include "access/index/base_ly_header.hpp"
-#include "shared/error/exception.hpp"
+#include "access/index/header.hpp"
+#include "access/index/layouts/varlen/varlen_layout_intermediate.hpp"
+#include "access/index/layouts/varlen/varlen_layout_leaf.hpp"
 
-#include <vector>
 #include <atomic>
 #include <mutex>
-#include <type_traits>
 
 namespace db7::access
 {
-    // using T = Key;
-    using R = u64;
-
-    template <typename T>
-    class BTreeIndex : public Index
+    template <typename ValTyp>
+    class BTreeIndex
     {
+        // TODO assert ValTyp is correct type
+
     private:
         std::mutex root_mtx_;
         std::atomic<page_id> root_id_;
@@ -35,37 +24,39 @@ namespace db7::access
         storage::DiskManagerAsync *disk_mng_;
         table_id tbl_id_;
 
-        static constexpr bool IS_VARLEN = std::is_same_v<T, Key>;
-        using LeafLayout = std::conditional_t<IS_VARLEN, BtreeVarlenLayoutLeaf, BtreeNumberLayoutLeaf<T>>;
-        using InterLayout = std::conditional_t<IS_VARLEN, BtreeVarlenLayoutIntermediate, BtreeNumberLayoutIntermediate<T>>;
+        // static constexpr bool IS_VARLEN = std::is_same_v<Key, Key>;
+        using LeafLayout = BtreeVarlenLayoutLeaf<ValTyp>;           // std::conditional_t<IS_VARLEN, BtreeVarlenLayoutLeaf<ValTyp>, BtreeNumberLayoutLeaf<Key, ValTyp>>;
+        using InterLayout = BtreeVarlenLayoutIntermediate<page_id>; // std::conditional_t<IS_VARLEN, BtreeVarlenLayoutIntermediate<page_id>, BtreeNumberLayoutIntermediate<Key, page_id>>;
 
         InterLayout layout_inter_;
         LeafLayout layout_leaf_;
 
-        storage::Page *ReserveNode(table_id id)
-        {
-            return buffer_pool_->Reserve(id);
-        }
-
         template <shared::LockMode Mode>
-        storage::Page *GetNode(storage::PageIdentifier id)
+        storage::Page *GetNode(page_id id)
         {
-            storage::Page *page = buffer_pool_->Pin(id);
+            storage::Page *page = buffer_pool_->Pin({tbl_id_, id});
             page->WaitIO();
             shared::Lock<Mode>(page);
             return page;
         }
 
         template <shared::LockMode Mode>
-        void ReleasePage(storage::Page *page)
+        void ReleaseNode(storage::Page *page)
         {
-            shared::Unlock<Mode>(page);
             buffer_pool_->Unpin(page);
+            shared::Unlock<Mode>(page);
         }
 
-        void CreateNewRoot(u8 level, T key, page_id pid, page_id new_pid)
+        storage::Page *ReserveNode()
         {
-            storage::Page *new_root_page = ReserveNode(tbl_id_);
+            auto page = buffer_pool_->Reserve(tbl_id_);
+            shared::Lock<shared::LockMode::Write>(page);
+            return page;
+        }
+
+        void CreateNewRoot(u8 level, Key key, page_id pid, page_id new_pid)
+        {
+            storage::Page *new_root_page = ReserveNode();
 
             byte *new_root_data = new_root_page->GetData();
 
@@ -75,40 +66,44 @@ namespace db7::access
 
             root_id_.store(new_root_page->GetPageId());
 
-            ReleasePage<shared::LockMode::None>(new_root_page);
+            ReleaseNode<shared::LockMode::Write>(new_root_page);
         }
 
-        T SplitLeaf(byte *data, page_id &new_pid, T key, R value)
+        ResultObj<Key> SplitLeaf(byte *data, page_id &new_pid, Key key, ValTyp value)
         {
-            auto *right_page = ReserveNode(tbl_id_);
+            auto result = layout_leaf_.Get(data, BaseLyHeader<ValTyp>::GetCount(data), key);
+            if (result.success)
+                return {"Key already exists\0", false};
+
+            auto *right_page = ReserveNode();
 
             new_pid = right_page->GetPageId();
 
             byte *right_data = right_page->GetData();
 
-            T sentinel = layout_leaf_.Split(data, right_data, new_pid, key, value);
+            ResultObj<Key> sentinel = layout_leaf_.Split(data, right_data, new_pid, key, value);
 
-            ReleasePage<shared::LockMode::None>(right_page);
+            ReleaseNode<shared::LockMode::Write>(right_page);
 
             return sentinel;
         }
 
-        T SplitInter(byte *data, page_id &new_pid, T key, page_id value)
+        Key SplitInter(byte *data, page_id &new_pid, Key key, page_id value)
         {
-            auto *right_page = ReserveNode(tbl_id_);
+            auto *right_page = ReserveNode();
 
             new_pid = right_page->GetPageId();
 
             byte *right_data = right_page->GetData();
 
-            T sentinel = layout_inter_.Split(data, right_data, new_pid, key, value);
+            Key sentinel = layout_inter_.Split(data, right_data, new_pid, key, value);
 
-            ReleasePage<shared::LockMode::None>(right_page);
+            ReleaseNode<shared::LockMode::Write>(right_page);
 
             return sentinel;
         }
 
-        storage::Page *GoRightInter(storage::Page *page, T key)
+        storage::Page *GoRightInter(storage::Page *page, Key key)
         {
             constexpr shared::LockMode LM = shared::LockMode::Write;
             do
@@ -123,16 +118,16 @@ namespace db7::access
                 {
                     page_id new_pid = layout_inter_.GetRLink(data);
 
-                    ReleasePage<LM>(page);
+                    ReleaseNode<LM>(page);
 
-                    page = GetNode<LM>(storage::PageIdentifier(tbl_id_, new_pid));
+                    page = GetNode<LM>(new_pid);
                 }
             } while (true);
 
             DB7_UNREACHABLE();
         }
 
-        storage::Page *GoRightLeaf(storage::Page *page, T key)
+        storage::Page *GoRightLeaf(storage::Page *page, Key key)
         {
             constexpr shared::LockMode LM = shared::LockMode::Write;
             do
@@ -147,9 +142,9 @@ namespace db7::access
                 {
                     page_id new_pid = layout_leaf_.GetRLink(data);
 
-                    ReleasePage<LM>(page);
+                    ReleaseNode<LM>(page);
 
-                    page = GetNode<LM>(storage::PageIdentifier(tbl_id_, new_pid));
+                    page = GetNode<LM>(new_pid);
                 }
             } while (true);
 
@@ -161,23 +156,22 @@ namespace db7::access
             return root_id_.load();
         }
 
-        storage::Page *DropToLevel(T key)
+        storage::Page *DropToLevel(Key key)
         {
             page_id pid = GetRoot();
             DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
 
-            storage::Page *page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
+            storage::Page *page = GetNode<shared::LockMode::None>(pid);
             auto *data = page->GetData();
-            u8 level = GetLevel(data);
 
             do
             {
                 DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
-                DB7_ASSERT(level == GetLevel(data), "invalid level node");
 
                 constexpr shared::LockMode LM = shared::LockMode::Optimistic;
                 shared::Lock<LM>(page);
 
+                u8 level = BaseLyHeader<ValTyp>::GetLevel(data);
                 if (level <= 0)
                 {
                     if (!shared::Unlock<LM>(page))
@@ -196,7 +190,7 @@ namespace db7::access
                 }
                 else
                 {
-                    page_id new_pid = layout_inter_.Get(data, GetCount(data), key);
+                    page_id new_pid = layout_inter_.Get(data, BaseLyHeader<ValTyp>::GetCount(data), key);
 
                     if (!shared::Unlock<LM>(page))
                         continue;
@@ -207,10 +201,10 @@ namespace db7::access
                 }
 
                 /* Unlock prev page */
-                ReleasePage<shared::LockMode::None>(page);
+                ReleaseNode<shared::LockMode::None>(page);
 
                 /* Fetch a new page page */
-                page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
+                page = GetNode<shared::LockMode::None>(pid);
                 data = page->GetData();
 
             } while (true);
@@ -220,19 +214,19 @@ namespace db7::access
             return nullptr;
         }
 
-        void DropToLevel(T key, u8 drop_level)
+        void DropToLevel(Key key, u8 drop_level)
         {
             page_id pid = GetRoot();
             DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
 
-            storage::Page *page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
+            storage::Page *page = GetNode<shared::LockMode::None>(pid);
             auto *data = page->GetData();
-            u8 level = GetLevel(data);
+            u8 level = BaseLyHeader<ValTyp>::GetLevel(data);
 
             do
             {
                 DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
-                DB7_ASSERT(level == GetLevel(data), "invalid level node");
+                DB7_ASSERT(level == BaseLyHeader<ValTyp>::GetLevel(data), "invalid level node");
 
                 constexpr shared::LockMode LM = shared::LockMode::Optimistic;
                 shared::Lock<LM>(page);
@@ -257,7 +251,7 @@ namespace db7::access
                 }
                 else
                 {
-                    page_id new_pid = layout_inter_.Get(data, GetCount(data), key);
+                    page_id new_pid = layout_inter_.Get(data, BaseLyHeader<ValTyp>::GetCount(data), key);
 
                     if (!shared::Unlock<LM>(page))
                         continue;
@@ -268,17 +262,17 @@ namespace db7::access
                 }
 
                 /* Unlock prev page */
-                ReleasePage<shared::LockMode::None>(page);
+                ReleaseNode<shared::LockMode::None>(page);
 
                 /* Fetch a new page page */
-                page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, pid));
+                page = GetNode<shared::LockMode::None>(pid);
                 data = page->GetData();
             } while (true);
 
             DB7_UNREACHABLE();
         }
 
-        bool InsertInternal(storage::Page *page, T key, R value)
+        ResultObj<void> InsertInternal(storage::Page *page, Key key, ValTyp value)
         {
             shared::Lock<shared::LockMode::Write>(page);
 
@@ -288,15 +282,20 @@ namespace db7::access
 
             if (layout_leaf_.HasSpace(data, key))
             {
-                layout_leaf_.Insert(data, key, value);
-                ReleasePage<shared::LockMode::Write>(page);
+                auto result = layout_leaf_.Insert(data, key, value);
+                ReleaseNode<shared::LockMode::Write>(page);
+                return result;
             }
             else
             {
                 page_id new_pid;
-                T sentinel = SplitLeaf(data, new_pid, key, value);
-                u8 level = GetLevel(data);
-                ReleasePage<shared::LockMode::Write>(page);
+                auto split_result = SplitLeaf(data, new_pid, key, value);
+                Key sentinel = split_result.value;
+                u8 level = BaseLyHeader<ValTyp>::GetLevel(data);
+                ReleaseNode<shared::LockMode::Write>(page);
+
+                if (!split_result.success)
+                    return ResultObj<void>::Fail(split_result.message);
 
                 if (shared::TlState::IsEmpty())
                 {
@@ -319,10 +318,10 @@ namespace db7::access
                 }
             }
 
-            return true;
+            return ResultObj<void>::Ok();
         }
 
-        bool PropagateInsert(T key, page_id value)
+        ResultObj<void> PropagateInsert(Key key, page_id value)
         {
             while (!shared::TlState::IsEmpty())
             {
@@ -330,7 +329,7 @@ namespace db7::access
                 DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
 
                 constexpr shared::LockMode LM = shared::LockMode::Write;
-                auto *page = GetNode<LM>(storage::PageIdentifier(tbl_id_, pid));
+                auto *page = GetNode<LM>(pid);
                 page = GoRightInter(page, key);
                 pid = page->GetPageId();
 
@@ -339,20 +338,18 @@ namespace db7::access
                 if (layout_inter_.HasSpace(data, key))
                 {
                     layout_inter_.Insert(data, key, value);
-                    ReleasePage<LM>(page);
+                    ReleaseNode<LM>(page);
                     break;
                 }
                 else
                 {
                     page_id new_pid;
 
-                    // Key old_key = key;
                     key = SplitInter(data, new_pid, key, value);
-                    // delete[] old_key.encoded;
 
                     value = new_pid;
-                    u8 level = GetLevel(data);
-                    ReleasePage<LM>(page);
+                    u8 level = BaseLyHeader<ValTyp>::GetLevel(data);
+                    ReleaseNode<LM>(page);
 
                     if (shared::TlState::IsEmpty())
                     {
@@ -372,10 +369,10 @@ namespace db7::access
                 }
             }
 
-            return true;
+            return ResultObj<void>::Ok();
         }
 
-        R InternalGet(storage::Page *page, T key)
+        ResultObj<ValTyp> InternalGet(storage::Page *page, Key key)
         {
             DB7_ASSERT(page->GetPageId() != std::numeric_limits<page_id>::max(), "invalid pid");
             auto *data = page->GetData();
@@ -395,18 +392,18 @@ namespace db7::access
                     if (!shared::Unlock<LM>(page))
                         continue;
 
-                    ReleasePage<shared::LockMode::None>(page);
-                    page = GetNode<shared::LockMode::None>(storage::PageIdentifier(tbl_id_, new_pid));
+                    ReleaseNode<shared::LockMode::None>(page);
+                    page = GetNode<shared::LockMode::None>(new_pid);
                     data = page->GetData();
                 }
                 else
                 {
-                    R result = layout_leaf_.Get(data, GetCount(data), key);
+                    auto result = layout_leaf_.Get(data, BaseLyHeader<ValTyp>::GetCount(data), key);
 
                     if (!shared::Unlock<LM>(page))
                         continue;
 
-                    ReleasePage<shared::LockMode::None>(page);
+                    ReleaseNode<shared::LockMode::None>(page);
                     return result;
                 }
 
@@ -415,35 +412,54 @@ namespace db7::access
             DB7_UNREACHABLE();
         }
 
+        ResultObj<void> DeleteInternal(storage::Page *page, Key key)
+        {
+            shared::Lock<shared::LockMode::Write>(page);
+
+            page = GoRightLeaf(page, key);
+
+            byte *data = page->GetData();
+
+            auto result = layout_leaf_.Delete(data, key);
+
+            ReleaseNode<shared::LockMode::Write>(page);
+
+            return result;
+        }
+
     public:
         BTreeIndex(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, table_id tbl_id)
-            : root_id_(1), buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id),
-              layout_inter_(), layout_leaf_()
+            : root_id_(1), buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id), layout_inter_(), layout_leaf_()
         {
             if (!disk_mng_->CreateOpenFile(tbl_id_, 1))
             {
                 throw IO_EXCEPTION("IO exception could not open file");
             }
 
-            storage::Page *page = buffer_pool_->Reserve(tbl_id);
+            storage::Page *page = ReserveNode();
 
             layout_leaf_.InitHeader(page->GetData(), 0, 0, page->GetPageId());
 
-            ReleasePage<shared::LockMode::None>(page);
+            ReleaseNode<shared::LockMode::Write>(page);
         }
 
         ~BTreeIndex() = default;
 
-        bool Insert(T key, R value)
+        ResultObj<void> Insert(Key key, ValTyp value)
         {
             shared::TlState::Clear();
             storage::Page *page = DropToLevel(key);
             return InsertInternal(page, key, value);
         }
 
-        bool Delete(/* ... */) { return false; }
+        ResultObj<void> Delete(Key key)
+        {
+            shared::TlState::Clear();
+            storage::Page *page = DropToLevel(key);
+            return DeleteInternal(page, key);
+        }
 
-        R Get(T key)
+        ResultObj<ValTyp> Get(Key key)
         {
             shared::TlState::Clear();
             auto *page = DropToLevel(key);

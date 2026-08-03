@@ -44,7 +44,10 @@ namespace db7::catalog
         auto k = access::Key{(u16)name.size(), name.data(), len, buf};
         namespaces_index_nspname_->Insert(k, tup.value);
 
-        namespaces_index_nspoid_->Insert(oid, tup.value);
+        byte *buf2 = new byte[sizeof(namespace_oid_t) * 16];
+        u16 len2 = access::KeyNormEncoder::Encode(buf2, oid, false, false, false);
+        auto k2 = access::Key{(u16)sizeof(namespace_oid_t), reinterpret_cast<byte *>(&oid), len2, buf2};
+        namespaces_index_nspoid_->Insert(k2, tup.value);
 
         return oid;
     }
@@ -59,6 +62,9 @@ namespace db7::catalog
 
     bool DatabaseCatalog::DeleteNamespaceEntry(transaction::TransactionContext *txn, namespace_oid_t oid)
     {
+        (void)txn;
+        (void)oid;
+        return true;
     }
 
     bool DatabaseCatalog::DeleteNamespace(transaction::TransactionContext *txn, namespace_oid_t oid)

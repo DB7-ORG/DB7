@@ -47,7 +47,7 @@ namespace db7::storage
 
             FdCacheEntry hdr;
             hdr.fd = fd;
-            hdr.page_count = st.st_size / PAGE_SIZE;
+            hdr.page_count = st.st_size / DB7_PAGE_SIZE;
 
             cache_->Set(tbl_id, hdr);
         }
@@ -137,10 +137,10 @@ namespace db7::storage
         DB7_ASSERT(hdr.fd >= 0, "File not found");
         DB7_ASSERT(pid < hdr.page_count, "File outside of bounds");
 
-        off_t offset = (off_t)pid * PAGE_SIZE;
-        ssize_t n = pread(hdr.fd, dest, PAGE_SIZE, offset);
+        off_t offset = (off_t)pid * DB7_PAGE_SIZE;
+        ssize_t n = pread(hdr.fd, dest, DB7_PAGE_SIZE, offset);
         (void)n;
-        DB7_ASSERT(n == PAGE_SIZE, "Short read");
+        DB7_ASSERT(n == DB7_PAGE_SIZE, "Short read");
 
         return true;
     }
@@ -152,10 +152,10 @@ namespace db7::storage
         int fd = cache_->Get(tbl_id).fd;
         DB7_ASSERT(fd >= 0, "File not found");
 
-        off_t offset = (off_t)pid * PAGE_SIZE;
-        ssize_t n = pwrite(fd, src, PAGE_SIZE, offset);
+        off_t offset = (off_t)pid * DB7_PAGE_SIZE;
+        ssize_t n = pwrite(fd, src, DB7_PAGE_SIZE, offset);
         (void)n;
-        DB7_ASSERT(n == PAGE_SIZE, "Short read");
+        DB7_ASSERT(n == DB7_PAGE_SIZE, "Short read");
 
         return true;
     }
@@ -165,7 +165,7 @@ namespace db7::storage
         FdCacheEntry hdr = cache_->Get(tbl_id);
         DB7_ASSERT(hdr.fd >= 0, "File not found");
 
-        int n = ftruncate(hdr.fd, (pages_num)*PAGE_SIZE);
+        int n = ftruncate(hdr.fd, (pages_num)*DB7_PAGE_SIZE);
         (void)n;
         DB7_ASSERT(n == 0, "Truncate failed");
         hdr.page_count = pages_num;

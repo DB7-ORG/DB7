@@ -150,14 +150,33 @@ namespace db7::access
             case type_id::VARBINARY:
             {
                 auto *entry = (storage::VarlenEntry *)ptr;
-                std::span<const byte> data = entry->IsInline()
-                                                 ? std::span<const byte>((const byte *)entry->GetInline(), entry->GetSize())
-                                                 : std::span<const byte>(/* fetch from varlen page */);
+                std::span<const byte> data = {(const byte *)entry->GetInline(), entry->GetSize()};
                 return Encode(buf, data, is_data_null, is_nullable, is_case_sensitive);
             }
             default:
                 DB7_UNREACHABLE();
             }
+        }
+
+        static Key BuildKey(std::vector<std::span<byte>> items, std::vector<type_id> types,
+                            bool is_data_null, bool is_nullable, bool is_case_sensitive)
+        {
+            u32 total_size = 0;
+            for (auto item : items)
+            {
+                total_size += item.size();
+            }
+
+            byte *original = new byte[total_size * 16]; // TODO too much
+            byte *cur = original;
+
+            for (int i = 0; i < types.size(); i++)
+            {
+                cur += SwitchType(cur, items[i].data(), types[i], is_data_null, is_nullable, is_case_sensitive);
+            }
+
+            u16 len = cur - original;
+            return access::Key{, , (u16)len, buf};
         }
     };
 

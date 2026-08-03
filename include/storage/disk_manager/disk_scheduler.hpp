@@ -61,7 +61,7 @@ namespace db7::storage
                 {
                     (void)result;
                     auto *page = static_cast<Page *>(user_data);
-                    DB7_ASSERT(result == PAGE_SIZE, "Short read");
+                    DB7_ASSERT(result == DB7_PAGE_SIZE, "Short read");
                     page->SignalIO();
                 });
 
@@ -101,9 +101,9 @@ namespace db7::storage
             {
                 bool ok;
                 if (tasks[i].op == IoTask::READ)
-                    ok = io_->SubmitRead(tasks[i].id.tbl_id, tasks[i].page->GetData(), PAGE_SIZE, (tasks[i].id.pid - 1) * PAGE_SIZE, (void *)tasks[i].page);
+                    ok = io_->SubmitRead(tasks[i].id.tbl_id, tasks[i].page->GetData(), DB7_PAGE_SIZE, (tasks[i].id.pid - 1) * DB7_PAGE_SIZE, (void *)tasks[i].page);
                 else
-                    ok = io_->SubmitWrite(tasks[i].id.tbl_id, tasks[i].page->GetData(), PAGE_SIZE, (tasks[i].id.pid - 1) * PAGE_SIZE, (void *)tasks[i].page);
+                    ok = io_->SubmitWrite(tasks[i].id.tbl_id, tasks[i].page->GetData(), DB7_PAGE_SIZE, (tasks[i].id.pid - 1) * DB7_PAGE_SIZE, (void *)tasks[i].page);
 
                 if (ok)
                 {

@@ -14,5 +14,5 @@ namespace db7::storage
     };
 
     constexpr size_t HEADER_SIZE = sizeof(PageHeader);
-    constexpr size_t PAYLOAD_SIZE = PAGE_SIZE - HEADER_SIZE;
+    constexpr size_t PAYLOAD_SIZE = DB7_PAGE_SIZE - HEADER_SIZE;
 }

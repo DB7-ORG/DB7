@@ -2,7 +2,7 @@
 
 #include "storage/storage_common.hpp"
 #include "storage/buffer_pool/buffer_pool.hpp"
-#include "access/index/varlen_layout/btree_varlen_layout_leaf.hpp"
+#include "access/index/layouts/varlen/varlen_layout_models.hpp"
 
 namespace db7::shared
 {
@@ -35,10 +35,10 @@ namespace db7::shared
 
     void PrintVarlenLeafLayout(byte *data)
     {
-        auto *header = reinterpret_cast<access::VarlenHeader *>(data);
+        auto *header = reinterpret_cast<access::VarlenHeader<page_id> *>(data);
         u32 count = header->count;
         printf("=== Page Dump ===\n");
-        printf("count=%-4u  level=%-2u  rlink=%lu  max_val=%lu\n",
+        printf("count=%-4u  level=%-2u  rlink=%u  max_val=%lu\n",
                header->count, header->level, header->rlink, header->max_val);
 
         // After printing the header line, before the slot loop:
@@ -59,7 +59,7 @@ namespace db7::shared
         printf("---------------------------------------------\n");
 
         /* DANGER does not work if structs change */
-        access::Slot *slots = reinterpret_cast<access::Slot *>(data + sizeof(access::VarlenHeader));
+        access::Slot *slots = reinterpret_cast<access::Slot *>(data + sizeof(access::VarlenHeader<page_id>));
         for (u32 i = 0; i < count; i++)
         {
             byte *ptr = data + slots[i].offset;
@@ -75,10 +75,10 @@ namespace db7::shared
 
     void PrintVarlenInterLayout(byte *data)
     {
-        auto *header = reinterpret_cast<access::VarlenHeader *>(data);
+        auto *header = reinterpret_cast<access::VarlenHeader<page_id> *>(data);
         u32 count = header->count;
         printf("=== Page Dump ===\n");
-        printf("count=%-4u  level=%-2u  rlink=%lu  max_val=%lu\n",
+        printf("count=%-4u  level=%-2u  rlink=%u  max_val=%lu\n",
                header->count, header->level, header->rlink, header->max_val);
 
         // After printing the header line, before the slot loop:
@@ -99,7 +99,7 @@ namespace db7::shared
         printf("---------------------------------------------\n");
 
         /* DANGER does not work if structs change */
-        access::Slot *slots = reinterpret_cast<access::Slot *>(data + sizeof(access::VarlenHeader));
+        access::Slot *slots = reinterpret_cast<access::Slot *>(data + sizeof(access::VarlenHeader<page_id>));
         for (u32 i = 0; i < count; i++)
         {
             byte *ptr = data + slots[i].offset;
@@ -115,7 +115,7 @@ namespace db7::shared
 
     void PrintVarlenLayout(byte *data)
     {
-        auto *header = reinterpret_cast<access::VarlenHeader *>(data);
+        auto *header = reinterpret_cast<access::VarlenHeader<page_id> *>(data);
         if (header->level == 0)
             PrintVarlenLeafLayout(data);
         else

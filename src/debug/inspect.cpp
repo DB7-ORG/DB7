@@ -7,6 +7,8 @@
 #include "catalog/catalog.hpp"
 #undef private
 
+#include "access/index/btree.hpp"
+
 #include <cstring>
 #include <limits>
 
@@ -18,7 +20,7 @@ namespace db7::debug
     {
         static PageDump dump{};
         dump = {};
-        auto *header = reinterpret_cast<access::VarlenHeader *>(data);
+        auto *header = reinterpret_cast<access::VarlenHeader<u64> *>(data);
 
         dump.pid = header->pid;
         dump.rlink = header->rlink;
@@ -94,7 +96,7 @@ namespace db7::debug
         }
 
         // slots
-        access::Slot *slots = reinterpret_cast<access::Slot *>(data + sizeof(access::VarlenHeader));
+        access::Slot *slots = reinterpret_cast<access::Slot *>(data + sizeof(access::VarlenHeader<u64>));
         u32 count = std::min(header->count, (u32)1024);
 
         for (u32 i = 0; i < count; i++)
@@ -142,7 +144,7 @@ namespace db7::debug
         {static_cast<u32>(OID::PG_LANGUAGE), &catalog::DatabaseCatalog::languages_},
         {static_cast<u32>(OID::PG_PROC), &catalog::DatabaseCatalog::procs_},
     };
-    static const std::unordered_map<u32, access::Index * catalog::DatabaseCatalog::*> idx_map = {
+    static const std::unordered_map<u32, access::BTreeIndex<u64> * catalog::DatabaseCatalog::*> idx_map = {
         // pg_namespace indexes
         {static_cast<u32>(OID::PG_INDEX_NAMESPACE_NSPOID), &catalog::DatabaseCatalog::namespaces_index_nspoid_},
         {static_cast<u32>(OID::PG_INDEX_NAMESPACE_NSPNAME), &catalog::DatabaseCatalog::namespaces_index_nspname_},
@@ -179,7 +181,7 @@ namespace db7::debug
         {static_cast<u32>(OID::PG_INDEX_PROC_PRONAME), &catalog::DatabaseCatalog::procs_index_proname_},
     };
 
-    static access::Index *FindIndex(u32 tbl_id)
+    static access::BTreeIndex<u64> *FindIndex(u32 tbl_id)
     {
         if (!g_catalog)
             return nullptr;
