@@ -1,7 +1,8 @@
 MAKEFLAGS += -j$(nproc)
 CXX = g++
 CC = gcc
-BASE_CXXFLAGS = -Wall -Wextra -std=c++20 -Iinclude -Isrc -march=native
+BASE_CXXFLAGS = -std=c++20 -Iinclude -Isrc -march=native -Wall -Wextra \
+				-Wno-unused-parameter -Wno-unused-but-set-variable -Wno-return-type
 LDFLAGS = -lxxhash -lfmt -luring -ljemalloc -lutf8proc
 
 BUILD ?= release

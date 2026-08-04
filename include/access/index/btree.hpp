@@ -481,7 +481,11 @@ namespace db7::access
             return InsertInternal(page, key, value);
         }
 
-        ResultObj<void> Delete(Key key)
+        /**
+         * The api needs to know value also since the tree can store
+         * multiple copies of the same key on different locations in teh heap
+         */
+        ResultObj<void> Delete(Key key, ValTyp value)
         {
             shared::TlState::Clear();
             storage::Page *page = DropToLevel(key);

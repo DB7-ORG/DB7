@@ -30,6 +30,7 @@ namespace db7::access
         SlotValLeaf(byte *page_data, u16 heap_offset) : hdr(*reinterpret_cast<SlotValHeaderLeaf<R> *>(page_data + heap_offset)),
                                                         data(page_data + heap_offset + sizeof(SlotValHeaderLeaf<R>)) {}
 
+        // NOTE: this one threats value(result) as 0 so it navigates to the leftmost value
         SlotValLeaf(Key key) : hdr({0, key.len, key.enc_len}), data(key.data) {}
 
         SlotValLeaf(Key key, R value) : hdr({value, key.len, key.enc_len}), data(key.data) {}
@@ -81,6 +82,8 @@ namespace db7::access
             std::memmove(data + new_heap_offset, data + old_offset, sizeof(SlotValHeaderLeaf<ValTyp>) + len);
             /* Update heap offset to point to new value */
             prev_heap_offset = new_heap_offset;
+
+            DB7_ASSERT(new_heap_offset >= old_offset, "compaction must not move tuples down");
 
             return new_heap_offset;
         }
@@ -137,6 +140,12 @@ namespace db7::access
             return lo;
         }
 
+        void ShiftLeftDelete(u16 *slots, int idx, u16 count)
+        {
+            DB7_ASSERT(count >= 1, "Nothing to delete");
+            std::memmove(slots + idx, slots + idx + 1, (count - idx - 1) * sizeof(u16));
+        }
+
         void ShiftRightInsert(u16 *slots, int idx, u16 count, u16 heap_offset)
         {
             std::memmove(slots + idx + 1, slots + idx, (count - idx) * sizeof(u16));
@@ -173,7 +182,7 @@ namespace db7::access
             {
                 accumulated += reinterpret_cast<SlotValHeaderLeaf<ValTyp> *>(data + slots[i])->len;
                 if (accumulated >= target)
-                    return std::min(i + 1, count - 1);
+                    return std::min(u16(i) + 1, count - 1);
             }
 
             return count - 1;
@@ -241,8 +250,8 @@ namespace db7::access
 
             u16 *slots = CastSlots(data);
 
+            // NOTE: this one threats value(result) as 0 so it navigates to the leftmost value
             const auto main_val = SlotValLeaf<ValTyp>(key);
-
             int idx = FindInsertPosition(data, slots, main_val, count);
 
             std::vector<ValTyp> &result = results.vec;
@@ -352,12 +361,14 @@ namespace db7::access
             if (cmp < 0)
             {
                 // insert right
+                DB7_ASSERT(HasSpace(right_data, key), "new key does not fit in right half after split");
                 u16 tuple_heap_offset = AppendHeap(right_data, key, value);
                 InsertSlot(right_data, tuple_heap_offset);
             }
             else
             {
                 // insert left
+                DB7_ASSERT(HasSpace(left_data, key), "new key does not fit in left half after split");
                 u16 tuple_heap_offset = AppendHeap(left_data, key, value);
                 InsertSlot(left_data, tuple_heap_offset);
             }
@@ -378,10 +389,22 @@ namespace db7::access
             return VarlenHeader::CastHeader(data)->rlink;
         }
 
-        ResultObj<void> Delete(byte *data, Key key)
+        ResultObj<void> Delete(byte *data, Key key, ValTyp value)
         {
             DB7_ASSERT(key.data != nullptr, "invalid key");
             DB7_ASSERT(key.len != 0, "invalid key");
+
+            u16 &count = VarlenHeader::CastHeader(data)->count;
+            u16 *slots = CastSlots(data);
+
+            const auto main_val = SlotValLeaf<ValTyp>(key, value);
+            int idx = FindInsertPosition(data, slots, main_val, count);
+            auto cur = SlotValLeaf<ValTyp>(data, slots[idx]);
+            int cmp = Cmp(cur, main_val);
+            DB7_ASSERT(cmp != 0, "Unreachable. Key is not found. This should only be called by GC. GC tried to delete non existing value");
+            ShiftLeftDelete(slots, idx, count);
+            count--;
+            return ResultObj<void>::Ok();
         }
     };
 }
