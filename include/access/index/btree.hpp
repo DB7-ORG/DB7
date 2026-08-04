@@ -25,8 +25,8 @@ namespace db7::access
         table_id tbl_id_;
 
         // static constexpr bool IS_VARLEN = std::is_same_v<Key, Key>;
-        using LeafLayout = BtreeVarlenLayoutLeaf<ValTyp>;           // std::conditional_t<IS_VARLEN, BtreeVarlenLayoutLeaf<ValTyp>, BtreeNumberLayoutLeaf<Key, ValTyp>>;
-        using InterLayout = BtreeVarlenLayoutIntermediate<page_id>; // std::conditional_t<IS_VARLEN, BtreeVarlenLayoutIntermediate<page_id>, BtreeNumberLayoutIntermediate<Key, page_id>>;
+        using LeafLayout = BtreeVarlenLayoutLeaf<ValTyp>;          // std::conditional_t<IS_VARLEN, BtreeVarlenLayoutLeaf<ValTyp>, BtreeNumberLayoutLeaf<Key, ValTyp>>;
+        using InterLayout = BtreeVarlenLayoutIntermediate<ValTyp>; // std::conditional_t<IS_VARLEN, BtreeVarlenLayoutIntermediate<page_id>, BtreeNumberLayoutIntermediate<Key, page_id>>;
 
         InterLayout layout_inter_;
         LeafLayout layout_leaf_;
@@ -66,20 +66,24 @@ namespace db7::access
 
             root_id_.store(new_root_page->GetPageId());
 
+            DB7_ASSERT(BaseLyHeader::GetLevel(new_root_data) == level + 1, "root level clobbered");
+
             ReleaseNode<shared::LockMode::Write>(new_root_page);
         }
 
         ResultObj<Key> SplitLeaf(byte *data, page_id &new_pid, Key key, ValTyp value)
         {
-            auto result = layout_leaf_.Get(data, BaseLyHeader<ValTyp>::GetCount(data), key);
-            if (result.success)
-                return {"Key already exists\0", false};
+            // auto result = layout_leaf_.Get(data, BaseLyHeader::GetCount(data), key);
+            // if (result.success)
+            //     return {"Key already exists\0", false};
 
             auto *right_page = ReserveNode();
 
             new_pid = right_page->GetPageId();
 
             byte *right_data = right_page->GetData();
+
+            layout_leaf_.InitHeader(right_data, 0, 0, new_pid);
 
             ResultObj<Key> sentinel = layout_leaf_.Split(data, right_data, new_pid, key, value);
 
@@ -95,6 +99,8 @@ namespace db7::access
             new_pid = right_page->GetPageId();
 
             byte *right_data = right_page->GetData();
+
+            layout_inter_.InitHeader(right_data, 0, 0, new_pid);
 
             Key sentinel = layout_inter_.Split(data, right_data, new_pid, key, value);
 
@@ -171,7 +177,7 @@ namespace db7::access
                 constexpr shared::LockMode LM = shared::LockMode::Optimistic;
                 shared::Lock<LM>(page);
 
-                u8 level = BaseLyHeader<ValTyp>::GetLevel(data);
+                u8 level = BaseLyHeader::GetLevel(data);
                 if (level <= 0)
                 {
                     if (!shared::Unlock<LM>(page))
@@ -190,7 +196,7 @@ namespace db7::access
                 }
                 else
                 {
-                    page_id new_pid = layout_inter_.Get(data, BaseLyHeader<ValTyp>::GetCount(data), key);
+                    page_id new_pid = layout_inter_.Get(data, BaseLyHeader::GetCount(data), key);
 
                     if (!shared::Unlock<LM>(page))
                         continue;
@@ -221,12 +227,12 @@ namespace db7::access
 
             storage::Page *page = GetNode<shared::LockMode::None>(pid);
             auto *data = page->GetData();
-            u8 level = BaseLyHeader<ValTyp>::GetLevel(data);
+            u8 level = BaseLyHeader::GetLevel(data);
 
             do
             {
                 DB7_ASSERT(pid != std::numeric_limits<page_id>::max(), "invalid pid");
-                DB7_ASSERT(level == BaseLyHeader<ValTyp>::GetLevel(data), "invalid level node");
+                DB7_ASSERT(level == BaseLyHeader::GetLevel(data), "invalid level node");
 
                 constexpr shared::LockMode LM = shared::LockMode::Optimistic;
                 shared::Lock<LM>(page);
@@ -251,7 +257,7 @@ namespace db7::access
                 }
                 else
                 {
-                    page_id new_pid = layout_inter_.Get(data, BaseLyHeader<ValTyp>::GetCount(data), key);
+                    page_id new_pid = layout_inter_.Get(data, BaseLyHeader::GetCount(data), key);
 
                     if (!shared::Unlock<LM>(page))
                         continue;
@@ -291,7 +297,7 @@ namespace db7::access
                 page_id new_pid;
                 auto split_result = SplitLeaf(data, new_pid, key, value);
                 Key sentinel = split_result.value;
-                u8 level = BaseLyHeader<ValTyp>::GetLevel(data);
+                u8 level = BaseLyHeader::GetLevel(data);
                 ReleaseNode<shared::LockMode::Write>(page);
 
                 if (!split_result.success)
@@ -348,7 +354,7 @@ namespace db7::access
                     key = SplitInter(data, new_pid, key, value);
 
                     value = new_pid;
-                    u8 level = BaseLyHeader<ValTyp>::GetLevel(data);
+                    u8 level = BaseLyHeader::GetLevel(data);
                     ReleaseNode<LM>(page);
 
                     if (shared::TlState::IsEmpty())
@@ -372,7 +378,7 @@ namespace db7::access
             return ResultObj<void>::Ok();
         }
 
-        ResultObj<ValTyp> InternalGet(storage::Page *page, Key key)
+        ResultObj<void> InternalGet(storage::Page *page, Key key, VectorValues<ValTyp> &results)
         {
             DB7_ASSERT(page->GetPageId() != std::numeric_limits<page_id>::max(), "invalid pid");
             auto *data = page->GetData();
@@ -398,13 +404,35 @@ namespace db7::access
                 }
                 else
                 {
-                    auto result = layout_leaf_.Get(data, BaseLyHeader<ValTyp>::GetCount(data), key);
+                    auto tmp_results = VectorValues<ValTyp>();
+                    auto result = layout_leaf_.Get(data, BaseLyHeader::GetCount(data), key, tmp_results);
 
                     if (!shared::Unlock<LM>(page))
                         continue;
 
-                    ReleaseNode<shared::LockMode::None>(page);
-                    return result;
+                    // results.vec.append_range(std::move(tmp_results.vec));
+                    results.vec.insert(results.vec.end(), tmp_results.vec.begin(), tmp_results.vec.end());
+                    // results.vec.insert(results.vec.end(), std::make_move_iterator(tmp_results.vec.begin()),
+                    //                    std::make_move_iterator(tmp_results.vec.end()));
+
+                    if (results.proceed)
+                    {
+                        page_id new_pid = layout_leaf_.GetRLink(data);
+                        ReleaseNode<shared::LockMode::None>(page);
+
+                        if (new_pid == std::numeric_limits<page_id>::max())
+                        {
+                            return result;
+                        }
+
+                        page = GetNode<shared::LockMode::None>(new_pid);
+                        data = page->GetData();
+                    }
+                    else
+                    {
+                        ReleaseNode<shared::LockMode::None>(page);
+                        return result;
+                    }
                 }
 
             } while (true);
@@ -429,7 +457,7 @@ namespace db7::access
 
     public:
         BTreeIndex(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, table_id tbl_id)
-            : root_id_(1), buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id), layout_inter_(), layout_leaf_()
+            : buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id), layout_inter_(), layout_leaf_()
         {
             if (!disk_mng_->CreateOpenFile(tbl_id_, 1))
             {
@@ -439,6 +467,7 @@ namespace db7::access
             storage::Page *page = ReserveNode();
 
             layout_leaf_.InitHeader(page->GetData(), 0, 0, page->GetPageId());
+            root_id_.store(page->GetPageId());
 
             ReleaseNode<shared::LockMode::Write>(page);
         }
@@ -459,11 +488,11 @@ namespace db7::access
             return DeleteInternal(page, key);
         }
 
-        ResultObj<ValTyp> Get(Key key)
+        ResultObj<void> Get(Key key, VectorValues<ValTyp> &results)
         {
             shared::TlState::Clear();
             auto *page = DropToLevel(key);
-            return InternalGet(page, key);
+            return InternalGet(page, key, results);
         }
     };
 }

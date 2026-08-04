@@ -25,3 +25,6 @@
         DB7_ASSERT(false, "unreachable"); \
         __builtin_unreachable();          \
     } while (0)
+
+#define DB7_UNIMPLEMENTED() \
+    throw std::logic_error("Not implemented")

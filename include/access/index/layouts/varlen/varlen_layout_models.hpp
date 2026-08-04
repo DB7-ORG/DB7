@@ -22,43 +22,34 @@ namespace db7::access
         return Key{len, len, data};
     }
 
-    template <typename Typ>
-    struct VarlenHeader : public BaseLyHeader<Typ>
+    struct VarlenHeader : public BaseLyHeader
     {
-        u32 heap_size;
-        u32 dead_space;
-        u32 prefix_offset;
-        u16 prefix_len;
+        u16 heap_offset;
 
-        static VarlenHeader<Typ> *CastHeader(byte *data)
+        static VarlenHeader *CastHeader(byte *data)
         {
-            return reinterpret_cast<VarlenHeader<Typ> *>(data);
+            return reinterpret_cast<VarlenHeader *>(data);
         }
 
-        void WriteHeader(Typ pid, Typ rlink, Typ llink, u32 count, u8 level, u64 max_val, u32 prefix_offset, u16 prefix_len)
+        void WriteHeader(page_id pid, page_id rlink, u16 count, u16 max_val, u8 level, u16 heap_offset)
         {
             this->pid = pid;
             this->rlink = rlink;
-            this->llink = llink;
             this->count = count;
-            this->level = level;
             this->max_val = max_val;
-
-            this->prefix_offset = prefix_offset;
-            this->prefix_len = prefix_len;
-
-            this->dead_space = 0;
+            this->level = level;
+            this->heap_offset = heap_offset;
         }
 
-        static void WriteHeader(byte *data, Typ pid, Typ rlink, Typ llink, u32 count, u8 level, u64 max_val, u32 prefix_offset, u16 prefix_len)
+        static void WriteHeader(byte *data, page_id pid, page_id rlink, u16 count, u16 max_val, u8 level, u16 heap_offset)
         {
             auto *header = CastHeader(data);
-            header->WriteHeader(pid, rlink, llink, count, level, max_val, prefix_offset, prefix_len);
+            header->WriteHeader(pid, rlink, count, max_val, level, heap_offset);
         }
     };
 
     struct Slot
     {
-        u32 offset;
+        u16 offset;
     };
 };

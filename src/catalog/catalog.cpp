@@ -91,29 +91,29 @@ namespace db7::catalog
         // byte *buf = new byte[sizeof(db_oid_t) * 4];
         // u32 len = access::KeyNormEncoder::Encode(buf, oid, false, false, false);
         // auto k = access::Key{(u16)sizeof(db_oid_t), reinterpret_cast<byte *>(&oid), (u16)len, buf};     // TODO fix index
-        auto k = access::Key{};
-        auto result = databases_index_datoid->Get(k);
-        if (!result.success)
-        {
-            return false;
-        }
-        access::TupleId res{.value = result.value};
-        u32 idx = res.index;
-        u32 pid = res.pid;
+        // auto k = access::Key{};
+        // auto result = databases_index_datoid->Get(k);
+        // if (!result.success)
+        // {
+        //     return false;
+        // }
+        // access::TupleId res{.value = result.value};
+        // u32 idx = res.index;
+        // u32 pid = res.pid;
 
-        auto chunk = data_chunk_layout_.CreateDataChunk();
-        if (!databases_->Select(txn, res.index, res.pid, chunk))
-        {
-            return false;
-        }
-        auto name = *reinterpret_cast<storage::VarlenEntry *>(
-            chunk->Get(catalog::col_oid_t(CatalogColumnOid::DATNAME))); // TODO get by index is better
-        (void)name;
+        // auto chunk = data_chunk_layout_.CreateDataChunk();
+        // if (!databases_->Select(txn, res.index, res.pid, chunk))
+        // {
+        //     return false;
+        // }
+        // auto name = *reinterpret_cast<storage::VarlenEntry *>(
+        //     chunk->Get(catalog::col_oid_t(CatalogColumnOid::DATNAME))); // TODO get by index is better
+        // (void)name;
 
-        if (!databases_->Delete(txn, idx, pid))
-        {
-            return false;
-        }
+        // if (!databases_->Delete(txn, idx, pid))
+        // {
+        //     return false;
+        // }
 
         // if (!databases_index_datoid->Delete(txn, oid))
         // {
@@ -133,23 +133,23 @@ namespace db7::catalog
         // byte *buf = new byte[sizeof(db_oid_t) * 16];
         // u32 len = access::KeyNormEncoder::Encode(buf, oid, false, false, false);
         // auto k = access::Key{(u16)sizeof(db_oid_t), reinterpret_cast<byte *>(&oid), (u16)len, buf};     // TODO fix index
-        auto k = access::Key{};
-        auto result = databases_index_datoid->Get(k);
-        if (!result.success)
-        {
-            return false;
-        }
-        access::TupleId res{.value = result.value};
-        u32 idx = res.index;
+        // auto k = access::Key{};
+        // auto result = databases_index_datoid->Get(k);
+        // if (!result.success)
+        // {
+        //     return false;
+        // }
+        // access::TupleId res{.value = result.value};
+        // u32 idx = res.index;
 
-        storage::VarlenEntry entry;
-        entry.Set(name);
+        // storage::VarlenEntry entry;
+        // entry.Set(name);
 
-        access::DataChunk *chunk = data_chunk_layout_.CreateDataChunk();
-        auto iter = chunk->InitIterator();
-        iter.PushBack(oid);
-        iter.PushBack(entry);
-        return databases_->Update(txn, idx, chunk);
+        // access::DataChunk *chunk = data_chunk_layout_.CreateDataChunk();
+        // auto iter = chunk->InitIterator();
+        // iter.PushBack(oid);
+        // iter.PushBack(entry);
+        // return databases_->Update(txn, idx, chunk);
     }
 
     void Catalog::Select(transaction::TransactionContext *txn)

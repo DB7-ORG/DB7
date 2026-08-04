@@ -6,24 +6,22 @@
 
 namespace db7::access
 {
-    template <typename Typ>
     struct BaseLyHeader
     {
-        Typ pid;
-        Typ rlink;
-        Typ llink;
-        u32 count;
+        page_id pid;
+        page_id rlink;
+        u16 count;
+        u16 max_val;
         u8 level;
-        u64 max_val;
 
         static u8 GetLevel(byte *data)
         {
-            return reinterpret_cast<BaseLyHeader<Typ> *>(data)->level;
+            return reinterpret_cast<BaseLyHeader *>(data)->level;
         }
 
         static u32 GetCount(byte *data)
         {
-            return reinterpret_cast<BaseLyHeader<Typ> *>(data)->count;
+            return reinterpret_cast<BaseLyHeader *>(data)->count;
         }
     };
 

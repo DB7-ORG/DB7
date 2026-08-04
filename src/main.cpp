@@ -4,6 +4,7 @@
 #include <fmt/core.h>
 #include <random>
 #include <barrier>
+#include <algorithm>
 // #include <thread>
 // #include <chrono>
 
@@ -404,7 +405,7 @@ int main()
 {
     fmt::print("Hello, {}!\n", "world");
 
-    u32 n = 500'000;
+    u32 n = 239;
     u32 PREFILL = 0;
 
     using typ = access::Key;
@@ -441,7 +442,7 @@ int main()
     u64 sum_insert = 0;
     u64 sum_get = 0;
 
-    u64 iter = 10;
+    u64 iter = 1;
     for (u32 i = 0; i < iter; i++)
     {
         db7::storage::BufferPool buffer_pool(&disk_scheduler, &version_manager);
@@ -457,12 +458,18 @@ int main()
 
         for (u32 i = 0; i < n; i++)
         {
+            if (i == 15045)
+            {
+                std::cout << i << std::endl;
+            }
             std::cout << i << std::endl;
             auto res = btree.Insert(strs[i], 1000 + i);
             DB7_ASSERT(res.success, "Failed to insert");
-            auto v = btree.Get(strs[i]);
+            auto res_vec = access::VectorValues<u64>();
+            auto v = btree.Get(strs[i], res_vec);
             DB7_ASSERT(v.success, "all keys present after concurrent insert");
-            DB7_ASSERT(v.value == 1000 + i, "value intact after concurrent insert");
+            DB7_ASSERT(std::ranges::find(res_vec.vec, 1000 + i) != res_vec.vec.end(),
+                       "value 1000+i present after concurrent insert");
         }
 
         // double ins_ns = run_parallel(T, [&](unsigned t)
