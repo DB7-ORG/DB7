@@ -108,7 +108,7 @@ namespace db7::access
                 return cmp;
             /* If values are the same compare lens */
             return (main_val.hdr.len < slot_val.hdr.len) - (main_val.hdr.len > slot_val.hdr.len);
-        }
+        } // TODO fix index do i need len check if my encoder adds a 0 at the end
 
         /**
          * As CmpKeys, but breaks ties on the heap tuple identifier
@@ -126,7 +126,7 @@ namespace db7::access
         int FindInsertPosition(byte *data, u16 *slots, SlotValLeaf<ValTyp> main_val, u16 count)
         {
             int hi = count, lo = 0;
-            while (lo < hi)
+            while (lo < hi) // TODO fix index <= or <
             {
                 int mid = lo + (hi - lo) / 2;
                 auto slot_val = SlotValLeaf<ValTyp>(data, slots[mid]);
@@ -243,15 +243,14 @@ namespace db7::access
 
         BtreeVarlenLayoutLeaf() {}
 
-        ResultObj<void> Get(byte *data, const u16 count, const Key key, VectorValues<ValTyp> &results)
+        ResultObj<void> Get(byte *data, const u16 count, const Key key, VectorValues<ValTyp> &results, const ValTyp value = 0)
         {
             DB7_ASSERT(key.data != nullptr, "invalid key");
             DB7_ASSERT(key.len != 0, "invalid key");
 
             u16 *slots = CastSlots(data);
 
-            // NOTE: this one threats value(result) as 0 so it navigates to the leftmost value
-            const auto main_val = SlotValLeaf<ValTyp>(key);
+            const auto main_val = SlotValLeaf<ValTyp>(key, value);
             int idx = FindInsertPosition(data, slots, main_val, count);
 
             std::vector<ValTyp> &result = results.vec;
@@ -277,6 +276,7 @@ namespace db7::access
             DB7_ASSERT(key.data != nullptr, "invalid key");
             DB7_ASSERT(key.len != 0, "invalid key");
             DB7_ASSERT(key.len < DB7_PAGE_SIZE / 10, "should be checked in the binder");
+            DB7_ASSERT(value != 0, "Can not insert 0 which is invalid page");
 
             /* NOTE: I assumed duplicate keys w same value and same tid can not happen so i skipped this check */
 
@@ -312,8 +312,9 @@ namespace db7::access
             }
             const auto max_val = SlotValLeaf<ValTyp>(data, header->max_val);
             const auto main_val = SlotValLeaf<ValTyp>(key);
-            int cmp = CmpKeys(max_val, main_val);
-            return cmp <= 0;
+            int cmp = Cmp(max_val, main_val);
+            DB7_ASSERT(cmp != 0, "Can not have value to be 0 when inserting the tree");
+            return cmp < 0;
         }
 
         /**
@@ -393,6 +394,7 @@ namespace db7::access
         {
             DB7_ASSERT(key.data != nullptr, "invalid key");
             DB7_ASSERT(key.len != 0, "invalid key");
+            DB7_ASSERT(value != 0, "Can not insert 0 which is invalid page");
 
             u16 &count = VarlenHeader::CastHeader(data)->count;
             u16 *slots = CastSlots(data);

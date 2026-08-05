@@ -43,8 +43,8 @@ namespace db7::access
         template <shared::LockMode Mode>
         void ReleaseNode(storage::Page *page)
         {
-            buffer_pool_->Unpin(page);
             shared::Unlock<Mode>(page);
+            buffer_pool_->Unpin(page);
         }
 
         storage::Page *ReserveNode()
@@ -100,7 +100,7 @@ namespace db7::access
 
             byte *right_data = right_page->GetData();
 
-            layout_inter_.InitHeader(right_data, 0, 0, new_pid);
+            layout_inter_.InitHeader(right_data, 0, BaseLyHeader::GetLevel(data), new_pid);
 
             Key sentinel = layout_inter_.Split(data, right_data, new_pid, key, value);
 
@@ -415,7 +415,7 @@ namespace db7::access
                     // results.vec.insert(results.vec.end(), std::make_move_iterator(tmp_results.vec.begin()),
                     //                    std::make_move_iterator(tmp_results.vec.end()));
 
-                    if (results.proceed)
+                    if (tmp_results.proceed)
                     {
                         page_id new_pid = layout_leaf_.GetRLink(data);
                         ReleaseNode<shared::LockMode::None>(page);

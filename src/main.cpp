@@ -405,7 +405,7 @@ int main()
 {
     fmt::print("Hello, {}!\n", "world");
 
-    u32 n = 239;
+    u32 n = 500'000;
     u32 PREFILL = 0;
 
     using typ = access::Key;
@@ -449,55 +449,39 @@ int main()
 
         auto btree = db7::access::BTreeIndex<u64>(&buffer_pool, &disk_mng_async, 103);
 
-        // for (u32 i = 0; i < PREFILL; i++)
+        // double ins_ns = 500;
+
+        // for (u32 i = 0; i < n; i++)
         // {
-        //     auto res = btree.Insert(strs[i], 42);
+        //     // if (i == 15045)
+        //     // {
+        //     //     std::cout << i << std::endl;
+        //     // }
+        //     // std::cout << i << std::endl;
+        //     auto res = btree.Insert(strs[i], 1000 + i);
         //     DB7_ASSERT(res.success, "Failed to insert");
+        //     auto res_vec = access::VectorValues<u64>();
+        //     auto v = btree.Get(strs[i], res_vec);
+        //     DB7_ASSERT(v.success, "all keys present after concurrent insert");
+        //     DB7_ASSERT(std::ranges::find(res_vec.vec, 1000 + i) != res_vec.vec.end(),
+        //                "value 1000+i present after concurrent insert");
         // }
-        double ins_ns = 500;
 
-        for (u32 i = 0; i < n; i++)
-        {
-            if (i == 15045)
+        double ins_ns = run_parallel(T, [&](unsigned t)
+                                     {
+            u32 lo, hi;
+            partition(t, lo, hi);
+            for (u32 i = lo; i < hi; i++)
             {
-                std::cout << i << std::endl;
-            }
-            std::cout << i << std::endl;
-            auto res = btree.Insert(strs[i], 1000 + i);
-            DB7_ASSERT(res.success, "Failed to insert");
-            auto res_vec = access::VectorValues<u64>();
-            auto v = btree.Get(strs[i], res_vec);
-            DB7_ASSERT(v.success, "all keys present after concurrent insert");
-            DB7_ASSERT(std::ranges::find(res_vec.vec, 1000 + i) != res_vec.vec.end(),
-                       "value 1000+i present after concurrent insert");
-        }
-
-        // double ins_ns = run_parallel(T, [&](unsigned t)
-        //                              {
-        //     u32 lo, hi;
-        //     partition(t, lo, hi);
-        //     for (u32 i = lo; i < hi; i++)
-        //     {
-        //         auto res =  btree.Insert(strs[i], 1000 + i);
-        //         DB7_ASSERT(res.success, "Failed to insert");
-        //         auto v = btree.Get(strs[i]);
-        //         DB7_ASSERT(v.success, "all keys present after concurrent insert");
-        //         DB7_ASSERT(v.value == 1000 + i, "value intact after concurrent insert");
-        //     } });
+                auto res =  btree.Insert(strs[i%30], 1000 + i);
+                DB7_ASSERT(res.success, "Failed to insert");
+                auto res_vec = access::VectorValues<u64>();
+                // auto v = btree.Get(strs[i%30], res_vec);
+                // DB7_ASSERT(v.success, "all keys present after concurrent insert");
+                // DB7_ASSERT(std::ranges::find(res_vec.vec, 1000 + i) != res_vec.vec.end(),
+                //        "value 1000+i present after concurrent insert");
+            } });
         sum_insert += ins_ns;
-
-        // // Phase 1: concurrent disjoint inserts.
-        // double ins_ns = run_parallel(T, [&](unsigned t)
-        //                              {
-        // u32 lo, hi;
-        // partition(t, lo, hi);
-        // for (u32 i = lo; i < hi; i++)
-        // {
-        //    auto res =  btree.Insert(strs[i], 1000 + i);
-        //    DB7_ASSERT(res.success, "Failed to insert");
-        // } });
-
-        // sum_insert += ins_ns;
 
         double read_ns = 0; // run_parallel(T, [&](unsigned t)
         //                               {
@@ -518,35 +502,6 @@ int main()
 
     std::fprintf(stderr, "Average insert=%.1f ms  read=%.1f ms\n",
                  sum_insert / iter / 1e6, sum_get / iter / 1e6);
-
-    // auto bench = [&](int reps)
-    // {
-    //     double best = std::numeric_limits<double>::max();
-    //     for (int r = 0; r < reps; r++)
-    //     {
-    //         PagePool pool(80000);
-
-    //         auto btree = BTreeIndex<typ, u64>(&pool);
-
-    //         auto t0 = std::chrono::steady_clock::now();
-    //         for (u32 i = 0; i < n; i++)
-    //         {
-    //             btree.Insert(strs[i], 5);
-    //             // btree.Delete(strs[i]);//v.success != false
-    //             auto v = btree.Get(strs[i]);
-    //             if (v.value != 5)
-    //                 throw std::runtime_error("bad");
-    //         }
-    //         auto t1 = std::chrono::steady_clock::now();
-
-    //         double ns = std::chrono::duration<double, std::nano>(t1 - t0).count();
-    //         if (ns < best)
-    //             best = ns;
-    //     }
-    //     printf("best: %.2f ms  (%.1f ns/op)\n", best / 1e6, best / n);
-    // };
-
-    // bench(10);
 
     return 0;
 }
