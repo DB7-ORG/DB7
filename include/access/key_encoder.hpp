@@ -5,6 +5,7 @@
 #include "access/data_chunk.hpp"
 #include "storage/varlen_entry.hpp"
 #include "access/schema.hpp"
+#include "shared/byte_utils.hpp"
 
 #include <span>
 #include <cstring>
@@ -12,25 +13,23 @@
 
 namespace db7::access
 {
+    struct KeySpecs
+    {
+        bool is_nullable;
+        bool is_case_sensitive;
+    };
+
+    struct TypeSize
+    {
+        type_id type;
+        u16 size;
+
+        TypeSize(type_id t) : type(t), size(SizeOf(t)) {}
+    };
+
     struct KeyNormEncoder
     {
     private:
-        template <typename T>
-        static T ByteSwapIfLittleEndian(T val)
-        {
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-            if constexpr (sizeof(T) == 1)
-                return val;
-            if constexpr (sizeof(T) == 2)
-                return __builtin_bswap16(val);
-            if constexpr (sizeof(T) == 4)
-                return __builtin_bswap32(val);
-            if constexpr (sizeof(T) == 8)
-                return __builtin_bswap64(val);
-#endif
-            return val;
-        }
-
         static u32 EncodeStringNormalized(byte *buf, std::span<const byte> data, bool is_case_sensitive)
         {
             utf8proc_option_t opts = static_cast<utf8proc_option_t>(
@@ -62,11 +61,11 @@ namespace db7::access
 
     public:
         template <typename T>
-        static u32 Encode(byte *buf, T data, bool is_data_null, bool is_nullable, bool is_case_sensitive)
+        static u32 Encode(byte *buf, T data, bool is_data_null, KeySpecs specs)
         {
             u32 size = 0;
 
-            if (is_nullable)
+            if (specs.is_nullable)
             {
                 buf[0] = (is_data_null) ? 0x00 : 0x01;
                 size++;
@@ -81,13 +80,13 @@ namespace db7::access
                 UTyp u;
                 std::memcpy(&u, &data, sizeof(T));
                 u ^= (UTyp(1) << (sizeof(UTyp) * 8 - 1));
-                UTyp swapped = ByteSwapIfLittleEndian(u);
+                UTyp swapped = shared::ByteUtil::ByteSwapIfLittleEndian(u);
                 std::memcpy(buf, &swapped, sizeof(UTyp));
                 size += sizeof(T);
             }
             else if constexpr (std::is_unsigned_v<T>)
             { // u32, u64...
-                T swapped = ByteSwapIfLittleEndian(data);
+                T swapped = shared::ByteUtil::ByteSwapIfLittleEndian(data);
                 std::memcpy(buf, &swapped, sizeof(T));
                 size += sizeof(T);
             }
@@ -97,14 +96,14 @@ namespace db7::access
                 std::memcpy(&u, &data, sizeof(u));
                 uint64_t mask = (u >> 63) ? ~u64(0) : (u64(1) << 63);
                 u ^= mask;
-                u = ByteSwapIfLittleEndian(u);
+                u = shared::ByteUtil::ByteSwapIfLittleEndian(u);
                 std::memcpy(buf, &u, sizeof(u));
                 size += sizeof(T);
             }
             else if constexpr (std::is_same_v<T, std::span<const byte>> || std::is_same_v<T, std::span<byte>>)
             { // strings, bytes ...
                 // TODO can be optimized heavily for ascii
-                size += EncodeStringNormalized(buf, data, is_case_sensitive);
+                size += EncodeStringNormalized(buf, data, specs.is_case_sensitive);
             }
             else
             {
@@ -114,70 +113,68 @@ namespace db7::access
             return size;
         }
 
-        static u32 SwitchType(byte *buf, byte *ptr, type_id type, bool is_data_null, bool is_nullable, bool is_case_sensitive)
+        static u32 SwitchType(byte *buf, void *ptr, bool is_data_null, type_id type, KeySpecs specs)
         {
             switch (type)
             {
             case type_id::BOOLEAN:
             case type_id::UTINYINT:
-                return Encode(buf, *(u8 *)ptr, is_data_null, is_nullable, is_case_sensitive);
+                return Encode(buf, *(u8 *)ptr, is_data_null, specs);
 
             case type_id::TINYINT:
-                return Encode(buf, *(i8 *)ptr, is_data_null, is_nullable, is_case_sensitive);
+                return Encode(buf, *(i8 *)ptr, is_data_null, specs);
 
             case type_id::USMALLINT:
-                return Encode(buf, *(u16 *)ptr, is_data_null, is_nullable, is_case_sensitive);
+                return Encode(buf, *(u16 *)ptr, is_data_null, specs);
 
             case type_id::SMALLINT:
-                return Encode(buf, *(i16 *)ptr, is_data_null, is_nullable, is_case_sensitive);
+                return Encode(buf, *(i16 *)ptr, is_data_null, specs);
 
             case type_id::UINTEGER:
-                return Encode(buf, *(u32 *)ptr, is_data_null, is_nullable, is_case_sensitive);
+                return Encode(buf, *(u32 *)ptr, is_data_null, specs);
 
             case type_id::INTEGER:
-                return Encode(buf, *(i32 *)ptr, is_data_null, is_nullable, is_case_sensitive);
+                return Encode(buf, *(i32 *)ptr, is_data_null, specs);
 
             case type_id::UBIGINT:
-                return Encode(buf, *(u64 *)ptr, is_data_null, is_nullable, is_case_sensitive);
+                return Encode(buf, *(u64 *)ptr, is_data_null, specs);
 
             case type_id::BIGINT:
-                return Encode(buf, *(i64 *)ptr, is_data_null, is_nullable, is_case_sensitive);
+                return Encode(buf, *(i64 *)ptr, is_data_null, specs);
 
             case type_id::DOUBLE:
-                return Encode(buf, *(double *)ptr, is_data_null, is_nullable, is_case_sensitive);
+                return Encode(buf, *(double *)ptr, is_data_null, specs);
 
             case type_id::VARCHAR:
             case type_id::VARBINARY:
             {
                 auto *entry = (storage::VarlenEntry *)ptr;
                 std::span<const byte> data = {(const byte *)entry->GetInline(), entry->GetSize()};
-                return Encode(buf, data, is_data_null, is_nullable, is_case_sensitive);
+                return Encode(buf, data, is_data_null, specs);
             }
             default:
                 DB7_UNREACHABLE();
             }
         }
 
-        static Key BuildKey(std::vector<std::span<byte>> items, std::vector<type_id> types,
-                            bool is_data_null, bool is_nullable, bool is_case_sensitive)
+        static Key BuildKey(byte *out, DataChunk &chunk, std::vector<TypeSize> &types)
         {
-            u32 total_size = 0;
-            for (auto item : items)
-            {
-                total_size += item.size();
-            }
-
-            byte *original = new byte[total_size * 16]; // TODO too much
-            byte *cur = original;
+            byte *cur = out;
 
             for (size_t i = 0; i < types.size(); i++)
             {
-                cur += SwitchType(cur, items[i].data(), types[i], is_data_null, is_nullable, is_case_sensitive);
+                cur += SwitchType(cur, chunk.Access(i), false, types[i].type, {false, false});
             }
 
-            u16 len = cur - original;
-            return access::Key{0, (u16)len, cur};
+            u16 enc_len = u16(cur - out);
+
+            for (size_t i = 0; i < types.size(); i++)
+            {
+                memcpy(cur, chunk.Access(i), types[i].size);
+                cur += types[i].size;
+            }
+
+            return Key{u16(cur - out), enc_len, out};
         }
     };
-
 }

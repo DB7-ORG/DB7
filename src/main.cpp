@@ -20,6 +20,7 @@
 #include "transaction/transaction_manager.hpp"
 #include "shared/arena/object_pool.hpp"
 #include "shared/arena/fixed_bump_arena.hpp"
+#include "access/data_chunk.hpp"
 
 using namespace db7;
 
@@ -352,17 +353,20 @@ void prep_keys(std::vector<access::Key> &strs, u32 n)
     // }
     // else
     // {
+    auto layout = access::DataChunkLayout({1, 2}, {access::SizeOf(access::type_id::INTEGER), access::SizeOf(access::type_id::SMALLINT)});
+    std::vector<access::TypeSize> types{{access::type_id::INTEGER}, {access::type_id::SMALLINT}};
     for (u64 i = 0; i < n; i++)
     {
         byte *buf = new byte[sizeof(u64) * 16];
-
-        u32 len = access::KeyNormEncoder::Encode(buf, i, false, false, false);
-
-        std::memcpy(buf + len, &i, sizeof(u64));
-
-        strs[i].data = buf;
-        strs[i].len = len + sizeof(u64);
-        strs[i].enc_len = (u16)(len);
+        auto chunk = layout.CreateDataChunk();
+        for (int j = 0; j < types.size(); j++)
+        {
+            u32 a = u32(i);
+            u16 b = u16(i + 22);
+            std::memcpy(chunk->Access(0), &a, access::SizeOf(access::type_id::INTEGER));
+            std::memcpy(chunk->Access(1), &b, access::SizeOf(access::type_id::SMALLINT));
+        }
+        strs[i] = access::KeyNormEncoder::BuildKey(buf, *chunk, types);
     }
     //}
 }
@@ -442,30 +446,24 @@ int main()
     u64 sum_insert = 0;
     u64 sum_get = 0;
 
-    u64 iter = 1;
+    u64 iter = 4;
     for (u32 i = 0; i < iter; i++)
     {
         db7::storage::BufferPool buffer_pool(&disk_scheduler, &version_manager);
 
         auto btree = db7::access::BTreeIndex<u64>(&buffer_pool, &disk_mng_async, 103);
 
+        for (u32 i = 0; i < PREFILL; i++)
+        {
+            auto res = btree.Insert(strs[i], 1000 + i);
+            DB7_ASSERT(res.success, "Failed to insert");
+            auto res_vec = access::VectorValues<u64>();
+            auto v = btree.Get(strs[i], res_vec);
+            DB7_ASSERT(v.success, "all keys present after concurrent insert");
+            DB7_ASSERT(std::ranges::find(res_vec.vec, 1000 + i) != res_vec.vec.end(),
+                       "value 1000+i present after concurrent insert");
+        }
         // double ins_ns = 500;
-
-        // for (u32 i = 0; i < n; i++)
-        // {
-        //     // if (i == 15045)
-        //     // {
-        //     //     std::cout << i << std::endl;
-        //     // }
-        //     // std::cout << i << std::endl;
-        //     auto res = btree.Insert(strs[i], 1000 + i);
-        //     DB7_ASSERT(res.success, "Failed to insert");
-        //     auto res_vec = access::VectorValues<u64>();
-        //     auto v = btree.Get(strs[i], res_vec);
-        //     DB7_ASSERT(v.success, "all keys present after concurrent insert");
-        //     DB7_ASSERT(std::ranges::find(res_vec.vec, 1000 + i) != res_vec.vec.end(),
-        //                "value 1000+i present after concurrent insert");
-        // }
 
         double ins_ns = run_parallel(T, [&](unsigned t)
                                      {
@@ -473,26 +471,29 @@ int main()
             partition(t, lo, hi);
             for (u32 i = lo; i < hi; i++)
             {
-                auto res =  btree.Insert(strs[i%30], 1000 + i);
+                auto res =  btree.Insert(strs[i], 1000 + i);
                 DB7_ASSERT(res.success, "Failed to insert");
                 auto res_vec = access::VectorValues<u64>();
-                // auto v = btree.Get(strs[i%30], res_vec);
-                // DB7_ASSERT(v.success, "all keys present after concurrent insert");
-                // DB7_ASSERT(std::ranges::find(res_vec.vec, 1000 + i) != res_vec.vec.end(),
-                //        "value 1000+i present after concurrent insert");
+                auto v = btree.Get(strs[i], res_vec);
+                DB7_ASSERT(v.success, "all keys present after concurrent insert");
+                DB7_ASSERT(std::ranges::find(res_vec.vec, 1000 + i) != res_vec.vec.end(),
+                       "value 1000+i present after concurrent insert");
             } });
         sum_insert += ins_ns;
 
-        double read_ns = 0; // run_parallel(T, [&](unsigned t)
+        double read_ns = 0;
+        // double read_ns = run_parallel(T, [&](unsigned t)
         //                               {
-        // u32 lo, hi;
-        // partition(t, lo, hi);
-        // for (u32 i = lo; i < hi; i++)
-        // {
-        //    auto v = btree.Get(strs[i]);
-        //     DB7_ASSERT(v.success, "all keys present after concurrent insert");
-        //     DB7_ASSERT(v.value == 1000 + i, "value intact after concurrent insert");
-        // } });
+        //     u32 lo, hi;
+        //     partition(t, lo, hi);
+        //     for (u32 i = lo; i < hi; i++)
+        //     {
+        //         auto res_vec = access::VectorValues<u64>();
+        //         auto v = btree.Get(strs[i], res_vec);
+        //         DB7_ASSERT(v.success, "all keys present after concurrent insert");
+        //         DB7_ASSERT(std::ranges::find(res_vec.vec, 1000 + i) != res_vec.vec.end(),
+        //             "value 1000+i present after concurrent insert");
+        //     } });
 
         sum_get += read_ns;
 

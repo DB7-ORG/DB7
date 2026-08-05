@@ -4,6 +4,7 @@
 #include "shared/align_util.hpp"
 #include "access/index/layouts/varlen/varlen_layout_models.hpp"
 #include "access/key_encoder.hpp"
+#include "shared/byte_utils.hpp"
 
 #include <limits>
 #include <algorithm>
@@ -126,7 +127,7 @@ namespace db7::access
         int FindInsertPosition(byte *data, u16 *slots, SlotValLeaf<ValTyp> main_val, u16 count)
         {
             int hi = count, lo = 0;
-            while (lo < hi) // TODO fix index <= or <
+            while (lo < hi)
             {
                 int mid = lo + (hi - lo) / 2;
                 auto slot_val = SlotValLeaf<ValTyp>(data, slots[mid]);
@@ -243,14 +244,14 @@ namespace db7::access
 
         BtreeVarlenLayoutLeaf() {}
 
-        ResultObj<void> Get(byte *data, const u16 count, const Key key, VectorValues<ValTyp> &results, const ValTyp value = 0)
+        ResultObj<void> Get(byte *data, const u16 count, const Key key, VectorValues<ValTyp> &results)
         {
             DB7_ASSERT(key.data != nullptr, "invalid key");
             DB7_ASSERT(key.len != 0, "invalid key");
 
             u16 *slots = CastSlots(data);
 
-            const auto main_val = SlotValLeaf<ValTyp>(key, value);
+            const auto main_val = SlotValLeaf<ValTyp>(key);
             int idx = FindInsertPosition(data, slots, main_val, count);
 
             std::vector<ValTyp> &result = results.vec;
@@ -375,9 +376,12 @@ namespace db7::access
             }
 
             // copy/send sentinel up
-            byte *buf = new byte[sentinel.hdr.enc_len]; // TODO fix index
+            u16 total = sentinel.hdr.enc_len + sizeof(ValTyp);
+            byte *buf = new byte[total]; // TODO fix index
             std::memcpy(buf, sentinel.data, sentinel.hdr.enc_len);
-            return ResultObj<Key>({sentinel.hdr.enc_len, sentinel.hdr.enc_len, buf}, true);
+            ValTyp be = shared::ByteUtil::ByteSwapIfLittleEndian(sentinel.hdr.result);
+            std::memcpy(buf + sentinel.hdr.enc_len, &be, sizeof(ValTyp));
+            return ResultObj<Key>({total, total, buf}, true);
         }
 
         void InitHeader(byte *data, u32 count, u8 level, page_id pid)

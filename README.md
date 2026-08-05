@@ -33,4 +33,8 @@ https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf
 
 * consider hyper delete w garbage collection.
 
-     // TODO fix index
+// TODO fix index
+fix this
+
+// byte *data;   [normalized ‖ tid ‖ original] 
+is this valid suggestion to simplify leaf

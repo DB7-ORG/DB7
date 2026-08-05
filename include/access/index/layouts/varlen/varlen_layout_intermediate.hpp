@@ -100,19 +100,6 @@ namespace db7::access
             return (main_val.hdr.len < slot_val.hdr.len) - (main_val.hdr.len > slot_val.hdr.len);
         } // TODO fix index do i need len check if my encoder adds a 0 at the end
 
-        /**
-         * As CmpKeys, but breaks ties on the heap tuple identifier
-         * so that (key, tid) is a total order.
-         */
-        inline int Cmp(SlotValInter<ValTyp> slot_val, SlotValInter<ValTyp> main_val)
-        {
-            int cmp = CmpKeys(slot_val, main_val);
-            if (cmp != 0)
-                return cmp;
-            /* If lens are the same compare with heap tuple identifier (page,idx in page) */
-            return (slot_val.hdr.result > main_val.hdr.result) - (slot_val.hdr.result < main_val.hdr.result);
-        }
-
         int FindInsertPosition(byte *data, u16 *slots, SlotValInter<ValTyp> main_val, u16 count)
         {
             int hi = count, lo = 0;
@@ -120,7 +107,7 @@ namespace db7::access
             {
                 int mid = lo + (hi - lo) / 2;
                 auto slot_val = SlotValInter<ValTyp>(data, slots[mid]);
-                int res = Cmp(slot_val, main_val);
+                int res = CmpKeys(slot_val, main_val);
                 DB7_ASSERT(res != 0, "Somehow there are identical entries in the tree. That means same tuple was inserted twice");
                 if (res < 0)
                     lo = mid + 1;
@@ -227,10 +214,10 @@ namespace db7::access
 
         BtreeVarlenLayoutIntermediate() = default;
 
-        ValTyp Get(byte *data, const u32 count, const Key key, const ValTyp value = 0)
+        ValTyp Get(byte *data, const u32 count, const Key key)
         {
             u16 *slots = CastSlots(data);
-            const auto main_val = SlotValInter<ValTyp>(key, value);
+            const auto main_val = SlotValInter<ValTyp>(key);
             u16 idx = FindInsertPosition(data, slots, main_val, count);
             DB7_ASSERT(idx > 0, "no covering child — leftmost separator must be the empty key");
             return reinterpret_cast<SlotValHeaderInter<ValTyp> *>(data + slots[idx - 1])->result;
@@ -273,7 +260,7 @@ namespace db7::access
             }
             const auto max_val = SlotValInter<ValTyp>(data, header->max_val);
             const auto main_val = SlotValInter<ValTyp>(key);
-            int cmp = Cmp(max_val, main_val);
+            int cmp = CmpKeys(max_val, main_val);
             DB7_ASSERT(cmp != 0, "Can not have value to be 0 when inserting the tree");
             return cmp < 0;
         }
@@ -320,7 +307,7 @@ namespace db7::access
 
             // insert key
             auto main_val = SlotValInter<ValTyp>(key, value);
-            int cmp = Cmp(sentinel, main_val);
+            int cmp = CmpKeys(sentinel, main_val);
             if (cmp < 0)
             {
                 // insert right
@@ -355,7 +342,7 @@ namespace db7::access
             VarlenHeader::WriteHeader(data, pid, UNDEFINED_PAGE, count, UNDEFINED_OFFSET, level, DB7_PAGE_SIZE);
         }
 
-        u32 GetRLink(byte *data)
+        page_id GetRLink(byte *data)
         {
             return VarlenHeader::CastHeader(data)->rlink;
         }

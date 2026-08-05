@@ -25,8 +25,8 @@ namespace db7::access
         table_id tbl_id_;
 
         // static constexpr bool IS_VARLEN = std::is_same_v<Key, Key>;
-        using LeafLayout = BtreeVarlenLayoutLeaf<ValTyp>;          // std::conditional_t<IS_VARLEN, BtreeVarlenLayoutLeaf<ValTyp>, BtreeNumberLayoutLeaf<Key, ValTyp>>;
-        using InterLayout = BtreeVarlenLayoutIntermediate<ValTyp>; // std::conditional_t<IS_VARLEN, BtreeVarlenLayoutIntermediate<page_id>, BtreeNumberLayoutIntermediate<Key, page_id>>;
+        using LeafLayout = BtreeVarlenLayoutLeaf<ValTyp>;           // std::conditional_t<IS_VARLEN, BtreeVarlenLayoutLeaf<ValTyp>, BtreeNumberLayoutLeaf<Key, ValTyp>>;
+        using InterLayout = BtreeVarlenLayoutIntermediate<page_id>; // std::conditional_t<IS_VARLEN, BtreeVarlenLayoutIntermediate<page_id>, BtreeNumberLayoutIntermediate<Key, page_id>>;
 
         InterLayout layout_inter_;
         LeafLayout layout_leaf_;

@@ -66,8 +66,8 @@ clean-force:
 	rm -rf $(OBJ_DIR) $(CACHE_OBJ_DIR) $(BIN_DIR)
 	
 install:
-	sudo apt install -y liburing-dev libxxhash-dev libfmt-dev build-essential libjemalloc-dev libutf8proc-dev
+	sudo apt install -y liburing-dev libxxhash-dev libfmt-dev build-essential libjemalloc-dev libutf8proc-dev libgtest-dev
 
-.PHONY: all clean clean-force run install test clean-test
+.PHONY: all clean clean-force run install test run-test clean-test
 
 include tests/tests.mk
