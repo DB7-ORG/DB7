@@ -29,9 +29,9 @@ namespace db7::access
               data(page_data + heap_offset + sizeof(SlotValHeaderInter<R>)) {}
 
         // NOTE: this one threats value(result) as 0 so it navigates to the leftmost value
-        SlotValInter(Key key) : hdr({0, key.enc_len}), data(key.data) {}
+        SlotValInter(Key key) : hdr({0, key.len}), data(key.data) {}
 
-        SlotValInter(Key key, R value) : hdr({value, key.enc_len}), data(key.data) {}
+        SlotValInter(Key key, R value) : hdr({value, key.len}), data(key.data) {}
     };
 
     template <typename ValTyp>
@@ -51,12 +51,12 @@ namespace db7::access
         {
             u16 &prev_heap_offset = VarlenHeader::CastHeader(data)->heap_offset;
             /* Aligns entry for SlotValHeaderLeaf metadata */
-            u16 new_heap_offset = CalculateHeapOffset(prev_heap_offset, key.enc_len);
+            u16 new_heap_offset = CalculateHeapOffset(prev_heap_offset, key.len);
             /* Fill header */
             auto *hdr = reinterpret_cast<SlotValHeaderInter<ValTyp> *>(data + new_heap_offset);
-            *hdr = {value, key.enc_len};
+            *hdr = {value, key.len};
             /* Fill value */
-            std::memcpy(data + new_heap_offset + sizeof(SlotValHeaderInter<ValTyp>), key.data, key.enc_len);
+            std::memcpy(data + new_heap_offset + sizeof(SlotValHeaderInter<ValTyp>), key.data, key.len);
             /* Update heap offset to point to new value */
             prev_heap_offset = new_heap_offset;
 
@@ -108,8 +108,23 @@ namespace db7::access
                 int mid = lo + (hi - lo) / 2;
                 auto slot_val = SlotValInter<ValTyp>(data, slots[mid]);
                 int res = CmpKeys(slot_val, main_val);
-                DB7_ASSERT(res != 0, "Somehow there are identical entries in the tree. That means same tuple was inserted twice");
+                // This cant be used with get because it can match exacly
+                // DB7_ASSERT(res != 0, "Somehow there are identical entries in the tree. That means same tuple was inserted twice");
                 if (res < 0)
+                    lo = mid + 1;
+                else
+                    hi = mid;
+            }
+            return lo;
+        }
+
+        int FindChild(byte *data, u16 *slots, SlotValInter<ValTyp> main_val, u16 count)
+        {
+            int lo = 0, hi = count;
+            while (lo < hi)
+            {
+                int mid = lo + (hi - lo) / 2;
+                if (CmpKeys(SlotValInter<ValTyp>(data, slots[mid]), main_val) <= 0)
                     lo = mid + 1;
                 else
                     hi = mid;
@@ -148,13 +163,13 @@ namespace db7::access
             if (left_header->max_val != UNDEFINED_OFFSET)
             {
                 auto slot = SlotValInter<ValTyp>(left_data, left_header->max_val);
-                right_max = AppendHeap(right_data, {slot.hdr.len, slot.hdr.len, slot.data}, slot.hdr.result);
+                right_max = AppendHeap(right_data, {slot.hdr.len, slot.data}, slot.hdr.result);
             }
 
             for (int i = split; i < left_header->count; i++)
             {
                 auto slot = SlotValInter<ValTyp>(left_data, left_slots[i]);
-                u16 offset = AppendHeap(right_data, {slot.hdr.len, slot.hdr.len, slot.data}, slot.hdr.result);
+                u16 offset = AppendHeap(right_data, {slot.hdr.len, slot.data}, slot.hdr.result);
                 right_slots[i - split] = offset;
             }
 
@@ -218,15 +233,14 @@ namespace db7::access
         {
             u16 *slots = CastSlots(data);
             const auto main_val = SlotValInter<ValTyp>(key);
-            u16 idx = FindInsertPosition(data, slots, main_val, count);
-            DB7_ASSERT(idx > 0, "no covering child — leftmost separator must be the empty key");
+            u16 idx = FindChild(data, slots, main_val, count);
+            DB7_ASSERT(idx >= 0, "no covering child — leftmost separator must be the empty key");
             return reinterpret_cast<SlotValHeaderInter<ValTyp> *>(data + slots[idx - 1])->result;
         }
 
         void Insert(byte *data, Key key, ValTyp value)
         {
             DB7_ASSERT(key.data != nullptr, "invalid key");
-            DB7_ASSERT(key.enc_len != 0, "invalid key");
             DB7_ASSERT(key.len < DB7_PAGE_SIZE / 10, "should be checked in the binder");
             DB7_ASSERT(value != 0, "Can not insert 0 which is invalid page");
 
@@ -238,20 +252,20 @@ namespace db7::access
         bool HasSpace(byte *data, Key key)
         {
             DB7_ASSERT(key.data != nullptr, "invalid key");
-            DB7_ASSERT(key.enc_len != 0, "invalid key");
+            DB7_ASSERT(key.len != 0, "invalid key");
 
             const auto *header = VarlenHeader::CastHeader(data);
             const u16 count = header->count;
             const u16 slot_size = (count + 1) * sizeof(u16);
             const u16 prev_heap_offset = header->heap_offset;
-            const u16 new_heap_offset = CalculateHeapOffset(prev_heap_offset, key.enc_len);
+            const u16 new_heap_offset = CalculateHeapOffset(prev_heap_offset, key.len);
             return new_heap_offset >= slot_size + header_size_;
         }
 
         bool HasSplit(byte *data, Key key)
         {
             DB7_ASSERT(key.data != nullptr, "invalid key");
-            DB7_ASSERT(key.enc_len != 0, "invalid key");
+            DB7_ASSERT(key.len != 0, "invalid key");
 
             const auto *header = VarlenHeader::CastHeader(data);
             if (header->max_val == UNDEFINED_OFFSET)
@@ -261,8 +275,8 @@ namespace db7::access
             const auto max_val = SlotValInter<ValTyp>(data, header->max_val);
             const auto main_val = SlotValInter<ValTyp>(key);
             int cmp = CmpKeys(max_val, main_val);
-            DB7_ASSERT(cmp != 0, "Can not have value to be 0 when inserting the tree");
-            return cmp < 0;
+            // DB7_ASSERT(cmp != 0, "Can not have value to be 0 when inserting the tree");
+            return cmp <= 0;
         }
 
         /**
@@ -272,7 +286,6 @@ namespace db7::access
         Key Split(byte *__restrict left_data, byte *__restrict right_data, ValTyp new_pid, Key key, ValTyp value)
         {
             DB7_ASSERT(key.data != nullptr, "invalid key");
-            DB7_ASSERT(key.enc_len != 0, "invalid key");
             DB7_ASSERT(key.len != 0, "invalid key");
 
             auto *left_header = VarlenHeader::CastHeader(left_data);
@@ -294,7 +307,7 @@ namespace db7::access
 
             // insert max right
             auto sentinel = SlotValInter<ValTyp>(right_data, right_slots[0]);
-            u16 left_max = AppendHeap(left_data, {sentinel.hdr.len, sentinel.hdr.len, sentinel.data}, sentinel.hdr.result);
+            u16 left_max = AppendHeap(left_data, {sentinel.hdr.len, sentinel.data}, sentinel.hdr.result);
 
             // update headers
             right_header->rlink = left_header->rlink;
@@ -308,7 +321,7 @@ namespace db7::access
             // insert key
             auto main_val = SlotValInter<ValTyp>(key, value);
             int cmp = CmpKeys(sentinel, main_val);
-            if (cmp < 0)
+            if (cmp <= 0)
             {
                 // insert right
                 DB7_ASSERT(HasSpace(right_data, key), "new key does not fit in right half after split");
@@ -326,7 +339,7 @@ namespace db7::access
             // copy/send sentinel up
             byte *buf = new byte[sentinel.hdr.len]; // TODO fix index
             std::memcpy(buf, sentinel.data, sentinel.hdr.len);
-            return {sentinel.hdr.len, sentinel.hdr.len, buf};
+            return {sentinel.hdr.len, buf};
         }
 
         void CreateRoot(byte *data, Key key, ValTyp pid, ValTyp new_pid)

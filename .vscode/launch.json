@@ -33,7 +33,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/bin/tests/all_tests",
             "args": [
-                //"--gtest_filter=BTreeTest.InsertThenGetReturnsRid"
+                // "--gtest_filter=BTreeTest.DeleteAllThenRefill"
             ],
             "cwd": "${workspaceFolder}",
             "MIMode": "gdb",

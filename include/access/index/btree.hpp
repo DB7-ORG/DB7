@@ -69,12 +69,8 @@ namespace db7::access
             ReleaseNode<shared::LockMode::Write>(new_root_page);
         }
 
-        ResultObj<Key> SplitLeaf(byte *data, page_id &new_pid, Key key, ValTyp value)
+        ResultObj<Key> SplitLeaf(byte *data, page_id &new_pid, Key key)
         {
-            // auto result = layout_leaf_.Get(data, BaseLyHeader::GetCount(data), key);
-            // if (result.success)
-            //     return {"Key already exists\0", false};
-
             auto *right_page = ReserveNode();
 
             new_pid = right_page->GetPageId();
@@ -83,7 +79,7 @@ namespace db7::access
 
             layout_leaf_.InitHeader(right_data, 0, 0, new_pid);
 
-            ResultObj<Key> sentinel = layout_leaf_.Split(data, right_data, new_pid, key, value);
+            ResultObj<Key> sentinel = layout_leaf_.Split(data, right_data, new_pid, key);
 
             ReleaseNode<shared::LockMode::Write>(right_page);
 
@@ -276,7 +272,7 @@ namespace db7::access
             DB7_UNREACHABLE();
         }
 
-        ResultObj<void> InsertInternal(storage::Page *page, Key key, ValTyp value)
+        ResultObj<void> InsertInternal(storage::Page *page, Key key)
         {
             shared::Lock<shared::LockMode::Write>(page);
 
@@ -286,14 +282,14 @@ namespace db7::access
 
             if (layout_leaf_.HasSpace(data, key))
             {
-                auto result = layout_leaf_.Insert(data, key, value);
+                auto result = layout_leaf_.Insert(data, key);
                 ReleaseNode<shared::LockMode::Write>(page);
                 return result;
             }
             else
             {
                 page_id new_pid;
-                auto split_result = SplitLeaf(data, new_pid, key, value);
+                auto split_result = SplitLeaf(data, new_pid, key);
                 Key sentinel = split_result.value;
                 u8 level = BaseLyHeader::GetLevel(data);
                 ReleaseNode<shared::LockMode::Write>(page);
@@ -408,10 +404,7 @@ namespace db7::access
                     if (!shared::Unlock<LM>(page))
                         continue;
 
-                    // results.vec.append_range(std::move(tmp_results.vec));
                     results.vec.insert(results.vec.end(), tmp_results.vec.begin(), tmp_results.vec.end());
-                    // results.vec.insert(results.vec.end(), std::make_move_iterator(tmp_results.vec.begin()),
-                    //                    std::make_move_iterator(tmp_results.vec.end()));
 
                     if (tmp_results.proceed)
                     {
@@ -438,7 +431,7 @@ namespace db7::access
             DB7_UNREACHABLE();
         }
 
-        ResultObj<void> DeleteInternal(storage::Page *page, Key key, ValTyp value)
+        ResultObj<void> DeleteInternal(storage::Page *page, Key key)
         {
             shared::Lock<shared::LockMode::Write>(page);
 
@@ -446,7 +439,7 @@ namespace db7::access
 
             byte *data = page->GetData();
 
-            auto result = layout_leaf_.Delete(data, key, value);
+            auto result = layout_leaf_.Delete(data, key);
 
             ReleaseNode<shared::LockMode::Write>(page);
 
@@ -485,10 +478,10 @@ namespace db7::access
         ResultObj<void> Insert(DataChunk *chunk, ValTyp value)
         {
             auto ptr = std::make_unique<byte[]>(chunk->GetSize() * ALLOC_CONST);
-            Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, attrs_);
+            Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, value, attrs_);
             shared::TlState::Clear();
             storage::Page *page = DropToLevel(key);
-            return InsertInternal(page, key, value);
+            return InsertInternal(page, key);
         }
 
         /**
@@ -498,16 +491,16 @@ namespace db7::access
         ResultObj<void> Delete(DataChunk *chunk, ValTyp value)
         {
             auto ptr = std::make_unique<byte[]>(chunk->GetSize() * ALLOC_CONST);
-            Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, attrs_);
+            Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, value, attrs_);
             shared::TlState::Clear();
             storage::Page *page = DropToLevel(key);
-            return DeleteInternal(page, key, value);
+            return DeleteInternal(page, key);
         }
 
         ResultObj<void> Get(DataChunk *chunk, VectorValues<ValTyp> &results)
         {
             auto ptr = std::make_unique<byte[]>(chunk->GetSize() * ALLOC_CONST);
-            Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, attrs_);
+            Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, 0, attrs_);
             shared::TlState::Clear();
             auto *page = DropToLevel(key);
             return InternalGet(page, key, results);

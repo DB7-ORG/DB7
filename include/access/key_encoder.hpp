@@ -55,6 +55,14 @@ namespace db7::access
 
     public:
         template <typename T>
+        static u32 EncodeUnsigned(byte *buf, T data)
+        {
+            T swapped = shared::ByteUtil::ByteSwapIfLittleEndian(data);
+            std::memcpy(buf, &swapped, sizeof(T));
+            return sizeof(T);
+        }
+
+        template <typename T>
         static u32 Encode(byte *buf, T data, bool is_data_null, KeySpecs specs)
         {
             u32 size = 0;
@@ -80,9 +88,7 @@ namespace db7::access
             }
             else if constexpr (std::is_unsigned_v<T>)
             { // u32, u64...
-                T swapped = shared::ByteUtil::ByteSwapIfLittleEndian(data);
-                std::memcpy(buf, &swapped, sizeof(T));
-                size += sizeof(T);
+                size += EncodeUnsigned(buf, data);
             }
             else if constexpr (std::is_same_v<T, double>)
             { // double
@@ -156,7 +162,7 @@ namespace db7::access
             }
         }
 
-        static Key BuildKey(byte *out, DataChunk *chunk, std::vector<TypeSize> &types)
+        static Key BuildKey(byte *out, DataChunk *chunk, u64 key_value, std::vector<TypeSize> &types)
         {
             byte *cur = out;
 
@@ -165,15 +171,18 @@ namespace db7::access
                 cur += SwitchType(cur, chunk->Get(types[i].col_id), false, types[i].type, {false, false});
             }
 
-            u16 enc_len = u16(cur - out);
+            cur += EncodeUnsigned(cur, key_value);
 
+            // NOTE: i removed original value since it only makes sense for index only scans which are rare
             // for (size_t i = 0; i < types.size(); i++)
             // {
             //     memcpy(cur, chunk->Get(types[i].col_id), types[i].size);
             //     cur += types[i].size;
             // }
 
-            return Key{u16(cur - out), enc_len, out};
+            u16 len = u16(cur - out);
+
+            return Key{len, out};
         }
     };
 }

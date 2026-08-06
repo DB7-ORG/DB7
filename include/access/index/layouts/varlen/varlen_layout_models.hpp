@@ -7,7 +7,7 @@ namespace db7::access
 {
     inline Key MakeEncodedKey(u16 len, byte *data)
     {
-        return Key{len, len, data};
+        return Key{len, data};
     }
 
     struct VarlenHeader : public BaseLyHeader

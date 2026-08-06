@@ -56,13 +56,12 @@ namespace db7::access
     struct Key
     {
         u16 len;
-        u16 enc_len;
         byte *data;
 
-        Key() : len(0), enc_len(0), data(nullptr) {}
+        Key() : len(0), data(nullptr) {}
 
-        Key(u16 len, u16 enc_len, byte *data)
-            : len(len), enc_len(enc_len), data(data) {}
+        Key(u16 len, byte *data)
+            : len(len), data(data) {}
     };
 
     struct TypeSize
