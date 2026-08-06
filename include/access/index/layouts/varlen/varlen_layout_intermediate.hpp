@@ -35,11 +35,9 @@ namespace db7::access
     };
 
     template <typename ValTyp>
-    class BtreeVarlenLayoutIntermediate
+    class BtreeVarlenLayoutIntermediate : public BaseLayout
     {
     private:
-        static constexpr auto header_size_ = sizeof(VarlenHeader);
-
         /** Same as in leaf shoul be templated */
         u16 CalculateHeapOffset(u16 prev_heap_offset, u16 tuple_len)
         {
@@ -78,17 +76,12 @@ namespace db7::access
             return new_heap_offset;
         }
 
-        u16 *CastSlots(byte *data)
-        {
-            return reinterpret_cast<u16 *>(data + header_size_);
-        }
-
         /**
          * negative → slot < main
          * zero → slot == main
          * positive → slot > main
          */
-        inline int CmpKeys(SlotValInter<ValTyp> slot_val, SlotValInter<ValTyp> main_val)
+        inline int CmpFull(SlotValInter<ValTyp> slot_val, SlotValInter<ValTyp> main_val)
         {
             /* Find min value between 2 payloads */
             u32 min_len = std::min(main_val.hdr.len, slot_val.hdr.len);
@@ -98,7 +91,7 @@ namespace db7::access
                 return cmp;
             /* If values are the same compare lens */
             return (main_val.hdr.len < slot_val.hdr.len) - (main_val.hdr.len > slot_val.hdr.len);
-        } // TODO fix index do i need len check if my encoder adds a 0 at the end
+        }
 
         int FindInsertPosition(byte *data, u16 *slots, SlotValInter<ValTyp> main_val, u16 count)
         {
@@ -107,9 +100,8 @@ namespace db7::access
             {
                 int mid = lo + (hi - lo) / 2;
                 auto slot_val = SlotValInter<ValTyp>(data, slots[mid]);
-                int res = CmpKeys(slot_val, main_val);
-                // This cant be used with get because it can match exacly
-                // DB7_ASSERT(res != 0, "Somehow there are identical entries in the tree. That means same tuple was inserted twice");
+                int res = CmpFull(slot_val, main_val);
+                DB7_ASSERT(res != 0, "Somehow there are identical entries in the tree. That means same tuple was inserted twice");
                 if (res < 0)
                     lo = mid + 1;
                 else
@@ -124,18 +116,12 @@ namespace db7::access
             while (lo < hi)
             {
                 int mid = lo + (hi - lo) / 2;
-                if (CmpKeys(SlotValInter<ValTyp>(data, slots[mid]), main_val) <= 0)
+                if (CmpFull(SlotValInter<ValTyp>(data, slots[mid]), main_val) <= 0)
                     lo = mid + 1;
                 else
                     hi = mid;
             }
             return lo;
-        }
-
-        void ShiftRightInsert(u16 *slots, int idx, u16 count, u16 heap_offset)
-        {
-            std::memmove(slots + idx + 1, slots + idx, (count - idx) * sizeof(u16));
-            slots[idx] = heap_offset;
         }
 
         void InsertSlot(byte *data, u16 heap_offset)
@@ -224,9 +210,6 @@ namespace db7::access
         }
 
     public:
-        static constexpr page_id UNDEFINED_PAGE = std::numeric_limits<page_id>::max();
-        static constexpr u32 UNDEFINED_OFFSET = std::numeric_limits<u16>::max();
-
         BtreeVarlenLayoutIntermediate() = default;
 
         ValTyp Get(byte *data, const u32 count, const Key key)
@@ -248,7 +231,6 @@ namespace db7::access
             InsertSlot(data, tuple_heap_offset);
         }
 
-        // TODO fix index same as in leaf
         bool HasSpace(byte *data, Key key)
         {
             DB7_ASSERT(key.data != nullptr, "invalid key");
@@ -274,7 +256,7 @@ namespace db7::access
             }
             const auto max_val = SlotValInter<ValTyp>(data, header->max_val);
             const auto main_val = SlotValInter<ValTyp>(key);
-            int cmp = CmpKeys(max_val, main_val);
+            int cmp = CmpFull(max_val, main_val);
             // DB7_ASSERT(cmp != 0, "Can not have value to be 0 when inserting the tree");
             return cmp <= 0;
         }
@@ -320,7 +302,7 @@ namespace db7::access
 
             // insert key
             auto main_val = SlotValInter<ValTyp>(key, value);
-            int cmp = CmpKeys(sentinel, main_val);
+            int cmp = CmpFull(sentinel, main_val);
             if (cmp <= 0)
             {
                 // insert right
@@ -336,10 +318,7 @@ namespace db7::access
                 InsertSlot(left_data, tuple_heap_offset);
             }
 
-            // copy/send sentinel up
-            byte *buf = new byte[sentinel.hdr.len]; // TODO fix index
-            std::memcpy(buf, sentinel.data, sentinel.hdr.len);
-            return {sentinel.hdr.len, buf};
+            return {sentinel.hdr.len, sentinel.data};
         }
 
         void CreateRoot(byte *data, Key key, ValTyp pid, ValTyp new_pid)
@@ -348,16 +327,6 @@ namespace db7::access
             slots[0] = AppendHeap(data, {}, pid); // Empty key inserted
             slots[1] = AppendHeap(data, key, new_pid);
             VarlenHeader::CastHeader(data)->count = 2;
-        }
-
-        void InitHeader(byte *data, u32 count, u8 level, page_id pid)
-        {
-            VarlenHeader::WriteHeader(data, pid, UNDEFINED_PAGE, count, UNDEFINED_OFFSET, level, DB7_PAGE_SIZE);
-        }
-
-        page_id GetRLink(byte *data)
-        {
-            return VarlenHeader::CastHeader(data)->rlink;
         }
     };
 }

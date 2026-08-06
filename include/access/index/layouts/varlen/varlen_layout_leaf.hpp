@@ -43,7 +43,7 @@ namespace db7::access
     };
 
     template <typename ValTyp>
-    class BtreeVarlenLayoutLeaf
+    class BtreeVarlenLayoutLeaf : public BaseLayout
     {
     private:
         static constexpr auto header_size_ = sizeof(VarlenHeader);
@@ -85,11 +85,6 @@ namespace db7::access
             return new_heap_offset;
         }
 
-        u16 *CastSlots(byte *data)
-        {
-            return reinterpret_cast<u16 *>(data + header_size_);
-        }
-
         /**
          * negative → slot < main
          * zero → slot == main
@@ -106,7 +101,7 @@ namespace db7::access
                 return cmp;
             /* If values are the same compare lens */
             return (main_val.len < slot_val.len) - (main_val.len > slot_val.len);
-        } // TODO fix index do i need len check if my encoder adds a 0 at the end
+        }
 
         /**
          * As CmpPrefix, but breaks ties on the heap tuple identifier
@@ -157,18 +152,6 @@ namespace db7::access
                     hi = mid;
             }
             return lo;
-        }
-
-        void ShiftLeftDelete(u16 *slots, int idx, u16 count)
-        {
-            DB7_ASSERT(count >= 1, "Nothing to delete");
-            std::memmove(slots + idx, slots + idx + 1, (count - idx - 1) * sizeof(u16));
-        }
-
-        void ShiftRightInsert(u16 *slots, int idx, u16 count, u16 heap_offset)
-        {
-            std::memmove(slots + idx + 1, slots + idx, (count - idx) * sizeof(u16));
-            slots[idx] = heap_offset;
         }
 
         void InsertSlot(byte *data, u16 heap_offset)
@@ -390,22 +373,7 @@ namespace db7::access
                 InsertSlot(left_data, tuple_heap_offset);
             }
 
-            // copy/send sentinel up
-            u16 total = sentinel.len;    // + sizeof(ValTyp);
-            byte *buf = new byte[total]; // TODO fix index
-            std::memcpy(buf, sentinel.data, sentinel.len);
-            // EncodeUnsigned(buf + sentinel.len, sentinel.hdr.result);
-            return ResultObj<Key>({total, buf}, true);
-        }
-
-        void InitHeader(byte *data, u32 count, u8 level, page_id pid)
-        {
-            VarlenHeader::WriteHeader(data, pid, UNDEFINED_PAGE, count, UNDEFINED_OFFSET, level, DB7_PAGE_SIZE);
-        }
-
-        page_id GetRLink(byte *data)
-        {
-            return VarlenHeader::CastHeader(data)->rlink;
+            return ResultObj<Key>({sentinel.len, sentinel.data}, true);
         }
 
         ResultObj<void> Delete(byte *data, Key key)

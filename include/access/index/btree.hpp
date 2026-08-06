@@ -69,7 +69,15 @@ namespace db7::access
             ReleaseNode<shared::LockMode::Write>(new_root_page);
         }
 
-        ResultObj<Key> SplitLeaf(byte *data, page_id &new_pid, Key key)
+        // copy/send sentinel up
+        void CopyKey(std::unique_ptr<byte[]> *sentinel_copy, Key &sentinel)
+        {
+            *sentinel_copy = std::make_unique_for_overwrite<byte[]>(sentinel.len);
+            std::memcpy(sentinel_copy->get(), sentinel.data, sentinel.len);
+            sentinel.data = sentinel_copy->get();
+        }
+
+        ResultObj<Key> SplitLeaf(byte *data, page_id &new_pid, Key key, std::unique_ptr<byte[]> *sentinel_copy)
         {
             auto *right_page = ReserveNode();
 
@@ -79,14 +87,17 @@ namespace db7::access
 
             layout_leaf_.InitHeader(right_data, 0, 0, new_pid);
 
-            ResultObj<Key> sentinel = layout_leaf_.Split(data, right_data, new_pid, key);
+            ResultObj<Key> sentinel_obj = layout_leaf_.Split(data, right_data, new_pid, key);
+
+            Key &sentinel = sentinel_obj.value;
+            CopyKey(sentinel_copy, sentinel);
 
             ReleaseNode<shared::LockMode::Write>(right_page);
 
-            return sentinel;
+            return sentinel_obj;
         }
 
-        Key SplitInter(byte *data, page_id &new_pid, Key key, page_id value)
+        Key SplitInter(byte *data, page_id &new_pid, Key key, page_id value, std::unique_ptr<byte[]> *sentinel_copy)
         {
             auto *right_page = ReserveNode();
 
@@ -97,6 +108,8 @@ namespace db7::access
             layout_inter_.InitHeader(right_data, 0, BaseLyHeader::GetLevel(data), new_pid);
 
             Key sentinel = layout_inter_.Split(data, right_data, new_pid, key, value);
+
+            CopyKey(sentinel_copy, sentinel);
 
             ReleaseNode<shared::LockMode::Write>(right_page);
 
@@ -289,7 +302,10 @@ namespace db7::access
             else
             {
                 page_id new_pid;
-                auto split_result = SplitLeaf(data, new_pid, key);
+                // NOTE: sentinel_unique just holds the buffer from sentinel key
+                // so i dont forget to free it
+                std::unique_ptr<byte[]> sentinel_unique;
+                auto split_result = SplitLeaf(data, new_pid, key, &sentinel_unique);
                 Key sentinel = split_result.value;
                 u8 level = BaseLyHeader::GetLevel(data);
                 ReleaseNode<shared::LockMode::Write>(page);
@@ -345,7 +361,11 @@ namespace db7::access
                 {
                     page_id new_pid;
 
-                    key = SplitInter(data, new_pid, key, value);
+                    // NOTE:
+                    // sentinel_unique just holds the buffer from sentinel key
+                    // so i dont forget to free it
+                    std::unique_ptr<byte[]> sentinel_unique;
+                    Key sentinel = SplitInter(data, new_pid, key, value, &sentinel_unique);
 
                     value = new_pid;
                     u8 level = BaseLyHeader::GetLevel(data);
@@ -356,14 +376,14 @@ namespace db7::access
                         root_mtx_.lock();
                         if (GetRoot() == pid)
                         {
-                            CreateNewRoot(level, key, pid, new_pid);
+                            CreateNewRoot(level, sentinel, pid, new_pid);
                             root_mtx_.unlock();
                             break;
                         }
                         else
                         {
                             root_mtx_.unlock();
-                            DropToLevel(key, level + 1);
+                            DropToLevel(sentinel, level + 1);
                         }
                     }
                 }
@@ -477,7 +497,7 @@ namespace db7::access
 
         ResultObj<void> Insert(DataChunk *chunk, ValTyp value)
         {
-            auto ptr = std::make_unique<byte[]>(chunk->GetSize() * ALLOC_CONST);
+            auto ptr = std::make_unique<byte[]>(chunk->GetSize() * ALLOC_CONST); // TODO fix index
             Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, value, attrs_);
             shared::TlState::Clear();
             storage::Page *page = DropToLevel(key);
