@@ -6,10 +6,12 @@
 #include "storage/varlen_entry.hpp"
 #include "access/schema.hpp"
 #include "shared/byte_utils.hpp"
+#include "access/index/header.hpp"
 
 #include <span>
 #include <cstring>
 #include <utf8proc.h>
+#include <cmath>
 
 namespace db7::access
 {
@@ -17,14 +19,6 @@ namespace db7::access
     {
         bool is_nullable;
         bool is_case_sensitive;
-    };
-
-    struct TypeSize
-    {
-        type_id type;
-        u16 size;
-
-        TypeSize(type_id t) : type(t), size(SizeOf(t)) {}
     };
 
     struct KeyNormEncoder
@@ -37,7 +31,7 @@ namespace db7::access
                 UTF8PROC_STABLE      //| UTF8PROC_NULLTERM // canonical ordering
             );
 
-            if (!is_case_sensitive)
+            if (is_case_sensitive)
                 opts = static_cast<utf8proc_option_t>(opts | UTF8PROC_CASEFOLD);
 
             utf8proc_uint8_t *output = nullptr;
@@ -92,8 +86,13 @@ namespace db7::access
             }
             else if constexpr (std::is_same_v<T, double>)
             { // double
+                double d = data;
+                if (d == 0.0)
+                    d = 0.0;
+                else if (std::isnan(d))
+                    d = std::numeric_limits<double>::quiet_NaN();
                 uint64_t u;
-                std::memcpy(&u, &data, sizeof(u));
+                std::memcpy(&u, &d, sizeof(u));
                 uint64_t mask = (u >> 63) ? ~u64(0) : (u64(1) << 63);
                 u ^= mask;
                 u = shared::ByteUtil::ByteSwapIfLittleEndian(u);
@@ -157,22 +156,22 @@ namespace db7::access
             }
         }
 
-        static Key BuildKey(byte *out, DataChunk &chunk, std::vector<TypeSize> &types)
+        static Key BuildKey(byte *out, DataChunk *chunk, std::vector<TypeSize> &types)
         {
             byte *cur = out;
 
             for (size_t i = 0; i < types.size(); i++)
             {
-                cur += SwitchType(cur, chunk.Access(i), false, types[i].type, {false, false});
+                cur += SwitchType(cur, chunk->Get(types[i].col_id), false, types[i].type, {false, false});
             }
 
             u16 enc_len = u16(cur - out);
 
-            for (size_t i = 0; i < types.size(); i++)
-            {
-                memcpy(cur, chunk.Access(i), types[i].size);
-                cur += types[i].size;
-            }
+            // for (size_t i = 0; i < types.size(); i++)
+            // {
+            //     memcpy(cur, chunk->Get(types[i].col_id), types[i].size);
+            //     cur += types[i].size;
+            // }
 
             return Key{u16(cur - out), enc_len, out};
         }

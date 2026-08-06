@@ -7,14 +7,14 @@
 
 namespace db7::storage
 {
-    BufferPool::BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_table)
-        : disk_mng_(disk_mng), pool_size_(BUFFER_POOL_PAGE_NUM), version_table_(version_table)
+    BufferPool::BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_table, size_t page_num)
+        : disk_mng_(disk_mng), pool_size_(page_num), version_table_(version_table)
     {
-        pages_ = new Page[BUFFER_POOL_PAGE_NUM];
-        auto data = static_cast<u8 *>(std::aligned_alloc(4096, static_cast<size_t>(BUFFER_POOL_PAGE_NUM) * DB7_PAGE_SIZE));
+        pages_ = new Page[page_num];
+        auto data = static_cast<u8 *>(std::aligned_alloc(4096, static_cast<size_t>(page_num) * DB7_PAGE_SIZE));
         DB7_ASSERT(data != nullptr, "Failed to allocate");
         PageIdentifier id(0);
-        for (u32 i = 0; i < BUFFER_POOL_PAGE_NUM; i++)
+        for (u32 i = 0; i < page_num; i++)
         {
             pages_[i].WLock();
             pages_[i].SetId(id);
@@ -22,7 +22,7 @@ namespace db7::storage
             pages_[i].SetData(data + (i * DB7_PAGE_SIZE));
         }
 
-        size_t per_partition = BUFFER_POOL_PAGE_NUM / BUFFER_POOL_PARTITION_NUM;
+        size_t per_partition = page_num / BUFFER_POOL_PARTITION_NUM;
         for (u32 i = 0; i < BUFFER_POOL_PARTITION_NUM; i++)
         {
             partitions_.Reserve(per_partition, i);

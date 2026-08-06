@@ -52,4 +52,25 @@ namespace db7::access
         static ResultObj Ok() { return {nullptr, true}; }
         static ResultObj Fail(const char *m = nullptr) { return {m, false}; }
     };
+
+    struct Key
+    {
+        u16 len;
+        u16 enc_len;
+        byte *data;
+
+        Key() : len(0), enc_len(0), data(nullptr) {}
+
+        Key(u16 len, u16 enc_len, byte *data)
+            : len(len), enc_len(enc_len), data(data) {}
+    };
+
+    struct TypeSize
+    {
+        catalog::col_oid_t col_id;
+        type_id type;
+        u16 size;
+
+        TypeSize(catalog::col_oid_t id, type_id t) : col_id(id), type(t), size(SizeOf(t)) {}
+    };
 }

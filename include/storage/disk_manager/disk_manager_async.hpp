@@ -48,5 +48,6 @@ namespace db7::storage
         bool ExistsTable(table_id tbl_id);
         bool ExtendFile(table_id tbl_id, u64 pages_num);
         u32 PageCount(table_id tbl_id);
+        bool DeleteDir(const char *directory);
     };
 }

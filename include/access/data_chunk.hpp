@@ -33,14 +33,14 @@ namespace db7::access
 
         DataChunkLayout(
             std::span<const catalog::col_oid_t> col_ids,
-            std::span<const u32> attr_sizes);
+            std::span<const u16> attr_sizes);
 
         DataChunkLayout(
             std::initializer_list<catalog::col_oid_t> col_ids,
-            std::initializer_list<u32> attr_sizes)
+            std::initializer_list<u16> attr_sizes)
             : DataChunkLayout(
                   std::span<const catalog::col_oid_t>(col_ids.begin(), col_ids.size()),
-                  std::span<const u32>(attr_sizes.begin(), attr_sizes.size())) {}
+                  std::span<const u16>(attr_sizes.begin(), attr_sizes.size())) {}
 
         ~DataChunkLayout() { delete[] header_underlying_; }
 
@@ -64,10 +64,10 @@ namespace db7::access
 
         catalog::col_oid_t *GetColumnIdsPtr() { return reinterpret_cast<catalog::col_oid_t *>(GetUnderlyingPtr() + COLUMN_IDS_START); }
 
-        u32 *GetOffsetsPtr()
+        u16 *GetOffsetsPtr()
         {
             auto aligned = shared::AlignUp(uintptr_t(GetColumnIdsPtr() + column_count_), uintptr_t(sizeof(u32)));
-            return reinterpret_cast<u32 *>(aligned);
+            return reinterpret_cast<u16 *>(aligned);
         }
 
         byte *GetDataPtr() { return reinterpret_cast<byte *>(GetOffsetsPtr() + column_count_); }
@@ -141,7 +141,7 @@ namespace db7::access
 
             byte *iterator_data_ptr_;
 
-            u32 *iterator_offsets_;
+            u16 *iterator_offsets_;
 
         public:
             Iterator(DataChunk *chunk)

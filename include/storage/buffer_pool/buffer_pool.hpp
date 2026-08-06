@@ -26,7 +26,7 @@ namespace db7::storage
         u32 GetPartitionIdx(PageIdentifier id);
 
     public:
-        BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_table);
+        BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_table, size_t page_num = BUFFER_POOL_PAGE_NUM);
         ~BufferPool();
 
         Page *Pin(PageIdentifier id);

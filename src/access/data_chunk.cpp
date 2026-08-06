@@ -15,9 +15,9 @@ namespace db7::access
         return ids;
     }
 
-    static std::vector<u32> BuildAttrSizes(const Schema &schema)
+    static std::vector<u16> BuildAttrSizes(const Schema &schema)
     {
-        std::vector<u32> sizes;
+        std::vector<u16> sizes;
         sizes.reserve(schema.GetCount());
 
         for (const auto &col : schema)
@@ -31,13 +31,13 @@ namespace db7::access
 
     DataChunkLayout::DataChunkLayout(
         std::span<const catalog::col_oid_t> col_ids,
-        std::span<const u32> attr_sizes)
+        std::span<const u16> attr_sizes)
         : column_count_(col_ids.size())
     {
         u32 column_ids_ = 2 * sizeof(u32);
         header_size_ = column_ids_ + sizeof(catalog::col_oid_t) * col_ids.size();
-        u32 offsets_ = shared::AlignUp(header_size_, (u32)sizeof(u32));
-        header_size_ = offsets_ + sizeof(u32) * col_ids.size();
+        u32 offsets_ = shared::AlignUp(header_size_, (u32)sizeof(u16));
+        header_size_ = offsets_ + sizeof(u16) * col_ids.size();
 
         header_underlying_ = new byte[header_size_];
         *(u32 *)header_underlying_ = col_ids.size();
@@ -45,14 +45,14 @@ namespace db7::access
         catalog::col_oid_t *column_ids_ptr = reinterpret_cast<catalog::col_oid_t *>(header_underlying_ + column_ids_);
         std::memcpy(column_ids_ptr, col_ids.data(), col_ids.size() * sizeof(catalog::col_oid_t));
 
-        u32 *offsets_ptr = reinterpret_cast<u32 *>(header_underlying_ + offsets_);
+        u16 *offsets_ptr = reinterpret_cast<u16 *>(header_underlying_ + offsets_);
 
         total_size_ = header_size_;
 
         u32 i = 0;
         for (auto size : attr_sizes)
         {
-            total_size_ = shared::AlignUp(total_size_, std::min(size, u32(8)));
+            total_size_ = shared::AlignUp(total_size_, (u32)std::min(size, u16(8)));
 
             offsets_ptr[i++] = total_size_;
 

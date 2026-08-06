@@ -47,6 +47,7 @@ perf.*
 *.deb
 
 .data
+.data_*
 !perf/*.data
 specs/**/*.old
 specs/**/*.tlc

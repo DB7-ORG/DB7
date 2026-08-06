@@ -23,13 +23,11 @@ namespace db7::access
         storage::BufferPool *buffer_pool_;
         storage::DiskManagerAsync *disk_mng_;
         table_id tbl_id_;
+        BtreeVarlenLayoutIntermediate<page_id> layout_inter_;
+        BtreeVarlenLayoutLeaf<ValTyp> layout_leaf_;
+        std::vector<TypeSize> attrs_;
 
-        // static constexpr bool IS_VARLEN = std::is_same_v<Key, Key>;
-        using LeafLayout = BtreeVarlenLayoutLeaf<ValTyp>;           // std::conditional_t<IS_VARLEN, BtreeVarlenLayoutLeaf<ValTyp>, BtreeNumberLayoutLeaf<Key, ValTyp>>;
-        using InterLayout = BtreeVarlenLayoutIntermediate<page_id>; // std::conditional_t<IS_VARLEN, BtreeVarlenLayoutIntermediate<page_id>, BtreeNumberLayoutIntermediate<Key, page_id>>;
-
-        InterLayout layout_inter_;
-        LeafLayout layout_leaf_;
+        static constexpr size_t ALLOC_CONST = 16;
 
         template <shared::LockMode Mode>
         storage::Page *GetNode(page_id id)
@@ -440,7 +438,7 @@ namespace db7::access
             DB7_UNREACHABLE();
         }
 
-        ResultObj<void> DeleteInternal(storage::Page *page, Key key)
+        ResultObj<void> DeleteInternal(storage::Page *page, Key key, ValTyp value)
         {
             shared::Lock<shared::LockMode::Write>(page);
 
@@ -448,7 +446,7 @@ namespace db7::access
 
             byte *data = page->GetData();
 
-            auto result = layout_leaf_.Delete(data, key);
+            auto result = layout_leaf_.Delete(data, key, value);
 
             ReleaseNode<shared::LockMode::Write>(page);
 
@@ -456,9 +454,19 @@ namespace db7::access
         }
 
     public:
-        BTreeIndex(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, table_id tbl_id)
-            : buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id), layout_inter_(), layout_leaf_()
+        BTreeIndex(
+            storage::BufferPool *buffer_pool,
+            storage::DiskManagerAsync *disk_mng,
+            table_id tbl_id,
+            std::vector<TypeSize> attr)
+            : buffer_pool_(buffer_pool),
+              disk_mng_(disk_mng),
+              tbl_id_(tbl_id),
+              layout_inter_(),
+              layout_leaf_(),
+              attrs_(std::move(attr))
         {
+
             if (!disk_mng_->CreateOpenFile(tbl_id_, 1))
             {
                 throw IO_EXCEPTION("IO exception could not open file");
@@ -474,8 +482,10 @@ namespace db7::access
 
         ~BTreeIndex() = default;
 
-        ResultObj<void> Insert(Key key, ValTyp value)
+        ResultObj<void> Insert(DataChunk *chunk, ValTyp value)
         {
+            auto ptr = std::make_unique<byte[]>(chunk->GetSize() * ALLOC_CONST);
+            Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, attrs_);
             shared::TlState::Clear();
             storage::Page *page = DropToLevel(key);
             return InsertInternal(page, key, value);
@@ -485,15 +495,19 @@ namespace db7::access
          * The api needs to know value also since the tree can store
          * multiple copies of the same key on different locations in teh heap
          */
-        ResultObj<void> Delete(Key key, ValTyp value)
+        ResultObj<void> Delete(DataChunk *chunk, ValTyp value)
         {
+            auto ptr = std::make_unique<byte[]>(chunk->GetSize() * ALLOC_CONST);
+            Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, attrs_);
             shared::TlState::Clear();
             storage::Page *page = DropToLevel(key);
-            return DeleteInternal(page, key);
+            return DeleteInternal(page, key, value);
         }
 
-        ResultObj<void> Get(Key key, VectorValues<ValTyp> &results)
+        ResultObj<void> Get(DataChunk *chunk, VectorValues<ValTyp> &results)
         {
+            auto ptr = std::make_unique<byte[]>(chunk->GetSize() * ALLOC_CONST);
+            Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, attrs_);
             shared::TlState::Clear();
             auto *page = DropToLevel(key);
             return InternalGet(page, key, results);

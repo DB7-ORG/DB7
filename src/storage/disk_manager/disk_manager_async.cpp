@@ -80,6 +80,12 @@ namespace db7::storage
         LoadExistingTables();
     }
 
+    bool DiskManagerAsync::DeleteDir(const char *directory)
+    {
+        int res = rmdir(directory);
+        return res == 0;
+    }
+
     DiskManagerAsync::~DiskManagerAsync()
     {
         io_uring_queue_exit(&ring_);
@@ -92,6 +98,8 @@ namespace db7::storage
                 close(fd);
             }
         }
+
+        DeleteDir(base_dir_);
     }
 
     /**
@@ -266,4 +274,5 @@ namespace db7::storage
         FdCacheEntry hdr = cache_->Get(tbl_id);
         return hdr.page_count;
     }
+
 }

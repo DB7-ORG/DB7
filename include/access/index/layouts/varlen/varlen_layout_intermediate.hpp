@@ -103,7 +103,7 @@ namespace db7::access
         int FindInsertPosition(byte *data, u16 *slots, SlotValInter<ValTyp> main_val, u16 count)
         {
             int hi = count, lo = 0;
-            while (lo < hi) // TODO fix index <= or <
+            while (lo < hi)
             {
                 int mid = lo + (hi - lo) / 2;
                 auto slot_val = SlotValInter<ValTyp>(data, slots[mid]);

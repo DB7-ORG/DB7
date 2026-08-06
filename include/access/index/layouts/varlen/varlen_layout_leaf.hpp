@@ -141,6 +141,24 @@ namespace db7::access
             return lo;
         }
 
+        int FindDeletePosition(byte *data, u16 *slots, SlotValLeaf<ValTyp> main_val, u16 count)
+        {
+            int hi = count, lo = 0;
+            while (lo < hi)
+            {
+                int mid = lo + (hi - lo) / 2;
+                auto slot_val = SlotValLeaf<ValTyp>(data, slots[mid]);
+                int res = Cmp(slot_val, main_val);
+                if (res == 0)
+                    return mid;
+                else if (res < 0)
+                    lo = mid + 1;
+                else
+                    hi = mid;
+            }
+            return lo;
+        }
+
         void ShiftLeftDelete(u16 *slots, int idx, u16 count)
         {
             DB7_ASSERT(count >= 1, "Nothing to delete");
@@ -404,10 +422,10 @@ namespace db7::access
             u16 *slots = CastSlots(data);
 
             const auto main_val = SlotValLeaf<ValTyp>(key, value);
-            int idx = FindInsertPosition(data, slots, main_val, count);
+            int idx = FindDeletePosition(data, slots, main_val, count);
             auto cur = SlotValLeaf<ValTyp>(data, slots[idx]);
             int cmp = Cmp(cur, main_val);
-            DB7_ASSERT(cmp != 0, "Unreachable. Key is not found. This should only be called by GC. GC tried to delete non existing value");
+            DB7_ASSERT(cmp == 0, "Unreachable. Key is not found. This should only be called by GC. GC tried to delete non existing value");
             ShiftLeftDelete(slots, idx, count);
             count--;
             return ResultObj<void>::Ok();

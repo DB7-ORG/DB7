@@ -32,7 +32,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/bin/tests/all_tests",
-            "args": [],
+            "args": [
+                //"--gtest_filter=BTreeTest.InsertThenGetReturnsRid"
+            ],
             "cwd": "${workspaceFolder}",
             "MIMode": "gdb",
             "preLaunchTask": "build-test",

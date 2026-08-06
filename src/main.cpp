@@ -353,21 +353,21 @@ void prep_keys(std::vector<access::Key> &strs, u32 n)
     // }
     // else
     // {
-    auto layout = access::DataChunkLayout({1, 2}, {access::SizeOf(access::type_id::INTEGER), access::SizeOf(access::type_id::SMALLINT)});
-    std::vector<access::TypeSize> types{{access::type_id::INTEGER}, {access::type_id::SMALLINT}};
-    for (u64 i = 0; i < n; i++)
-    {
-        byte *buf = new byte[sizeof(u64) * 16];
-        auto chunk = layout.CreateDataChunk();
-        for (int j = 0; j < types.size(); j++)
-        {
-            u32 a = u32(i);
-            u16 b = u16(i + 22);
-            std::memcpy(chunk->Access(0), &a, access::SizeOf(access::type_id::INTEGER));
-            std::memcpy(chunk->Access(1), &b, access::SizeOf(access::type_id::SMALLINT));
-        }
-        strs[i] = access::KeyNormEncoder::BuildKey(buf, *chunk, types);
-    }
+    // auto layout = access::DataChunkLayout({1, 2}, {access::SizeOf(access::type_id::INTEGER), access::SizeOf(access::type_id::SMALLINT)});
+    // std::vector<access::TypeSize> types{{access::type_id::INTEGER}, {access::type_id::SMALLINT}};
+    // for (u64 i = 0; i < n; i++)
+    // {
+    //     byte *buf = new byte[sizeof(u64) * 16];
+    //     auto chunk = layout.CreateDataChunk();
+    //     for (int j = 0; j < types.size(); j++)
+    //     {
+    //         u32 a = u32(i);
+    //         u16 b = u16(i + 22);
+    //         std::memcpy(chunk->Access(0), &a, access::SizeOf(access::type_id::INTEGER));
+    //         std::memcpy(chunk->Access(1), &b, access::SizeOf(access::type_id::SMALLINT));
+    //     }
+    //     strs[i] = access::KeyNormEncoder::BuildKey(buf, *chunk, types);
+    // }
     //}
 }
 

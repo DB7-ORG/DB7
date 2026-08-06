@@ -78,8 +78,9 @@ namespace db7::catalog
                   {SizeOf(access::type_id::INTEGER), SizeOf(access::type_id::VARCHAR)})
         {
             databases_ = new access::Table(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(), rel_oid_t(CatalogTableOid::PG_DATABASES), rel_oid_t(CatalogTableOid::PG_VARLEN));
-            databases_index_datoid = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_DATABASE_DATOID));
-            databases_index_datname = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_DATABASE_DATNAME));
+            // databases_index_datoid = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_DATABASE_DATOID));
+            // databases_index_datname = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_DATABASE_DATNAME));
+            // TODO fix index
         }
 
         ~Catalog()
