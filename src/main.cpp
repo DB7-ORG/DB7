@@ -342,7 +342,7 @@ void prep_keys(std::vector<access::DataChunk *> &strs, u32 n)
         auto chunk = layout.CreateDataChunk();
         for (int j = 0; j < int(types.size()); j++)
         {
-            char num[8];
+            char num[11];
             std::snprintf(num, sizeof(num), "%05u", i); // zero-padded: sorts correctly
             const std::string s = "k⎞" + std::string(num);
             db7::storage::VarlenEntry entry;
@@ -432,7 +432,7 @@ int main()
         {
             auto res = btree.Insert(strs[i], 1000 + i);
             DB7_ASSERT(res.success, "Failed to insert");
-            auto res_vec = access::VectorValues<u64>();
+            auto res_vec = shared::VectorValues<u64>();
             auto v = btree.Get(strs[i], res_vec);
             DB7_ASSERT(v.success, "all keys present after concurrent insert");
             DB7_ASSERT(std::ranges::find(res_vec.vec, 1000 + i) != res_vec.vec.end(),
@@ -448,7 +448,7 @@ int main()
             {
                 auto res = btree.Insert(strs[i], 1000 + i);
                 DB7_ASSERT(res.success, "Failed to insert");
-                auto res_vec = access::VectorValues<u64>();
+                auto res_vec = shared::VectorValues<u64>();
                 auto v = btree.Get(strs[i], res_vec);
                 DB7_ASSERT(v.success, "all keys present after concurrent insert");
                 DB7_ASSERT(std::ranges::find(res_vec.vec, 1000 + i) != res_vec.vec.end(),

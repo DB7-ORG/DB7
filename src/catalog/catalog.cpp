@@ -29,7 +29,7 @@ namespace db7::catalog
         DatabaseCatalog *dbc = Builder::CreateDatabaseCatalog(buffer_pool_, disk_mng_);
         databases_map_[oid] = dbc;
 
-        CreateDatabaseEntry(txn, name, dbc);
+        CreateDatabaseEntry(txn, name, dbc); // TODO check return
 
         // TODO register abort action in transaction ctx
 
@@ -42,27 +42,23 @@ namespace db7::catalog
     {
         db_oid_t oid = dbc->GetDbOid();
 
-        // TODO figure out what to do w varlen
-        storage::VarlenEntry entry;
-        entry.Set(name);
-
         access::DataChunk *chunk = data_chunk_layout_.CreateDataChunk();
-        auto iter = chunk->InitIterator();
-        iter.PushBack(oid);
-        iter.PushBack(entry);
+
+        access::DataChunkBuilder::BuildDatabaseChunk(chunk, oid, name);
+
         access::TupleId tup = databases_->Insert(txn, chunk);
 
-        // TODO fix this
-        // TODO fix index
-        // byte *buf = new byte[name.size() * 16];
-        // u16 len = access::KeyNormEncoder::Encode(buf, name, false, false, false);
-        // auto k = access::Key{(u16)name.size(), name.data(), len, buf};
-        // databases_index_datname->Insert(k, tup.value); // TODO validate no duplicate error
+        auto res_name = databases_index_datname->Insert(chunk, tup.value);
+        if (!res_name.success)
+        {
+            return false;
+        }
 
-        // byte *buf2 = new byte[sizeof(db_oid_t) * 4];
-        // u32 len2 = access::KeyNormEncoder::Encode(buf2, oid, false, false, false);
-        // auto k2 = access::Key{(u16)sizeof(db_oid_t), reinterpret_cast<byte *>(&oid), (u16)len2, buf2};
-        // databases_index_datoid->Insert(k2, tup.value);
+        auto res_oid = databases_index_datoid->Insert(chunk, tup.value);
+        if (!res_oid.success)
+        {
+            return false;
+        }
 
         return true;
     }
@@ -88,39 +84,48 @@ namespace db7::catalog
 
     bool Catalog::DeleteDatabaseEntry(transaction::TransactionContext *txn, db_oid_t oid)
     {
-        // byte *buf = new byte[sizeof(db_oid_t) * 4];
-        // u32 len = access::KeyNormEncoder::Encode(buf, oid, false, false, false);
-        // auto k = access::Key{(u16)sizeof(db_oid_t), reinterpret_cast<byte *>(&oid), (u16)len, buf};     // TODO fix index
-        // auto k = access::Key{};
-        // auto result = databases_index_datoid->Get(k);
-        // if (!result.success)
-        // {
-        //     return false;
-        // }
-        // access::TupleId res{.value = result.value};
-        // u32 idx = res.index;
-        // u32 pid = res.pid;
+        auto chunk = data_chunk_layout_.CreateDataChunk();
 
-        // auto chunk = data_chunk_layout_.CreateDataChunk();
+        access::DataChunkBuilder::BuildDatabaseChunk(chunk, oid, {});
+
+        shared::VectorValues<u64> results;
+        auto result = databases_index_datoid->Get(chunk, results);
+        if (!result.success)
+        {
+            return false;
+        }
+
+        u64 latest_tid;
+        for (size_t i = 0; i < results.Size(); i++)
+        { // TODO fix index
+            if (!txn->ValidateVersion())
+            {
+                return false;
+            }
+            latest_tid = results[0];
+        }
+
+        access::TupleId res = {latest_tid};
         // if (!databases_->Select(txn, res.index, res.pid, chunk))
         // {
         //     return false;
         // }
-        // auto name = *reinterpret_cast<storage::VarlenEntry *>(
-        //     chunk->Get(catalog::col_oid_t(CatalogColumnOid::DATNAME))); // TODO get by index is better
-        // (void)name;
 
-        // if (!databases_->Delete(txn, idx, pid))
+        if (!databases_->Delete(txn, res.index, res.pid))
+        {
+            return false;
+        }
+
+        // // TODO this should be GC-ed
+        // auto res_oid = databases_index_datoid->Delete(chunk, res.value);
+        // if (!res_oid.success)
         // {
         //     return false;
         // }
 
-        // if (!databases_index_datoid->Delete(txn, oid))
-        // {
-        //     return false;
-        // }
-
-        // if (!databases_index_datname->Delete(txn, name))
+        // // TODO this should be GC-ed
+        // auto res_name = databases_index_datname->Delete(chunk, res.value);
+        // if (!res_name.success)
         // {
         //     return false;
         // }
@@ -128,28 +133,36 @@ namespace db7::catalog
         return true;
     }
 
-    bool Catalog::UpdateDatabaseName(transaction::TransactionContext *txn, db_oid_t oid, std::span<char> name)
+    bool Catalog::UpdateDatabaseName(transaction::TransactionContext *txn, db_oid_t oid, std::span<byte> name)
     {
-        // byte *buf = new byte[sizeof(db_oid_t) * 16];
-        // u32 len = access::KeyNormEncoder::Encode(buf, oid, false, false, false);
-        // auto k = access::Key{(u16)sizeof(db_oid_t), reinterpret_cast<byte *>(&oid), (u16)len, buf};     // TODO fix index
-        // auto k = access::Key{};
-        // auto result = databases_index_datoid->Get(k);
-        // if (!result.success)
-        // {
-        //     return false;
-        // }
-        // access::TupleId res{.value = result.value};
-        // u32 idx = res.index;
+        access::DataChunk *chunk = data_chunk_layout_.CreateDataChunk();
 
-        // storage::VarlenEntry entry;
-        // entry.Set(name);
+        access::DataChunkBuilder::BuildDatabaseChunk(chunk, oid, name);
 
-        // access::DataChunk *chunk = data_chunk_layout_.CreateDataChunk();
-        // auto iter = chunk->InitIterator();
-        // iter.PushBack(oid);
-        // iter.PushBack(entry);
-        // return databases_->Update(txn, idx, chunk);
+        shared::VectorValues<u64> results;
+        auto result = databases_index_datoid->Get(chunk, results);
+        if (!result.success)
+        {
+            return false;
+        }
+
+        u64 latest_tid;
+        for (size_t i = 0; i < results.Size(); i++)
+        { // TODO fix index
+            if (!txn->ValidateVersion())
+            {
+                return false;
+            }
+            latest_tid = results[0];
+        }
+
+        access::TupleId res = {latest_tid};
+
+        databases_->Delete(txn, res.index, res.pid);
+
+        databases_->Insert(txn, chunk);
+
+        return true;
     }
 
     void Catalog::Select(transaction::TransactionContext *txn)

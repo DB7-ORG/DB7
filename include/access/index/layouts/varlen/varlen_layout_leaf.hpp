@@ -5,6 +5,7 @@
 #include "access/index/layouts/varlen/varlen_layout_models.hpp"
 #include "access/key_encoder.hpp"
 #include "shared/byte_utils.hpp"
+#include "shared/models/vector_result.hpp"
 
 #include <limits>
 #include <algorithm>
@@ -31,15 +32,6 @@ namespace db7::access
             std::memcpy(&v, data + len - sizeof(R), sizeof(v));
             return shared::ByteUtil::ByteSwapIfLittleEndian(v);
         }
-    };
-
-    template <typename ValTyp>
-    struct VectorValues
-    {
-        std::vector<ValTyp> vec;
-        bool proceed;
-
-        VectorValues() = default;
     };
 
     template <typename ValTyp>
@@ -250,7 +242,7 @@ namespace db7::access
 
         BtreeVarlenLayoutLeaf() {}
 
-        ResultObj<void> Get(byte *data, const u16 count, const Key key, VectorValues<ValTyp> &results)
+        ResultObj<void> Get(byte *data, const u16 count, const Key key, shared::VectorValues<ValTyp> &results)
         {
             DB7_ASSERT(key.data != nullptr, "invalid key");
             DB7_ASSERT(key.len != 0, "invalid key");

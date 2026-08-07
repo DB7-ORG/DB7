@@ -30,24 +30,23 @@ namespace db7::catalog
 
     namespace_oid_t DatabaseCatalog::CreateNamespaceEntry(transaction::TransactionContext *txn, namespace_oid_t oid, const std::span<byte> name)
     {
-        storage::VarlenEntry entry;
-        entry.Set(name);
-
         access::DataChunk *chunk = namespace_data_chunk_layout_->CreateDataChunk();
-        chunk->Write(catalog::col_oid_t(CatalogColumnOid::NSPOID), oid);
-        chunk->Write(catalog::col_oid_t(CatalogColumnOid::NSPNAME), entry);
+
+        access::DataChunkBuilder::BuildNamespaceChunk(chunk, oid, name);
+
         access::TupleId tup = namespaces_->Insert(txn, chunk);
 
-        // TODO fix index
-        // byte *buf = new byte[name.size() * 16];
-        // u16 len = access::KeyNormEncoder::Encode(buf, name, false, false, false);
-        // auto k = access::Key{(u16)name.size(), name.data(), len, buf};
-        // namespaces_index_nspname_->Insert(k, tup.value);
+        auto res_name = namespaces_index_nspname_->Insert(chunk, tup.value);
+        if (!res_name.success)
+        {
+            return 0; // TODO fix index return proper result
+        }
 
-        // byte *buf2 = new byte[sizeof(namespace_oid_t) * 16];
-        // u16 len2 = access::KeyNormEncoder::Encode(buf2, oid, false, false, false);
-        // auto k2 = access::Key{(u16)sizeof(namespace_oid_t), reinterpret_cast<byte *>(&oid), len2, buf2};
-        // namespaces_index_nspoid_->Insert(k2, tup.value);
+        auto res_oid = namespaces_index_nspoid_->Insert(chunk, tup.value);
+        if (!res_oid.success)
+        {
+            return 0;
+        }
 
         return oid;
     }

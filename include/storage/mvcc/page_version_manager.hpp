@@ -46,5 +46,10 @@ namespace db7::storage
             table_[id] = result;
             return result;
         }
+
+        u64 ValidateVersions()
+        { // TODO fix index
+            return 1;
+        }
     };
 }

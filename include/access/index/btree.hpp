@@ -395,7 +395,7 @@ namespace db7::access
             return ResultObj<void>::Ok();
         }
 
-        ResultObj<void> InternalGet(storage::Page *page, Key key, VectorValues<ValTyp> &results)
+        ResultObj<void> InternalGet(storage::Page *page, Key key, shared::VectorValues<ValTyp> &results)
         {
             DB7_ASSERT(page->GetPageId() != std::numeric_limits<page_id>::max(), "invalid pid");
             auto *data = page->GetData();
@@ -421,7 +421,7 @@ namespace db7::access
                 }
                 else
                 {
-                    auto tmp_results = VectorValues<ValTyp>();
+                    auto tmp_results = shared::VectorValues<ValTyp>();
                     auto result = layout_leaf_.Get(data, BaseLyHeader::GetCount(data), key, tmp_results);
 
                     if (!shared::Unlock<LM>(page))
@@ -522,7 +522,7 @@ namespace db7::access
             return DeleteInternal(page, key);
         }
 
-        ResultObj<void> Get(DataChunk *chunk, VectorValues<ValTyp> &results)
+        ResultObj<void> Get(DataChunk *chunk, shared::VectorValues<ValTyp> &results)
         {
             auto ptr = std::make_unique_for_overwrite<byte[]>(key_buffer_size_);
             Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, 0, attrs_);

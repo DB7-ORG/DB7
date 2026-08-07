@@ -53,5 +53,4 @@ namespace db7::access
             DB7_UNREACHABLE();
         }
     }
-
 }

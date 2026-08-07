@@ -34,6 +34,10 @@ namespace db7::access
             u32 pid;
         };
         u64 value;
+
+        TupleId(u64 val) : value(val) {}
+
+        TupleId(u32 idx, u32 pagid) : index(idx), pid(pagid) {}
     };
     /**
      * Table abstraction

@@ -3,6 +3,7 @@
 #include "access/access_common.hpp"
 #include "catalog/catalog_common.hpp"
 #include "access/schema.hpp"
+#include "storage/varlen_entry.hpp"
 
 #include <vector>
 #include <span>
@@ -178,4 +179,24 @@ namespace db7::access
         void Print(Schema *schema);
     };
 
+    class DataChunkBuilder
+    {
+    public:
+        static void BuildDatabaseChunk(DataChunk *chunk, catalog::db_oid_t oid, const std::span<byte> name)
+        {
+            auto iter = chunk->InitIterator();
+            iter.PushBack(oid);
+            storage::VarlenEntry entry;
+            entry.Set(name);
+            iter.PushBack(entry);
+        }
+
+        static void BuildNamespaceChunk(DataChunk *chunk, catalog::namespace_oid_t oid, const std::span<byte> name)
+        {
+            chunk->Write(catalog::CatalogColumnOid::NSPOID, oid);
+            storage::VarlenEntry entry;
+            entry.Set(name);
+            chunk->Write(catalog::CatalogColumnOid::NSPNAME, entry);
+        }
+    };
 }

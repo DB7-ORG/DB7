@@ -108,5 +108,10 @@ namespace db7::transaction
                                                                      start_time_, initializer, t_id, p_id, idx);
             return reinterpret_cast<storage::RedoRecord *>(log_record->GetDelta());
         }
+
+        u64 ValidateVersion()
+        {
+            return version_manager_->ValidateVersions();
+        }
     };
 }

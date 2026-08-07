@@ -77,10 +77,10 @@ namespace db7::catalog
                   {CatalogColumnOid::DATOID, CatalogColumnOid::DATNAME},
                   {SizeOf(access::type_id::INTEGER), SizeOf(access::type_id::VARCHAR)})
         {
-            databases_ = new access::Table(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(), rel_oid_t(CatalogTableOid::PG_DATABASES), rel_oid_t(CatalogTableOid::PG_VARLEN));
-            // databases_index_datoid = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_DATABASE_DATOID));
-            // databases_index_datname = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_DATABASE_DATNAME));
-            // TODO fix index
+            using enum CatalogTableOid;
+            databases_ = new access::Table(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(), PG_DATABASES, PG_VARLEN);
+            databases_index_datoid = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_DATABASE_DATOID, access::AttrsFor(PG_INDEX_DATABASE_DATOID));
+            databases_index_datname = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_DATABASE_DATNAME, access::AttrsFor(PG_INDEX_DATABASE_DATNAME));
         }
 
         ~Catalog()
@@ -110,7 +110,7 @@ namespace db7::catalog
          */
         bool DeleteDatabase(transaction::TransactionContext *txn, db_oid_t oid);
 
-        bool UpdateDatabaseName(transaction::TransactionContext *txn, db_oid_t oid, std::span<char> name);
+        bool UpdateDatabaseName(transaction::TransactionContext *txn, db_oid_t oid, std::span<byte> name);
 
         void Select(transaction::TransactionContext *txn);
     };

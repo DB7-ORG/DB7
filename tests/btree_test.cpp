@@ -3,6 +3,7 @@
 #include "access/index/btree.hpp"
 #include "storage/buffer_pool/buffer_pool.hpp"
 #include "concurrency.hpp"
+#include "shared/models/vector_result.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -40,7 +41,7 @@ namespace
 
         inline bool Get(Tree &tree, DataChunk *key, std::vector<Rid> &out)
         {
-            VectorValues<Rid> res;
+            shared::VectorValues<Rid> res;
             const bool ok = tree.Get(key, res).success;
             out.assign(res.vec.begin(), res.vec.end());
             return ok;

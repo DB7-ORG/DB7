@@ -164,50 +164,51 @@ namespace db7::catalog
 
         DatabaseCatalog *dbc = new DatabaseCatalog(1); // TODO add index
 
+        using enum CatalogTableOid;
+
         // Tables
-        dbc->namespaces_ = new access::Table(buffer_pool, disk_mng, CreateNamespaceSchema(), rel_oid_t(CatalogTableOid::PG_NAMESPACE), rel_oid_t(CatalogTableOid::PG_VARLEN));
-        dbc->classes_ = new access::Table(buffer_pool, disk_mng, CreateClassSchema(), rel_oid_t(CatalogTableOid::PG_CLASS), rel_oid_t(CatalogTableOid::PG_VARLEN));
-        dbc->attributes_ = new access::Table(buffer_pool, disk_mng, CreateAttributeSchema(), rel_oid_t(CatalogTableOid::PG_ATTRIBUTE), rel_oid_t(CatalogTableOid::PG_VARLEN));
-        dbc->types_ = new access::Table(buffer_pool, disk_mng, CreateTypeSchema(), rel_oid_t(CatalogTableOid::PG_TYPE), rel_oid_t(CatalogTableOid::PG_VARLEN));
-        dbc->constraints_ = new access::Table(buffer_pool, disk_mng, CreateConstraintSchema(), rel_oid_t(CatalogTableOid::PG_CONSTRAINT), rel_oid_t(CatalogTableOid::PG_VARLEN));
-        dbc->languages_ = new access::Table(buffer_pool, disk_mng, CreateLanguageSchema(), rel_oid_t(CatalogTableOid::PG_LANGUAGE), rel_oid_t(CatalogTableOid::PG_VARLEN));
-        dbc->procs_ = new access::Table(buffer_pool, disk_mng, CreateProcSchema(), rel_oid_t(CatalogTableOid::PG_PROC), rel_oid_t(CatalogTableOid::PG_VARLEN));
+        dbc->namespaces_ = new access::Table(buffer_pool, disk_mng, CreateNamespaceSchema(), PG_NAMESPACE, PG_VARLEN);
+        dbc->classes_ = new access::Table(buffer_pool, disk_mng, CreateClassSchema(), PG_CLASS, PG_VARLEN);
+        dbc->attributes_ = new access::Table(buffer_pool, disk_mng, CreateAttributeSchema(), PG_ATTRIBUTE, PG_VARLEN);
+        dbc->types_ = new access::Table(buffer_pool, disk_mng, CreateTypeSchema(), PG_TYPE, PG_VARLEN);
+        dbc->constraints_ = new access::Table(buffer_pool, disk_mng, CreateConstraintSchema(), PG_CONSTRAINT, PG_VARLEN);
+        dbc->languages_ = new access::Table(buffer_pool, disk_mng, CreateLanguageSchema(), PG_LANGUAGE, PG_VARLEN);
+        dbc->procs_ = new access::Table(buffer_pool, disk_mng, CreateProcSchema(), PG_PROC, PG_VARLEN);
 
-        // TODO fix index
-        //  // Indexes on pg_namespace
-        //  dbc->namespaces_index_nspoid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_NAMESPACE_NSPOID));
-        //  dbc->namespaces_index_nspname_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_NAMESPACE_NSPNAME));
+        // Indexes on pg_namespace
+        dbc->namespaces_index_nspoid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_NAMESPACE_NSPOID, access::AttrsFor(PG_INDEX_NAMESPACE_NSPOID));
+        dbc->namespaces_index_nspname_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_NAMESPACE_NSPNAME, access::AttrsFor(PG_INDEX_NAMESPACE_NSPNAME));
 
-        // // Indexes on pg_class
-        // dbc->classes_index_reloid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_CLASS_RELOID));
-        // dbc->classes_index_relname_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_CLASS_RELNAME));
-        // dbc->classes_index_relnamespace_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_CLASS_RELNAMESPACE));
+        // Indexes on pg_class
+        dbc->classes_index_reloid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_CLASS_RELOID, access::AttrsFor(PG_INDEX_CLASS_RELOID));
+        dbc->classes_index_relname_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_CLASS_RELNAME, access::AttrsFor(PG_INDEX_CLASS_RELNAME));
+        dbc->classes_index_relnamespace_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_CLASS_RELNAMESPACE, access::AttrsFor(PG_INDEX_CLASS_RELNAMESPACE));
 
-        // // Indexes on pg_attribute
-        // dbc->attributes_index_attnum_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_ATTRIBUTE_ATTNUM));
-        // dbc->attributes_index_attrelid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_ATTRIBUTE_ATTRELID));
-        // dbc->attributes_index_attname_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_ATTRIBUTE_ATTNAME));
+        // Indexes on pg_attribute
+        dbc->attributes_index_attnum_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_ATTRIBUTE_ATTNUM, access::AttrsFor(PG_INDEX_ATTRIBUTE_ATTNUM));
+        dbc->attributes_index_attrelid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_ATTRIBUTE_ATTRELID, access::AttrsFor(PG_INDEX_ATTRIBUTE_ATTRELID));
+        dbc->attributes_index_attname_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_ATTRIBUTE_ATTNAME, access::AttrsFor(PG_INDEX_ATTRIBUTE_ATTNAME));
 
-        // // Indexes on pg_type
-        // dbc->types_index_typoid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_TYPE_TYPOID));
-        // dbc->types_index_typname_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_TYPE_TYPNAME));
-        // dbc->types_index_typnamespace_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_TYPE_TYPNAMESPACE));
+        // Indexes on pg_type
+        dbc->types_index_typoid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_TYPE_TYPOID, access::AttrsFor(PG_INDEX_TYPE_TYPOID));
+        dbc->types_index_typname_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_TYPE_TYPNAME, access::AttrsFor(PG_INDEX_TYPE_TYPNAME));
+        dbc->types_index_typnamespace_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_TYPE_TYPNAMESPACE, access::AttrsFor(PG_INDEX_TYPE_TYPNAMESPACE));
 
-        // // Indexes on pg_constraint
-        // dbc->constraints_index_conoid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_CONSTRAINT_CONOID));
-        // dbc->constraints_index_conname_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_CONSTRAINT_CONNAME));
-        // dbc->constraints_index_connamespace_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_CONSTRAINT_CONNAMESPACE));
-        // dbc->constraints_index_conrelid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_CONSTRAINT_CONRELID));
-        // dbc->constraints_index_conindid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_CONSTRAINT_CONINDID));
-        // dbc->constraints_index_confrelid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_CONSTRAINT_CONFRELID));
+        // Indexes on pg_constraint
+        dbc->constraints_index_conoid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_CONSTRAINT_CONOID, access::AttrsFor(PG_INDEX_CONSTRAINT_CONOID));
+        dbc->constraints_index_conname_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_CONSTRAINT_CONNAME, access::AttrsFor(PG_INDEX_CONSTRAINT_CONNAME));
+        dbc->constraints_index_connamespace_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_CONSTRAINT_CONNAMESPACE, access::AttrsFor(PG_INDEX_CONSTRAINT_CONNAMESPACE));
+        dbc->constraints_index_conrelid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_CONSTRAINT_CONRELID, access::AttrsFor(PG_INDEX_CONSTRAINT_CONRELID));
+        dbc->constraints_index_conindid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_CONSTRAINT_CONINDID, access::AttrsFor(PG_INDEX_CONSTRAINT_CONINDID));
+        dbc->constraints_index_confrelid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_CONSTRAINT_CONFRELID, access::AttrsFor(PG_INDEX_CONSTRAINT_CONFRELID));
 
-        // // Indexes on pg_language
-        // dbc->languages_index_lanoid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_LANGUAGE_LANOID));
-        // dbc->languages_index_lanname_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_LANGUAGE_LANNAME));
+        // Indexes on pg_language
+        dbc->languages_index_lanoid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_LANGUAGE_LANOID, access::AttrsFor(PG_INDEX_LANGUAGE_LANOID));
+        dbc->languages_index_lanname_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_LANGUAGE_LANNAME, access::AttrsFor(PG_INDEX_LANGUAGE_LANNAME));
 
-        // // Indexes on pg_proc
-        // dbc->procs_index_prooid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_PROC_PROOID));
-        // dbc->procs_index_proname_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, rel_oid_t(CatalogTableOid::PG_INDEX_PROC_PRONAME));
+        // Indexes on pg_proc
+        dbc->procs_index_prooid_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_PROC_PROOID, access::AttrsFor(PG_INDEX_PROC_PROOID));
+        dbc->procs_index_proname_ = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_PROC_PRONAME, access::AttrsFor(PG_INDEX_PROC_PRONAME));
 
         dbc->namespace_data_chunk_layout_ = new access::DataChunkLayout(*dbc->namespaces_->GetSchema());
 
