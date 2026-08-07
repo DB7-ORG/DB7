@@ -26,8 +26,9 @@ namespace db7::access
         BtreeVarlenLayoutIntermediate<page_id> layout_inter_;
         BtreeVarlenLayoutLeaf<ValTyp> layout_leaf_;
         std::vector<TypeSize> attrs_;
+        u16 key_buffer_size_;
 
-        static constexpr size_t ALLOC_CONST = 16;
+        static constexpr size_t ALLOC_CONST = 3;
 
         template <shared::LockMode Mode>
         storage::Page *GetNode(page_id id)
@@ -386,6 +387,8 @@ namespace db7::access
                             DropToLevel(sentinel, level + 1);
                         }
                     }
+
+                    key = sentinel;
                 }
             }
 
@@ -485,6 +488,8 @@ namespace db7::access
                 throw IO_EXCEPTION("IO exception could not open file");
             }
 
+            key_buffer_size_ = KeyNormEncoder::MaxKeyLen(attrs_);
+
             storage::Page *page = ReserveNode();
 
             layout_leaf_.InitHeader(page->GetData(), 0, 0, page->GetPageId());
@@ -497,7 +502,7 @@ namespace db7::access
 
         ResultObj<void> Insert(DataChunk *chunk, ValTyp value)
         {
-            auto ptr = std::make_unique<byte[]>(chunk->GetSize() * ALLOC_CONST); // TODO fix index
+            auto ptr = std::make_unique_for_overwrite<byte[]>(key_buffer_size_); // TODO if i ever get larger strings ill need to change this
             Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, value, attrs_);
             shared::TlState::Clear();
             storage::Page *page = DropToLevel(key);
@@ -510,7 +515,7 @@ namespace db7::access
          */
         ResultObj<void> Delete(DataChunk *chunk, ValTyp value)
         {
-            auto ptr = std::make_unique<byte[]>(chunk->GetSize() * ALLOC_CONST);
+            auto ptr = std::make_unique_for_overwrite<byte[]>(key_buffer_size_);
             Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, value, attrs_);
             shared::TlState::Clear();
             storage::Page *page = DropToLevel(key);
@@ -519,7 +524,7 @@ namespace db7::access
 
         ResultObj<void> Get(DataChunk *chunk, VectorValues<ValTyp> &results)
         {
-            auto ptr = std::make_unique<byte[]>(chunk->GetSize() * ALLOC_CONST);
+            auto ptr = std::make_unique_for_overwrite<byte[]>(key_buffer_size_);
             Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, 0, attrs_);
             shared::TlState::Clear();
             auto *page = DropToLevel(key);

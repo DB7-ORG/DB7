@@ -20,5 +20,11 @@ namespace db7::storage
             auto [it, inserted] = page_ids_.try_emplace(tbl_id, 1);
             return it->second++;
         }
+
+        static void Reset()
+        {
+            std::lock_guard lock(mtx_);
+            page_ids_.clear();
+        }
     };
 }

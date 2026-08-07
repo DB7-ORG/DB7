@@ -21,36 +21,43 @@ namespace db7::access
         bool is_case_sensitive;
     };
 
+    /**
+     * understand these
+     * UTF8PROC_STABLE
+     * UTF8PROC_COMPAT
+     * UTF8PROC_IGNORE
+     * UTF8PROC_REJECTNA
+     * UTF8PROC_NLF2LS
+     */
+
+    /** Return a result with decomposed characters. */
+    // UTF8PROC_COMPOSE   = (1<<3),
+    /** Return a result with decomposed characters. */
+    // UTF8PROC_DECOMPOSE = (1<<4),
+
     struct KeyNormEncoder
     {
     private:
         static u32 EncodeStringNormalized(byte *buf, std::span<const byte> data, bool is_case_sensitive)
         {
-            utf8proc_option_t opts = static_cast<utf8proc_option_t>(
-                UTF8PROC_DECOMPOSE | // NFD
-                UTF8PROC_STABLE      //| UTF8PROC_NULLTERM // canonical ordering
-            );
+            auto opts = static_cast<utf8proc_option_t>(
+                UTF8PROC_DECOMPOSE | UTF8PROC_STABLE |
+                (is_case_sensitive ? 0 : UTF8PROC_CASEFOLD));
 
-            if (is_case_sensitive)
-                opts = static_cast<utf8proc_option_t>(opts | UTF8PROC_CASEFOLD);
+            auto *cp = reinterpret_cast<utf8proc_int32_t *>(buf);
 
-            utf8proc_uint8_t *output = nullptr;
-            utf8proc_ssize_t out_len = utf8proc_map( // TODO this allocates
+            utf8proc_ssize_t n = utf8proc_decompose(
                 reinterpret_cast<const utf8proc_uint8_t *>(data.data()),
                 static_cast<utf8proc_ssize_t>(data.size()),
-                &output,
-                opts);
+                cp, std::numeric_limits<utf8proc_ssize_t>::max(), opts);
+            if (n < 0)
+                throw std::runtime_error(std::string("decompose: ") + utf8proc_errmsg(n));
 
-            if (out_len < 0 || output == nullptr)
-            {
-                throw std::runtime_error(std::string("utf8proc_map failed: ") + utf8proc_errmsg(out_len));
-            }
+            n = utf8proc_reencode(cp, n, opts);
+            if (n < 0)
+                throw std::runtime_error(std::string("reencode: ") + utf8proc_errmsg(n));
 
-            std::memcpy(buf, output, static_cast<size_t>(out_len));
-            buf[out_len] = 0x00;
-            free(output); // TODO this allocates
-
-            return static_cast<u32>(out_len + 1);
+            return static_cast<u32>(n + 1);
         }
 
     public:
@@ -118,6 +125,46 @@ namespace db7::access
             return size;
         }
 
+        static u16 MaxEncodedSize(const TypeSize &t, KeySpecs specs)
+        {
+            u16 n = specs.is_nullable ? 1 : 0;
+
+            switch (t.type)
+            {
+            case type_id::BOOLEAN:
+            case type_id::TINYINT:
+            case type_id::UTINYINT:
+                return n + 1;
+            case type_id::SMALLINT:
+            case type_id::USMALLINT:
+                return n + 2;
+            case type_id::INTEGER:
+            case type_id::UINTEGER:
+                return n + 4;
+            case type_id::BIGINT:
+            case type_id::UBIGINT:
+            case type_id::DOUBLE:
+                return n + 8;
+
+            case type_id::VARCHAR:
+            case type_id::VARBINARY:
+                // NFD ≤ 3x codepoints, full casefold ≤ 3x; 8x input bytes is a safe
+                // ceiling with margin. +1 for the 0x00 terminator.
+                return n + 4 * (12 + 1);
+
+            default:
+                DB7_UNREACHABLE();
+            }
+        }
+
+        static u16 MaxKeyLen(std::span<const TypeSize> types)
+        {
+            u16 n = 0;
+            for (const auto &t : types)
+                n += MaxEncodedSize(t, {false, false});
+            return n + sizeof(u64); // the tid suffix
+        }
+
         static u32 SwitchType(byte *buf, void *ptr, bool is_data_null, type_id type, KeySpecs specs)
         {
             switch (type)
@@ -174,6 +221,7 @@ namespace db7::access
             cur += EncodeUnsigned(cur, key_value);
 
             // NOTE: i removed original value since it only makes sense for index only scans which are rare
+            // might add it later if needed fr now keep it simple
             // for (size_t i = 0; i < types.size(); i++)
             // {
             //     memcpy(cur, chunk->Get(types[i].col_id), types[i].size);

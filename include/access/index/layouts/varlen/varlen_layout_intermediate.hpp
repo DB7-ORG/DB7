@@ -224,7 +224,7 @@ namespace db7::access
         void Insert(byte *data, Key key, ValTyp value)
         {
             DB7_ASSERT(key.data != nullptr, "invalid key");
-            DB7_ASSERT(key.len < DB7_PAGE_SIZE / 10, "should be checked in the binder");
+            DB7_ASSERT(key.len < DB7_MAX_ROW_SIZE, "should be checked in the binder");
             DB7_ASSERT(value != 0, "Can not insert 0 which is invalid page");
 
             u16 tuple_heap_offset = AppendHeap(data, key, value);
@@ -257,7 +257,7 @@ namespace db7::access
             const auto max_val = SlotValInter<ValTyp>(data, header->max_val);
             const auto main_val = SlotValInter<ValTyp>(key);
             int cmp = CmpFull(max_val, main_val);
-            // DB7_ASSERT(cmp != 0, "Can not have value to be 0 when inserting the tree");
+            // DB7_ASSERT(cmp > 0, "For single thread there should be no go right");
             return cmp <= 0;
         }
 

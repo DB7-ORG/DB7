@@ -93,8 +93,10 @@ namespace db7::access
         inline int CmpPrefix(SlotValLeaf<ValTyp> slot_val, SlotValLeaf<ValTyp> main_val)
         {
             /* Find min value between 2 payloads */
-            DB7_ASSERT(main_val.len >= sizeof(ValTyp) && slot_val.len >= sizeof(ValTyp), "key missing tid");
+            // DB7_ASSERT(main_val.len >= sizeof(ValTyp) && slot_val.len >= sizeof(ValTyp), "key missing tid");
             u32 min_len = std::min(main_val.len, slot_val.len) - sizeof(ValTyp);
+            if (min_len >= DB7_MAX_ROW_SIZE)
+                return 1; // returns dummy value since there is a concurrent reader/writer
             /* Compare their values */
             int cmp = std::memcmp(slot_val.data, main_val.data, min_len);
             if (cmp != 0)
@@ -127,7 +129,10 @@ namespace db7::access
                 int mid = lo + (hi - lo) / 2;
                 auto slot_val = SlotValLeaf<ValTyp>(data, slots[mid]);
                 int res = CmpFull(slot_val, main_val);
-                DB7_ASSERT(res != 0, "Somehow there are identical entries in the tree. That means same tuple was inserted twice");
+                // NOTE: this war removed since im doing optimistic reading which with an active
+                // writer can produce any of the results but its fine since the thread will retry later
+                // DB7_ASSERT_FMT(res != 0, "duplicate (key,tid): mid={} count={} len={} tid={}",
+                //                mid, count, main_val.len, (unsigned long long)main_val.Result());
                 if (res < 0)
                     lo = mid + 1;
                 else
@@ -277,7 +282,7 @@ namespace db7::access
         {
             DB7_ASSERT(key.data != nullptr, "invalid key");
             DB7_ASSERT(key.len != 0, "invalid key");
-            DB7_ASSERT(key.len < DB7_PAGE_SIZE / 10, "should be checked in the binder");
+            DB7_ASSERT(key.len < DB7_MAX_ROW_SIZE, "should be checked in the binder");
 
             u16 tuple_heap_offset = AppendHeap(data, key);
 

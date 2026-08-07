@@ -27,6 +27,8 @@ namespace db7::storage
         {
             partitions_.Reserve(per_partition, i);
         }
+
+        FreeSpaceManagerIndex::Reset();
     }
 
     BufferPool::~BufferPool()
@@ -170,7 +172,7 @@ namespace db7::storage
     {
         u32 pid = FreeSpaceManagerIndex::Get(tbl_id);
         // TODO just temporary guard
-        DB7_ASSERT(pid < BUFFER_POOL_PAGE_NUM, "no more pages page");
+        DB7_ASSERT(pid < BUFFER_POOL_PAGE_NUM, "no more pages");
 
         auto id = PageIdentifier(tbl_id, pid);
         u32 partIdx = GetPartitionIdx(id);

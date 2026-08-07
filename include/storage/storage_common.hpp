@@ -3,6 +3,7 @@
 #include "common.hpp"
 
 #define DB7_PAGE_SIZE (1 << 13)
+#define DB7_MAX_ROW_SIZE DB7_PAGE_SIZE / 10
 #define BUFFER_POOL_PAGE_NUM 80000
 #define BUFFER_POOL_PARTITION_NUM 128
 #define IOURING_QUEUE_SIZE 512

@@ -329,46 +329,28 @@ using namespace db7;
 //     return u64(ts.tv_sec) * 1000000000ull + ts.tv_nsec;
 // }
 
+constexpr auto phys_type = access::type_id::VARCHAR;
+
 template <typename T>
-void prep_keys(std::vector<access::Key> &strs, u32 n)
+void prep_keys(std::vector<access::DataChunk *> &strs, u32 n)
 {
-    // if constexpr (std::is_same_v<T, Key>)
-    // {
-    //     for (u32 i = 0; i < n; i++)
-    //     {
-    //         std::string s = "kEY_ⅶ_⎞_Љ_۝_" + std::to_string(i + 1);
-    //         byte *buf = new byte[s.size() * 16];
-    //         byte *raw = new byte[s.size()]; // ← own copy of raw too
 
-    //         std::memcpy(raw, s.data(), s.size());
-
-    //         std::span sp((const byte *)s.data(), (u16)s.size());
-    //         u32 len = KeyNormEncoder::Encode(buf, sp, false, false, false);
-
-    //         strs[i].data = raw;
-    //         strs[i].len = (u16)s.size();
-    //         strs[i].encoded = buf;
-    //         strs[i].enc_len = (u16)(len);
-    //     }
-    // }
-    // else
-    // {
-    // auto layout = access::DataChunkLayout({1, 2}, {access::SizeOf(access::type_id::INTEGER), access::SizeOf(access::type_id::SMALLINT)});
-    // std::vector<access::TypeSize> types{{access::type_id::INTEGER}, {access::type_id::SMALLINT}};
-    // for (u64 i = 0; i < n; i++)
-    // {
-    //     byte *buf = new byte[sizeof(u64) * 16];
-    //     auto chunk = layout.CreateDataChunk();
-    //     for (int j = 0; j < types.size(); j++)
-    //     {
-    //         u32 a = u32(i);
-    //         u16 b = u16(i + 22);
-    //         std::memcpy(chunk->Access(0), &a, access::SizeOf(access::type_id::INTEGER));
-    //         std::memcpy(chunk->Access(1), &b, access::SizeOf(access::type_id::SMALLINT));
-    //     }
-    //     strs[i] = access::KeyNormEncoder::BuildKey(buf, *chunk, types);
-    // }
-    //}
+    auto layout = access::DataChunkLayout({1}, {access::SizeOf(phys_type)});
+    std::vector<access::TypeSize> types{{1, phys_type}};
+    for (int i = 0; i < int(n); i++)
+    {
+        auto chunk = layout.CreateDataChunk();
+        for (int j = 0; j < int(types.size()); j++)
+        {
+            char num[8];
+            std::snprintf(num, sizeof(num), "%05u", i); // zero-padded: sorts correctly
+            const std::string s = "k⎞" + std::string(num);
+            db7::storage::VarlenEntry entry;
+            entry.Set(std::span<const char>(s.data(), s.size()));
+            std::memcpy(chunk->Access(0), &entry, access::SizeOf(phys_type));
+        }
+        strs[i] = chunk;
+    }
 }
 
 template <typename Fn>
@@ -412,16 +394,10 @@ int main()
     u32 n = 500'000;
     u32 PREFILL = 0;
 
-    using typ = access::Key;
+    using typ = access::DataChunk *;
 
     auto T = default_threads();
 
-    // auto partition = [&](unsigned t, u32 &lo, u32 &hi)
-    // {
-    //     u32 per = (n + T - 1) / T;
-    //     lo = t * per;
-    //     hi = std::min<u32>(lo + per, n);
-    // };
     auto partition = [&](unsigned t, u32 &lo, u32 &hi)
     {
         u32 measured = n - PREFILL;
@@ -432,7 +408,6 @@ int main()
 
     db7::storage::DiskManagerAsync disk_mng_async(".data");
     disk_mng_async.CreateOpenFile(1, 3);
-    // disk_mng_async.TruncateFile(2, PAGES);
 
     db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
     disk_scheduler.Start();
@@ -446,12 +421,12 @@ int main()
     u64 sum_insert = 0;
     u64 sum_get = 0;
 
-    u64 iter = 4;
+    u64 iter = 40;
     for (u32 i = 0; i < iter; i++)
     {
         db7::storage::BufferPool buffer_pool(&disk_scheduler, &version_manager);
 
-        auto btree = db7::access::BTreeIndex<u64>(&buffer_pool, &disk_mng_async, 103);
+        auto btree = db7::access::BTreeIndex<u64>(&buffer_pool, &disk_mng_async, 103, {{1, phys_type}});
 
         for (u32 i = 0; i < PREFILL; i++)
         {
@@ -471,13 +446,13 @@ int main()
             partition(t, lo, hi);
             for (u32 i = lo; i < hi; i++)
             {
-                auto res =  btree.Insert(strs[i], 1000 + i);
+                auto res = btree.Insert(strs[i], 1000 + i);
                 DB7_ASSERT(res.success, "Failed to insert");
                 auto res_vec = access::VectorValues<u64>();
                 auto v = btree.Get(strs[i], res_vec);
                 DB7_ASSERT(v.success, "all keys present after concurrent insert");
                 DB7_ASSERT(std::ranges::find(res_vec.vec, 1000 + i) != res_vec.vec.end(),
-                       "value 1000+i present after concurrent insert");
+                        "value 1000+i present after concurrent insert");
             } });
         sum_insert += ins_ns;
 
