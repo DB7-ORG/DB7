@@ -47,9 +47,10 @@ namespace db7::storage
             return result;
         }
 
-        u64 ValidateVersions()
+        u64 ValidateVersion()
         { // TODO fix index
             return 1;
+            // return transaction::TransactionUtil::HasConflict(version_ptr->GetTimestamp(), txn->FinishTime(), txn->StartTime());
         }
     };
 }

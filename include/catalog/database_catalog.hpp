@@ -2,6 +2,7 @@
 
 #include "access/table.hpp"
 #include "access/index/btree.hpp"
+#include "shared/models/tuple_id.hpp"
 
 #include <vector>
 #include <atomic>
@@ -32,40 +33,40 @@ namespace db7::catalog
     public:
         // cached data
         access::Table *namespaces_;
-        access::BTreeIndex<u64> *namespaces_index_nspoid_;
-        access::BTreeIndex<u64> *namespaces_index_nspname_;
+        access::BTreeIndex<TupleId> *namespaces_index_nspoid_;
+        access::BTreeIndex<TupleId> *namespaces_index_nspname_;
         access::DataChunkLayout *namespace_data_chunk_layout_;
 
         access::Table *classes_;
-        access::BTreeIndex<u64> *classes_index_reloid_;
-        access::BTreeIndex<u64> *classes_index_relname_;
-        access::BTreeIndex<u64> *classes_index_relnamespace_;
+        access::BTreeIndex<TupleId> *classes_index_reloid_;
+        access::BTreeIndex<TupleId> *classes_index_relname_;
+        access::BTreeIndex<TupleId> *classes_index_relnamespace_;
 
         access::Table *attributes_;
-        access::BTreeIndex<u64> *attributes_index_attnum_;
-        access::BTreeIndex<u64> *attributes_index_attrelid_;
-        access::BTreeIndex<u64> *attributes_index_attname_;
+        access::BTreeIndex<TupleId> *attributes_index_attnum_;
+        access::BTreeIndex<TupleId> *attributes_index_attrelid_;
+        access::BTreeIndex<TupleId> *attributes_index_attname_;
 
         access::Table *types_;
-        access::BTreeIndex<u64> *types_index_typoid_;
-        access::BTreeIndex<u64> *types_index_typname_;
-        access::BTreeIndex<u64> *types_index_typnamespace_;
+        access::BTreeIndex<TupleId> *types_index_typoid_;
+        access::BTreeIndex<TupleId> *types_index_typname_;
+        access::BTreeIndex<TupleId> *types_index_typnamespace_;
 
         access::Table *constraints_;
-        access::BTreeIndex<u64> *constraints_index_conoid_;
-        access::BTreeIndex<u64> *constraints_index_conname_;
-        access::BTreeIndex<u64> *constraints_index_connamespace_;
-        access::BTreeIndex<u64> *constraints_index_conrelid_;
-        access::BTreeIndex<u64> *constraints_index_conindid_;
-        access::BTreeIndex<u64> *constraints_index_confrelid_;
+        access::BTreeIndex<TupleId> *constraints_index_conoid_;
+        access::BTreeIndex<TupleId> *constraints_index_conname_;
+        access::BTreeIndex<TupleId> *constraints_index_connamespace_;
+        access::BTreeIndex<TupleId> *constraints_index_conrelid_;
+        access::BTreeIndex<TupleId> *constraints_index_conindid_;
+        access::BTreeIndex<TupleId> *constraints_index_confrelid_;
 
         access::Table *languages_;
-        access::BTreeIndex<u64> *languages_index_lanoid_;
-        access::BTreeIndex<u64> *languages_index_lanname_;
+        access::BTreeIndex<TupleId> *languages_index_lanoid_;
+        access::BTreeIndex<TupleId> *languages_index_lanname_;
 
         access::Table *procs_;
-        access::BTreeIndex<u64> *procs_index_prooid_;
-        access::BTreeIndex<u64> *procs_index_proname_;
+        access::BTreeIndex<TupleId> *procs_index_prooid_;
+        access::BTreeIndex<TupleId> *procs_index_proname_;
 
         DatabaseCatalog(catalog::db_oid_t db_id) : db_id_(db_id) {}
 

@@ -13,6 +13,7 @@
 #include "storage/layouts/pax.hpp"
 #include "transaction/transaction_context.hpp"
 #include "storage/mvcc/page_version_manager.hpp"
+#include "shared/models/tuple_id.hpp"
 
 #include <unordered_map>
 #include <memory>
@@ -26,19 +27,6 @@
  */
 namespace db7::access
 {
-    union TupleId
-    {
-        struct
-        {
-            u32 index;
-            u32 pid;
-        };
-        u64 value;
-
-        TupleId(u64 val) : value(val) {}
-
-        TupleId(u32 idx, u32 pagid) : index(idx), pid(pagid) {}
-    };
     /**
      * Table abstraction
      */

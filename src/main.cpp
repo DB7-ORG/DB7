@@ -426,16 +426,16 @@ int main()
     {
         db7::storage::BufferPool buffer_pool(&disk_scheduler, &version_manager);
 
-        auto btree = db7::access::BTreeIndex<u64>(&buffer_pool, &disk_mng_async, 103, {{1, phys_type}});
+        auto btree = db7::access::BTreeIndex<TupleId>(&buffer_pool, &disk_mng_async, 103, {{1, phys_type}});
 
         for (u32 i = 0; i < PREFILL; i++)
         {
             auto res = btree.Insert(strs[i], 1000 + i);
             DB7_ASSERT(res.success, "Failed to insert");
-            auto res_vec = shared::VectorValues<u64>();
+            auto res_vec = shared::VectorValues<TupleId>();
             auto v = btree.Get(strs[i], res_vec);
             DB7_ASSERT(v.success, "all keys present after concurrent insert");
-            DB7_ASSERT(std::ranges::find(res_vec.vec, 1000 + i) != res_vec.vec.end(),
+            DB7_ASSERT(std::ranges::find(res_vec.vec, TupleId{1000 + i}) != res_vec.vec.end(),
                        "value 1000+i present after concurrent insert");
         }
         // double ins_ns = 500;
@@ -448,10 +448,10 @@ int main()
             {
                 auto res = btree.Insert(strs[i], 1000 + i);
                 DB7_ASSERT(res.success, "Failed to insert");
-                auto res_vec = shared::VectorValues<u64>();
+                auto res_vec = shared::VectorValues<TupleId>();
                 auto v = btree.Get(strs[i], res_vec);
                 DB7_ASSERT(v.success, "all keys present after concurrent insert");
-                DB7_ASSERT(std::ranges::find(res_vec.vec, 1000 + i) != res_vec.vec.end(),
+                DB7_ASSERT(std::ranges::find(res_vec.vec, TupleId{1000 + i}) != res_vec.vec.end(),
                         "value 1000+i present after concurrent insert");
             } });
         sum_insert += ins_ns;

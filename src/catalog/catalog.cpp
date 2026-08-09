@@ -3,6 +3,7 @@
 #include "catalog/catalog_common.hpp"
 #include "storage/varlen_entry.hpp"
 #include "shared/align_util.hpp"
+#include "shared/models/tuple_id.hpp"
 
 #include <cstring>
 
@@ -46,7 +47,7 @@ namespace db7::catalog
 
         access::DataChunkBuilder::BuildDatabaseChunk(chunk, oid, name);
 
-        access::TupleId tup = databases_->Insert(txn, chunk);
+        TupleId tup = databases_->Insert(txn, chunk);
 
         auto res_name = databases_index_datname->Insert(chunk, tup.value);
         if (!res_name.success)
@@ -88,7 +89,7 @@ namespace db7::catalog
 
         access::DataChunkBuilder::BuildDatabaseChunk(chunk, oid, {});
 
-        shared::VectorValues<u64> results;
+        shared::VectorValues<TupleId> results;
         auto result = databases_index_datoid->Get(chunk, results);
         if (!result.success)
         {
@@ -105,30 +106,11 @@ namespace db7::catalog
             latest_tid = results[0];
         }
 
-        access::TupleId res = {latest_tid};
-        // if (!databases_->Select(txn, res.index, res.pid, chunk))
-        // {
-        //     return false;
-        // }
-
-        if (!databases_->Delete(txn, res.index, res.pid))
+        TupleId res = {latest_tid};
+        if (!databases_->Delete(txn, res.GetIndex(), res.GetPageId()))
         {
             return false;
         }
-
-        // // TODO this should be GC-ed
-        // auto res_oid = databases_index_datoid->Delete(chunk, res.value);
-        // if (!res_oid.success)
-        // {
-        //     return false;
-        // }
-
-        // // TODO this should be GC-ed
-        // auto res_name = databases_index_datname->Delete(chunk, res.value);
-        // if (!res_name.success)
-        // {
-        //     return false;
-        // }
 
         return true;
     }
@@ -139,7 +121,7 @@ namespace db7::catalog
 
         access::DataChunkBuilder::BuildDatabaseChunk(chunk, oid, name);
 
-        shared::VectorValues<u64> results;
+        shared::VectorValues<TupleId> results;
         auto result = databases_index_datoid->Get(chunk, results);
         if (!result.success)
         {
@@ -156,9 +138,9 @@ namespace db7::catalog
             latest_tid = results[0];
         }
 
-        access::TupleId res = {latest_tid};
+        TupleId res = {latest_tid};
 
-        databases_->Delete(txn, res.index, res.pid);
+        databases_->Delete(txn, res.GetIndex(), res.GetPageId());
 
         databases_->Insert(txn, chunk);
 

@@ -111,7 +111,7 @@ namespace db7::transaction
 
         u64 ValidateVersion()
         {
-            return version_manager_->ValidateVersions();
+            return version_manager_->ValidateVersion();
         }
     };
 }

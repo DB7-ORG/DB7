@@ -28,29 +28,29 @@ namespace db7::access
     {
         u32 count = layout_.GetMaxRowCount();
 
-        storage::UndoRecord *record = txn->UndoRecordForUpdate(oid_, tup_id.pid, tup_id.index, chunk);
+        storage::UndoRecord *record = txn->UndoRecordForUpdate(oid_, tup_id.GetPageId(), tup_id.GetIndex(), chunk);
 
         DataChunk *delta = reinterpret_cast<DataChunk *>(record->GetDelta());
 
-        storage::VersionPtr *versions = txn->GetVersions(page, storage::PageIdentifier{oid_, tup_id.pid}, count);
+        storage::VersionPtr *versions = txn->GetVersions(page, storage::PageIdentifier{oid_, tup_id.GetPageId()}, count);
 
         storage::UndoRecord *version_ptr;
 
         do
         {
-            version_ptr = versions[tup_id.index].Get();
+            version_ptr = versions[tup_id.GetIndex()].Get();
 
-            if (HasConflict(txn, version_ptr) || layout_.IsDeleted(page->GetData(), tup_id.index))
+            if (HasConflict(txn, version_ptr) || layout_.IsDeleted(page->GetData(), tup_id.GetIndex()))
             {
                 record->Invalidate();
                 return false;
             }
 
-            ChunkUtils::UpdateSingle(schema_, layout_, chunk, delta, page, tup_id.index);
+            ChunkUtils::UpdateSingle(schema_, layout_, chunk, delta, page, tup_id.GetIndex());
 
             record->SetNext(version_ptr);
 
-        } while (!versions[tup_id.index].CompareAndSwap(version_ptr, record));
+        } while (!versions[tup_id.GetIndex()].CompareAndSwap(version_ptr, record));
 
         return true;
     }
@@ -80,11 +80,11 @@ namespace db7::access
     {
         u32 count = layout_.GetMaxRowCount();
 
-        storage::UndoRecord *record = txn->UndoRecordForInsert(oid_, tup_id.pid, tup_id.index);
+        storage::UndoRecord *record = txn->UndoRecordForInsert(oid_, tup_id.GetPageId(), tup_id.GetIndex());
 
-        storage::VersionPtr *versions = txn->GetVersions(page, storage::PageIdentifier{oid_, tup_id.pid}, count);
+        storage::VersionPtr *versions = txn->GetVersions(page, storage::PageIdentifier{oid_, tup_id.GetPageId()}, count);
 
-        versions[tup_id.index].Set(record);
+        versions[tup_id.GetIndex()].Set(record);
     }
 
     TupleId Table::Insert(transaction::TransactionContext *txn, DataChunk *chunk)
@@ -120,17 +120,17 @@ namespace db7::access
     {
         u32 count = layout_.GetMaxRowCount();
 
-        storage::UndoRecord *record = txn->UndoRecordForDelete(oid_, tup_id.pid, tup_id.index);
+        storage::UndoRecord *record = txn->UndoRecordForDelete(oid_, tup_id.GetPageId(), tup_id.GetIndex());
 
-        storage::VersionPtr *versions = txn->GetVersions(page, storage::PageIdentifier{oid_, tup_id.pid}, count);
+        storage::VersionPtr *versions = txn->GetVersions(page, storage::PageIdentifier{oid_, tup_id.GetPageId()}, count);
 
         storage::UndoRecord *version_ptr;
 
         do
         {
-            version_ptr = versions[tup_id.index].Get();
+            version_ptr = versions[tup_id.GetIndex()].Get();
 
-            if (HasConflict(txn, version_ptr) || layout_.IsDeleted(page->GetData(), tup_id.index))
+            if (HasConflict(txn, version_ptr) || layout_.IsDeleted(page->GetData(), tup_id.GetIndex()))
             {
                 record->Invalidate();
                 return false;
@@ -138,7 +138,7 @@ namespace db7::access
 
             record->SetNext(version_ptr);
 
-        } while (!versions[tup_id.index].CompareAndSwap(version_ptr, record));
+        } while (!versions[tup_id.GetIndex()].CompareAndSwap(version_ptr, record));
 
         return true;
     }

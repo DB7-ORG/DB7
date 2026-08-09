@@ -6,6 +6,7 @@
 #include "access/table.hpp"
 #include "catalog/builder.hpp"
 #include "access/index/btree.hpp"
+#include "shared/models/tuple_id.hpp"
 
 #include <atomic>
 #include <unordered_map>
@@ -29,8 +30,8 @@ namespace db7::catalog
     {
     private:
         access::Table *databases_;
-        access::BTreeIndex<u64> *databases_index_datoid;
-        access::BTreeIndex<u64> *databases_index_datname;
+        access::BTreeIndex<TupleId> *databases_index_datoid;
+        access::BTreeIndex<TupleId> *databases_index_datname;
         std::unordered_map<db_oid_t, DatabaseCatalog *> databases_map_;
         std::atomic<db_oid_t> next_db_oid_;
         storage::BufferPool *buffer_pool_;
@@ -79,8 +80,8 @@ namespace db7::catalog
         {
             using enum CatalogTableOid;
             databases_ = new access::Table(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(), PG_DATABASES, PG_VARLEN);
-            databases_index_datoid = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_DATABASE_DATOID, access::AttrsFor(PG_INDEX_DATABASE_DATOID));
-            databases_index_datname = new access::BTreeIndex<u64>(buffer_pool, disk_mng, PG_INDEX_DATABASE_DATNAME, access::AttrsFor(PG_INDEX_DATABASE_DATNAME));
+            databases_index_datoid = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_DATABASE_DATOID, access::AttrsFor(PG_INDEX_DATABASE_DATOID));
+            databases_index_datname = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_DATABASE_DATNAME, access::AttrsFor(PG_INDEX_DATABASE_DATNAME));
         }
 
         ~Catalog()

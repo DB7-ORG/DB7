@@ -1,5 +1,6 @@
 #include "catalog/database_catalog.hpp"
 #include "transaction/transaction_util.hpp"
+#include "shared/models/tuple_id.hpp"
 
 namespace db7::catalog
 {
@@ -34,15 +35,15 @@ namespace db7::catalog
 
         access::DataChunkBuilder::BuildNamespaceChunk(chunk, oid, name);
 
-        access::TupleId tup = namespaces_->Insert(txn, chunk);
+        TupleId tup = namespaces_->Insert(txn, chunk);
 
-        auto res_name = namespaces_index_nspname_->Insert(chunk, tup.value);
+        auto res_name = namespaces_index_nspname_->Insert(chunk, tup.GetValue());
         if (!res_name.success)
         {
             return 0; // TODO fix index return proper result
         }
 
-        auto res_oid = namespaces_index_nspoid_->Insert(chunk, tup.value);
+        auto res_oid = namespaces_index_nspoid_->Insert(chunk, tup.GetValue());
         if (!res_oid.success)
         {
             return 0;

@@ -4,6 +4,7 @@
 #include "storage/buffer_pool/buffer_pool.hpp"
 #include "concurrency.hpp"
 #include "shared/models/vector_result.hpp"
+#include "shared/models/tuple_id.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -22,7 +23,7 @@ using namespace db7::test;
 
 namespace
 {
-    using Rid = u64;
+    using Rid = TupleId;
     using Tree = BTreeIndex<Rid>;
 
     // =========================================================================
