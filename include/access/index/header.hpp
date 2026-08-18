@@ -41,6 +41,8 @@ namespace db7::access
         ResultObj(const char *message, bool success) : message(message), success(success) {}
 
         ResultObj(Typ value, bool success) : value(value), success(success) {}
+
+        static ResultObj Fail(const char *m = nullptr) { return {m, false}; }
     };
 
     template <>

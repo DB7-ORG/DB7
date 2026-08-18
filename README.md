@@ -36,5 +36,5 @@ https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf
 // TODO fix index
 fix this
 
-// byte *data;   [normalized ‖ tid ‖ original] 
-is this valid suggestion to simplify leaf
+see should i use cas loop to delete stuff since i need to keep that info in the page also so GC can later remove tombstne
+but gc can also add it later to a page which also seems convenient

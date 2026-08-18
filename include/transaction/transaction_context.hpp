@@ -8,6 +8,7 @@
 #include "storage/redo_buffer.hpp"
 #include "transaction/transaction_util.hpp"
 #include "shared/models/vector_result.hpp"
+#include "shared/models/tuple_id.hpp"
 
 #include <span>
 #include <forward_list>
@@ -116,31 +117,15 @@ namespace db7::transaction
             return reinterpret_cast<storage::RedoRecord *>(log_record->GetDelta());
         }
 
-        timestamp_t GetVersion(TupleId tid)
+        bool HasUniqueConflict(TupleId tid)
         {
-            return version_manager_->GetVersion(tid);
-        }
+            auto undo = version_manager_->GetDelta(tid);
 
-        TidResult GetLatestVersion(shared::VectorValues<TupleId> tids)
-        {
-            timestamp_t version = 0;
-            size_t tid = 0;
-            bool is_valid;
-            for (size_t i = 0; i < tids.Size(); i++)
-            {
-                auto tmp = GetVersion(tids[i]);
+            const bool safely_deleted =
+                undo->GetType() == storage::DeltaRecordType::DELETE &&
+                !transaction::TransactionUtil::HasConflict(undo->GetTimestamp(), FinishTime(), StartTime());
 
-                is_valid = transaction::TransactionUtil::HasConflict(tmp, FinishTime(), StartTime());
-                if (!is_valid)
-                    return {0, false};
-
-                if (version < tmp)
-                {
-                    version = tmp;
-                    tid = tids[i];
-                }
-            }
-            return {tid, is_valid};
+            return !safely_deleted;
         }
     };
 }

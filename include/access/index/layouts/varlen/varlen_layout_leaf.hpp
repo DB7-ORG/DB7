@@ -6,6 +6,8 @@
 #include "access/key_encoder.hpp"
 #include "shared/byte_utils.hpp"
 #include "shared/models/vector_result.hpp"
+#include "shared/models/tuple_id.hpp"
+#include "transaction/transaction_context.hpp"
 
 #include <limits>
 #include <algorithm>
@@ -133,6 +135,26 @@ namespace db7::access
             return lo;
         }
 
+        int FindStartPosition(byte *data, u16 *slots, SlotValLeaf<ValTyp> main_val, u16 count)
+        {
+            int hi = count, lo = 0;
+            while (lo < hi)
+            {
+                int mid = lo + (hi - lo) / 2;
+                auto slot_val = SlotValLeaf<ValTyp>(data, slots[mid]);
+                int res = CmpPrefix(slot_val, main_val);
+                // NOTE: this war removed since im doing optimistic reading which with an active
+                // writer can produce any of the results but its fine since the thread will retry later
+                // DB7_ASSERT_FMT(res != 0, "duplicate (key,tid): mid={} count={} len={} tid={}",
+                //                mid, count, main_val.len, (unsigned long long)main_val.Result());
+                if (res < 0)
+                    lo = mid + 1;
+                else
+                    hi = mid;
+            }
+            return lo;
+        }
+
         int FindDeletePosition(byte *data, u16 *slots, SlotValLeaf<ValTyp> main_val, u16 count)
         {
             int hi = count, lo = 0;
@@ -236,6 +258,23 @@ namespace db7::access
             }
         }
 
+        bool HighPrefixCmp(byte *data, Key key)
+        {
+            DB7_ASSERT(key.data != nullptr, "invalid key");
+            DB7_ASSERT(key.len != 0, "invalid key");
+
+            const auto *header = VarlenHeader::CastHeader(data);
+            if (header->max_val == UNDEFINED_OFFSET)
+            {
+                return false;
+            }
+            const auto max_val = SlotValLeaf<ValTyp>(data, header->max_val);
+            const auto main_val = SlotValLeaf<ValTyp>(key);
+            int cmp = CmpPrefix(max_val, main_val);
+            // DB7_ASSERT(cmp != 0, "Can not have value to be 0 when inserting the tree");
+            return cmp == 0;
+        }
+
     public:
         static constexpr page_id UNDEFINED_PAGE = std::numeric_limits<page_id>::max();
         static constexpr u32 UNDEFINED_OFFSET = std::numeric_limits<u16>::max();
@@ -265,7 +304,7 @@ namespace db7::access
                 result.push_back(cur.Result());
             }
 
-            results.proceed = i == int(count);
+            results.proceed = i == int(count); // TODO fix index
 
             return ResultObj<void>::Ok();
         }
@@ -389,6 +428,39 @@ namespace db7::access
             ShiftLeftDelete(slots, idx, count);
             count--;
             return ResultObj<void>::Ok();
+        }
+
+        ResultObj<bool> CheckUnique(transaction::TransactionContext *txn, byte *data, Key key, int idx = -1)
+        {
+            DB7_ASSERT(key.data != nullptr, "invalid key");
+            DB7_ASSERT(key.len != 0, "invalid key");
+
+            u16 count = VarlenHeader::CastHeader(data)->count;
+            u16 *slots = CastSlots(data);
+            const auto main_val = SlotValLeaf<ValTyp>(key);
+            if (idx == -1)
+            {
+                idx = FindStartPosition(data, slots, main_val, count);
+            }
+
+            int i;
+            for (i = idx; i < count; i++)
+            {
+                auto cur = SlotValLeaf<ValTyp>(data, slots[i]);
+                int cmp = CmpPrefix(cur, main_val);
+                if (cmp != 0)
+                {
+                    break;
+                }
+
+                ValTyp tid = cur.Result();
+                if (txn->HasUniqueConflict(tid))
+                {
+                    return ResultObj<bool>::Fail();
+                }
+            }
+
+            return ResultObj<bool>(true, HighPrefixCmp(data, key));
         }
     };
 }

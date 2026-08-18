@@ -96,17 +96,7 @@ namespace db7::catalog
             return false;
         }
 
-        transaction::TidResult res = txn->GetLatestVersion(results);
-        if (!res.is_valid)
-        {
-            return false;
-        }
-
-        TupleId latest_tid = res.tid;
-        if (!databases_->Delete(txn, latest_tid.GetIndex(), latest_tid.GetPageId()))
-        {
-            return false;
-        }
+        // TODO fix index Just loop here over entries and CAS untill deleted
 
         return true;
     }
@@ -124,19 +114,21 @@ namespace db7::catalog
             return false;
         }
 
-        transaction::TidResult res = txn->GetLatestVersion(results);
-        if (!res.is_valid)
+        // TODO fix index Just loop here over entries and CAS untill deleted
+
+        auto tid = databases_->Insert(txn, chunk);
+
+        auto res_name = databases_index_datname->InsertUnique(txn, chunk, tid);
+        if (!res_name.success)
         {
             return false;
         }
 
-        TupleId latest_tid = res.tid;
-
-        databases_->Delete(txn, latest_tid.GetIndex(), latest_tid.GetPageId());
-
-        databases_->Insert(txn, chunk);
-
-        databases_index_datoid->Insert(chunk, latest_tid);
+        auto res_oid = databases_index_datoid->InsertUnique(txn, chunk, tid);
+        if (!res_oid.success)
+        {
+            return false;
+        }
 
         return true;
     }

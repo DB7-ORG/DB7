@@ -3,6 +3,7 @@
 #include "shared/locks/adaptive_version_lock.hpp"
 #include "storage/storage_common.hpp"
 #include "storage/mvcc/version_ptr.hpp"
+#include "shared/models/tuple_id.hpp"
 
 #include <unordered_map>
 #include <atomic>
@@ -65,6 +66,16 @@ namespace db7::storage
                 return 0;
             auto *undo = versions[tid.GetIndex()].Get();
             return undo->GetTimestamp();
+        }
+
+        storage::UndoRecord *GetDelta(TupleId tid)
+        {
+            shared::AdaptiveVersionLock::WriteGuard guard(lock_);
+            auto *versions = GetUnsafe(tid.GetPageId());
+            if (!versions)
+                return 0;
+            auto *undo = versions[tid.GetIndex()].Get();
+            return undo;
         }
     };
 }

@@ -110,7 +110,7 @@ namespace db7::catalog
 
         catalog::db_oid_t GetDbOid()
         {
-            return db_id_;
+            return db_id_; // TODO ++
         }
 
         namespace_oid_t CreateNamespace(transaction::TransactionContext *txn, const std::span<byte> name);

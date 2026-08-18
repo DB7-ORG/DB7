@@ -338,6 +338,67 @@ namespace db7::access
             return ResultObj<void>::Ok();
         }
 
+        template <shared::LockMode Mode>
+        void FreePages(std::vector<storage::Page *> &visited)
+        {
+            for (auto *ptr : visited)
+            {
+                ReleaseNode<Mode>(ptr);
+            }
+        }
+
+        ResultObj<void> InsertInternalUnique(storage::Page *page, Key key, std::vector<storage::Page *> &visited)
+        {
+            constexpr shared::LockMode LM = shared::LockMode::Write;
+
+            byte *data = page->GetData();
+            page_id pid = page->GetPageId();
+
+            if (layout_leaf_.HasSpace(data, key))
+            {
+                layout_leaf_.Insert(data, key);
+
+                FreePages<LM>(visited);
+            }
+            else
+            {
+                page_id new_pid;
+                // NOTE: sentinel_unique just holds the buffer from sentinel key
+                // so i dont forget to free it
+                std::unique_ptr<byte[]> sentinel_unique;
+                auto split_result = SplitLeaf(data, new_pid, key, &sentinel_unique);
+                Key sentinel = split_result.value;
+                u8 level = BaseLyHeader::GetLevel(data);
+
+                FreePages<LM>(visited);
+
+                if (!split_result.success)
+                    return ResultObj<void>::Fail(split_result.message);
+
+                if (shared::TlState::IsEmpty())
+                {
+                    root_mtx_.lock();
+                    if (GetRoot() == pid)
+                    {
+                        CreateNewRoot(level, sentinel, pid, new_pid);
+                        root_mtx_.unlock();
+                    }
+                    else
+                    {
+                        root_mtx_.unlock();
+                        DropToLevel(sentinel, level + 1);
+                        return PropagateInsert(sentinel, new_pid);
+                    }
+                }
+                else
+                {
+                    return PropagateInsert(sentinel, new_pid);
+                }
+            }
+
+            return ResultObj<void>::Ok();
+        }
+
         ResultObj<void> PropagateInsert(Key key, page_id value)
         {
             while (!shared::TlState::IsEmpty())
@@ -507,6 +568,72 @@ namespace db7::access
             shared::TlState::Clear();
             storage::Page *page = DropToLevel(key);
             return InsertInternal(page, key);
+        }
+
+        ResultObj<void> InsertUnique(transaction::TransactionContext *txn, DataChunk *chunk, ValTyp value)
+        {
+
+            auto ptr = std::make_unique_for_overwrite<byte[]>(key_buffer_size_); // TODO if i ever get larger strings ill need to change this
+            Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, 0, attrs_);
+
+            shared::TlState::Clear();
+
+            constexpr shared::LockMode LM = shared::LockMode::Write;
+
+            storage::Page *page = DropToLevel(key);
+            shared::Lock<LM>(page);
+            page = GoRightLeaf(page, key);
+
+            byte *value_start = key.data + key.len - sizeof(ValTyp);
+            access::KeyNormEncoder::EncodeUnsigned(value_start, value);
+
+            storage::Page *insert_page = nullptr;
+
+            std::vector<storage::Page *> visited;
+
+            int idx = -1;
+            do
+            {
+                byte *page_data = page->GetData();
+
+                /**
+                 * Save the visited pages so we can later release locks.
+                 * 'Latch crabbing' is nessesary to prevent the race where
+                 * 2 transactions want to insert the same key.
+                 */
+                visited.push_back(page);
+
+                /**
+                 * Checks mvcc of these tuples to determine whether duplicate entries
+                 * exist in the tree. This is only necessary for unique indexes.
+                 */
+                auto res = layout_leaf_.CheckUnique(txn, page_data, key, idx);
+                if (!res.success)
+                {
+                    FreePages<LM>(visited);
+                    return ResultObj<void>::Fail(res.message);
+                }
+
+                /**
+                 * Saves the page where we need to insert key if no conflict exists
+                 */
+                if (insert_page == nullptr && !layout_leaf_.HasSplit(page_data, key))
+                {
+                    insert_page = page;
+                }
+
+                if (!res.value)
+                {
+                    break;
+                }
+
+                idx = 0;
+                page_id new_pid = layout_leaf_.GetRLink(page_data);
+                page = GetNode<LM>(new_pid);
+            } while (true);
+
+            /* We can freely insert since there is no conflict */
+            return InsertInternalUnique(insert_page, key, visited);
         }
 
         /**
