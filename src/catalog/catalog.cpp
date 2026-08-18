@@ -96,18 +96,14 @@ namespace db7::catalog
             return false;
         }
 
-        u64 latest_tid;
-        for (size_t i = 0; i < results.Size(); i++)
-        { // TODO fix index
-            if (!txn->ValidateVersion())
-            {
-                return false;
-            }
-            latest_tid = results[0];
+        transaction::TidResult res = txn->GetLatestVersion(results);
+        if (!res.is_valid)
+        {
+            return false;
         }
 
-        TupleId res = {latest_tid};
-        if (!databases_->Delete(txn, res.GetIndex(), res.GetPageId()))
+        TupleId latest_tid = res.tid;
+        if (!databases_->Delete(txn, latest_tid.GetIndex(), latest_tid.GetPageId()))
         {
             return false;
         }
@@ -128,21 +124,19 @@ namespace db7::catalog
             return false;
         }
 
-        u64 latest_tid;
-        for (size_t i = 0; i < results.Size(); i++)
-        { // TODO fix index
-            if (!txn->ValidateVersion())
-            {
-                return false;
-            }
-            latest_tid = results[0];
+        transaction::TidResult res = txn->GetLatestVersion(results);
+        if (!res.is_valid)
+        {
+            return false;
         }
 
-        TupleId res = {latest_tid};
+        TupleId latest_tid = res.tid;
 
-        databases_->Delete(txn, res.GetIndex(), res.GetPageId());
+        databases_->Delete(txn, latest_tid.GetIndex(), latest_tid.GetPageId());
 
         databases_->Insert(txn, chunk);
+
+        databases_index_datoid->Insert(chunk, latest_tid);
 
         return true;
     }

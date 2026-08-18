@@ -6,12 +6,19 @@
 #include "storage/storage_common.hpp"
 #include "access/data_chunk.hpp"
 #include "storage/redo_buffer.hpp"
+#include "transaction/transaction_util.hpp"
+#include "shared/models/vector_result.hpp"
 
 #include <span>
 #include <forward_list>
 
 namespace db7::transaction
 {
+    struct TidResult
+    {
+        TupleId tid;
+        bool is_valid;
+    };
 
     /**
      * Holds transaction state for each transaction.
@@ -72,7 +79,7 @@ namespace db7::transaction
 
             if (versions_arr == nullptr)
             {
-                auto *new_version = version_manager_->InitializeVersions(id, count);
+                auto *new_version = version_manager_->GetCreateVersions(id, count);
 
                 page->SetVersions(new_version);
 
@@ -109,9 +116,31 @@ namespace db7::transaction
             return reinterpret_cast<storage::RedoRecord *>(log_record->GetDelta());
         }
 
-        u64 ValidateVersion()
+        timestamp_t GetVersion(TupleId tid)
         {
-            return version_manager_->ValidateVersion();
+            return version_manager_->GetVersion(tid);
+        }
+
+        TidResult GetLatestVersion(shared::VectorValues<TupleId> tids)
+        {
+            timestamp_t version = 0;
+            size_t tid = 0;
+            bool is_valid;
+            for (size_t i = 0; i < tids.Size(); i++)
+            {
+                auto tmp = GetVersion(tids[i]);
+
+                is_valid = transaction::TransactionUtil::HasConflict(tmp, FinishTime(), StartTime());
+                if (!is_valid)
+                    return {0, false};
+
+                if (version < tmp)
+                {
+                    version = tmp;
+                    tid = tids[i];
+                }
+            }
+            return {tid, is_valid};
         }
     };
 }

@@ -17,6 +17,17 @@ namespace db7::storage
         // Tracks page -> version vector
         std::unordered_map<PageIdentifier, VersionPtr *> table_;
 
+        VersionPtr *GetUnsafe(PageIdentifier new_page_id)
+        {
+            auto it = table_.find(new_page_id);
+            if (it != table_.end())
+            {
+                return it->second;
+            }
+
+            return nullptr;
+        }
+
     public:
         PageVersionManager() = default;
 
@@ -30,27 +41,30 @@ namespace db7::storage
         {
             shared::AdaptiveVersionLock::WriteGuard guard(lock_);
 
-            auto it = table_.find(new_page_id);
-            if (it != table_.end())
-            {
-                return it->second;
-            }
-
-            return nullptr;
+            return GetUnsafe(new_page_id);
         }
 
-        VersionPtr *InitializeVersions(PageIdentifier id, u32 count)
+        VersionPtr *GetCreateVersions(PageIdentifier id, u32 count)
         {
             shared::AdaptiveVersionLock::WriteGuard guard(lock_);
-            auto *result = new storage::VersionPtr[count]();
+
+            auto *result = GetUnsafe(id.pid);
+
+            result = (result == nullptr) ? new storage::VersionPtr[count]() : result;
+
             table_[id] = result;
+
             return result;
         }
 
-        u64 ValidateVersion()
-        { // TODO fix index
-            return 1;
-            // return transaction::TransactionUtil::HasConflict(version_ptr->GetTimestamp(), txn->FinishTime(), txn->StartTime());
+        transaction::timestamp_t GetVersion(TupleId tid)
+        {
+            shared::AdaptiveVersionLock::WriteGuard guard(lock_);
+            auto *versions = GetUnsafe(tid.GetPageId());
+            if (!versions)
+                return 0;
+            auto *undo = versions[tid.GetIndex()].Get();
+            return undo->GetTimestamp();
         }
     };
 }
