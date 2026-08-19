@@ -27,6 +27,7 @@
  */
 namespace db7::access
 {
+
     /**
      * Table abstraction
      */
@@ -96,5 +97,7 @@ namespace db7::access
         bool DeleteUndoRaw(transaction::TransactionContext *txn, TupleId tup_id);
 
         void PrintPage(storage::Page *page);
+
+        catalog::rel_oid_t GetTableOid() const { return oid_; }
     };
 }

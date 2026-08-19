@@ -23,6 +23,7 @@ namespace db7::access
         storage::BufferPool *buffer_pool_;
         storage::DiskManagerAsync *disk_mng_;
         table_id tbl_id_;
+        table_id heap_tbl_id_;
         BtreeVarlenLayoutIntermediate<page_id> layout_inter_;
         BtreeVarlenLayoutLeaf<ValTyp> layout_leaf_;
         std::vector<TypeSize> attrs_;
@@ -535,10 +536,12 @@ namespace db7::access
             storage::BufferPool *buffer_pool,
             storage::DiskManagerAsync *disk_mng,
             table_id tbl_id,
+            table_id heap_tbl_id,
             std::vector<TypeSize> attr)
             : buffer_pool_(buffer_pool),
               disk_mng_(disk_mng),
               tbl_id_(tbl_id),
+              heap_tbl_id_(heap_tbl_id),
               layout_inter_(),
               layout_leaf_(),
               attrs_(std::move(attr))
@@ -607,7 +610,7 @@ namespace db7::access
                  * Checks mvcc of these tuples to determine whether duplicate entries
                  * exist in the tree. This is only necessary for unique indexes.
                  */
-                auto res = layout_leaf_.CheckUnique(txn, page_data, key, idx);
+                auto res = layout_leaf_.CheckUnique(txn, page_data, key, heap_tbl_id_, idx);
                 if (!res.success)
                 {
                     FreePages<LM>(visited);

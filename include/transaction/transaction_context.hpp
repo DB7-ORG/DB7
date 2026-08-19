@@ -123,9 +123,9 @@ namespace db7::transaction
             return reinterpret_cast<storage::RedoRecord *>(log_record->GetDelta());
         }
 
-        bool HasUniqueConflict(TupleId tid)
+        bool HasUniqueConflict(TupleId tid, table_id tbl_id)
         {
-            auto *undo = version_manager_->GetDelta(tid);
+            auto *undo = version_manager_->GetDelta(tid, tbl_id);
 
             /* i dont think i need this since if i find invalidated its not deleted in version before */
             // while (undo != nullptr && undo->IsInvalidated())
@@ -145,12 +145,12 @@ namespace db7::transaction
             return !safely_deleted;
         }
 
-        ResultObj<TupleId> GetTidForModify(std::vector<TupleId> &tids)
+        ResultObj<TupleId> GetTidForModify(std::vector<TupleId> &tids, table_id tbl_id)
         {
             TupleId result = INVALID_TID;
             for (auto tid : tids)
             {
-                auto *undo = version_manager_->GetDelta(tid);
+                auto *undo = version_manager_->GetDelta(tid, tbl_id);
                 if (undo == nullptr)
                 {
                     result = tid;

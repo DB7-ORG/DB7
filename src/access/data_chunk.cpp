@@ -106,7 +106,5 @@ namespace db7::access
 
             std::cout << " | ";
         }
-
-        std::cout << "\n";
     }
 }

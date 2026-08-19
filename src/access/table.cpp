@@ -40,7 +40,7 @@ namespace db7::access
         {
             version_ptr = versions[tup_id.GetIndex()].Get();
 
-            if (HasConflict(txn, version_ptr) || layout_.IsDeleted(page->GetData(), tup_id.GetIndex()))
+            if (version_ptr != nullptr && (HasConflict(txn, version_ptr) || layout_.IsDeleted(page->GetData(), tup_id.GetIndex())))
             {
                 record->Invalidate();
                 return false;
@@ -132,7 +132,7 @@ namespace db7::access
         {
             version_ptr = versions[tup_id.GetIndex()].Get();
 
-            if (HasConflict(txn, version_ptr) || version_ptr->IsDeleted())
+            if (version_ptr != nullptr && (HasConflict(txn, version_ptr) || version_ptr->IsDeleted()))
             {
                 record->Invalidate();
                 return false;
@@ -210,7 +210,7 @@ namespace db7::access
 
         storage::UndoRecord *version_ptr = versions[idx].Get();
 
-        bool is_deleted = layout_.IsDeleted(page->GetData(), idx);
+        bool is_deleted = version_ptr == nullptr ? layout_.IsDeleted(page->GetData(), idx) : version_ptr->IsDeleted();
         if (version_ptr == nullptr || version_ptr->GetTimestamp() == txn->FinishTime())
         {
             return !is_deleted;
@@ -253,10 +253,12 @@ namespace db7::access
         if (valid)
         {
             chunk->Print(&schema_);
+            std::cout << std::endl;
         }
         else
         {
-            std::cout << "deleted" << std::endl;
+            chunk->Print(&schema_);
+            std::cout << " [DELETED]" << std::endl;
         }
 
         page->Unpin();

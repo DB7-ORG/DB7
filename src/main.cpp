@@ -100,208 +100,8 @@ void test_buffer_pool(db7::storage::BufferPool &buffer_pool)
     printf("time:        %.3f ms\n", (t0 - t00) / 1e6);
 }
 
-// void test_index_perf(db7::storage::BufferPool *buffer_pool, db7::storage::DiskManagerAsync *disk_mng_async)
-// {
-//     using Typ = access::Key;
-//     db7::access::BTreeIndex<Typ> index(buffer_pool, disk_mng_async, 100);
-
-//     u32 n = 100'000;
-//     // std::vector<u32> keys(n);
-//     // std::iota(keys.begin(), keys.end(), 1);
-//     // std::shuffle(keys.begin(), keys.end(), std::mt19937{42});
-
-//     std::vector<db7::access::Key> strs(n);
-//     for (u32 i = 0; i < n; i++)
-//     {
-//         std::string s = "kEY_ⅶ_⎞_Љ_۝_" + std::to_string(i + 1);
-//         byte *buf = new byte[s.size() * 16];
-//         byte *raw = new byte[s.size()]; // ← own copy of raw too
-
-//         std::memcpy(raw, s.data(), s.size());
-
-//         std::span sp((const byte *)s.data(), (u16)s.size());
-//         u32 len = access::KeyNormEncoder::Encode(buf, sp, false, false, false);
-
-//         strs[i].data = raw;
-//         strs[i].len = (u16)s.size();
-//         strs[i].encoded = buf;
-//         strs[i].enc_len = (u16)(len);
-//     }
-//     std::shuffle(strs.begin(), strs.end(), std::mt19937{42});
-
-//     std::vector<db7::access::Key> keys(n);
-//     for (u32 i = 0; i < n; i++)
-//     {
-//         keys[i] = strs[i];
-//     }
-
-//     u32 num_threads = std::thread::hardware_concurrency();
-//     std::cout << num_threads << std::endl;
-
-//     bool SINGLE_THREAD = true;
-
-//     std::vector<std::thread> threads(num_threads);
-//     std::barrier sync_point(num_threads + 1);
-//     std::vector<std::thread> read_threads(num_threads);
-//     std::barrier read_sync(num_threads + 1);
-
-//     if (!SINGLE_THREAD)
-//     {
-//         for (u32 t = 0; t < num_threads; t++)
-//         {
-//             threads[t] = std::thread([&, t]()
-//                                      {
-//         u32 start = (n * t) / num_threads;
-//         u32 end = (n * (t + 1)) / num_threads;
-
-//         sync_point.arrive_and_wait(); // wait for all threads ready
-
-//         for (u32 i = start; i < end; i++)
-//             index.Insert(keys[i], i); });
-//         }
-
-//         for (u32 t = 0; t < num_threads; t++)
-//         {
-//             read_threads[t] = std::thread([&, t]()
-//                                           {
-//         u32 start = (n * t) / num_threads;
-//         u32 end = (n * (t + 1)) / num_threads;
-
-//         read_sync.arrive_and_wait();
-
-//         for (u32 i = start; i < end; i++)
-//         {
-//             auto item = index.Get(keys[i]);
-//             if (item != i)
-//                 throw std::runtime_error("value doesnt match");
-//         } });
-//         }
-//     }
-
-//     u64 t0 = now_ns();
-
-//     if (!SINGLE_THREAD)
-//     {
-//         sync_point.arrive_and_wait(); // release all threads
-
-//         for (auto &th : threads)
-//             th.join();
-//     }
-//     else
-//     {
-//         for (u32 i = 0; i < n; i++)
-//         {
-//             // std::cout << i << std::endl;
-//             index.Insert(keys[i], i);
-//         }
-//     }
-
-//     u64 t1 = now_ns();
-
-//     if (!SINGLE_THREAD)
-//     {
-//         read_sync.arrive_and_wait();
-
-//         for (auto &th : read_threads)
-//             th.join();
-//     }
-//     else
-//     {
-//         for (u32 i = 0; i < n; i++)
-//         {
-//             auto item = index.Get(keys[i]);
-//             if (item != i)
-//             {
-//                 throw std::runtime_error("value doesnt match");
-//             }
-//         }
-//     }
-
-//     u64 t2 = now_ns();
-
-//     for (u32 i = 0; i < n; i++)
-//     {
-//         delete[] strs[i].data;
-//         delete[] strs[i].encoded;
-//     }
-
-//     // db7::shared::Print(*buffer_pool);
-
-//     printf("insert:        %.3f ms\n", (t1 - t0) / 1e6);
-//     printf("search:        %.3f ms\n", (t2 - t1) / 1e6);
-// }
-
 db7::storage::BufferPool *g_buffer_pool;
 db7::catalog::Catalog *g_catalog;
-
-// int main()
-// {
-//     fmt::print("Hello, {}!\n", "world");
-
-//     // // populate_table();
-
-//     db7::storage::DiskManagerAsync disk_mng_async(".data");
-//     disk_mng_async.CreateOpenFile(1, 3);
-//     // disk_mng_async.TruncateFile(2, PAGES);
-
-//     db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
-//     disk_scheduler.Start();
-
-//     db7::storage::PageVersionManager version_manager;
-
-//     db7::storage::BufferPool buffer_pool(&disk_scheduler, &version_manager);
-//     g_buffer_pool = &buffer_pool;
-
-//     db7::transaction::TimestampManager timestamp_manager;
-
-//     db7::shared::ObjectPool<shared::FixedBumpArena> pool(10'000, 2000);
-
-//     db7::transaction::TransactionManager txn_manager(&timestamp_manager, &buffer_pool, &version_manager, &pool);
-
-//     db7::transaction::TransactionContext *context = txn_manager.BeginTransaction();
-
-//     // test_index_perf(&buffer_pool, &disk_mng_async);
-
-//     auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
-//     g_catalog = cat;
-
-//     std::string s = "ssss";
-//     std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
-
-//     auto db_oid = cat->CreateDatabase(context, sdata, true);
-//     // cat->DeleteDatabase(context, db_oid);
-//     cat->Select(context);
-
-//     std::string new_name = "jovo";
-//     std::cout << cat->UpdateDatabaseName(context, db_oid, std::span<char>(new_name.data(), new_name.size())) << std::endl;
-
-//     cat->Select(context);
-
-//     txn_manager.Commit(context);
-
-//     // cat->CreateDatabase(nullptr, sdataa, true);
-
-//     // std::this_thread::sleep_for(std::chrono::seconds(1));
-
-//     db7::transaction::TransactionContext *context2 = txn_manager.BeginTransaction();
-
-//     std::string new_name2 = "jovo222";
-//     std::cout << cat->UpdateDatabaseName(context2, db_oid, std::span<char>(new_name2.data(), new_name2.size())) << std::endl;
-
-//     cat->Select(context2);
-
-//     db7::transaction::TransactionContext *context3 = txn_manager.BeginTransaction();
-//     cat->Select(context3);
-//     txn_manager.Commit(context3);
-
-//     txn_manager.Commit(context2);
-
-//     delete cat;
-
-//     disk_scheduler.Stop();
-
-//     return 0;
-// }
 
 #include "common.hpp"
 #include "access/index/btree.hpp"
@@ -321,13 +121,6 @@ db7::catalog::Catalog *g_catalog;
 #include <thread>
 
 using namespace db7;
-
-// static inline u64 now_ns()
-// {
-//     timespec ts;
-//     clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-//     return u64(ts.tv_sec) * 1000000000ull + ts.tv_nsec;
-// }
 
 constexpr auto phys_type = access::type_id::VARCHAR;
 
@@ -387,97 +180,177 @@ inline unsigned default_threads()
     return n ? n : 4;
 }
 
+// int main()
+// {
+//     fmt::print("Hello, {}!\n", "world");
+
+//     u32 n = 500'000;
+//     u32 PREFILL = 0;
+
+//     using typ = access::DataChunk *;
+
+//     auto T = default_threads();
+
+//     auto partition = [&](unsigned t, u32 &lo, u32 &hi)
+//     {
+//         u32 measured = n - PREFILL;
+//         u32 per = (measured + T - 1) / T;
+//         lo = PREFILL + t * per;
+//         hi = std::min<u32>(lo + per, n);
+//     };
+
+//     db7::storage::DiskManagerAsync disk_mng_async(".data");
+//     disk_mng_async.CreateOpenFile(1, 3);
+
+//     db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
+//     disk_scheduler.Start();
+
+//     db7::storage::PageVersionManager version_manager;
+
+//     std::vector<typ> strs(n);
+//     prep_keys<typ>(strs, n);
+//     std::shuffle(strs.begin(), strs.end(), std::mt19937{42});
+
+//     u64 sum_insert = 0;
+//     u64 sum_get = 0;
+
+//     u64 iter = 40;
+//     for (u32 i = 0; i < iter; i++)
+//     {
+//         db7::storage::BufferPool buffer_pool(&disk_scheduler, &version_manager);
+
+//         auto btree = db7::access::BTreeIndex<TupleId>(&buffer_pool, &disk_mng_async, 103, {{1, phys_type}});
+
+//         for (u32 i = 0; i < PREFILL; i++)
+//         {
+//             auto res = btree.Insert(strs[i], 1000 + i);
+//             DB7_ASSERT(res.success, "Failed to insert");
+//             auto res_vec = shared::VectorValues<TupleId>();
+//             auto v = btree.Get(strs[i], res_vec);
+//             DB7_ASSERT(v.success, "all keys present after concurrent insert");
+//             DB7_ASSERT(std::ranges::find(res_vec.vec, TupleId{1000 + i}) != res_vec.vec.end(),
+//                        "value 1000+i present after concurrent insert");
+//         }
+//         // double ins_ns = 500;
+
+//         double ins_ns = run_parallel(T, [&](unsigned t)
+//                                      {
+//             u32 lo, hi;
+//             partition(t, lo, hi);
+//             for (u32 i = lo; i < hi; i++)
+//             {
+//                 auto res = btree.Insert(strs[i], 1000 + i);
+//                 DB7_ASSERT(res.success, "Failed to insert");
+//                 auto res_vec = shared::VectorValues<TupleId>();
+//                 auto v = btree.Get(strs[i], res_vec);
+//                 DB7_ASSERT(v.success, "all keys present after concurrent insert");
+//                 DB7_ASSERT(std::ranges::find(res_vec.vec, TupleId{1000 + i}) != res_vec.vec.end(),
+//                         "value 1000+i present after concurrent insert");
+//             } });
+//         sum_insert += ins_ns;
+
+//         double read_ns = 0;
+//         // double read_ns = run_parallel(T, [&](unsigned t)
+//         //                               {
+//         //     u32 lo, hi;
+//         //     partition(t, lo, hi);
+//         //     for (u32 i = lo; i < hi; i++)
+//         //     {
+//         //         auto res_vec = access::VectorValues<u64>();
+//         //         auto v = btree.Get(strs[i], res_vec);
+//         //         DB7_ASSERT(v.success, "all keys present after concurrent insert");
+//         //         DB7_ASSERT(std::ranges::find(res_vec.vec, 1000 + i) != res_vec.vec.end(),
+//         //             "value 1000+i present after concurrent insert");
+//         //     } });
+
+//         sum_get += read_ns;
+
+//         std::fprintf(stderr, "threads=%u  insert=%.1f ms  read=%.1f ms\n", T,
+//                      ins_ns / 1e6, read_ns / 1e6);
+//     }
+
+//     std::fprintf(stderr, "Average insert=%.1f ms  read=%.1f ms\n",
+//                  sum_insert / iter / 1e6, sum_get / iter / 1e6);
+
+//     return 0;
+// }
+
 int main()
 {
     fmt::print("Hello, {}!\n", "world");
 
-    u32 n = 500'000;
-    u32 PREFILL = 0;
-
-    using typ = access::DataChunk *;
-
-    auto T = default_threads();
-
-    auto partition = [&](unsigned t, u32 &lo, u32 &hi)
-    {
-        u32 measured = n - PREFILL;
-        u32 per = (measured + T - 1) / T;
-        lo = PREFILL + t * per;
-        hi = std::min<u32>(lo + per, n);
-    };
+    // // populate_table();
 
     db7::storage::DiskManagerAsync disk_mng_async(".data");
-    disk_mng_async.CreateOpenFile(1, 3);
 
     db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
     disk_scheduler.Start();
 
     db7::storage::PageVersionManager version_manager;
 
-    std::vector<typ> strs(n);
-    prep_keys<typ>(strs, n);
-    std::shuffle(strs.begin(), strs.end(), std::mt19937{42});
+    db7::storage::BufferPool buffer_pool(&disk_scheduler, &version_manager);
+    g_buffer_pool = &buffer_pool;
 
-    u64 sum_insert = 0;
-    u64 sum_get = 0;
+    db7::transaction::TimestampManager timestamp_manager;
 
-    u64 iter = 40;
-    for (u32 i = 0; i < iter; i++)
-    {
-        db7::storage::BufferPool buffer_pool(&disk_scheduler, &version_manager);
+    db7::shared::ObjectPool<shared::FixedBumpArena> pool(10'000, 2000);
 
-        auto btree = db7::access::BTreeIndex<TupleId>(&buffer_pool, &disk_mng_async, 103, {{1, phys_type}});
+    db7::transaction::TransactionManager txn_manager(&timestamp_manager, &buffer_pool, &version_manager, &pool);
 
-        for (u32 i = 0; i < PREFILL; i++)
-        {
-            auto res = btree.Insert(strs[i], 1000 + i);
-            DB7_ASSERT(res.success, "Failed to insert");
-            auto res_vec = shared::VectorValues<TupleId>();
-            auto v = btree.Get(strs[i], res_vec);
-            DB7_ASSERT(v.success, "all keys present after concurrent insert");
-            DB7_ASSERT(std::ranges::find(res_vec.vec, TupleId{1000 + i}) != res_vec.vec.end(),
-                       "value 1000+i present after concurrent insert");
-        }
-        // double ins_ns = 500;
+    auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
+    g_catalog = cat;
 
-        double ins_ns = run_parallel(T, [&](unsigned t)
-                                     {
-            u32 lo, hi;
-            partition(t, lo, hi);
-            for (u32 i = lo; i < hi; i++)
-            {
-                auto res = btree.Insert(strs[i], 1000 + i);
-                DB7_ASSERT(res.success, "Failed to insert");
-                auto res_vec = shared::VectorValues<TupleId>();
-                auto v = btree.Get(strs[i], res_vec);
-                DB7_ASSERT(v.success, "all keys present after concurrent insert");
-                DB7_ASSERT(std::ranges::find(res_vec.vec, TupleId{1000 + i}) != res_vec.vec.end(),
-                        "value 1000+i present after concurrent insert");
-            } });
-        sum_insert += ins_ns;
+    db7::transaction::TransactionContext *context = txn_manager.BeginTransaction();
 
-        double read_ns = 0;
-        // double read_ns = run_parallel(T, [&](unsigned t)
-        //                               {
-        //     u32 lo, hi;
-        //     partition(t, lo, hi);
-        //     for (u32 i = lo; i < hi; i++)
-        //     {
-        //         auto res_vec = access::VectorValues<u64>();
-        //         auto v = btree.Get(strs[i], res_vec);
-        //         DB7_ASSERT(v.success, "all keys present after concurrent insert");
-        //         DB7_ASSERT(std::ranges::find(res_vec.vec, 1000 + i) != res_vec.vec.end(),
-        //             "value 1000+i present after concurrent insert");
-        //     } });
+    db7::transaction::TransactionContext *context1 = txn_manager.BeginTransaction();
 
-        sum_get += read_ns;
+    std::string s = "ssss";
+    std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
 
-        std::fprintf(stderr, "threads=%u  insert=%.1f ms  read=%.1f ms\n", T,
-                     ins_ns / 1e6, read_ns / 1e6);
-    }
+    std::string s1 = "Jovo";
+    std::span<byte> sdata1(reinterpret_cast<byte *>(s1.data()), s1.size());
 
-    std::fprintf(stderr, "Average insert=%.1f ms  read=%.1f ms\n",
-                 sum_insert / iter / 1e6, sum_get / iter / 1e6);
+    std::string s2 = "Jovo2";
+    std::span<byte> sdata2(reinterpret_cast<byte *>(s2.data()), s2.size());
+
+    auto db_oid = cat->CreateDatabase(context, sdata, true);
+
+    cat->Select(context);
+
+    bool val = cat->UpdateDatabaseName(context, db_oid, sdata2);
+    DB7_ASSERT(val, "value is not valid");
+
+    cat->Select(context);
+
+    cat->CreateDatabase(context1, sdata1, true);
+
+    cat->Select(context);
+
+    // std::string new_name = "jovo";
+    // std::cout << cat->UpdateDatabaseName(context, db_oid, std::span<char>(new_name.data(), new_name.size())) << std::endl;
+
+    // cat->Select(context);
+
+    // txn_manager.Commit(context);
+
+    // db7::transaction::TransactionContext *context2 = txn_manager.BeginTransaction();
+
+    // std::string new_name2 = "jovo222";
+    // std::cout << cat->UpdateDatabaseName(context2, db_oid, std::span<char>(new_name2.data(), new_name2.size())) << std::endl;
+
+    // cat->Select(context2);
+
+    // db7::transaction::TransactionContext *context3 = txn_manager.BeginTransaction();
+    // cat->Select(context3);
+    // txn_manager.Commit(context3);
+
+    txn_manager.Commit(context);
+
+    txn_manager.Commit(context1);
+
+    delete cat;
+
+    disk_scheduler.Stop();
 
     return 0;
 }

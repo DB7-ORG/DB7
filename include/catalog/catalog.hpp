@@ -54,7 +54,7 @@ namespace db7::catalog
          * @param dbc database catalog instance
          * @result success flag
          */
-        bool CreateDatabaseEntry(transaction::TransactionContext *txn, const std::span<byte> name, DatabaseCatalog *const dbc);
+        bool CreateDatabaseEntry(transaction::TransactionContext *txn, const std::span<byte> name, db_oid_t oid);
 
         /**
          * Deletes a tuple from a system database table.
@@ -80,8 +80,8 @@ namespace db7::catalog
         {
             using enum CatalogTableOid;
             databases_ = new access::Table(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(), PG_DATABASES, PG_VARLEN);
-            databases_index_datoid = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_DATABASE_DATOID, access::AttrsFor(PG_INDEX_DATABASE_DATOID));
-            databases_index_datname = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_DATABASE_DATNAME, access::AttrsFor(PG_INDEX_DATABASE_DATNAME));
+            databases_index_datoid = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_DATABASE_DATOID, PG_DATABASES, access::AttrsFor(PG_INDEX_DATABASE_DATOID));
+            databases_index_datname = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_DATABASE_DATNAME, PG_DATABASES, access::AttrsFor(PG_INDEX_DATABASE_DATNAME));
         }
 
         ~Catalog()

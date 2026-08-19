@@ -27,10 +27,13 @@ namespace db7::catalog
 
         // TODO register redo event
 
-        DatabaseCatalog *dbc = Builder::CreateDatabaseCatalog(buffer_pool_, disk_mng_);
+        DatabaseCatalog *dbc = Builder::CreateDatabaseCatalog(buffer_pool_, disk_mng_, oid);
         databases_map_[oid] = dbc;
 
-        CreateDatabaseEntry(txn, name, dbc); // TODO check return
+        if (!CreateDatabaseEntry(txn, name, dbc->GetDbOid()))
+        {
+            throw;
+        }
 
         // TODO register abort action in transaction ctx
 
@@ -39,23 +42,21 @@ namespace db7::catalog
         return oid;
     }
 
-    bool Catalog::CreateDatabaseEntry(transaction::TransactionContext *txn, const std::span<byte> name, DatabaseCatalog *const dbc)
+    bool Catalog::CreateDatabaseEntry(transaction::TransactionContext *txn, const std::span<byte> name, db_oid_t oid)
     {
-        db_oid_t oid = dbc->GetDbOid();
-
         access::DataChunk *chunk = data_chunk_layout_.CreateDataChunk();
 
         access::DataChunkBuilder::BuildDatabaseChunk(chunk, oid, name);
 
         TupleId tup = databases_->Insert(txn, chunk);
 
-        auto res_name = databases_index_datname->InsertUnique(txn, chunk, tup.value);
+        auto res_name = databases_index_datname->InsertUnique(txn, chunk, tup);
         if (!res_name.success)
         {
             return false;
         }
 
-        auto res_oid = databases_index_datoid->InsertUnique(txn, chunk, tup.value);
+        auto res_oid = databases_index_datoid->InsertUnique(txn, chunk, tup);
         if (!res_oid.success)
         {
             return false;
@@ -96,7 +97,7 @@ namespace db7::catalog
             return false;
         }
 
-        ResultObj<TupleId> res = txn->GetTidForModify(tids.vec);
+        ResultObj<TupleId> res = txn->GetTidForModify(tids.vec, databases_->GetTableOid());
         if (!res.success)
         {
             return false;
@@ -119,45 +120,12 @@ namespace db7::catalog
 
     bool Catalog::UpdateDatabaseName(transaction::TransactionContext *txn, db_oid_t oid, std::span<byte> name)
     {
-        access::DataChunk *chunk = data_chunk_layout_.CreateDataChunk();
-
-        access::DataChunkBuilder::BuildDatabaseChunk(chunk, oid, name);
-
-        shared::VectorValues<TupleId> tids;
-        auto result = databases_index_datoid->Get(chunk, tids);
-        if (!result.success)
+        if (!DeleteDatabaseEntry(txn, oid))
         {
             return false;
         }
 
-        ResultObj<TupleId> res = txn->GetTidForModify(tids.vec);
-        if (!res.success)
-        {
-            return false;
-        }
-
-        /* INVALID_TID in response means no valid tuple to delete was found */
-        TupleId tup_id = res.value;
-        if (tup_id == INVALID_TID)
-        {
-            return true;
-        }
-
-        if (!databases_->DeleteUndoRaw(txn, tup_id))
-        {
-            return false;
-        }
-
-        auto tid = databases_->Insert(txn, chunk);
-
-        auto res_name = databases_index_datname->InsertUnique(txn, chunk, tid);
-        if (!res_name.success)
-        {
-            return false;
-        }
-
-        auto res_oid = databases_index_datoid->InsertUnique(txn, chunk, tid);
-        if (!res_oid.success)
+        if (!CreateDatabaseEntry(txn, name, oid))
         {
             return false;
         }

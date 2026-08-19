@@ -49,7 +49,7 @@ namespace db7::storage
         {
             shared::AdaptiveVersionLock::WriteGuard guard(lock_);
 
-            auto *result = GetUnsafe(id.pid);
+            auto *result = GetUnsafe(id);
 
             result = (result == nullptr) ? new storage::VersionPtr[count]() : result;
 
@@ -58,20 +58,10 @@ namespace db7::storage
             return result;
         }
 
-        transaction::timestamp_t GetVersion(TupleId tid)
+        storage::UndoRecord *GetDelta(TupleId tid, table_id tbl_id)
         {
             shared::AdaptiveVersionLock::WriteGuard guard(lock_);
-            auto *versions = GetUnsafe(tid.GetPageId());
-            if (!versions)
-                return 0;
-            auto *undo = versions[tid.GetIndex()].Get();
-            return undo->GetTimestamp();
-        }
-
-        storage::UndoRecord *GetDelta(TupleId tid)
-        {
-            shared::AdaptiveVersionLock::WriteGuard guard(lock_);
-            auto *versions = GetUnsafe(tid.GetPageId());
+            auto *versions = GetUnsafe({tbl_id, tid.GetPageId()});
             if (!versions)
                 return nullptr;
             auto *undo = versions[tid.GetIndex()].Get();

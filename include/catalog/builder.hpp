@@ -17,7 +17,7 @@ namespace db7::catalog
     class Builder
     {
     public:
-        static DatabaseCatalog *CreateDatabaseCatalog(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng);
+        static DatabaseCatalog *CreateDatabaseCatalog(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, db_oid_t oid);
 
         static access::Schema CreateDatabaseSchema();
         static access::Schema CreateNamespaceSchema();

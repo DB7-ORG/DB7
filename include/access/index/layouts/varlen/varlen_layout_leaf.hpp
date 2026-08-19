@@ -430,7 +430,7 @@ namespace db7::access
             return ResultObj<void>::Ok();
         }
 
-        ResultObj<bool> CheckUnique(transaction::TransactionContext *txn, byte *data, Key key, int idx = -1)
+        ResultObj<bool> CheckUnique(transaction::TransactionContext *txn, byte *data, Key key, table_id tbl_id, int idx = -1)
         {
             DB7_ASSERT(key.data != nullptr, "invalid key");
             DB7_ASSERT(key.len != 0, "invalid key");
@@ -454,13 +454,13 @@ namespace db7::access
                 }
 
                 ValTyp tid = cur.Result();
-                if (txn->HasUniqueConflict(tid))
+                if (txn->HasUniqueConflict(tid, tbl_id))
                 {
                     return ResultObj<bool>::Fail();
                 }
             }
 
-            return ResultObj<bool>(true, HighPrefixCmp(data, key));
+            return ResultObj<bool>(HighPrefixCmp(data, key));
         }
     };
 }

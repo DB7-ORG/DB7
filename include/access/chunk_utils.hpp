@@ -18,6 +18,8 @@ namespace db7::access
             {
                 auto info = schema.GetColumn(id);
                 byte *ptr = layout.Get(data, info.GetPosiiton(), idx);
+                storage::VarlenEntry entry;
+                entry.Set({ptr, 6});
                 iter.PushBack(std::span<byte>(ptr, info.GetTypeSize()));
             }
         }
