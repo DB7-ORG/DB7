@@ -317,6 +317,8 @@ int main()
 
     cat->Select(context);
 
+    // cat->DeleteDatabase(context, db_oid);
+
     bool val = cat->UpdateDatabaseName(context, db_oid, sdata2);
     DB7_ASSERT(val, "value is not valid");
 
@@ -326,23 +328,7 @@ int main()
 
     cat->Select(context);
 
-    // std::string new_name = "jovo";
-    // std::cout << cat->UpdateDatabaseName(context, db_oid, std::span<char>(new_name.data(), new_name.size())) << std::endl;
-
-    // cat->Select(context);
-
-    // txn_manager.Commit(context);
-
-    // db7::transaction::TransactionContext *context2 = txn_manager.BeginTransaction();
-
-    // std::string new_name2 = "jovo222";
-    // std::cout << cat->UpdateDatabaseName(context2, db_oid, std::span<char>(new_name2.data(), new_name2.size())) << std::endl;
-
-    // cat->Select(context2);
-
-    // db7::transaction::TransactionContext *context3 = txn_manager.BeginTransaction();
-    // cat->Select(context3);
-    // txn_manager.Commit(context3);
+    cat->Select(context1);
 
     txn_manager.Commit(context);
 

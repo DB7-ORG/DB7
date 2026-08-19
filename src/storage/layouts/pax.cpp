@@ -1,5 +1,12 @@
 #include "storage/layouts/pax.hpp"
+////////////// TODO remove this is only part of debug
+#include <iostream>  // std::cout
+#include <iomanip>   // std::setw, std::setfill
+#include <cctype>    // std::isprint
+#include <algorithm> // std::min
+#include "storage/varlen_entry.hpp"
 
+///////////
 namespace db7::storage
 {
     PaxLayout::PaxLayout(std::vector<u16> &&sizes) : sizes_(std::move(sizes))
@@ -83,5 +90,77 @@ namespace db7::storage
         u32 byte_offset = storage::HEADER_SIZE + row_idx / 8;
         byte mask = byte(1 << (row_idx % 8));
         return (data[byte_offset] & mask) > 0;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    void PaxLayout::PrintDebug(byte *page_data)
+    {
+        std::cout << sizes_[0] << sizes_[1] << std::endl;
+
+        auto *header = storage::PageHeader::CastHeader(page_data);
+        std::cout << "=== PaxLayout dump (count=" << header->count
+                  << ", max=" << max_row_count_ << ") ===\n";
+
+        u32 rows = std::min<u32>(header->count + 2, max_row_count_); // peek a bit past count
+
+        for (u32 i = 0; i < rows; i++)
+        {
+            std::cout << "row " << std::setw(2) << i
+                      << (IsDeleted(page_data, i) ? " [DEL]" : "      ")
+                      << (i >= header->count ? " [past count]" : "")
+                      << " | ";
+
+            for (size_t col = 0; col < sizes_.size(); col++)
+            {
+                byte *ptr = Get(page_data, col, i);
+                u16 sz = sizes_[col];
+
+                switch (sz)
+                {
+                case 1:
+                    std::cout << (int)*(i8 *)ptr;
+                    break;
+                case 2:
+                    std::cout << *(i16 *)ptr;
+                    break;
+                case 4:
+                    std::cout << *(u32 *)ptr;
+                    break;
+                case 8:
+                    std::cout << *(u64 *)ptr;
+                    break;
+                case sizeof(VarlenEntry):
+                {
+                    auto *e = reinterpret_cast<VarlenEntry *>(ptr);
+                    u32 len = e->GetSize();
+                    std::cout << "vlen(sz=" << len;
+                    if (e->IsInline())
+                    {
+                        std::cout << ",\"";
+                        const char *p = e->GetInline();
+                        for (u32 k = 0; k < std::min<u32>(len, INLINE_SIZE_CAP); k++)
+                            std::cout << (std::isprint((unsigned char)p[k]) ? p[k] : '.');
+                        std::cout << "\"";
+                    }
+                    else
+                    {
+                        std::cout << ",pid=" << e->GetRef().pid
+                                  << ",off=" << e->GetRef().offset;
+                    }
+                    std::cout << ")";
+                    break;
+                }
+                default:
+                    // unknown size: hex dump
+                    for (u16 k = 0; k < sz; k++)
+                        std::cout << std::hex << std::setw(2) << std::setfill('0')
+                                  << (int)ptr[k] << std::dec << std::setfill(' ');
+                }
+                std::cout << " | ";
+            }
+            std::cout << "\n";
+        }
+        std::cout << "===\n";
     }
 }

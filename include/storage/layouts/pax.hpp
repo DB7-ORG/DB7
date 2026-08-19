@@ -53,5 +53,7 @@ namespace db7::storage
         byte *Get(byte *page_data, u16 column_idx, u32 row_idx) const;
 
         u32 GetMaxRowCount() const { return max_row_count_; }
+
+        void PrintDebug(byte *page_data);
     };
 }

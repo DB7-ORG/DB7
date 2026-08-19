@@ -45,9 +45,12 @@ namespace db7::access
         static storage::PaxLayout CreateLayoutFromSchema(const Schema &schema)
         {
             std::vector<u16> sizes;
-            sizes.reserve(schema.GetCount());
+            sizes.resize(schema.GetCount());
             for (const auto &col : schema)
-                sizes.emplace_back(col.GetTypeSize());
+            {
+                DB7_ASSERT(col.GetPosiiton() < sizes.size(), "Column position out of range");
+                sizes[col.GetPosiiton()] = col.GetTypeSize();
+            }
             return storage::PaxLayout(std::move(sizes));
         }
 
