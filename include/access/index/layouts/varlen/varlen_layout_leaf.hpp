@@ -304,7 +304,7 @@ namespace db7::access
                 result.push_back(cur.Result());
             }
 
-            results.proceed = i == int(count); // TODO fix index
+            results.proceed = HighPrefixCmp(data, key);
 
             return ResultObj<void>::Ok();
         }

@@ -91,6 +91,10 @@ namespace db7::access
             return &schema_;
         }
 
+        u32 GetMaxRowCount() const { return layout_.GetMaxRowCount(); }
+
+        bool DeleteUndoRaw(transaction::TransactionContext *txn, TupleId tup_id);
+
         void PrintPage(storage::Page *page);
     };
 }

@@ -114,6 +114,38 @@ namespace db7::access
     }
 
     /**
+     * Raw indicates that the delete doesnt touch the page or aquire page lock in any way
+     * but relies on CAS semantics to make sure delete is atomic.
+     * This version only touches the version manager hash table and not the buffer pool.
+     */
+    bool Table::DeleteUndoRaw(transaction::TransactionContext *txn, TupleId tup_id)
+    {
+        u32 count = GetMaxRowCount();
+
+        storage::UndoRecord *record = txn->UndoRecordForDelete(oid_, tup_id.GetPageId(), tup_id.GetIndex());
+
+        storage::VersionPtr *versions = txn->GetVersions(storage::PageIdentifier{oid_, tup_id.GetPageId()}, count);
+
+        storage::UndoRecord *version_ptr;
+
+        do
+        {
+            version_ptr = versions[tup_id.GetIndex()].Get();
+
+            if (HasConflict(txn, version_ptr) || version_ptr->IsDeleted())
+            {
+                record->Invalidate();
+                return false;
+            }
+
+            record->SetNext(version_ptr);
+
+        } while (!versions[tup_id.GetIndex()].CompareAndSwap(version_ptr, record));
+
+        return true;
+    }
+
+    /**
      * @warning make sure to hold the page data lock like w other columns
      */
     bool Table::DeleteUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page)

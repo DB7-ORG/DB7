@@ -37,6 +37,10 @@ namespace db7::storage
 
         DeltaRecordType GetType() { return type_; }
 
+        bool IsDeleted() const { return type_ == DeltaRecordType::DELETE; }
+
+        bool IsInvalidated() const { return type_ == DeltaRecordType::INVALID; }
+
         void Invalidate() { type_ = DeltaRecordType::INVALID; }
 
         UndoRecord *GetNext() { return next_.load(); }

@@ -49,13 +49,13 @@ namespace db7::catalog
 
         TupleId tup = databases_->Insert(txn, chunk);
 
-        auto res_name = databases_index_datname->Insert(chunk, tup.value);
+        auto res_name = databases_index_datname->InsertUnique(txn, chunk, tup.value);
         if (!res_name.success)
         {
             return false;
         }
 
-        auto res_oid = databases_index_datoid->Insert(chunk, tup.value);
+        auto res_oid = databases_index_datoid->InsertUnique(txn, chunk, tup.value);
         if (!res_oid.success)
         {
             return false;
@@ -89,14 +89,30 @@ namespace db7::catalog
 
         access::DataChunkBuilder::BuildDatabaseChunk(chunk, oid, {});
 
-        shared::VectorValues<TupleId> results;
-        auto result = databases_index_datoid->Get(chunk, results);
+        shared::VectorValues<TupleId> tids;
+        auto result = databases_index_datoid->Get(chunk, tids);
         if (!result.success)
         {
             return false;
         }
 
-        // TODO fix index Just loop here over entries and CAS untill deleted
+        ResultObj<TupleId> res = txn->GetTidForModify(tids.vec);
+        if (!res.success)
+        {
+            return false;
+        }
+
+        /* INVALID_TID in response means no valid tuple to delete was found */
+        TupleId tup_id = res.value;
+        if (tup_id == INVALID_TID)
+        {
+            return true;
+        }
+
+        if (!databases_->DeleteUndoRaw(txn, tup_id))
+        {
+            return false;
+        }
 
         return true;
     }
@@ -107,14 +123,30 @@ namespace db7::catalog
 
         access::DataChunkBuilder::BuildDatabaseChunk(chunk, oid, name);
 
-        shared::VectorValues<TupleId> results;
-        auto result = databases_index_datoid->Get(chunk, results);
+        shared::VectorValues<TupleId> tids;
+        auto result = databases_index_datoid->Get(chunk, tids);
         if (!result.success)
         {
             return false;
         }
 
-        // TODO fix index Just loop here over entries and CAS untill deleted
+        ResultObj<TupleId> res = txn->GetTidForModify(tids.vec);
+        if (!res.success)
+        {
+            return false;
+        }
+
+        /* INVALID_TID in response means no valid tuple to delete was found */
+        TupleId tup_id = res.value;
+        if (tup_id == INVALID_TID)
+        {
+            return true;
+        }
+
+        if (!databases_->DeleteUndoRaw(txn, tup_id))
+        {
+            return false;
+        }
 
         auto tid = databases_->Insert(txn, chunk);
 

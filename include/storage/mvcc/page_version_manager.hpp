@@ -73,7 +73,7 @@ namespace db7::storage
             shared::AdaptiveVersionLock::WriteGuard guard(lock_);
             auto *versions = GetUnsafe(tid.GetPageId());
             if (!versions)
-                return 0;
+                return nullptr;
             auto *undo = versions[tid.GetIndex()].Get();
             return undo;
         }

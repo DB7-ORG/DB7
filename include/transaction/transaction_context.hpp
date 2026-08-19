@@ -9,6 +9,7 @@
 #include "transaction/transaction_util.hpp"
 #include "shared/models/vector_result.hpp"
 #include "shared/models/tuple_id.hpp"
+#include "shared/models/result_object.hpp"
 
 #include <span>
 #include <forward_list>
@@ -90,6 +91,11 @@ namespace db7::transaction
             return versions_arr;
         }
 
+        storage::VersionPtr *GetVersions(storage::PageIdentifier id, u32 count)
+        {
+            return version_manager_->GetCreateVersions(id, count);
+        }
+
         storage::UndoRecord *UndoRecordForInsert(table_id tbl_id, page_id pid, u32 idx)
         {
             byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord));
@@ -119,13 +125,50 @@ namespace db7::transaction
 
         bool HasUniqueConflict(TupleId tid)
         {
-            auto undo = version_manager_->GetDelta(tid);
+            auto *undo = version_manager_->GetDelta(tid);
+
+            /* i dont think i need this since if i find invalidated its not deleted in version before */
+            // while (undo != nullptr && undo->IsInvalidated())
+            // {
+            //     undo = undo->GetNext();
+            // }
+
+            if (undo == nullptr)
+            {
+                return true;
+            }
 
             const bool safely_deleted =
-                undo->GetType() == storage::DeltaRecordType::DELETE &&
+                undo->IsDeleted() &&
                 !transaction::TransactionUtil::HasConflict(undo->GetTimestamp(), FinishTime(), StartTime());
 
             return !safely_deleted;
+        }
+
+        ResultObj<TupleId> GetTidForModify(std::vector<TupleId> &tids)
+        {
+            TupleId result = INVALID_TID;
+            for (auto tid : tids)
+            {
+                auto *undo = version_manager_->GetDelta(tid);
+                if (undo == nullptr)
+                {
+                    result = tid;
+                    break;
+                }
+
+                if (transaction::TransactionUtil::HasConflict(undo->GetTimestamp(), FinishTime(), StartTime()))
+                {
+                    return ResultObj<TupleId>::Fail("Conflicting version");
+                }
+
+                if (!undo->IsDeleted())
+                {
+                    result = tid;
+                    break;
+                }
+            }
+            return ResultObj<TupleId>(result);
         }
     };
 }

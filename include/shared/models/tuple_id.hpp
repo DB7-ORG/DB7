@@ -22,4 +22,6 @@ namespace db7
         friend constexpr bool operator==(TupleId, TupleId) = default;
         friend constexpr auto operator<=>(TupleId, TupleId) = default;
     };
+
+    constexpr TupleId INVALID_TID = TupleId(0);
 }
