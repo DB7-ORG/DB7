@@ -115,6 +115,12 @@ namespace db7::catalog
         bool UpdateDatabaseName(transaction::TransactionContext *txn, db_oid_t oid, std::span<byte> name);
 
         void Select(transaction::TransactionContext *txn);
+
+        // TODO this is temporary so i can test stuff
+        DatabaseCatalog *GetDatabaseCatalog(db_oid_t oid)
+        {
+            return databases_map_[oid];
+        }
     };
 
 }

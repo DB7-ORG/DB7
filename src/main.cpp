@@ -21,6 +21,7 @@
 #include "shared/arena/object_pool.hpp"
 #include "shared/arena/fixed_bump_arena.hpp"
 #include "access/data_chunk.hpp"
+#include "catalog/builder.hpp"
 
 using namespace db7;
 
@@ -314,23 +315,20 @@ int main()
     std::span<byte> sdata2(reinterpret_cast<byte *>(s2.data()), s2.size());
 
     auto db_oid = cat->CreateDatabase(context, sdata, true);
+    DB7_ASSERT(db_oid.success, "Failed database");
 
-    cat->Select(context);
+    auto *db_catalog = cat->GetDatabaseCatalog(db_oid.value);
 
-    // cat->DeleteDatabase(context, db_oid);
+    auto resns = db_catalog->CreateNamespace(context, sdata1);
+    DB7_ASSERT(resns.success, "Failed namespace");
 
-    bool val = cat->UpdateDatabaseName(context, db_oid.value, sdata2);
-    DB7_ASSERT(val, "value is not valid");
+    auto schema = catalog::Builder::CreateConstraintSchema();
+    auto rel_res = db_catalog->CreateTable(context, sdata2, resns.value, schema);
+    DB7_ASSERT(rel_res.success, "Failed namespace");
 
-    cat->Select(context);
-
-    cat->CreateDatabase(context1, sdata1, true);
-
-    cat->DeleteDatabase(context1, 1);
-
-    cat->Select(context);
-
-    cat->Select(context1);
+    db_catalog->Select(context, 0);
+    db_catalog->Select(context, 1);
+    db_catalog->Select(context, 2);
 
     txn_manager.Commit(context);
 

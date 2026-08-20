@@ -13,12 +13,12 @@ namespace db7::access
         static void ReadSingleIntoChunk(const Schema &schema, const storage::PaxLayout &layout, DataChunk *chunk, storage::Page *page, u32 idx)
         {
             byte *data = page->GetData();
-            auto iter = chunk->InitIterator();
             for (auto id : chunk->GetColumnIds())
             {
                 auto info = schema.GetColumn(id);
                 byte *ptr = layout.Get(data, info.GetPosiiton(), idx);
-                iter.PushBack(std::span<byte>(ptr, info.GetTypeSize()));
+                // iter.PushBack(std::span<byte>(ptr, info.GetTypeSize()));
+                chunk->Write(id, {ptr, info.GetTypeSize()});
             }
         }
 
@@ -30,7 +30,7 @@ namespace db7::access
             for (auto id : chunk->GetColumnIds())
             {
                 auto info = schema.GetColumn(id);
-                layout.Insert(data, std::span<byte>(chunk->Access(info.GetPosiiton()), info.GetTypeSize() * item_count), info.GetPosiiton(), old_count);
+                layout.Insert(data, std::span<byte>(chunk->Get(id), info.GetTypeSize() * item_count), info.GetPosiiton(), old_count);
             }
 
             return old_count;

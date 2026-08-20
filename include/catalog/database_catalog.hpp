@@ -4,12 +4,14 @@
 #include "access/index/btree.hpp"
 #include "shared/models/tuple_id.hpp"
 #include "shared/models/result_object.hpp"
+#include "catalog/builder.hpp"
 
 #include <vector>
 #include <atomic>
 
 namespace db7::catalog
 {
+    class Builder;
     /**
      * Database catalog is a component managed by db7::catalog::Catalog.
      * Catalog isnt managing this component because the database lifetime is strongly tied to DatabaseCatalog lifetime.
@@ -19,6 +21,8 @@ namespace db7::catalog
     class DatabaseCatalog
     {
     private:
+        friend class Builder;
+
         catalog::db_oid_t db_id_;
 
         std::atomic<namespace_oid_t> next_namespace_oid_;
@@ -39,7 +43,6 @@ namespace db7::catalog
 
         ResultObj<attribute_oid_t> CreateColumnEntry(transaction::TransactionContext *txn, class_oid_t rel_oid, access::SchemaColumn &schema);
 
-    public:
         // cached data
         access::Table *namespaces_;
         access::BTreeIndex<TupleId> *namespaces_index_nspoid_;
@@ -78,7 +81,11 @@ namespace db7::catalog
         access::BTreeIndex<TupleId> *procs_index_prooid_;
         access::BTreeIndex<TupleId> *procs_index_proname_;
 
-        DatabaseCatalog(catalog::db_oid_t db_id) : db_id_(db_id) {}
+    public:
+        DatabaseCatalog(catalog::db_oid_t db_id)
+            : db_id_(db_id), next_namespace_oid_(1), next_class_oid_(1), next_attribute_oid_(1)
+        {
+        }
 
         ~DatabaseCatalog()
         {
@@ -117,17 +124,16 @@ namespace db7::catalog
             delete procs_index_proname_;
         }
 
-        catalog::db_oid_t GetDbOid()
-        {
-            return db_id_; // TODO ++
-        }
+        catalog::db_oid_t GetDbOid() const { return db_id_; }
 
         ResultObj<namespace_oid_t> CreateNamespace(transaction::TransactionContext *txn, const std::span<byte> name);
 
         bool DeleteNamespace(transaction::TransactionContext *txn, namespace_oid_t oid);
 
-        bool UpdateNamespaceName(transaction::TransactionContext *txn, db_oid_t oid, std::span<byte> name);
+        bool UpdateNamespaceName(transaction::TransactionContext *txn, namespace_oid_t oid, std::span<byte> name);
 
         ResultObj<class_oid_t> CreateTable(transaction::TransactionContext *txn, const std::span<byte> name, namespace_oid_t namespace_oid, access::Schema &schema);
+
+        void Select(transaction::TransactionContext *txn, int type);
     };
 }

@@ -138,9 +138,11 @@ namespace db7::catalog
     {
         u32 pid = 1;
         auto chunk = data_chunk_layout_.CreateDataChunk();
+        std::cout << "Select: " << std::endl;
         databases_->Select(txn, 0, pid, chunk);
         databases_->Select(txn, 1, pid, chunk);
         databases_->Select(txn, 2, pid, chunk);
         databases_->Select(txn, 3, pid, chunk);
+        std::cout << std::endl;
     }
 }

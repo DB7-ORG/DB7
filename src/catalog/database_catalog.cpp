@@ -55,7 +55,7 @@ namespace db7::catalog
     ResultObj<namespace_oid_t> DatabaseCatalog::CreateNamespace(transaction::TransactionContext *txn, const std::span<byte> name)
     {
         if (!TryLock(txn))
-            return INVALID_OID;
+            return ResultObj<namespace_oid_t>::Fail("Couldnt aquire a lock");
         auto oid = next_namespace_oid_++;
         return CreateNamespaceEntry(txn, name, oid);
     }
@@ -106,7 +106,7 @@ namespace db7::catalog
         return true;
     }
 
-    bool DatabaseCatalog::UpdateNamespaceName(transaction::TransactionContext *txn, db_oid_t oid, std::span<byte> name)
+    bool DatabaseCatalog::UpdateNamespaceName(transaction::TransactionContext *txn, namespace_oid_t oid, std::span<byte> name)
     {
         if (!DeleteNamespaceEntry(txn, oid))
         {
@@ -135,13 +135,13 @@ namespace db7::catalog
         auto res_name = attributes_index_attrelid_attname_->InsertUnique(txn, chunk, tup.GetValue());
         if (!res_name.success)
         {
-            return ResultObj<namespace_oid_t>::Fail("Failed to insert to attrelid_attname index");
+            return ResultObj<attribute_oid_t>::Fail("Failed to insert to attrelid_attname index");
         }
 
         auto res_oid = attributes_index_attnum_->InsertUnique(txn, chunk, tup.GetValue());
         if (!res_oid.success)
         {
-            return ResultObj<namespace_oid_t>::Fail("Failed to insert to attnum index");
+            return ResultObj<attribute_oid_t>::Fail("Failed to insert to attnum index");
         }
 
         return ResultObj<attribute_oid_t>(oid);
@@ -159,22 +159,22 @@ namespace db7::catalog
         auto res_relname = classes_index_relname_->InsertUnique(txn, chunk, tup.GetValue());
         if (!res_relname.success)
         {
-            return ResultObj<namespace_oid_t>::Fail("Failed to insert to relname index");
+            return ResultObj<class_oid_t>::Fail("Failed to insert to relname index");
         }
 
         auto res_name = classes_index_relnamespace_->InsertUnique(txn, chunk, tup.GetValue());
         if (!res_name.success)
         {
-            return ResultObj<namespace_oid_t>::Fail("Failed to insert to relnamespace index");
+            return ResultObj<class_oid_t>::Fail("Failed to insert to relnamespace index");
         }
 
         auto res_oid = classes_index_reloid_->InsertUnique(txn, chunk, tup.GetValue());
         if (!res_oid.success)
         {
-            return ResultObj<namespace_oid_t>::Fail("Failed to insert to reloid index");
+            return ResultObj<class_oid_t>::Fail("Failed to insert to reloid index");
         }
 
-        return ResultObj<namespace_oid_t>(oid);
+        return ResultObj<class_oid_t>(oid);
     }
 
     ResultObj<class_oid_t> DatabaseCatalog::CreateTable(transaction::TransactionContext *txn, const std::span<byte> name, namespace_oid_t namespace_oid, access::Schema &schema)
@@ -187,7 +187,7 @@ namespace db7::catalog
         auto res = CreateTableEntry(txn, name, oid, namespace_oid);
         if (!res.success)
         {
-            return false;
+            return res;
         }
 
         class_oid_t rel_oid = res.value;
@@ -196,11 +196,49 @@ namespace db7::catalog
             auto res_col = CreateColumnEntry(txn, rel_oid, col);
             if (!res_col.success)
             {
-                return false;
+                return res_col;
             }
         }
 
-        return true;
+        return ResultObj<class_oid_t>(oid);
+    }
+
+    void Display(
+        transaction::TransactionContext *txn,
+        access::DataChunkLayout *data_chunk_layout,
+        access::Table *table)
+    {
+        u32 pid = 1;
+        auto chunk = data_chunk_layout->CreateDataChunk();
+        std::cout << "Select: " << std::endl;
+        int i = 0;
+        table->Select(txn, i++, pid, chunk);
+        table->Select(txn, i++, pid, chunk);
+        table->Select(txn, i++, pid, chunk);
+        table->Select(txn, i++, pid, chunk);
+        table->Select(txn, i++, pid, chunk);
+        table->Select(txn, i++, pid, chunk);
+        table->Select(txn, i++, pid, chunk);
+        table->Select(txn, i++, pid, chunk);
+        std::cout << std::endl;
+    }
+
+    void DatabaseCatalog::Select(transaction::TransactionContext *txn, int type)
+    {
+        switch (type)
+        {
+        case 0:
+            Display(txn, namespace_data_chunk_layout_, namespaces_);
+            break;
+        case 1:
+            Display(txn, classes_data_chunk_layout_, classes_);
+            break;
+        case 2:
+            Display(txn, attribute_data_chunk_layout_, attributes_);
+            break;
+        default:
+            break;
+        }
     }
 
 } // namespace db7::catalog

@@ -79,31 +79,51 @@ namespace db7::access
 
     void DataChunk::Print(Schema *schema)
     {
-        for (u32 i = 0; i < column_count_; i++)
+        u32 idx = 0;
+        for (auto id : GetColumnIds())
         {
-            auto col_id = GetColumnIdsPtr()[i];
-
-            auto &col = schema->GetColumn(col_id);
-
+            auto col = schema->GetColumn(id);
+            byte *ptr = Access(idx++);
             std::cout << col.GetName() << " | ";
 
-            switch (col.GetType())
+            type_id t = col.GetType();
+            if (t == type_id::VARCHAR || t == type_id::VARBINARY)
             {
-            case type_id::VARCHAR:
+                auto *e = reinterpret_cast<storage::VarlenEntry *>(ptr);
+                if (e->IsInline())
+                    std::cout.write(e->GetInline(), e->GetSize());
+                else
+                    std::cout << "vlen(pid=" << e->GetRef().pid
+                              << ",off=" << e->GetRef().offset << ")";
+            }
+            else
             {
-
-                auto entry = *(storage::VarlenEntry *)Access(i);
-                if (entry.IsInline())
+                switch (SizeOf(t))
                 {
-                    std::cout.write(entry.GetInline(), entry.GetSize());
+                case 1:
+                    // print bools/tinyints as int, not char
+                    std::cout << (t == type_id::TINYINT
+                                      ? (i64) * (i8 *)ptr
+                                      : (u64) * (u8 *)ptr);
+                    break;
+                case 2:
+                    std::cout << (t == type_id::SMALLINT ? (i64) * (i16 *)ptr
+                                                         : (u64) * (u16 *)ptr);
+                    break;
+                case 4:
+                    std::cout << (t == type_id::INTEGER ? (i64) * (i32 *)ptr
+                                                        : (u64) * (u32 *)ptr);
+                    break;
+                case 8:
+                    if (t == type_id::DOUBLE)
+                        std::cout << *(double *)ptr;
+                    else if (t == type_id::BIGINT)
+                        std::cout << *(i64 *)ptr;
+                    else
+                        std::cout << *(u64 *)ptr;
+                    break;
                 }
-                break;
             }
-            default:
-                std::cout << *reinterpret_cast<u32 *>(Access(i));
-                break;
-            }
-
             std::cout << " | ";
         }
     }

@@ -98,7 +98,8 @@ namespace db7::catalog
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::CONNAME), access::type_id::VARCHAR, "conname");
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::CONNAMESPACE), access::type_id::INTEGER, "connamespace");
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::CONTYPE), access::type_id::TINYINT, "contype");
-        columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::CONDEFERRABLE), access::type_id::BOOLEAN, "condeferrable");
+        // TODO its called condeferrable not condeferrabl
+        columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::CONDEFERRABLE), access::type_id::BOOLEAN, "condeferrabl");
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::CONDEFFERED), access::type_id::BOOLEAN, "condeffered");
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::CONVALIDATED), access::type_id::BOOLEAN, "convalidated");
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::CONRELID), access::type_id::INTEGER, "conrelid");
@@ -211,7 +212,7 @@ namespace db7::catalog
 
         // Layouts
         dbc->namespace_data_chunk_layout_ = new access::DataChunkLayout(*dbc->namespaces_->GetSchema());
-        dbc->classes_data_chunk_layout_ = new access::DataChunkLayout(*dbc->namespaces_->GetSchema());
+        dbc->classes_data_chunk_layout_ = new access::DataChunkLayout(*dbc->classes_->GetSchema());
         dbc->attribute_data_chunk_layout_ = new access::DataChunkLayout(*dbc->attributes_->GetSchema());
 
         return dbc;
