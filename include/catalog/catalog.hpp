@@ -7,6 +7,7 @@
 #include "catalog/builder.hpp"
 #include "access/index/btree.hpp"
 #include "shared/models/tuple_id.hpp"
+#include "shared/models/result_object.hpp"
 
 #include <atomic>
 #include <unordered_map>
@@ -101,7 +102,7 @@ namespace db7::catalog
          * @param bootstrap indicates whether or not to perform bootstrap routine
          * @result id of a new database instance
          */
-        db_oid_t CreateDatabase(db7::transaction::TransactionContext *txn, const std::span<byte> name, const bool bootstrap);
+        ResultObj<db_oid_t> CreateDatabase(db7::transaction::TransactionContext *txn, const std::span<byte> name, const bool bootstrap);
 
         /**
          * Reverses everything CreateDatabase did

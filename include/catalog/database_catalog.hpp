@@ -3,6 +3,7 @@
 #include "access/table.hpp"
 #include "access/index/btree.hpp"
 #include "shared/models/tuple_id.hpp"
+#include "shared/models/result_object.hpp"
 
 #include <vector>
 #include <atomic>
@@ -22,13 +23,21 @@ namespace db7::catalog
 
         std::atomic<namespace_oid_t> next_namespace_oid_;
 
+        std::atomic<class_oid_t> next_class_oid_;
+
+        std::atomic<attribute_oid_t> next_attribute_oid_;
+
         std::atomic<transaction::timestamp_t> write_lock_;
 
         bool TryLock(transaction::TransactionContext *txn);
 
-        namespace_oid_t CreateNamespaceEntry(transaction::TransactionContext *txn, namespace_oid_t oid, const std::span<byte> name);
+        ResultObj<namespace_oid_t> CreateNamespaceEntry(transaction::TransactionContext *txn, const std::span<byte> name, namespace_oid_t oid);
 
         bool DeleteNamespaceEntry(transaction::TransactionContext *txn, namespace_oid_t oid);
+
+        ResultObj<class_oid_t> CreateTableEntry(transaction::TransactionContext *txn, const std::span<byte> name, class_oid_t oid, namespace_oid_t namespace_oid);
+
+        ResultObj<attribute_oid_t> CreateColumnEntry(transaction::TransactionContext *txn, class_oid_t rel_oid, access::SchemaColumn &schema);
 
     public:
         // cached data
@@ -41,11 +50,12 @@ namespace db7::catalog
         access::BTreeIndex<TupleId> *classes_index_reloid_;
         access::BTreeIndex<TupleId> *classes_index_relname_;
         access::BTreeIndex<TupleId> *classes_index_relnamespace_;
+        access::DataChunkLayout *classes_data_chunk_layout_;
 
         access::Table *attributes_;
         access::BTreeIndex<TupleId> *attributes_index_attnum_;
-        access::BTreeIndex<TupleId> *attributes_index_attrelid_;
-        access::BTreeIndex<TupleId> *attributes_index_attname_;
+        access::BTreeIndex<TupleId> *attributes_index_attrelid_attname_;
+        access::DataChunkLayout *attribute_data_chunk_layout_;
 
         access::Table *types_;
         access::BTreeIndex<TupleId> *types_index_typoid_;
@@ -83,8 +93,7 @@ namespace db7::catalog
 
             delete attributes_;
             delete attributes_index_attnum_;
-            delete attributes_index_attrelid_;
-            delete attributes_index_attname_;
+            delete attributes_index_attrelid_attname_;
 
             delete types_;
             delete types_index_typoid_;
@@ -113,8 +122,12 @@ namespace db7::catalog
             return db_id_; // TODO ++
         }
 
-        namespace_oid_t CreateNamespace(transaction::TransactionContext *txn, const std::span<byte> name);
+        ResultObj<namespace_oid_t> CreateNamespace(transaction::TransactionContext *txn, const std::span<byte> name);
 
         bool DeleteNamespace(transaction::TransactionContext *txn, namespace_oid_t oid);
+
+        bool UpdateNamespaceName(transaction::TransactionContext *txn, db_oid_t oid, std::span<byte> name);
+
+        ResultObj<class_oid_t> CreateTable(transaction::TransactionContext *txn, const std::span<byte> name, namespace_oid_t namespace_oid, access::Schema &schema);
     };
 }

@@ -21,7 +21,7 @@ namespace db7::catalog
         return true;
     }
 
-    db_oid_t Catalog::CreateDatabase(transaction::TransactionContext *txn, const std::span<byte> name, const bool bootstrap)
+    ResultObj<db_oid_t> Catalog::CreateDatabase(transaction::TransactionContext *txn, const std::span<byte> name, const bool bootstrap)
     {
         db_oid_t oid = next_db_oid_++;
 
@@ -33,13 +33,14 @@ namespace db7::catalog
         if (!CreateDatabaseEntry(txn, name, dbc->GetDbOid()))
         {
             throw;
+            return ResultObj<db_oid_t>::Fail("Failed to insert entry");
         }
 
         // TODO register abort action in transaction ctx
 
         (void)bootstrap;
 
-        return oid;
+        return ResultObj<db_oid_t>(oid);
     }
 
     bool Catalog::CreateDatabaseEntry(transaction::TransactionContext *txn, const std::span<byte> name, db_oid_t oid)

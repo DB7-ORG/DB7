@@ -75,10 +75,8 @@ namespace db7::access
         // pg_attribute
         case PG_INDEX_ATTRIBUTE_ATTNUM:
             return {{ATTNUM, type_id::SMALLINT}};
-        case PG_INDEX_ATTRIBUTE_ATTRELID:
-            return {{ATTRELID, type_id::INTEGER}};
-        case PG_INDEX_ATTRIBUTE_ATTNAME:
-            return {{ATTNAME, type_id::VARCHAR}};
+        case PG_INDEX_ATTRIBUTE_ATTRELID_ATTNAME:
+            return {{ATTRELID, type_id::INTEGER}, {ATTNAME, type_id::VARCHAR}};
 
         // pg_type
         case PG_INDEX_TYPE_TYPOID:

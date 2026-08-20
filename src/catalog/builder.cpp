@@ -66,7 +66,7 @@ namespace db7::catalog
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::ATTNAME), access::type_id::VARCHAR, "attname");
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::ATTTYPID), access::type_id::INTEGER, "atttypid");
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::ATTLEN), access::type_id::SMALLINT, "attlen");
-        columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::ATTTYPMOD), access::type_id::INTEGER, "atttypmod");
+        // columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::ATTTYPMOD), access::type_id::INTEGER, "atttypmod");
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::ATTNOTNULL), access::type_id::BOOLEAN, "attnotnull");
 
         return access::Schema(std::move(columns));
@@ -162,9 +162,7 @@ namespace db7::catalog
     {
         DB7_ASSERT(buffer_pool != nullptr, "BufferPool must be provided");
 
-        DatabaseCatalog *dbc = new DatabaseCatalog(oid); // TODO add index
-
-        return dbc; // TODO fix index
+        DatabaseCatalog *dbc = new DatabaseCatalog(oid);
 
         using enum CatalogTableOid;
 
@@ -188,8 +186,7 @@ namespace db7::catalog
 
         // Indexes on pg_attribute
         dbc->attributes_index_attnum_ = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_ATTRIBUTE_ATTNUM, PG_ATTRIBUTE, access::AttrsFor(PG_INDEX_ATTRIBUTE_ATTNUM));
-        dbc->attributes_index_attrelid_ = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_ATTRIBUTE_ATTRELID, PG_ATTRIBUTE, access::AttrsFor(PG_INDEX_ATTRIBUTE_ATTRELID));
-        dbc->attributes_index_attname_ = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_ATTRIBUTE_ATTNAME, PG_ATTRIBUTE, access::AttrsFor(PG_INDEX_ATTRIBUTE_ATTNAME));
+        dbc->attributes_index_attrelid_attname_ = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_ATTRIBUTE_ATTRELID_ATTNAME, PG_ATTRIBUTE, access::AttrsFor(PG_INDEX_ATTRIBUTE_ATTRELID_ATTNAME));
 
         // Indexes on pg_type
         dbc->types_index_typoid_ = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_TYPE_TYPOID, PG_TYPE, access::AttrsFor(PG_INDEX_TYPE_TYPOID));
@@ -212,7 +209,10 @@ namespace db7::catalog
         dbc->procs_index_prooid_ = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_PROC_PROOID, PG_PROC, access::AttrsFor(PG_INDEX_PROC_PROOID));
         dbc->procs_index_proname_ = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_PROC_PRONAME, PG_PROC, access::AttrsFor(PG_INDEX_PROC_PRONAME));
 
+        // Layouts
         dbc->namespace_data_chunk_layout_ = new access::DataChunkLayout(*dbc->namespaces_->GetSchema());
+        dbc->classes_data_chunk_layout_ = new access::DataChunkLayout(*dbc->namespaces_->GetSchema());
+        dbc->attribute_data_chunk_layout_ = new access::DataChunkLayout(*dbc->attributes_->GetSchema());
 
         return dbc;
     }

@@ -3,6 +3,8 @@
 #include "access/access_common.hpp"
 #include "catalog/catalog_common.hpp"
 
+#include <span>
+
 namespace db7::access
 {
     class SchemaColumn
@@ -13,6 +15,7 @@ namespace db7::access
         u32 type_size_;
         std::string col_name_;
         u32 position_;
+        bool is_nullable_ = false;
 
     public:
         SchemaColumn() {}
@@ -28,8 +31,12 @@ namespace db7::access
 
         const std::string &GetName() const { return col_name_; }
 
+        std::span<char> GetNameSpan() { return {col_name_.data(), col_name_.size()}; }
+
         void SetPosition(u32 position) { position_ = position; }
 
         u32 GetPosiiton() const { return position_; }
+
+        bool IsNullable() const { return is_nullable_; }
     };
 }

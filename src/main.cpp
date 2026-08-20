@@ -319,12 +319,14 @@ int main()
 
     // cat->DeleteDatabase(context, db_oid);
 
-    bool val = cat->UpdateDatabaseName(context, db_oid, sdata2);
+    bool val = cat->UpdateDatabaseName(context, db_oid.value, sdata2);
     DB7_ASSERT(val, "value is not valid");
 
     cat->Select(context);
 
     cat->CreateDatabase(context1, sdata1, true);
+
+    cat->DeleteDatabase(context1, 1);
 
     cat->Select(context);
 

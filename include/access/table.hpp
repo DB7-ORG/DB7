@@ -27,7 +27,12 @@
  */
 namespace db7::access
 {
-
+    enum class RowStatus
+    {
+        Visible,
+        Deleted,
+        NotVisible
+    };
     /**
      * Table abstraction
      */
@@ -60,7 +65,7 @@ namespace db7::access
 
         bool DeleteUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page);
 
-        bool SelectIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page, DataChunk *chunk);
+        RowStatus SelectIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page, DataChunk *chunk);
 
     public:
         DB7_DISALLOW_COPY(Table);

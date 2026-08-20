@@ -11,6 +11,9 @@ namespace db7::catalog
     using rel_oid_t = u32;
     using col_oid_t = u32;
     using namespace_oid_t = u32;
+    using class_oid_t = u32;
+    using attribute_oid_t = u32;
+    using attribute_type_oid_t = u32;
 
     struct CatalogTableColCount
     {
@@ -47,8 +50,8 @@ namespace db7::catalog
 
         // pg_attribute indexes
         PG_INDEX_ATTRIBUTE_ATTNUM,
-        PG_INDEX_ATTRIBUTE_ATTRELID,
-        PG_INDEX_ATTRIBUTE_ATTNAME,
+        PG_INDEX_ATTRIBUTE_ATTRELID_ATTNAME,
+        // PG_INDEX_ATTRIBUTE_ATTNAME,
 
         // pg_type indexes
         PG_INDEX_TYPE_TYPOID,
@@ -96,7 +99,7 @@ namespace db7::catalog
         ATTNAME,
         ATTTYPID,
         ATTLEN,
-        ATTTYPMOD,
+        // ATTTYPMOD,
         ATTNOTNULL,
         // type
         TYPOID,
@@ -149,4 +152,21 @@ namespace db7::catalog
         PROSRC,
         PROCONFIG,
     };
+
+    enum class RelKind : char
+    {
+        REGULAR_TABLE = 'r',     ///< Ordinary table.
+        INDEX = 'i',             ///< Index.
+        SEQUENCE = 'S',          ///< Sequence.
+        VIEW = 'v',              ///< View.
+        MATERIALIZED_VIEW = 'm', ///< Materialized view.
+        COMPOSITE_TYPE = 'c',    ///< Composite type.
+        TOAST_TABLE = 't',       ///< TOAST table.
+        FOREIGN_TABLE = 'f',     ///< Foreign table.
+    };
+
+    constexpr char ToChar(RelKind kind)
+    {
+        return static_cast<char>(kind);
+    }
 }

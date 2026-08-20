@@ -199,7 +199,7 @@ namespace db7::access
         return disk_mng_->PageCount(oid_);
     }
 
-    bool Table::SelectIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page, DataChunk *chunk)
+    RowStatus Table::SelectIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page, DataChunk *chunk)
     {
         ChunkUtils::ReadSingleIntoChunk(schema_, layout_, chunk, page, idx);
 
@@ -213,7 +213,7 @@ namespace db7::access
         bool is_deleted = version_ptr == nullptr ? layout_.IsDeleted(page->GetData(), idx) : version_ptr->IsDeleted();
         if (version_ptr == nullptr || version_ptr->GetTimestamp() == txn->FinishTime())
         {
-            return !is_deleted;
+            return is_deleted ? RowStatus::Deleted : RowStatus::Visible;
         }
 
         while (version_ptr != nullptr &&
@@ -228,15 +228,15 @@ namespace db7::access
                 break;
             }
             case storage::DeltaRecordType::INSERT:
+                return RowStatus::NotVisible;
             case storage::DeltaRecordType::DELETE:
-                return false;
             case storage::DeltaRecordType::INVALID:
                 break;
             }
             version_ptr = version_ptr->GetNext();
         }
 
-        return !is_deleted;
+        return is_deleted ? RowStatus::Deleted : RowStatus::Visible;
     }
 
     bool Table::Select(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid, DataChunk *chunk)
@@ -246,24 +246,28 @@ namespace db7::access
         page->WaitIO();
 
         page->RDataLock();
-        bool valid = SelectIntoChunk(txn, idx, page, chunk);
+        RowStatus res = SelectIntoChunk(txn, idx, page, chunk);
         page->RDataUnlock();
 
-        // TODO test
-        if (valid)
+        if (res == RowStatus::Visible)
         {
             chunk->Print(&schema_);
             std::cout << std::endl;
         }
-        else
+        else if (res == RowStatus::Deleted)
         {
             chunk->Print(&schema_);
             std::cout << " [DELETED]" << std::endl;
         }
+        else
+        {
+            chunk->Print(&schema_);
+            std::cout << " [NOT VISIBLE]" << std::endl;
+        }
 
         page->Unpin();
 
-        return valid;
+        return true;
     }
 
     void Table::PrintPage(storage::Page *page)

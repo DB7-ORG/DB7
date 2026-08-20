@@ -198,5 +198,43 @@ namespace db7::access
             entry.Set(name);
             chunk->Write(catalog::CatalogColumnOid::NSPNAME, entry);
         }
+
+        static void BuildClassChunk(
+            DataChunk *chunk,
+            catalog::class_oid_t oid,
+            const std::span<byte> name,
+            catalog::namespace_oid_t namespace_oid,
+            char kind,
+            const std::span<byte> options)
+        {
+            chunk->Write(catalog::CatalogColumnOid::RELOID, oid);
+            storage::VarlenEntry entry;
+            entry.Set(name);
+            chunk->Write(catalog::CatalogColumnOid::RELNAME, entry);
+            chunk->Write(catalog::CatalogColumnOid::RELNAMESPACE, namespace_oid);
+            chunk->Write(catalog::CatalogColumnOid::RELKIND, kind);
+            storage::VarlenEntry options_entry;
+            options_entry.Set(options);
+            chunk->Write(catalog::CatalogColumnOid::RELOPTIONS, options_entry);
+        }
+
+        static void BuildAttributeChunk(
+            DataChunk *chunk,
+            catalog::attribute_oid_t oid,
+            catalog::class_oid_t rel_oid,
+            const std::span<char> name,
+            access::type_id type_oid,
+            u16 attr_len,
+            bool not_null)
+        {
+            chunk->Write(catalog::CatalogColumnOid::ATTNUM, oid);
+            chunk->Write(catalog::CatalogColumnOid::ATTRELID, rel_oid);
+            storage::VarlenEntry entry;
+            entry.Set(name);
+            chunk->Write(catalog::CatalogColumnOid::ATTNAME, entry);
+            chunk->Write(catalog::CatalogColumnOid::ATTTYPID, type_oid);
+            chunk->Write(catalog::CatalogColumnOid::ATTLEN, attr_len);
+            chunk->Write(catalog::CatalogColumnOid::ATTNOTNULL, not_null);
+        }
     };
 }
