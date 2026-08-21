@@ -364,6 +364,92 @@ namespace db7::catalog
         return ResultObj<class_oid_t>(table_res.value);
     }
 
+    ResultObj<class_oid_t> DatabaseCatalog::CreateConstraintEntry(
+        transaction::TransactionContext *txn,
+        constraint_oid_t oid,
+        ConstraintProps props)
+    {
+        access::DataChunk *chunk = constraint_data_chunk_layout_->CreateDataChunk();
+
+        access::DataChunkBuilder::BuildConstraintChunk(chunk, oid, props);
+
+        TupleId tup = constraints_->Insert(txn, chunk);
+
+        auto res_oid = constraints_index_conoid_->InsertUnique(txn, chunk, tup.GetValue());
+        if (!res_oid.success)
+        {
+            return ResultObj<class_oid_t>::Fail("Failed to insert to conoid index");
+        }
+
+        auto res_name = constraints_index_conname_->InsertUnique(txn, chunk, tup.GetValue());
+        if (!res_name.success)
+        {
+            return ResultObj<class_oid_t>::Fail("Failed to insert to conname index");
+        }
+
+        auto ns_exists = ExistsNamespace(txn, props.ns_oid);
+        if (!ns_exists.success)
+        {
+            return ResultObj<class_oid_t>::Fail(ns_exists.message);
+        }
+
+        auto res_ns = constraints_index_connamespace_->Insert(chunk, tup.GetValue());
+        if (!res_name.success)
+        {
+            return ResultObj<class_oid_t>::Fail("Failed to insert to connamespace index");
+        }
+
+        auto rel_exists = ExistsTable(txn, props.rel_oid);
+        if (!rel_exists.success)
+        {
+            return ResultObj<class_oid_t>::Fail(rel_exists.message);
+        }
+
+        auto res_rel = constraints_index_conrelid_->Insert(chunk, tup.GetValue());
+        if (!res_name.success)
+        {
+            return ResultObj<class_oid_t>::Fail("Failed to insert to conrelid index");
+        }
+
+        auto idx_exists = ExistsTable(txn, props.ind_oid);
+        if (!idx_exists.success)
+        {
+            return ResultObj<class_oid_t>::Fail(idx_exists.message);
+        }
+
+        auto res_idx = constraints_index_conindid_->Insert(chunk, tup.GetValue());
+        if (!res_name.success)
+        {
+            return ResultObj<class_oid_t>::Fail("Failed to insert to conindid index");
+        }
+
+        auto for_exists = ExistsTable(txn, props.for_oid);
+        if (!for_exists.success)
+        {
+            return ResultObj<class_oid_t>::Fail(for_exists.message);
+        }
+
+        auto res_for = constraints_index_confrelid_->Insert(chunk, tup.GetValue());
+        if (!res_for.success)
+        {
+            return ResultObj<class_oid_t>::Fail("Failed to insert to res_for index");
+        }
+
+        return ResultObj<class_oid_t>(oid);
+    }
+
+    ResultObj<class_oid_t> DatabaseCatalog::CreateConstraint(
+        transaction::TransactionContext *txn,
+        ConstraintProps props)
+    {
+        if (!TryLock(txn))
+            return INVALID_OID;
+
+        constraint_oid_t oid = next_constraint_oid_++;
+
+        return CreateConstraintEntry(txn, oid, props);
+    }
+
     void Display(
         transaction::TransactionContext *txn,
         access::DataChunkLayout *data_chunk_layout,

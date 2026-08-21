@@ -273,5 +273,24 @@ namespace db7::access
             chunk->Write(catalog::CatalogColumnOid::INDISLIVE, is_live);
             chunk->Write(catalog::CatalogColumnOid::IND_TYPE, index_type);
         }
+
+        static void BuildConstraintChunk(
+            DataChunk *chunk,
+            catalog::constraint_oid_t oid,
+            catalog::ConstraintProps props)
+        {
+            chunk->Write(catalog::CatalogColumnOid::CONOID, oid);
+            storage::VarlenEntry entry;
+            entry.Set(props.name);
+            chunk->Write(catalog::CatalogColumnOid::CONNAME, entry);
+            chunk->Write(catalog::CatalogColumnOid::CONNAMESPACE, props.ns_oid);
+            chunk->Write(catalog::CatalogColumnOid::CONTYPE, props.con_type);
+            chunk->Write(catalog::CatalogColumnOid::CONDEFERRABLE, props.defferable);
+            chunk->Write(catalog::CatalogColumnOid::CONDEFFERED, props.deffered);
+            chunk->Write(catalog::CatalogColumnOid::CONVALIDATED, props.validated);
+            chunk->Write(catalog::CatalogColumnOid::CONRELID, props.rel_oid);
+            chunk->Write(catalog::CatalogColumnOid::CONINDID, props.ind_oid);
+            chunk->Write(catalog::CatalogColumnOid::CONFRELID, props.for_oid);
+        }
     };
 }

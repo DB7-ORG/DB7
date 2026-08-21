@@ -111,6 +111,10 @@ namespace db7::access
             return {{PROOID, type_id::INTEGER}};
         case PG_INDEX_PROC_PRONAME:
             return {{PRONAME, type_id::VARCHAR}};
+        case PG_INDEX_INDEX_INDOID:
+            return {{INDOID, type_id::INTEGER}};
+        case PG_INDEX_INDEX_INDRELID:
+            return {{INDRELID, type_id::INTEGER}};
         default:
             return {};
         }

@@ -2,6 +2,8 @@
 
 #include "common.hpp"
 
+#include <span>
+
 #define INVALID_REL_OID 0
 
 namespace db7::catalog
@@ -15,6 +17,7 @@ namespace db7::catalog
     using attribute_oid_t = u32;
     using attribute_type_oid_t = u32;
     using index_oid_t = u32;
+    using constraint_oid_t = u32;
 
     struct CatalogTableColCount
     {
@@ -33,6 +36,7 @@ namespace db7::catalog
         PG_DATABASES = 1,
         PG_NAMESPACE,
         PG_CLASS,
+        PG_INDEX,
         PG_ATTRIBUTE,
         PG_TYPE,
         PG_CONSTRAINT,
@@ -48,6 +52,10 @@ namespace db7::catalog
         PG_INDEX_CLASS_RELOID,
         PG_INDEX_CLASS_RELNAME,
         PG_INDEX_CLASS_RELNAMESPACE,
+
+        // pg_index indexes
+        PG_INDEX_INDEX_INDOID,
+        PG_INDEX_INDEX_INDRELID,
 
         // pg_attribute indexes
         PG_INDEX_ATTRIBUTE_ATTNUM,
@@ -102,7 +110,7 @@ namespace db7::catalog
         ATTLEN,
         // ATTTYPMOD,
         ATTNOTNULL,
-        // index table schema
+        // index
         INDOID,
         INDRELID,
         INDISUNIQUE,
@@ -131,7 +139,6 @@ namespace db7::catalog
         CONRELID,
         CONINDID,
         CONFRELID,
-        CONBIN,
         // language
         LANOID,
         LANNAME,
@@ -186,4 +193,17 @@ namespace db7::catalog
     {
         return static_cast<char>(kind);
     }
+
+    struct ConstraintProps
+    {
+        const std::span<byte> name;
+        namespace_oid_t ns_oid;
+        char con_type;
+        bool defferable;
+        bool deffered;
+        bool validated;
+        class_oid_t rel_oid;
+        class_oid_t ind_oid;
+        class_oid_t for_oid; // foreign table id
+    };
 }

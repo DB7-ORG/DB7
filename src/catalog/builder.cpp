@@ -125,7 +125,6 @@ namespace db7::catalog
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::CONRELID), access::type_id::INTEGER, "conrelid");
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::CONINDID), access::type_id::INTEGER, "conindid");
         columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::CONFRELID), access::type_id::INTEGER, "confrelid");
-        columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::CONBIN), access::type_id::VARCHAR, "conbin");
 
         return access::Schema(std::move(columns));
     }
@@ -209,6 +208,10 @@ namespace db7::catalog
         dbc->attributes_index_attnum_ = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_ATTRIBUTE_ATTNUM, PG_ATTRIBUTE, access::AttrsFor(PG_INDEX_ATTRIBUTE_ATTNUM));
         dbc->attributes_index_attrelid_attname_ = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_ATTRIBUTE_ATTRELID_ATTNAME, PG_ATTRIBUTE, access::AttrsFor(PG_INDEX_ATTRIBUTE_ATTRELID_ATTNAME));
 
+        // Indexes on pg_index
+        dbc->indexes_index_indoid_ = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_INDEX_INDOID, PG_INDEX, access::AttrsFor(PG_INDEX_INDEX_INDOID));
+        dbc->indexes_index_indrelid_ = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_INDEX_INDRELID, PG_INDEX, access::AttrsFor(PG_INDEX_INDEX_INDRELID));
+
         // Indexes on pg_type
         dbc->types_index_typoid_ = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_TYPE_TYPOID, PG_TYPE, access::AttrsFor(PG_INDEX_TYPE_TYPOID));
         dbc->types_index_typname_ = new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_TYPE_TYPNAME, PG_TYPE, access::AttrsFor(PG_INDEX_TYPE_TYPNAME));
@@ -234,6 +237,8 @@ namespace db7::catalog
         dbc->namespace_data_chunk_layout_ = new access::DataChunkLayout(*dbc->namespaces_->GetSchema());
         dbc->classes_data_chunk_layout_ = new access::DataChunkLayout(*dbc->classes_->GetSchema());
         dbc->attribute_data_chunk_layout_ = new access::DataChunkLayout(*dbc->attributes_->GetSchema());
+        dbc->indexes_data_chunk_layout_ = new access::DataChunkLayout(*dbc->indexes_->GetSchema());
+        dbc->constraint_data_chunk_layout_ = new access::DataChunkLayout(*dbc->constraints_->GetSchema());
 
         return dbc;
     }

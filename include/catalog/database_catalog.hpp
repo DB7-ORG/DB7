@@ -13,6 +13,7 @@
 namespace db7::catalog
 {
     class Builder;
+
     /**
      * Database catalog is a component managed by db7::catalog::Catalog.
      * Catalog isnt managing this component because the database lifetime is strongly tied to DatabaseCatalog lifetime.
@@ -27,10 +28,9 @@ namespace db7::catalog
         catalog::db_oid_t db_id_;
 
         std::atomic<namespace_oid_t> next_namespace_oid_;
-
         std::atomic<class_oid_t> next_class_oid_;
-
         std::atomic<attribute_oid_t> next_attribute_oid_;
+        std::atomic<constraint_oid_t> next_constraint_oid_;
 
         std::atomic<transaction::timestamp_t> write_lock_;
 
@@ -53,6 +53,11 @@ namespace db7::catalog
             class_oid_t rel_oid,
             namespace_oid_t namespace_oid,
             access::IndexSchema &schema);
+
+        ResultObj<class_oid_t> CreateConstraintEntry(
+            transaction::TransactionContext *txn,
+            constraint_oid_t oid,
+            ConstraintProps props);
 
         // cached data
         access::Table *namespaces_;
@@ -88,6 +93,7 @@ namespace db7::catalog
         access::BTreeIndex<TupleId> *constraints_index_conrelid_;
         access::BTreeIndex<TupleId> *constraints_index_conindid_;
         access::BTreeIndex<TupleId> *constraints_index_confrelid_;
+        access::DataChunkLayout *constraint_data_chunk_layout_;
 
         access::Table *languages_;
         access::BTreeIndex<TupleId> *languages_index_lanoid_;
@@ -102,7 +108,8 @@ namespace db7::catalog
             : db_id_(db_id),
               next_namespace_oid_(1),
               next_class_oid_(1),
-              next_attribute_oid_(1)
+              next_attribute_oid_(1),
+              next_constraint_oid_(1)
         {
         }
 
@@ -161,6 +168,8 @@ namespace db7::catalog
 
         ResultObj<class_oid_t> CreateIndex(transaction::TransactionContext *txn, const std::span<byte> name,
                                            class_oid_t rel_oid, namespace_oid_t namespace_oid, access::IndexSchema &schema);
+
+        ResultObj<class_oid_t> CreateConstraint(transaction::TransactionContext *txn, ConstraintProps props);
 
         void Select(transaction::TransactionContext *txn, int type);
     };
