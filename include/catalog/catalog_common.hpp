@@ -14,6 +14,7 @@ namespace db7::catalog
     using class_oid_t = u32;
     using attribute_oid_t = u32;
     using attribute_type_oid_t = u32;
+    using index_oid_t = u32;
 
     struct CatalogTableColCount
     {
@@ -101,6 +102,17 @@ namespace db7::catalog
         ATTLEN,
         // ATTTYPMOD,
         ATTNOTNULL,
+        // index table schema
+        INDOID,
+        INDRELID,
+        INDISUNIQUE,
+        INDISPRIMARY,
+        INDISEXCLUSION,
+        INDIMMEDIATE,
+        INDISVALID,
+        INDISREADY,
+        INDISLIVE,
+        IND_TYPE,
         // type
         TYPOID,
         TYPNAME,
@@ -163,6 +175,11 @@ namespace db7::catalog
         COMPOSITE_TYPE = 'c',    ///< Composite type.
         TOAST_TABLE = 't',       ///< TOAST table.
         FOREIGN_TABLE = 'f',     ///< Foreign table.
+    };
+
+    enum class IndexKind : u8
+    {
+        BTREE = 0
     };
 
     constexpr char ToChar(RelKind kind)

@@ -5,6 +5,7 @@
 #include "shared/models/tuple_id.hpp"
 #include "shared/models/result_object.hpp"
 #include "catalog/builder.hpp"
+#include "access/index_schema.hpp"
 
 #include <vector>
 #include <atomic>
@@ -43,6 +44,16 @@ namespace db7::catalog
 
         ResultObj<attribute_oid_t> CreateColumnEntry(transaction::TransactionContext *txn, class_oid_t rel_oid, access::SchemaColumn &schema);
 
+        bool DeleteTableEntry(transaction::TransactionContext *txn, class_oid_t oid);
+
+        ResultObj<class_oid_t> CreateIndexEntry(
+            transaction::TransactionContext *txn,
+            const std::span<byte> name,
+            class_oid_t class_oid,
+            class_oid_t rel_oid,
+            namespace_oid_t namespace_oid,
+            access::IndexSchema &schema);
+
         // cached data
         access::Table *namespaces_;
         access::BTreeIndex<TupleId> *namespaces_index_nspoid_;
@@ -59,6 +70,11 @@ namespace db7::catalog
         access::BTreeIndex<TupleId> *attributes_index_attnum_;
         access::BTreeIndex<TupleId> *attributes_index_attrelid_attname_;
         access::DataChunkLayout *attribute_data_chunk_layout_;
+
+        access::Table *indexes_;
+        access::BTreeIndex<TupleId> *indexes_index_indoid_;
+        access::BTreeIndex<TupleId> *indexes_index_indrelid_;
+        access::DataChunkLayout *indexes_data_chunk_layout_;
 
         access::Table *types_;
         access::BTreeIndex<TupleId> *types_index_typoid_;
@@ -83,7 +99,10 @@ namespace db7::catalog
 
     public:
         DatabaseCatalog(catalog::db_oid_t db_id)
-            : db_id_(db_id), next_namespace_oid_(1), next_class_oid_(1), next_attribute_oid_(1)
+            : db_id_(db_id),
+              next_namespace_oid_(1),
+              next_class_oid_(1),
+              next_attribute_oid_(1)
         {
         }
 
@@ -130,9 +149,18 @@ namespace db7::catalog
 
         bool DeleteNamespace(transaction::TransactionContext *txn, namespace_oid_t oid);
 
+        ResultObj<void> ExistsNamespace(transaction::TransactionContext *txn, namespace_oid_t oid);
+
         bool UpdateNamespaceName(transaction::TransactionContext *txn, namespace_oid_t oid, std::span<byte> name);
 
         ResultObj<class_oid_t> CreateTable(transaction::TransactionContext *txn, const std::span<byte> name, namespace_oid_t namespace_oid, access::Schema &schema);
+
+        ResultObj<void> ExistsTable(transaction::TransactionContext *txn, class_oid_t oid);
+
+        bool UpdateTableName(transaction::TransactionContext *txn, class_oid_t oid, std::span<byte> name, namespace_oid_t namespace_oid);
+
+        ResultObj<class_oid_t> CreateIndex(transaction::TransactionContext *txn, const std::span<byte> name,
+                                           class_oid_t rel_oid, namespace_oid_t namespace_oid, access::IndexSchema &schema);
 
         void Select(transaction::TransactionContext *txn, int type);
     };

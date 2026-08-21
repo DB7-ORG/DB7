@@ -72,6 +72,26 @@ namespace db7::catalog
         return access::Schema(std::move(columns));
     }
 
+    access::Schema Builder::CreateIndexSchema()
+    {
+        // pg_index: index metadata
+        std::vector<access::SchemaColumn> columns;
+        columns.reserve(10);
+
+        columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::INDOID), access::type_id::INTEGER, "indoid");
+        columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::INDRELID), access::type_id::INTEGER, "indrelid");
+        columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::INDISUNIQUE), access::type_id::BOOLEAN, "indisunique");
+        columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::INDISPRIMARY), access::type_id::BOOLEAN, "indisprimary");
+        columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::INDISEXCLUSION), access::type_id::BOOLEAN, "indisexclusion");
+        columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::INDIMMEDIATE), access::type_id::BOOLEAN, "indimmediate");
+        columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::INDISVALID), access::type_id::BOOLEAN, "indisvalid");
+        columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::INDISREADY), access::type_id::BOOLEAN, "indisready");
+        columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::INDISLIVE), access::type_id::BOOLEAN, "indislive");
+        columns.emplace_back(catalog::col_oid_t(CatalogColumnOid::IND_TYPE), access::type_id::TINYINT, "ind_type");
+
+        return access::Schema(std::move(columns));
+    }
+
     access::Schema Builder::CreateTypeSchema()
     {
         // pg_type: data types

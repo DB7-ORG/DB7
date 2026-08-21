@@ -23,6 +23,7 @@ namespace db7::catalog
         static access::Schema CreateNamespaceSchema();
         static access::Schema CreateClassSchema();
         static access::Schema CreateAttributeSchema();
+        static access::Schema CreateIndexSchema();
         static access::Schema CreateTypeSchema();
         static access::Schema CreateConstraintSchema();
         static access::Schema CreateLanguageSchema();

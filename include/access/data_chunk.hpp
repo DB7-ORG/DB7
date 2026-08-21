@@ -199,6 +199,18 @@ namespace db7::access
             chunk->Write(catalog::CatalogColumnOid::NSPNAME, entry);
         }
 
+        static void BuildNamespaceChunk(DataChunk *chunk, catalog::namespace_oid_t oid)
+        {
+            chunk->Write(catalog::CatalogColumnOid::NSPOID, oid);
+        }
+
+        static void BuildClassChunk(
+            DataChunk *chunk,
+            catalog::class_oid_t oid)
+        {
+            chunk->Write(catalog::CatalogColumnOid::RELOID, oid);
+        }
+
         static void BuildClassChunk(
             DataChunk *chunk,
             catalog::class_oid_t oid,
@@ -235,6 +247,31 @@ namespace db7::access
             chunk->Write(catalog::CatalogColumnOid::ATTTYPID, type_oid);
             chunk->Write(catalog::CatalogColumnOid::ATTLEN, attr_len);
             chunk->Write(catalog::CatalogColumnOid::ATTNOTNULL, not_null);
+        }
+
+        static void BuildIndexChunk(
+            DataChunk *chunk,
+            catalog::index_oid_t oid,
+            catalog::class_oid_t rel_oid,
+            bool is_unique,
+            bool is_primary,
+            bool is_exclusion,
+            bool is_imediate,
+            bool is_valid,
+            bool is_ready,
+            bool is_live,
+            u8 index_type)
+        {
+            chunk->Write(catalog::CatalogColumnOid::INDOID, oid);
+            chunk->Write(catalog::CatalogColumnOid::INDRELID, rel_oid);
+            chunk->Write(catalog::CatalogColumnOid::INDISUNIQUE, is_unique);
+            chunk->Write(catalog::CatalogColumnOid::INDISPRIMARY, is_primary);
+            chunk->Write(catalog::CatalogColumnOid::INDISEXCLUSION, is_exclusion);
+            chunk->Write(catalog::CatalogColumnOid::INDIMMEDIATE, is_imediate);
+            chunk->Write(catalog::CatalogColumnOid::INDISVALID, is_valid);
+            chunk->Write(catalog::CatalogColumnOid::INDISREADY, is_ready);
+            chunk->Write(catalog::CatalogColumnOid::INDISLIVE, is_live);
+            chunk->Write(catalog::CatalogColumnOid::IND_TYPE, index_type);
         }
     };
 }

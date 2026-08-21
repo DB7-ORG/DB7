@@ -105,8 +105,6 @@ namespace db7::access
 
         insert_page->WDataUnlock();
 
-        // PrintPage(insert_page);
-
         buffer_->Unpin(insert_page, true);
 
         /* returns index insede page and page id */

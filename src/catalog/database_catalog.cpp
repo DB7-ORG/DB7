@@ -106,6 +106,27 @@ namespace db7::catalog
         return true;
     }
 
+    ResultObj<void> DatabaseCatalog::ExistsNamespace(transaction::TransactionContext *txn, namespace_oid_t oid)
+    {
+        auto *ns_chunk = namespace_data_chunk_layout_->CreateDataChunk();
+
+        access::DataChunkBuilder::BuildNamespaceChunk(ns_chunk, oid);
+
+        shared::VectorValues<TupleId> results;
+        auto ns_res = namespaces_index_nspoid_->Get(ns_chunk, results);
+        if (!ns_res.success)
+        {
+            return ResultObj<void>::Fail("Namespace does not exist");
+        }
+
+        if (!txn->GetTidExists(results.vec, namespaces_->GetTableOid()))
+        {
+            return ResultObj<void>::Fail("Namespace does not exist");
+        }
+
+        return ResultObj<void>::Ok();
+    }
+
     bool DatabaseCatalog::UpdateNamespaceName(transaction::TransactionContext *txn, namespace_oid_t oid, std::span<byte> name)
     {
         if (!DeleteNamespaceEntry(txn, oid))
@@ -162,7 +183,7 @@ namespace db7::catalog
             return ResultObj<class_oid_t>::Fail("Failed to insert to relname index");
         }
 
-        auto res_name = classes_index_relnamespace_->InsertUnique(txn, chunk, tup.GetValue());
+        auto res_name = classes_index_relnamespace_->Insert(chunk, tup.GetValue());
         if (!res_name.success)
         {
             return ResultObj<class_oid_t>::Fail("Failed to insert to relnamespace index");
@@ -181,6 +202,12 @@ namespace db7::catalog
     {
         if (!TryLock(txn))
             return INVALID_OID;
+
+        auto ns_res = ExistsNamespace(txn, namespace_oid);
+        if (!ns_res.success)
+        {
+            return ResultObj<class_oid_t>::Fail(ns_res.message);
+        }
 
         auto oid = next_class_oid_++;
 
@@ -201,6 +228,140 @@ namespace db7::catalog
         }
 
         return ResultObj<class_oid_t>(oid);
+    }
+
+    bool DatabaseCatalog::DeleteTableEntry(transaction::TransactionContext *txn, class_oid_t oid)
+    {
+        auto chunk = classes_data_chunk_layout_->CreateDataChunk();
+
+        access::DataChunkBuilder::BuildClassChunk(chunk, oid);
+
+        shared::VectorValues<TupleId> tids;
+        auto result = classes_index_reloid_->Get(chunk, tids);
+        if (!result.success)
+        {
+            return false;
+        }
+
+        ResultObj<TupleId> res = txn->GetTidForModify(tids.vec, classes_->GetTableOid());
+        if (!res.success)
+        {
+            return false;
+        }
+
+        /* INVALID_TID in response means no valid tuple to delete was found */
+        TupleId tup_id = res.value;
+        if (tup_id == INVALID_TID)
+        {
+            return true;
+        }
+
+        if (!classes_->DeleteUndoRaw(txn, tup_id))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    ResultObj<void> DatabaseCatalog::ExistsTable(transaction::TransactionContext *txn, class_oid_t oid)
+    {
+        auto *chunk = classes_data_chunk_layout_->CreateDataChunk();
+
+        access::DataChunkBuilder::BuildClassChunk(chunk, oid);
+
+        shared::VectorValues<TupleId> results;
+        auto ns_res = classes_index_reloid_->Get(chunk, results);
+        if (!ns_res.success)
+        {
+            return ResultObj<void>::Fail("Namespace does not exist");
+        }
+
+        if (!txn->GetTidExists(results.vec, classes_->GetTableOid()))
+        {
+            return ResultObj<void>::Fail("Namespace does not exist");
+        }
+
+        return ResultObj<void>::Ok();
+    }
+
+    bool DatabaseCatalog::UpdateTableName(transaction::TransactionContext *txn, class_oid_t oid, std::span<byte> name, namespace_oid_t namespace_oid)
+    {
+        if (!DeleteTableEntry(txn, oid))
+        {
+            return false;
+        }
+
+        auto res = CreateTableEntry(txn, name, oid, namespace_oid);
+        if (!res.success)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    ResultObj<class_oid_t> DatabaseCatalog::CreateIndexEntry(
+        transaction::TransactionContext *txn,
+        const std::span<byte> name,
+        class_oid_t class_oid, // index entry in class table
+        class_oid_t rel_oid,   // relation that index is for
+        namespace_oid_t namespace_oid,
+        access::IndexSchema &schema)
+    {
+        access::DataChunk *chunk = classes_data_chunk_layout_->CreateDataChunk();
+
+        access::DataChunkBuilder::BuildIndexChunk(
+            chunk, class_oid, rel_oid, schema.IsUnique(), schema.IsPrimary(), schema.IsExclusion(),
+            schema.IsImmediate(), true, true, true, u8(IndexKind::BTREE));
+
+        TupleId tup = indexes_->Insert(txn, chunk);
+
+        auto res_relname = indexes_index_indoid_->InsertUnique(txn, chunk, tup.GetValue());
+        if (!res_relname.success)
+        {
+            return ResultObj<class_oid_t>::Fail("Failed to insert to indoid index");
+        }
+
+        auto res_name = indexes_index_indrelid_->Insert(chunk, tup.GetValue());
+        if (!res_name.success)
+        {
+            return ResultObj<class_oid_t>::Fail("Failed to insert to indrelid index");
+        }
+
+        return ResultObj<class_oid_t>(class_oid);
+    }
+
+    ResultObj<class_oid_t> DatabaseCatalog::CreateIndex(
+        transaction::TransactionContext *txn,
+        const std::span<byte> name,
+        class_oid_t rel_oid,
+        namespace_oid_t namespace_oid,
+        access::IndexSchema &schema)
+    {
+        if (!TryLock(txn))
+            return INVALID_OID;
+
+        auto cl_res = ExistsTable(txn, rel_oid);
+        if (!cl_res.success)
+        {
+            return ResultObj<class_oid_t>::Fail(cl_res.message);
+        }
+
+        /* This checks if namespace still exists */
+        auto table_res = CreateTable(txn, name, namespace_oid, schema);
+        if (!table_res.success)
+        {
+            return table_res;
+        }
+
+        auto ind_res = CreateIndexEntry(txn, name, table_res.value, rel_oid, namespace_oid, schema);
+        if (!ind_res.success)
+        {
+            return ind_res;
+        }
+
+        return ResultObj<class_oid_t>(table_res.value);
     }
 
     void Display(

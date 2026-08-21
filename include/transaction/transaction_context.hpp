@@ -170,5 +170,18 @@ namespace db7::transaction
             }
             return ResultObj<TupleId>(result);
         }
+
+        bool GetTidExists(std::vector<TupleId> &tids, table_id tbl_id)
+        {
+            for (auto tid : tids)
+            {
+                auto *undo = version_manager_->GetDelta(tid, tbl_id);
+                if (undo == nullptr || !undo->IsDeleted())
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
     };
 }
