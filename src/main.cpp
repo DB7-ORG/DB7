@@ -22,6 +22,7 @@
 #include "shared/arena/fixed_bump_arena.hpp"
 #include "access/data_chunk.hpp"
 #include "catalog/builder.hpp"
+#include "access/index_schema.hpp"
 
 using namespace db7;
 
@@ -314,6 +315,12 @@ int main()
     std::string s2 = "Jovo2";
     std::span<byte> sdata2(reinterpret_cast<byte *>(s2.data()), s2.size());
 
+    std::string s3 = "ssss33";
+    std::span<byte> sdata3(reinterpret_cast<byte *>(s3.data()), s3.size());
+
+    std::string s4 = "ssss44";
+    std::span<byte> sdata4(reinterpret_cast<byte *>(s4.data()), s4.size());
+
     auto db_oid = cat->CreateDatabase(context, sdata, true);
     DB7_ASSERT(db_oid.success, "Failed database");
 
@@ -322,13 +329,35 @@ int main()
     auto resns = db_catalog->CreateNamespace(context, sdata1);
     DB7_ASSERT(resns.success, "Failed namespace");
 
-    auto schema = catalog::Builder::CreateConstraintSchema();
-    auto rel_res = db_catalog->CreateTable(context, sdata2, resns.value, schema);
+    auto schema = catalog::Builder::CreateTypeSchema();
+    auto table_res = db_catalog->CreateTable(context, sdata2, resns.value, schema);
+    DB7_ASSERT(table_res.success, "Failed table");
+
+    std::vector<access::SchemaColumn> columns;
+    columns.reserve(1);
+    columns.emplace_back(7000, access::type_id::INTEGER, "typlen");
+    access::IndexSchema idx_schema(std::move(columns), false, false, false, false);
+    auto idx_res = db_catalog->CreateIndex(context, sdata3, table_res.value, resns.value, idx_schema);
+    DB7_ASSERT(idx_res.success, "Failed index");
+
+    catalog::ConstraintProps props = {
+        sdata4,
+        resns.value,
+        'u',
+        false,
+        false,
+        false,
+        table_res.value,
+        idx_res.value,
+        table_res.value};
+    auto rel_res = db_catalog->CreateConstraint(context, props);
     DB7_ASSERT(rel_res.success, "Failed namespace");
 
     db_catalog->Select(context, 0);
     db_catalog->Select(context, 1);
     db_catalog->Select(context, 2);
+    db_catalog->Select(context, 3);
+    db_catalog->Select(context, 4);
 
     txn_manager.Commit(context);
 

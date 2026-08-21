@@ -309,7 +309,7 @@ namespace db7::catalog
         namespace_oid_t namespace_oid,
         access::IndexSchema &schema)
     {
-        access::DataChunk *chunk = classes_data_chunk_layout_->CreateDataChunk();
+        access::DataChunk *chunk = indexes_data_chunk_layout_->CreateDataChunk();
 
         access::DataChunkBuilder::BuildIndexChunk(
             chunk, class_oid, rel_oid, schema.IsUnique(), schema.IsPrimary(), schema.IsExclusion(),
@@ -453,20 +453,16 @@ namespace db7::catalog
     void Display(
         transaction::TransactionContext *txn,
         access::DataChunkLayout *data_chunk_layout,
-        access::Table *table)
+        access::Table *table,
+        int n = 4)
     {
         u32 pid = 1;
         auto chunk = data_chunk_layout->CreateDataChunk();
         std::cout << "Select: " << std::endl;
-        int i = 0;
-        table->Select(txn, i++, pid, chunk);
-        table->Select(txn, i++, pid, chunk);
-        table->Select(txn, i++, pid, chunk);
-        table->Select(txn, i++, pid, chunk);
-        table->Select(txn, i++, pid, chunk);
-        table->Select(txn, i++, pid, chunk);
-        table->Select(txn, i++, pid, chunk);
-        table->Select(txn, i++, pid, chunk);
+        for (int i = 0; i < n; i++)
+        {
+            table->Select(txn, i, pid, chunk);
+        }
         std::cout << std::endl;
     }
 
@@ -481,7 +477,13 @@ namespace db7::catalog
             Display(txn, classes_data_chunk_layout_, classes_);
             break;
         case 2:
-            Display(txn, attribute_data_chunk_layout_, attributes_);
+            Display(txn, attribute_data_chunk_layout_, attributes_, 20);
+            break;
+        case 3:
+            Display(txn, indexes_data_chunk_layout_, indexes_);
+            break;
+        case 4:
+            Display(txn, constraint_data_chunk_layout_, constraints_);
             break;
         default:
             break;

@@ -166,8 +166,12 @@ namespace db7::catalog
 
         bool UpdateTableName(transaction::TransactionContext *txn, class_oid_t oid, std::span<byte> name, namespace_oid_t namespace_oid);
 
-        ResultObj<class_oid_t> CreateIndex(transaction::TransactionContext *txn, const std::span<byte> name,
-                                           class_oid_t rel_oid, namespace_oid_t namespace_oid, access::IndexSchema &schema);
+        ResultObj<class_oid_t> CreateIndex(
+            transaction::TransactionContext *txn,
+            const std::span<byte> name,
+            class_oid_t rel_oid,
+            namespace_oid_t namespace_oid,
+            access::IndexSchema &schema);
 
         ResultObj<class_oid_t> CreateConstraint(transaction::TransactionContext *txn, ConstraintProps props);
 

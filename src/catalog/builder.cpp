@@ -190,6 +190,7 @@ namespace db7::catalog
         dbc->namespaces_ = new access::Table(buffer_pool, disk_mng, CreateNamespaceSchema(), PG_NAMESPACE, PG_VARLEN);
         dbc->classes_ = new access::Table(buffer_pool, disk_mng, CreateClassSchema(), PG_CLASS, PG_VARLEN);
         dbc->attributes_ = new access::Table(buffer_pool, disk_mng, CreateAttributeSchema(), PG_ATTRIBUTE, PG_VARLEN);
+        dbc->indexes_ = new access::Table(buffer_pool, disk_mng, CreateIndexSchema(), PG_INDEX, PG_VARLEN);
         dbc->types_ = new access::Table(buffer_pool, disk_mng, CreateTypeSchema(), PG_TYPE, PG_VARLEN);
         dbc->constraints_ = new access::Table(buffer_pool, disk_mng, CreateConstraintSchema(), PG_CONSTRAINT, PG_VARLEN);
         dbc->languages_ = new access::Table(buffer_pool, disk_mng, CreateLanguageSchema(), PG_LANGUAGE, PG_VARLEN);
