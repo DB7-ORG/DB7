@@ -189,7 +189,19 @@ namespace db7::catalog
         BTREE = 0
     };
 
-    constexpr char ToChar(RelKind kind)
+    enum class ConType : char
+    {
+        CHECK = 'c',              ///< Check constraint.
+        FOREIGN_KEY = 'f',        ///< Foreign key constraint.
+        NOT_NULL = 'n',           ///< Not-null constraint (PostgreSQL 18+).
+        PRIMARY_KEY = 'p',        ///< Primary key constraint.
+        UNIQUE = 'u',             ///< Unique constraint.
+        CONSTRAINT_TRIGGER = 't', ///< Constraint trigger.
+        EXCLUSION = 'x',          ///< Exclusion constraint.
+    };
+
+    template <typename T>
+    constexpr char ToChar(T kind)
     {
         return static_cast<char>(kind);
     }
@@ -198,7 +210,7 @@ namespace db7::catalog
     {
         const std::span<byte> name;
         namespace_oid_t ns_oid;
-        char con_type;
+        ConType con_type;
         bool defferable;
         bool deffered;
         bool validated;

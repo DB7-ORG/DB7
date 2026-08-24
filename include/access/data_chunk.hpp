@@ -284,7 +284,7 @@ namespace db7::access
             entry.Set(props.name);
             chunk->Write(catalog::CatalogColumnOid::CONNAME, entry);
             chunk->Write(catalog::CatalogColumnOid::CONNAMESPACE, props.ns_oid);
-            chunk->Write(catalog::CatalogColumnOid::CONTYPE, props.con_type);
+            chunk->Write(catalog::CatalogColumnOid::CONTYPE, ToChar(props.con_type));
             chunk->Write(catalog::CatalogColumnOid::CONDEFERRABLE, props.defferable);
             chunk->Write(catalog::CatalogColumnOid::CONDEFFERED, props.deffered);
             chunk->Write(catalog::CatalogColumnOid::CONVALIDATED, props.validated);

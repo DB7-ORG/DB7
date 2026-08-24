@@ -168,12 +168,14 @@ namespace db7::catalog
         return ResultObj<attribute_oid_t>(oid);
     }
 
-    ResultObj<class_oid_t> DatabaseCatalog::CreateTableEntry(transaction::TransactionContext *txn, const std::span<byte> name, class_oid_t oid, namespace_oid_t namespace_oid)
+    ResultObj<class_oid_t> DatabaseCatalog::CreateTableEntry(transaction::TransactionContext *txn,
+                                                             const std::span<byte> name, class_oid_t oid,
+                                                             namespace_oid_t namespace_oid, RelKind kind)
     {
         access::DataChunk *chunk = classes_data_chunk_layout_->CreateDataChunk();
 
         // TODO reloptions needs to be null. need to add that to chunk
-        access::DataChunkBuilder::BuildClassChunk(chunk, oid, name, namespace_oid, ToChar(RelKind::REGULAR_TABLE), name);
+        access::DataChunkBuilder::BuildClassChunk(chunk, oid, name, namespace_oid, ToChar(kind), name);
 
         TupleId tup = classes_->Insert(txn, chunk);
 
@@ -198,7 +200,9 @@ namespace db7::catalog
         return ResultObj<class_oid_t>(oid);
     }
 
-    ResultObj<class_oid_t> DatabaseCatalog::CreateTable(transaction::TransactionContext *txn, const std::span<byte> name, namespace_oid_t namespace_oid, access::Schema &schema)
+    ResultObj<class_oid_t> DatabaseCatalog::CreateTable(
+        transaction::TransactionContext *txn, const std::span<byte> name, namespace_oid_t namespace_oid,
+        access::Schema &schema)
     {
         if (!TryLock(txn))
             return INVALID_OID;
@@ -211,7 +215,46 @@ namespace db7::catalog
 
         auto oid = next_class_oid_++;
 
-        auto res = CreateTableEntry(txn, name, oid, namespace_oid);
+        auto res = CreateTableEntry(txn, name, oid, namespace_oid, RelKind::REGULAR_TABLE);
+        if (!res.success)
+        {
+            return res;
+        }
+
+        class_oid_t rel_oid = res.value;
+        for (auto col : schema)
+        {
+            auto res_col = CreateColumnEntry(txn, rel_oid, col);
+            if (!res_col.success)
+            {
+                return res_col;
+            }
+        }
+
+        return ResultObj<class_oid_t>(oid);
+    }
+
+    /**
+     * identical to CreateTable hard to generalize this since they are threated differently for example
+     * u use ALTER TABLE to rename table and ALTER INDEX to rename index
+     * then the classic delete + insert needst to check the class type since we dont want to add
+     */
+    ResultObj<class_oid_t> DatabaseCatalog::CreateIndexClass(
+        transaction::TransactionContext *txn, const std::span<byte> name, namespace_oid_t namespace_oid,
+        access::Schema &schema)
+    {
+        if (!TryLock(txn))
+            return INVALID_OID;
+
+        auto ns_res = ExistsNamespace(txn, namespace_oid);
+        if (!ns_res.success)
+        {
+            return ResultObj<class_oid_t>::Fail(ns_res.message);
+        }
+
+        auto oid = next_class_oid_++;
+
+        auto res = CreateTableEntry(txn, name, oid, namespace_oid, RelKind::INDEX);
         if (!res.success)
         {
             return res;
@@ -292,7 +335,7 @@ namespace db7::catalog
             return false;
         }
 
-        auto res = CreateTableEntry(txn, name, oid, namespace_oid);
+        auto res = CreateTableEntry(txn, name, oid, namespace_oid, RelKind::REGULAR_TABLE);
         if (!res.success)
         {
             return false;
@@ -349,7 +392,7 @@ namespace db7::catalog
         }
 
         /* This checks if namespace still exists */
-        auto table_res = CreateTable(txn, name, namespace_oid, schema);
+        auto table_res = CreateIndexClass(txn, name, namespace_oid, schema);
         if (!table_res.success)
         {
             return table_res;
@@ -458,7 +501,6 @@ namespace db7::catalog
     {
         u32 pid = 1;
         auto chunk = data_chunk_layout->CreateDataChunk();
-        std::cout << "Select: " << std::endl;
         for (int i = 0; i < n; i++)
         {
             table->Select(txn, i, pid, chunk);
@@ -471,18 +513,23 @@ namespace db7::catalog
         switch (type)
         {
         case 0:
+            std::cout << "Namespace: " << std::endl;
             Display(txn, namespace_data_chunk_layout_, namespaces_);
             break;
         case 1:
+            std::cout << "Classes: " << std::endl;
             Display(txn, classes_data_chunk_layout_, classes_);
             break;
         case 2:
+            std::cout << "Attributes: " << std::endl;
             Display(txn, attribute_data_chunk_layout_, attributes_, 20);
             break;
         case 3:
+            std::cout << "Indexes: " << std::endl;
             Display(txn, indexes_data_chunk_layout_, indexes_);
             break;
         case 4:
+            std::cout << "Constraint: " << std::endl;
             Display(txn, constraint_data_chunk_layout_, constraints_);
             break;
         default:

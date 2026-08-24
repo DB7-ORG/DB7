@@ -40,7 +40,9 @@ namespace db7::catalog
 
         bool DeleteNamespaceEntry(transaction::TransactionContext *txn, namespace_oid_t oid);
 
-        ResultObj<class_oid_t> CreateTableEntry(transaction::TransactionContext *txn, const std::span<byte> name, class_oid_t oid, namespace_oid_t namespace_oid);
+        ResultObj<class_oid_t> CreateTableEntry(
+            transaction::TransactionContext *txn, const std::span<byte> name, class_oid_t oid,
+            namespace_oid_t namespace_oid, RelKind kind);
 
         ResultObj<attribute_oid_t> CreateColumnEntry(transaction::TransactionContext *txn, class_oid_t rel_oid, access::SchemaColumn &schema);
 
@@ -160,7 +162,13 @@ namespace db7::catalog
 
         bool UpdateNamespaceName(transaction::TransactionContext *txn, namespace_oid_t oid, std::span<byte> name);
 
-        ResultObj<class_oid_t> CreateTable(transaction::TransactionContext *txn, const std::span<byte> name, namespace_oid_t namespace_oid, access::Schema &schema);
+        ResultObj<class_oid_t> CreateTable(transaction::TransactionContext *txn, const std::span<byte> name,
+                                           namespace_oid_t namespace_oid, access::Schema &schema);
+
+        ResultObj<class_oid_t> CreateIndexClass(transaction::TransactionContext *txn,
+                                                const std::span<byte> name,
+                                                namespace_oid_t namespace_oid,
+                                                access::Schema &schema);
 
         ResultObj<void> ExistsTable(transaction::TransactionContext *txn, class_oid_t oid);
 

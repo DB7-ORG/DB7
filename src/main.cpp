@@ -343,7 +343,7 @@ int main()
     catalog::ConstraintProps props = {
         sdata4,
         resns.value,
-        'u',
+        catalog::ConType::PRIMARY_KEY,
         false,
         false,
         false,
