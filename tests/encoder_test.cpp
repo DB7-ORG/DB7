@@ -4,14 +4,10 @@
 
 using namespace db7;
 
-namespace
-{
-    class KeyEncoderTest : public ::testing::Test
-    {
-    protected:
-    };
+namespace {
+class KeyEncoderTest : public ::testing::Test {
+protected:
+};
 
-    TEST_F(KeyEncoderTest, InsertThenGetSingleKey)
-    {
-    }
-}
+TEST_F(KeyEncoderTest, InsertThenGetSingleKey) {}
+} // namespace

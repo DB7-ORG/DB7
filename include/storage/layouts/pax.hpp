@@ -1,59 +1,54 @@
 #pragma once
 
-#include "storage/storage_common.hpp"
 #include "shared/align_util.hpp"
-#include "storage/page_header.hpp"
-#include "shared/macro_helper.hpp"
 
-#include <vector>
 #include <span>
+#include <vector>
 
-namespace db7::storage
-{
-    class PaxLayout
-    {
-    private:
-        std::vector<u32> offsets_;
-        std::vector<u16> sizes_;
-        u32 max_row_count_;
+namespace db7::storage {
+class PaxLayout {
+private:
+  std::vector<u32> offsets_;
+  std::vector<u16> sizes_;
+  u32 max_row_count_;
 
-        void CalculateOffsets();
+  void CalculateOffsets();
 
-        // TODO not used
-        u32 CalculateMaxSize(u32 row_count)
-        {
-            u32 max_size = 0;
-            for (const auto size : sizes_)
-            {
-                max_size = shared::AlignUp(max_size, (u32)size);
-                max_size += size * row_count;
-            }
-            return max_size;
-        }
+  // TODO not used
+  u32 CalculateMaxSize(u32 row_count) {
+    u32 max_size = 0;
+    for (const auto size : sizes_) {
+      max_size = shared::AlignUp(max_size, (u32)size);
+      max_size += size * row_count;
+    }
+    return max_size;
+  }
 
-    public:
-        PaxLayout() = default;
+public:
+  PaxLayout() = default;
 
-        PaxLayout(std::vector<u16> &&sizes);
+  PaxLayout(std::vector<u16> &&sizes);
 
-        u32 IncrementHeaderCount(byte *data, u32 count) const;
+  u32 IncrementHeaderCount(byte *data, u32 count) const;
 
-        u32 CalcOffset(u32 row_idx, u32 column_idx) const;
+  u32 CalcOffset(u32 row_idx, u32 column_idx) const;
 
-        void Update(byte *dest, std::span<byte> update_data) const;
+  void Update(byte *dest, std::span<byte> update_data) const;
 
-        void Update(byte *page_data, std::span<byte> update_data, u16 column_idx, u32 row_idx) const;
+  void Update(byte *page_data, std::span<byte> update_data, u16 column_idx,
+              u32 row_idx) const;
 
-        void Insert(byte *page_data, std::span<byte> insert_data, u16 column_idx, u32 row_idx) const;
+  void Insert(byte *page_data, std::span<byte> insert_data, u16 column_idx,
+              u32 row_idx) const;
 
-        void Delete(byte *data, u32 row_idx) const;
+  void Delete(byte *data, u32 row_idx) const;
 
-        bool IsDeleted(byte *data, u32 row_idx) const;
+  bool IsDeleted(byte *data, u32 row_idx) const;
 
-        byte *Get(byte *page_data, u16 column_idx, u32 row_idx) const;
+  byte *Get(byte *page_data, u16 column_idx, u32 row_idx) const;
 
-        u32 GetMaxRowCount() const { return max_row_count_; }
+  u32 GetMaxRowCount() const { return max_row_count_; }
 
-        void PrintDebug(byte *page_data);
-    };
-}
+  void PrintDebug(byte *page_data);
+};
+} // namespace db7::storage

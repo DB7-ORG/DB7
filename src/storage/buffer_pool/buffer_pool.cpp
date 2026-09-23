@@ -2,194 +2,177 @@
 #include "shared/hash_util.hpp"
 #include "storage/fsm/fsm_index.hpp"
 
-#include <thread>
 #include <chrono>
+#include <thread>
 
-namespace db7::storage
-{
-    BufferPool::BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_table, size_t page_num)
-        : disk_mng_(disk_mng), pool_size_(page_num), version_table_(version_table)
-    {
-        pages_ = new Page[page_num];
-        auto data = static_cast<u8 *>(std::aligned_alloc(4096, static_cast<size_t>(page_num) * DB7_PAGE_SIZE));
-        DB7_ASSERT(data != nullptr, "Failed to allocate");
-        PageIdentifier id(0);
-        for (u32 i = 0; i < page_num; i++)
-        {
-            pages_[i].WLock();
-            pages_[i].SetId(id);
-            pages_[i].WUnlock();
-            pages_[i].SetData(data + (i * DB7_PAGE_SIZE));
-        }
+namespace db7::storage {
+BufferPool::BufferPool(DiskScheduler *disk_mng,
+                       PageVersionManager *version_table, size_t page_num)
+    : disk_mng_(disk_mng), pool_size_(page_num), version_table_(version_table) {
+  pages_ = new Page[page_num];
+  auto data = static_cast<u8 *>(
+      std::aligned_alloc(4096, static_cast<size_t>(page_num) * DB7_PAGE_SIZE));
+  DB7_ASSERT(data != nullptr, "Failed to allocate");
+  PageIdentifier id(0);
+  for (u32 i = 0; i < page_num; i++) {
+    pages_[i].WLock();
+    pages_[i].SetId(id);
+    pages_[i].WUnlock();
+    pages_[i].SetData(data + (i * DB7_PAGE_SIZE));
+  }
 
-        size_t per_partition = page_num / BUFFER_POOL_PARTITION_NUM;
-        for (u32 i = 0; i < BUFFER_POOL_PARTITION_NUM; i++)
-        {
-            partitions_.Reserve(per_partition, i);
-        }
+  size_t per_partition = page_num / BUFFER_POOL_PARTITION_NUM;
+  for (u32 i = 0; i < BUFFER_POOL_PARTITION_NUM; i++) {
+    partitions_.Reserve(per_partition, i);
+  }
 
-        FreeSpaceManagerIndex::Reset();
-    }
-
-    BufferPool::~BufferPool()
-    {
-        std::free(pages_[0].GetData());
-        delete[] pages_;
-    }
-
-    Page *BufferPool::GetVictim(PageIdentifier id, u32 &victim_frame_idx, PageIdentifier &victim_page_id, bool isIO)
-    {
-        u32 max_iters = BUFFER_POOL_PAGE_NUM * 2;
-
-        for (u32 iters = 1; true; iters++)
-        {
-            u32 head = (sweep_head_++) % BUFFER_POOL_PAGE_NUM;
-            Page *page = &pages_[head];
-            if (page->TryWLock())
-            {
-                if (page->IsEvictable())
-                {
-                    victim_page_id = page->GetId();
-                    page->SetId(id);
-                    page->Pin();
-                    if (isIO)
-                    {
-                        page->SetIOInProgress();
-                    }
-                    page->WUnlock();
-                    victim_frame_idx = head;
-                    return page;
-                }
-                page->WUnlock();
-            }
-
-            if (iters % max_iters == 0)
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
-        }
-
-        DB7_UNREACHABLE();
-    }
-
-    void BufferPool::UndoState(Page *victim_page, PageIdentifier victim_page_id)
-    {
-        victim_page->WLock();
-        victim_page->Unpin();
-        victim_page->SetId(victim_page_id);
-        victim_page->ClearIOInProgress();
-        victim_page->WUnlock();
-    }
-
-    bool BufferPool::PageVisit(Page *page, PageIdentifier id)
-    { // TODO  might be able to use optimistic here but i think this is just a spinlock anyway
-        // page->RLock();
-        // if (page->GetId() == id)
-        // { // PageVisit
-        //     page->Pin();
-        //     page->RUnlock();
-        //     return true;
-        // }
-        // page->RUnlock();
-
-        page->Pin(); // optimistic pin
-        if (page->GetId() == id)
-        {
-            return true;
-        }
-        page->Unpin();
-
-        return false;
-    }
-
-    u32 BufferPool::GetPartitionIdx(PageIdentifier id)
-    {
-        return shared::HashUtil::murmurhash64(id.packed) % BUFFER_POOL_PARTITION_NUM;
-    }
-
-    Page *BufferPool::Pin(PageIdentifier id)
-    {
-        DB7_ASSERT(id.pid != 0, "invalid pid");
-        DB7_ASSERT(id.pid != std::numeric_limits<page_id>::max(), "invalid pid");
-
-        // LOOKUP
-        u32 partIdx = GetPartitionIdx(id);
-
-        while (true)
-        {
-            Page *page;
-            u32 frame_idx = partitions_.Get(id, partIdx);
-            if (frame_idx != UINT32_MAX) // page found (fast path)
-            {
-                page = &pages_[frame_idx];
-                if (PageVisit(page, id))
-                {
-                    return page;
-                }
-            }
-
-            // FindVictim (slow path)
-            u32 victim_frame_idx;
-            PageIdentifier victim_page_id;
-            page = GetVictim(id, victim_frame_idx, victim_page_id);
-
-            u32 new_frame_idx;
-            if (partitions_.Put(id, victim_frame_idx, new_frame_idx, partIdx))
-            {
-                partIdx = GetPartitionIdx(victim_page_id);
-                partitions_.Delete(victim_page_id, victim_frame_idx, partIdx);
-
-                auto *new_versions = version_table_->Get(id);
-                page->SetVersions(new_versions);
-
-                IoTask task(IoTask::READ, IoPriority::HIGH, page, id);
-                disk_mng_->Enqueue(task);
-
-                return page;
-            }
-
-            // UndoState
-            UndoState(page, victim_page_id);
-
-            page = &pages_[new_frame_idx];
-            if (PageVisit(page, id))
-            {
-                return page;
-            }
-            // goto Lookup
-        }
-    }
-
-    void BufferPool::Unpin(Page *page, bool dirty)
-    {
-        (void)dirty;
-        // page->WLock();
-        page->Unpin();
-        // page->WUnlock();
-    }
-
-    Page *BufferPool::Reserve(table_id tbl_id)
-    {
-        u32 pid = FreeSpaceManagerIndex::Get(tbl_id);
-        // TODO just temporary guard
-        DB7_ASSERT(pid < BUFFER_POOL_PAGE_NUM, "no more pages");
-
-        auto id = PageIdentifier(tbl_id, pid);
-        u32 partIdx = GetPartitionIdx(id);
-
-        u32 victim_frame_idx;
-        PageIdentifier victim_page_id(0);
-        auto page = GetVictim(id, victim_frame_idx, victim_page_id, false);
-
-        u32 new_frame_idx;
-        if (partitions_.Put(id, victim_frame_idx, new_frame_idx, partIdx))
-        {
-            partIdx = GetPartitionIdx(victim_page_id);
-            partitions_.Delete(victim_page_id, victim_frame_idx, partIdx);
-            std::memset(page->GetData(), 0, DB7_PAGE_SIZE); // TODO i dont needd this
-            return page;
-        }
-
-        DB7_UNREACHABLE();
-    }
+  FreeSpaceManagerIndex::Reset();
 }
+
+BufferPool::~BufferPool() {
+  std::free(pages_[0].GetData());
+  delete[] pages_;
+}
+
+Page *BufferPool::GetVictim(PageIdentifier id, u32 &victim_frame_idx,
+                            PageIdentifier &victim_page_id, bool isIO) {
+  u32 max_iters = BUFFER_POOL_PAGE_NUM * 2;
+
+  for (u32 iters = 1; true; iters++) {
+    u32 head = (sweep_head_++) % BUFFER_POOL_PAGE_NUM;
+    Page *page = &pages_[head];
+    if (page->TryWLock()) {
+      if (page->IsEvictable()) {
+        victim_page_id = page->GetId();
+        page->SetId(id);
+        page->Pin();
+        if (isIO) {
+          page->SetIOInProgress();
+        }
+        page->WUnlock();
+        victim_frame_idx = head;
+        return page;
+      }
+      page->WUnlock();
+    }
+
+    if (iters % max_iters == 0) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+  }
+
+  DB7_UNREACHABLE();
+}
+
+void BufferPool::UndoState(Page *victim_page, PageIdentifier victim_page_id) {
+  victim_page->WLock();
+  victim_page->Unpin();
+  victim_page->SetId(victim_page_id);
+  victim_page->ClearIOInProgress();
+  victim_page->WUnlock();
+}
+
+bool BufferPool::PageVisit(
+    Page *page,
+    PageIdentifier id) { // TODO  might be able to use optimistic here but i
+                         // think this is just a spinlock anyway
+  // page->RLock();
+  // if (page->GetId() == id)
+  // { // PageVisit
+  //     page->Pin();
+  //     page->RUnlock();
+  //     return true;
+  // }
+  // page->RUnlock();
+
+  page->Pin(); // optimistic pin
+  if (page->GetId() == id) {
+    return true;
+  }
+  page->Unpin();
+
+  return false;
+}
+
+u32 BufferPool::GetPartitionIdx(PageIdentifier id) {
+  return shared::HashUtil::murmurhash64(id.packed) % BUFFER_POOL_PARTITION_NUM;
+}
+
+Page *BufferPool::Pin(PageIdentifier id) {
+  DB7_ASSERT(id.pid != 0, "invalid pid");
+  DB7_ASSERT(id.pid != std::numeric_limits<page_id>::max(), "invalid pid");
+
+  // LOOKUP
+  u32 partIdx = GetPartitionIdx(id);
+
+  while (true) {
+    Page *page;
+    u32 frame_idx = partitions_.Get(id, partIdx);
+    if (frame_idx != UINT32_MAX) // page found (fast path)
+    {
+      page = &pages_[frame_idx];
+      if (PageVisit(page, id)) {
+        return page;
+      }
+    }
+
+    // FindVictim (slow path)
+    u32 victim_frame_idx;
+    PageIdentifier victim_page_id;
+    page = GetVictim(id, victim_frame_idx, victim_page_id);
+
+    u32 new_frame_idx;
+    if (partitions_.Put(id, victim_frame_idx, new_frame_idx, partIdx)) {
+      partIdx = GetPartitionIdx(victim_page_id);
+      partitions_.Delete(victim_page_id, victim_frame_idx, partIdx);
+
+      auto *new_versions = version_table_->Get(id);
+      page->SetVersions(new_versions);
+
+      IoTask task(IoTask::READ, IoPriority::HIGH, page, id);
+      disk_mng_->Enqueue(task);
+
+      return page;
+    }
+
+    // UndoState
+    UndoState(page, victim_page_id);
+
+    page = &pages_[new_frame_idx];
+    if (PageVisit(page, id)) {
+      return page;
+    }
+    // goto Lookup
+  }
+}
+
+void BufferPool::Unpin(Page *page, bool dirty) {
+  (void)dirty;
+  // page->WLock();
+  page->Unpin();
+  // page->WUnlock();
+}
+
+Page *BufferPool::Reserve(table_id tbl_id) {
+  u32 pid = FreeSpaceManagerIndex::Get(tbl_id);
+  // TODO just temporary guard
+  DB7_ASSERT(pid < BUFFER_POOL_PAGE_NUM, "no more pages");
+
+  auto id = PageIdentifier(tbl_id, pid);
+  u32 partIdx = GetPartitionIdx(id);
+
+  u32 victim_frame_idx;
+  PageIdentifier victim_page_id(0);
+  auto page = GetVictim(id, victim_frame_idx, victim_page_id, false);
+
+  u32 new_frame_idx;
+  if (partitions_.Put(id, victim_frame_idx, new_frame_idx, partIdx)) {
+    partIdx = GetPartitionIdx(victim_page_id);
+    partitions_.Delete(victim_page_id, victim_frame_idx, partIdx);
+    std::memset(page->GetData(), 0, DB7_PAGE_SIZE); // TODO i dont needd this
+    return page;
+  }
+
+  DB7_UNREACHABLE();
+}
+} // namespace db7::storage

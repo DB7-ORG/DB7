@@ -1,187 +1,170 @@
 #pragma once
 
-#include "transaction/transaction_common.hpp"
-#include "storage/buffer_pool/buffer_pool.hpp"
-#include "storage/undo_buffer.hpp"
-#include "storage/storage_common.hpp"
 #include "access/data_chunk.hpp"
-#include "storage/redo_buffer.hpp"
-#include "transaction/transaction_util.hpp"
-#include "shared/models/vector_result.hpp"
-#include "shared/models/tuple_id.hpp"
 #include "shared/models/result_object.hpp"
+#include "shared/models/tuple_id.hpp"
+#include "storage/mvcc/page_version_manager.hpp"
+#include "storage/page.hpp"
+#include "storage/redo_buffer.hpp"
+#include "storage/storage_common.hpp"
+#include "storage/undo_buffer.hpp"
+#include "transaction/transaction_common.hpp"
+#include "transaction/transaction_util.hpp"
 
-#include <span>
-#include <forward_list>
+namespace db7::transaction {
+struct TidResult {
+  TupleId tid;
+  bool is_valid;
+};
 
-namespace db7::transaction
-{
-    struct TidResult
-    {
-        TupleId tid;
-        bool is_valid;
-    };
+/**
+ * Holds transaction state for each transaction.
+ */
+class TransactionContext {
+private:
+  timestamp_t start_time_;
+  timestamp_t finish_time_;
+  bool rollback_;
+  storage::PageVersionManager *version_manager_;
 
-    /**
-     * Holds transaction state for each transaction.
-     */
-    class TransactionContext
-    {
-    private:
-        timestamp_t start_time_;
-        timestamp_t finish_time_;
-        bool rollback_;
-        storage::PageVersionManager *version_manager_;
+  storage::UndoBuffer undo_buffer_;
+  storage::RedoBuffer redo_buffer_;
 
-        storage::UndoBuffer undo_buffer_;
-        storage::RedoBuffer redo_buffer_;
+  DurabilityPolicy durability_policy_ = DurabilityPolicy::SYNC;
 
-        DurabilityPolicy durability_policy_ = DurabilityPolicy::SYNC;
+  // std::forward_list<TransactionEndAction> abort_actions_;
+  // std::forward_list<TransactionEndAction> commit_actions_;
 
-        // std::forward_list<TransactionEndAction> abort_actions_;
-        // std::forward_list<TransactionEndAction> commit_actions_;
+public:
+  TransactionContext() = delete;
 
-    public:
-        TransactionContext() = delete;
+  TransactionContext(timestamp_t time, timestamp_t finish_time,
+                     storage::PageVersionManager *version_manager,
+                     shared::ObjectPool<shared::FixedBumpArena> *pool)
+      : start_time_(time), finish_time_(finish_time), rollback_(false),
+        version_manager_(version_manager), undo_buffer_(pool),
+        redo_buffer_(nullptr, pool) {} // TODO
 
-        TransactionContext(
-            timestamp_t time,
-            timestamp_t finish_time,
-            storage::PageVersionManager *version_manager,
-            shared::ObjectPool<shared::FixedBumpArena> *pool)
-            : start_time_(time),
-              finish_time_(finish_time),
-              rollback_(false),
-              version_manager_(version_manager),
-              undo_buffer_(pool),
-              redo_buffer_(nullptr, pool) {} // TODO
+  timestamp_t StartTime() const { return start_time_; }
 
-        timestamp_t StartTime() const { return start_time_; }
+  timestamp_t FinishTime() const { return finish_time_; }
 
-        timestamp_t FinishTime() const { return finish_time_; }
+  void Abort() { rollback_ = true; };
 
-        void Abort() { rollback_ = true; };
+  bool GetState() { return rollback_; }
 
-        bool GetState() { return rollback_; }
+  void RestampVersions(timestamp_t commit_time) {
+    for (auto &item : undo_buffer_) {
+      item.SetTimestamp(commit_time);
+    }
+  }
 
-        void RestampVersions(timestamp_t commit_time)
-        {
-            for (auto &item : undo_buffer_)
-            {
-                item.SetTimestamp(commit_time);
-            }
-        }
+  /**
+   * @warning make sure to hold the page data lock like w other columns
+   */
+  storage::VersionPtr *GetVersions(storage::Page *page,
+                                   storage::PageIdentifier id, u32 count) {
+    storage::VersionPtr *versions_arr = page->GetVersions();
 
-        /**
-         * @warning make sure to hold the page data lock like w other columns
-         */
-        storage::VersionPtr *GetVersions(storage::Page *page, storage::PageIdentifier id, u32 count)
-        {
-            storage::VersionPtr *versions_arr = page->GetVersions();
+    if (versions_arr == nullptr) {
+      auto *new_version = version_manager_->GetCreateVersions(id, count);
 
-            if (versions_arr == nullptr)
-            {
-                auto *new_version = version_manager_->GetCreateVersions(id, count);
+      page->SetVersions(new_version);
 
-                page->SetVersions(new_version);
+      return new_version;
+    }
 
-                return new_version;
-            }
+    return versions_arr;
+  }
 
-            return versions_arr;
-        }
+  storage::VersionPtr *GetVersions(storage::PageIdentifier id, u32 count) {
+    return version_manager_->GetCreateVersions(id, count);
+  }
 
-        storage::VersionPtr *GetVersions(storage::PageIdentifier id, u32 count)
-        {
-            return version_manager_->GetCreateVersions(id, count);
-        }
+  storage::UndoRecord *UndoRecordForInsert(table_id tbl_id, page_id pid,
+                                           u32 idx) {
+    byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord));
+    return storage::UndoRecord::InitializeInsert(result, finish_time_, tbl_id,
+                                                 pid, idx);
+  }
 
-        storage::UndoRecord *UndoRecordForInsert(table_id tbl_id, page_id pid, u32 idx)
-        {
-            byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord));
-            return storage::UndoRecord::InitializeInsert(result, finish_time_, tbl_id, pid, idx);
-        }
+  storage::UndoRecord *UndoRecordForDelete(table_id tbl_id, page_id pid,
+                                           u32 idx) {
+    byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord));
+    return storage::UndoRecord::InitializeDelete(result, finish_time_, tbl_id,
+                                                 pid, idx);
+  }
 
-        storage::UndoRecord *UndoRecordForDelete(table_id tbl_id, page_id pid, u32 idx)
-        {
-            byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord));
-            return storage::UndoRecord::InitializeDelete(result, finish_time_, tbl_id, pid, idx);
-        }
+  storage::UndoRecord *UndoRecordForUpdate(table_id tbl_id, page_id pid,
+                                           u32 idx, access::DataChunk *chunk) {
+    byte *result =
+        undo_buffer_.NewEntry(sizeof(storage::UndoRecord) + chunk->GetSize());
+    return storage::UndoRecord::InitializeUpdate(
+        result, finish_time_, tbl_id, pid, idx, chunk->GetHeaderPtr());
+  }
 
-        storage::UndoRecord *UndoRecordForUpdate(table_id tbl_id, page_id pid, u32 idx, access::DataChunk *chunk)
-        {
-            byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord) + chunk->GetSize());
-            return storage::UndoRecord::InitializeUpdate(result, finish_time_, tbl_id, pid, idx, chunk->GetHeaderPtr());
-        }
+  storage::RedoRecord *StageWrite(table_id t_id, page_id p_id, u32 idx,
+                                  access::DataChunkLayout *initializer) {
+    const u32 size = storage::RedoRecord::GetHeadersSize();
+    auto *const log_record = storage::RedoRecord::Initialize(
+        redo_buffer_.NewEntry(size, durability_policy_), start_time_,
+        initializer, t_id, p_id, idx);
+    return reinterpret_cast<storage::RedoRecord *>(log_record->GetDelta());
+  }
 
-        storage::RedoRecord *StageWrite(table_id t_id, page_id p_id, u32 idx,
-                                        access::DataChunkLayout *initializer)
-        {
-            const u32 size = storage::RedoRecord::GetHeadersSize();
-            auto *const log_record = storage::RedoRecord::Initialize(redo_buffer_.NewEntry(size, durability_policy_),
-                                                                     start_time_, initializer, t_id, p_id, idx);
-            return reinterpret_cast<storage::RedoRecord *>(log_record->GetDelta());
-        }
+  bool HasUniqueConflict(TupleId tid, table_id tbl_id) {
+    auto *undo = version_manager_->GetDelta(tid, tbl_id);
 
-        bool HasUniqueConflict(TupleId tid, table_id tbl_id)
-        {
-            auto *undo = version_manager_->GetDelta(tid, tbl_id);
+    /* i dont think i need this since if i find invalidated its not deleted in
+     * version before */
+    // while (undo != nullptr && undo->IsInvalidated())
+    // {
+    //     undo = undo->GetNext();
+    // }
 
-            /* i dont think i need this since if i find invalidated its not deleted in version before */
-            // while (undo != nullptr && undo->IsInvalidated())
-            // {
-            //     undo = undo->GetNext();
-            // }
+    if (undo == nullptr) {
+      return true;
+    }
 
-            if (undo == nullptr)
-            {
-                return true;
-            }
+    const bool safely_deleted =
+        undo->IsDeleted() &&
+        !transaction::TransactionUtil::HasConflict(undo->GetTimestamp(),
+                                                   FinishTime(), StartTime());
 
-            const bool safely_deleted =
-                undo->IsDeleted() &&
-                !transaction::TransactionUtil::HasConflict(undo->GetTimestamp(), FinishTime(), StartTime());
+    return !safely_deleted;
+  }
 
-            return !safely_deleted;
-        }
+  ResultObj<TupleId> GetTidForModify(std::vector<TupleId> &tids,
+                                     table_id tbl_id) {
+    TupleId result = INVALID_TID;
+    for (auto tid : tids) {
+      auto *undo = version_manager_->GetDelta(tid, tbl_id);
+      if (undo == nullptr) {
+        result = tid;
+        break;
+      }
 
-        ResultObj<TupleId> GetTidForModify(std::vector<TupleId> &tids, table_id tbl_id)
-        {
-            TupleId result = INVALID_TID;
-            for (auto tid : tids)
-            {
-                auto *undo = version_manager_->GetDelta(tid, tbl_id);
-                if (undo == nullptr)
-                {
-                    result = tid;
-                    break;
-                }
+      if (transaction::TransactionUtil::HasConflict(
+              undo->GetTimestamp(), FinishTime(), StartTime())) {
+        return ResultObj<TupleId>::Fail("Conflicting version");
+      }
 
-                if (transaction::TransactionUtil::HasConflict(undo->GetTimestamp(), FinishTime(), StartTime()))
-                {
-                    return ResultObj<TupleId>::Fail("Conflicting version");
-                }
+      if (!undo->IsDeleted()) {
+        result = tid;
+        break;
+      }
+    }
+    return ResultObj<TupleId>(result);
+  }
 
-                if (!undo->IsDeleted())
-                {
-                    result = tid;
-                    break;
-                }
-            }
-            return ResultObj<TupleId>(result);
-        }
-
-        bool GetTidExists(std::vector<TupleId> &tids, table_id tbl_id)
-        {
-            for (auto tid : tids)
-            {
-                auto *undo = version_manager_->GetDelta(tid, tbl_id);
-                if (undo == nullptr || !undo->IsDeleted())
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-    };
-}
+  bool GetTidExists(std::vector<TupleId> &tids, table_id tbl_id) {
+    for (auto tid : tids) {
+      auto *undo = version_manager_->GetDelta(tid, tbl_id);
+      if (undo == nullptr || !undo->IsDeleted()) {
+        return true;
+      }
+    }
+    return false;
+  }
+};
+} // namespace db7::transaction

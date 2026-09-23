@@ -1,5 +1,5 @@
 MAKEFLAGS += -j$(nproc)
-CXX = g++
+CXX = clang++
 CC = gcc
 BASE_CXXFLAGS = -std=c++20 -Iinclude -Isrc -march=native -Wall -Wextra \
 				-Wno-unused-parameter -Wno-unused-but-set-variable -Wno-return-type

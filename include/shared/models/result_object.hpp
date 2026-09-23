@@ -1,38 +1,31 @@
 #pragma once
 
-#include "common.hpp"
+#include <type_traits>
+namespace db7 {
+template <typename Typ> struct ResultObj {
+  const char *message;
 
-#include <concepts>
+  Typ value;
 
-namespace db7
-{
-    template <typename Typ>
-    struct ResultObj
-    {
-        const char *message;
+  bool success;
 
-        Typ value;
+  static_assert(!std::is_same_v<Typ, char *>, "Typ cant be char*");
 
-        bool success;
+  ResultObj() : success(true) {};
 
-        static_assert(!std::is_same_v<Typ, char *>, "Typ cant be char*");
+  ResultObj(const char *message, bool success)
+      : message(message), success(success) {}
 
-        ResultObj() : success(true) {};
+  ResultObj(Typ value, bool success = true) : value(value), success(success) {}
 
-        ResultObj(const char *message, bool success) : message(message), success(success) {}
+  static ResultObj Fail(const char *m = nullptr) { return {m, false}; }
+};
 
-        ResultObj(Typ value, bool success = true) : value(value), success(success) {}
+template <> struct ResultObj<void> {
+  const char *message = nullptr;
+  bool success = false;
 
-        static ResultObj Fail(const char *m = nullptr) { return {m, false}; }
-    };
-
-    template <>
-    struct ResultObj<void>
-    {
-        const char *message = nullptr;
-        bool success = false;
-
-        static ResultObj Ok() { return {nullptr, true}; }
-        static ResultObj Fail(const char *m = nullptr) { return {m, false}; }
-    };
-}
+  static ResultObj Ok() { return {nullptr, true}; }
+  static ResultObj Fail(const char *m = nullptr) { return {m, false}; }
+};
+} // namespace db7

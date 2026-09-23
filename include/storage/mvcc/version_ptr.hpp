@@ -4,27 +4,20 @@
 
 #include <atomic>
 
-namespace db7::storage
+namespace db7::storage {
+struct VersionPtr // move this outside
 {
-    struct VersionPtr // move this outside
-    {
-    private:
-        std::atomic<UndoRecord *> ptr;
+private:
+  std::atomic<UndoRecord *> ptr;
 
-    public:
-        UndoRecord *Get()
-        {
-            return ptr.load();
-        }
+public:
+  UndoRecord *Get() { return ptr.load(); }
 
-        void Set(UndoRecord *new_ptr)
-        {
-            ptr.store(new_ptr);
-        }
+  void Set(UndoRecord *new_ptr) { ptr.store(new_ptr); }
 
-        bool CompareAndSwap(storage::UndoRecord *expected, storage::UndoRecord *desired)
-        {
-            return ptr.compare_exchange_strong(expected, desired);
-        }
-    };
-}
+  bool CompareAndSwap(storage::UndoRecord *expected,
+                      storage::UndoRecord *desired) {
+    return ptr.compare_exchange_strong(expected, desired);
+  }
+};
+} // namespace db7::storage

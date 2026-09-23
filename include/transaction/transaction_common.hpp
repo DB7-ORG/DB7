@@ -2,13 +2,8 @@
 
 #include "common.hpp"
 
-namespace db7::transaction
-{
-    using timestamp_t = u64;
+namespace db7::transaction {
+using timestamp_t = u64;
 
-    enum DurabilityPolicy
-    {
-        DISABLED = 0,
-        SYNC
-    };
-}
+enum DurabilityPolicy { DISABLED = 0, SYNC };
+} // namespace db7::transaction

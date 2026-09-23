@@ -1,125 +1,115 @@
 #include "debug/printer.hpp"
 
-#include "storage/storage_common.hpp"
+#include "access/index/layouts/varlen/varlen_layout_models.hpp"
 #include "storage/buffer_pool/buffer_pool.hpp"
-#include "access/index/layouts/varlen/varlen_layout_intermediate.hpp"
-#include "access/index/layouts/varlen/varlen_layout_leaf.hpp"
+#include "storage/storage_common.hpp"
 
-namespace db7::shared
-{
-    void Print(const storage::PageIdentifier &pid)
-    {
-        printf("PageId{tbl=%u, page=%u}\n", pid.tbl_id, pid.pid);
-    }
-
-    void Print(const storage::Page &page)
-    {
-        printf("Page{table_id=%-4u  page_id=%-6u  ref=%-3u  io_in_progress=%s}\n",
-               page.GetId().tbl_id,
-               page.GetId().pid,
-               page.PinCount(),
-               page.IsIOInProgress() ? "true" : "false");
-    }
-
-    void Print(const storage::BufferPool &pool)
-    {
-        const storage::Page *pages = pool.GetPagesDebug();
-        printf("===========================================================\n");
-        printf("%-10s %-8s %-5s %s\n", "table_id", "page_id", "ref", "io_in_progress");
-        printf("-----------------------------------------------------------\n");
-        for (u32 i = 0; i < (u32)BUFFER_POOL_PAGE_NUM; i++)
-        {
-            Print(pages[i]);
-        }
-        printf("===========================================================\n");
-    }
-
-    void PrintVarlenLeafLayout(byte *data)
-    {
-        // auto *header = reinterpret_cast<access::VarlenHeader *>(data);
-        // u32 count = header->count;
-        // printf("=== Page Dump ===\n");
-        // printf("count=%-4u  level=%-2u  rlink=%u  max_val=%lu\n",
-        //        header->count, header->level, header->rlink, header->max_val);
-
-        // // After printing the header line, before the slot loop:
-        // if (header->max_val != std::numeric_limits<u64>::max())
-        // {
-        //     byte *ptr = data + header->max_val;
-        //     auto *hdr = reinterpret_cast<access::SlotValHeader<u64> *>(ptr);
-        //     byte *key_data = ptr + sizeof(access::SlotValHeader<u64>);
-        //     printf("max_val key: %.*s\n", hdr->len, (char *)key_data);
-        // }
-        // else
-        // {
-        //     printf("max_val key: (UNDEFINED)\n");
-        // }
-
-        // printf("%-6s  %-7s  %-5s  %-10s  %s\n",
-        //        "slot", "offset", "len", "result", "key");
-        // printf("---------------------------------------------\n");
-
-        // /* DANGER does not work if structs change */
-        // access::Slot *slots = reinterpret_cast<access::Slot *>(data + sizeof(access::VarlenHeader));
-        // for (u32 i = 0; i < count; i++)
-        // {
-        //     byte *ptr = data + slots[i].offset;
-        //     auto *hdr = reinterpret_cast<access::SlotValHeader<u64> *>(ptr);
-        //     byte *key_data = ptr + sizeof(access::SlotValHeader<u64>);
-
-        //     printf("[%3u]   %5u    %3u   %10lu  %.*s\n",
-        //            i, slots[i].offset, hdr->len, hdr->result,
-        //            hdr->len, (char *)key_data);
-        // }
-        // printf("=================\n");
-    }
-
-    void PrintVarlenInterLayout(byte *data)
-    {
-        // auto *header = reinterpret_cast<access::VarlenHeader *>(data);
-        // u32 count = header->count;
-        // printf("=== Page Dump ===\n");
-        // printf("count=%-4u  level=%-2u  rlink=%u  max_val=%lu\n",
-        //        header->count, header->level, header->rlink, header->max_val);
-
-        // // After printing the header line, before the slot loop:
-        // if (header->max_val != std::numeric_limits<page_id>::max())
-        // {
-        //     byte *ptr = data + header->max_val;
-        //     auto *hdr = reinterpret_cast<access::SlotValHeader<page_id> *>(ptr);
-        //     byte *key_data = ptr + sizeof(access::SlotValHeader<page_id>);
-        //     printf("max_val key: %.*s\n", hdr->len, (char *)key_data);
-        // }
-        // else
-        // {
-        //     printf("max_val key: (UNDEFINED)\n");
-        // }
-
-        // printf("%-6s  %-7s  %-5s  %-10s  %s\n",
-        //        "slot", "offset", "len", "result", "key");
-        // printf("---------------------------------------------\n");
-
-        // /* DANGER does not work if structs change */
-        // access::Slot *slots = reinterpret_cast<access::Slot *>(data + sizeof(access::VarlenHeader));
-        // for (u32 i = 0; i < count; i++)
-        // {
-        //     byte *ptr = data + slots[i].offset;
-        //     auto *hdr = reinterpret_cast<access::SlotValHeader<page_id> *>(ptr);
-        //     byte *key_data = ptr + sizeof(access::SlotValHeader<page_id>);
-
-        //     printf("[%3u]   %5u    %3u   %10u  %.*s\n",
-        //            i, slots[i].offset, hdr->len, hdr->result,
-        //            hdr->len, (char *)key_data);
-        // }
-        // printf("=================\n");
-    }
-
-    void PrintVarlenLayout(byte *data)
-    {
-        auto *header = reinterpret_cast<access::VarlenHeader *>(data);
-        if (header->level == 0)
-            PrintVarlenLeafLayout(data);
-        else
-            PrintVarlenInterLayout(data);
-    }
+namespace db7::shared {
+void Print(const storage::PageIdentifier &pid) {
+  printf("PageId{tbl=%u, page=%u}\n", pid.tbl_id, pid.pid);
 }
+
+void Print(const storage::Page &page) {
+  printf("Page{table_id=%-4u  page_id=%-6u  ref=%-3u  io_in_progress=%s}\n",
+         page.GetId().tbl_id, page.GetId().pid, page.PinCount(),
+         page.IsIOInProgress() ? "true" : "false");
+}
+
+void Print(const storage::BufferPool &pool) {
+  const storage::Page *pages = pool.GetPagesDebug();
+  printf("===========================================================\n");
+  printf("%-10s %-8s %-5s %s\n", "table_id", "page_id", "ref",
+         "io_in_progress");
+  printf("-----------------------------------------------------------\n");
+  for (u32 i = 0; i < (u32)BUFFER_POOL_PAGE_NUM; i++) {
+    Print(pages[i]);
+  }
+  printf("===========================================================\n");
+}
+
+void PrintVarlenLeafLayout(byte *data) {
+  // auto *header = reinterpret_cast<access::VarlenHeader *>(data);
+  // u32 count = header->count;
+  // printf("=== Page Dump ===\n");
+  // printf("count=%-4u  level=%-2u  rlink=%u  max_val=%lu\n",
+  //        header->count, header->level, header->rlink, header->max_val);
+
+  // // After printing the header line, before the slot loop:
+  // if (header->max_val != std::numeric_limits<u64>::max())
+  // {
+  //     byte *ptr = data + header->max_val;
+  //     auto *hdr = reinterpret_cast<access::SlotValHeader<u64> *>(ptr);
+  //     byte *key_data = ptr + sizeof(access::SlotValHeader<u64>);
+  //     printf("max_val key: %.*s\n", hdr->len, (char *)key_data);
+  // }
+  // else
+  // {
+  //     printf("max_val key: (UNDEFINED)\n");
+  // }
+
+  // printf("%-6s  %-7s  %-5s  %-10s  %s\n",
+  //        "slot", "offset", "len", "result", "key");
+  // printf("---------------------------------------------\n");
+
+  // /* DANGER does not work if structs change */
+  // access::Slot *slots = reinterpret_cast<access::Slot *>(data +
+  // sizeof(access::VarlenHeader)); for (u32 i = 0; i < count; i++)
+  // {
+  //     byte *ptr = data + slots[i].offset;
+  //     auto *hdr = reinterpret_cast<access::SlotValHeader<u64> *>(ptr);
+  //     byte *key_data = ptr + sizeof(access::SlotValHeader<u64>);
+
+  //     printf("[%3u]   %5u    %3u   %10lu  %.*s\n",
+  //            i, slots[i].offset, hdr->len, hdr->result,
+  //            hdr->len, (char *)key_data);
+  // }
+  // printf("=================\n");
+}
+
+void PrintVarlenInterLayout(byte *data) {
+  // auto *header = reinterpret_cast<access::VarlenHeader *>(data);
+  // u32 count = header->count;
+  // printf("=== Page Dump ===\n");
+  // printf("count=%-4u  level=%-2u  rlink=%u  max_val=%lu\n",
+  //        header->count, header->level, header->rlink, header->max_val);
+
+  // // After printing the header line, before the slot loop:
+  // if (header->max_val != std::numeric_limits<page_id>::max())
+  // {
+  //     byte *ptr = data + header->max_val;
+  //     auto *hdr = reinterpret_cast<access::SlotValHeader<page_id> *>(ptr);
+  //     byte *key_data = ptr + sizeof(access::SlotValHeader<page_id>);
+  //     printf("max_val key: %.*s\n", hdr->len, (char *)key_data);
+  // }
+  // else
+  // {
+  //     printf("max_val key: (UNDEFINED)\n");
+  // }
+
+  // printf("%-6s  %-7s  %-5s  %-10s  %s\n",
+  //        "slot", "offset", "len", "result", "key");
+  // printf("---------------------------------------------\n");
+
+  // /* DANGER does not work if structs change */
+  // access::Slot *slots = reinterpret_cast<access::Slot *>(data +
+  // sizeof(access::VarlenHeader)); for (u32 i = 0; i < count; i++)
+  // {
+  //     byte *ptr = data + slots[i].offset;
+  //     auto *hdr = reinterpret_cast<access::SlotValHeader<page_id> *>(ptr);
+  //     byte *key_data = ptr + sizeof(access::SlotValHeader<page_id>);
+
+  //     printf("[%3u]   %5u    %3u   %10u  %.*s\n",
+  //            i, slots[i].offset, hdr->len, hdr->result,
+  //            hdr->len, (char *)key_data);
+  // }
+  // printf("=================\n");
+}
+
+void PrintVarlenLayout(byte *data) {
+  auto *header = reinterpret_cast<access::VarlenHeader *>(data);
+  if (header->level == 0)
+    PrintVarlenLeafLayout(data);
+  else
+    PrintVarlenInterLayout(data);
+}
+} // namespace db7::shared
