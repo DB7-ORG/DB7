@@ -6,9 +6,9 @@
             "type": "shell",
             "command": "make",
             "args": [
-                "clean",
-                "&&",
-                "make",
+                // "clean",
+                // "&&",
+                // "make",
                 "BUILD=debug"
             ],
             "group": {
