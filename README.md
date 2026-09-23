@@ -38,3 +38,12 @@ fix this
 
 see should i use cas loop to delete stuff since i need to keep that info in the page also so GC can later remove tombstne
 but gc can also add it later to a page which also seems convenient
+
+
+NOTE:
+
+install clangd extension and disable intelisense in vsc
+
+sudo apt install bear
+make clean
+bear -- make
