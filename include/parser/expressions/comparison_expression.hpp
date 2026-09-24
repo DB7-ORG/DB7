@@ -21,7 +21,7 @@ public:
    */
   ComparisonExpression(const ExpressionType cmp_type,
                        std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      : AbstractExpression(cmp_type, access::type_id::BOOLEAN, std::move(children)) {}
+      : AbstractExpression(cmp_type, type_id::BOOLEAN, std::move(children)) {}
 
   /** Default constructor for deserialization. */
   ComparisonExpression() = default;

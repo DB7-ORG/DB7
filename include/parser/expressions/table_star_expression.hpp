@@ -17,8 +17,7 @@ public:
    * Instantiates a new table star expression used to indicate SELECT * FROM
    * [tbls]
    */
-  TableStarExpression()
-      : AbstractExpression(ExpressionType::TABLE_STAR, access::type_id::INVALID, {}) {}
+  TableStarExpression() : AbstractExpression(ExpressionType::TABLE_STAR, type_id::INVALID, {}) {}
 
   /**
    * Instantiates a new table star expression used to indicate SELECT t.* FROM
@@ -26,7 +25,7 @@ public:
    * @param tbl Table to select all columns from
    */
   explicit TableStarExpression(std::string tbl)
-      : AbstractExpression(ExpressionType::TABLE_STAR, access::type_id::INVALID, {}),
+      : AbstractExpression(ExpressionType::TABLE_STAR, type_id::INVALID, {}),
         target_table_specified_(true), target_table_(std::move(tbl)) {}
 
   /**

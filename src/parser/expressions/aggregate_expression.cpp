@@ -19,7 +19,7 @@ std::unique_ptr<AbstractExpression> AggregateExpression::CopyWithChildren(
 void AggregateExpression::DeriveReturnValueType() {
   auto expr_type = this->GetExpressionType();
   switch (expr_type) {
-  case ExpressionType::AGGREGATE_COUNT: this->SetReturnValueType(access::type_id::INTEGER); break;
+  case ExpressionType::AGGREGATE_COUNT: this->SetReturnValueType(type_id::INTEGER); break;
   // keep the type of the base
   case ExpressionType::AGGREGATE_MAX:
   case ExpressionType::AGGREGATE_MIN:
@@ -28,11 +28,9 @@ void AggregateExpression::DeriveReturnValueType() {
     const_cast<parser::AbstractExpression *>(this->GetChild(0).Get())->DeriveReturnValueType();
     this->SetReturnValueType(this->GetChild(0)->GetReturnValueType());
     break;
-  case ExpressionType::AGGREGATE_AVG: this->SetReturnValueType(access::type_id::DOUBLE); break;
+  case ExpressionType::AGGREGATE_AVG: this->SetReturnValueType(type_id::DOUBLE); break;
   case ExpressionType::AGGREGATE_TOP_K:
-  case ExpressionType::AGGREGATE_HISTOGRAM:
-    this->SetReturnValueType(access::type_id::VARBINARY);
-    break;
+  case ExpressionType::AGGREGATE_HISTOGRAM: this->SetReturnValueType(type_id::VARBINARY); break;
   default:
     throw std::runtime_error("Not a valid aggregation expression type: " +
                              std::to_string(static_cast<int>(expr_type)));

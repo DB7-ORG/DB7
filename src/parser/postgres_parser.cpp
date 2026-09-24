@@ -236,8 +236,7 @@ std::unique_ptr<AbstractExpression> PostgresParser::ExprTransform(ParseResult *p
     break;
   }
   case T_Integer: {
-    expr = std::make_unique<ConstantValueExpression>(access::type_id::INTEGER,
-                                                     Integer(PgIntVal(node)));
+    expr = std::make_unique<ConstantValueExpression>(type_id::INTEGER, Integer(PgIntVal(node)));
     break;
   }
   default: {
@@ -350,8 +349,8 @@ std::unique_ptr<AbstractExpression> PostgresParser::AExprTransform(ParseResult *
       auto in_expr = std::make_unique<ComparisonExpression>(target_type, std::move(children));
       std::vector<std::unique_ptr<AbstractExpression>> in_child;
       in_child.emplace_back(std::move(in_expr));
-      return std::make_unique<OperatorExpression>(ExpressionType::OPERATOR_NOT,
-                                                  access::type_id::INVALID, std::move(in_child));
+      return std::make_unique<OperatorExpression>(ExpressionType::OPERATOR_NOT, type_id::INVALID,
+                                                  std::move(in_child));
     }
   } else {
     const char *name = strVal(llast(root->name));
@@ -372,8 +371,7 @@ std::unique_ptr<AbstractExpression> PostgresParser::AExprTransform(ParseResult *
   case ExpressionType::OPERATOR_IS_NULL:
   case ExpressionType::OPERATOR_IS_NOT_NULL:
   case ExpressionType::OPERATOR_EXISTS: {
-    return std::make_unique<OperatorExpression>(target_type, access::type_id::INVALID,
-                                                std::move(children));
+    return std::make_unique<OperatorExpression>(target_type, type_id::INVALID, std::move(children));
   }
   case ExpressionType::OPERATOR_CAST: {
     return TypeCastTransform(parse_result, reinterpret_cast<TypeCast *>(root));
@@ -418,8 +416,8 @@ std::unique_ptr<AbstractExpression> PostgresParser::BoolExprTransform(ParseResul
     break;
   }
   case NOT_EXPR: {
-    result = std::make_unique<OperatorExpression>(ExpressionType::OPERATOR_NOT,
-                                                  access::type_id::INVALID, std::move(children));
+    result = std::make_unique<OperatorExpression>(ExpressionType::OPERATOR_NOT, type_id::INVALID,
+                                                  std::move(children));
     break;
   }
   default: {
@@ -550,7 +548,7 @@ std::unique_ptr<AbstractExpression> PostgresParser::FuncCallTransform(ParseResul
       auto *expr_node = static_cast<Node *>(list_nth(root->args, i));
       children.emplace_back(ExprTransform(parse_result, expr_node, nullptr));
     }
-    result = std::make_unique<FunctionExpression>(std::move(func_name), access::type_id::INVALID,
+    result = std::make_unique<FunctionExpression>(std::move(func_name), type_id::INVALID,
                                                   std::move(children));
   } else {
     // aggregate function
@@ -584,7 +582,7 @@ std::unique_ptr<AbstractExpression> PostgresParser::NullTestTransform(ParseResul
   ExpressionType type = root->nulltesttype == IS_NULL ? ExpressionType::OPERATOR_IS_NULL
                                                       : ExpressionType::OPERATOR_IS_NOT_NULL;
 
-  return std::make_unique<OperatorExpression>(type, access::type_id::BOOLEAN, std::move(children));
+  return std::make_unique<OperatorExpression>(type, type_id::BOOLEAN, std::move(children));
 }
 
 // Postgres.ParamRef -> noisepage.ParameterValueExpression
@@ -621,8 +619,8 @@ std::unique_ptr<AbstractExpression> PostgresParser::SubqueryExprTransform(ParseR
   }
   case EXISTS_SUBLINK: {
     children.emplace_back(std::move(subquery_expr));
-    result = std::make_unique<OperatorExpression>(ExpressionType::OPERATOR_EXISTS,
-                                                  access::type_id::BOOLEAN, std::move(children));
+    result = std::make_unique<OperatorExpression>(ExpressionType::OPERATOR_EXISTS, type_id::BOOLEAN,
+                                                  std::move(children));
     break;
   }
   case EXPR_SUBLINK: {
@@ -654,18 +652,18 @@ std::unique_ptr<AbstractExpression> PostgresParser::ValueTransform(ParseResult *
                                                                    A_Const *root) {
   // NULL literals no longer have their own node type
   if (root->isnull) {
-    return std::make_unique<ConstantValueExpression>(access::type_id::INVALID, Val(true));
+    return std::make_unique<ConstantValueExpression>(type_id::INVALID, Val(true));
   }
 
   switch (nodeTag(&root->val)) {
   case T_Integer: {
-    return std::make_unique<ConstantValueExpression>(access::type_id::INTEGER,
+    return std::make_unique<ConstantValueExpression>(type_id::INTEGER,
                                                      Integer(PgIntVal(&root->val)));
   }
 
   case T_String: {
     auto string_val = ValueUtil::CreateStringVal(std::string_view{strVal(&root->val)});
-    return std::make_unique<ConstantValueExpression>(access::type_id::VARCHAR, string_val.first,
+    return std::make_unique<ConstantValueExpression>(type_id::VARCHAR, string_val.first,
                                                      std::move(string_val.second));
   }
 
@@ -674,10 +672,9 @@ std::unique_ptr<AbstractExpression> PostgresParser::ValueTransform(ParseResult *
     // T_Float is also used for oversized ints, e.g. BIGINT.
     const char *str = root->val.fval.fval;
     if (std::strpbrk(str, ".eE") == nullptr) {
-      return std::make_unique<ConstantValueExpression>(access::type_id::BIGINT,
-                                                       Integer(std::stoll(str)));
+      return std::make_unique<ConstantValueExpression>(type_id::BIGINT, Integer(std::stoll(str)));
     }
-    return std::make_unique<ConstantValueExpression>(access::type_id::DOUBLE, Real(std::stod(str)));
+    return std::make_unique<ConstantValueExpression>(type_id::DOUBLE, Real(std::stod(str)));
   }
 
   default: {

@@ -5,10 +5,10 @@
 #include <utility>
 #include <vector>
 
-#include "access/access_common.hpp"
 #include "expressions/abstract_expression.hpp"
 #include "parser_defs.hpp"
 #include "select_statement.hpp"
+#include "shared/types/type_defs.hpp"
 #include "sql_statement.hpp"
 
 namespace db7::parser {
@@ -131,39 +131,38 @@ struct ColumnDefinition {
    * @param str type name
    * @return type ID
    */
-  static access::type_id
-  StrToValueType(char *str) { // TODO(Matt): compare with
-                              // access::type_idFromString to check redundancy
-    access::type_id value_type;
+  static type_id StrToValueType(char *str) { // TODO(Matt): compare with
+                                             // type_idFromString to check redundancy
+    type_id value_type;
     // Transform column type
     if ((strcmp(str, "int") == 0) || (strcmp(str, "int4") == 0)) {
-      value_type = access::type_id::INTEGER;
+      value_type = type_id::INTEGER;
     } else if ((strcmp(str, "varchar") == 0) || (strcmp(str, "bpchar") == 0) ||
                (strcmp(str, "text") == 0)) {
-      value_type = access::type_id::VARCHAR;
+      value_type = type_id::VARCHAR;
     } else if (strcmp(str, "int8") == 0) {
-      value_type = access::type_id::BIGINT;
+      value_type = type_id::BIGINT;
     } else if (strcmp(str, "int2") == 0) {
-      value_type = access::type_id::SMALLINT;
+      value_type = type_id::SMALLINT;
     } else if (strcmp(str, "timestamp") == 0) {
-      value_type = access::type_id::BIGINT; // TODO parser timestamp
+      value_type = type_id::BIGINT; // TODO parser timestamp
     } else if (strcmp(str, "bool") == 0) {
-      value_type = access::type_id::BOOLEAN;
+      value_type = type_id::BOOLEAN;
     } else if ((strcmp(str, "double") == 0) || (strcmp(str, "float8") == 0) ||
                (strcmp(str, "real") == 0) || (strcmp(str, "float4") == 0) ||
                (strcmp(str, "numeric") == 0) || (strcmp(str, "decimal") == 0)) {
-      value_type = access::type_id::DOUBLE;
+      value_type = type_id::DOUBLE;
       // TODO(Matt): when we support fixed point DECIMAL properly:
 
       //    } else if ((strcmp(str, "numeric") == 0) || (strcmp(str, "decimal")
       //    == 0)) {
-      //      value_type = access::type_id::Decimal;
+      //      value_type = type_id::Decimal;
     } else if (strcmp(str, "tinyint") == 0) {
-      value_type = access::type_id::TINYINT;
+      value_type = type_id::TINYINT;
     } else if (strcmp(str, "varbinary") == 0) {
-      value_type = access::type_id::VARBINARY;
+      value_type = type_id::VARBINARY;
     } else if (strcmp(str, "date") == 0) {
-      value_type = access::type_id::BIGINT; // TODO parser date
+      value_type = type_id::BIGINT; // TODO parser date
     } else {
       throw std::runtime_error("Unsupported datatype");
     }
@@ -173,38 +172,38 @@ struct ColumnDefinition {
   /**
    * @return type ID
    */
-  access::type_id GetValueType() {
+  type_id GetValueType() {
     switch (type_) {
     case DataType::INT:
-    case DataType::INTEGER: return access::type_id::INTEGER;
-    case DataType::TINYINT: return access::type_id::TINYINT;
-    case DataType::SMALLINT: return access::type_id::SMALLINT;
-    case DataType::BIGINT: return access::type_id::BIGINT;
+    case DataType::INTEGER: return type_id::INTEGER;
+    case DataType::TINYINT: return type_id::TINYINT;
+    case DataType::SMALLINT: return type_id::SMALLINT;
+    case DataType::BIGINT: return type_id::BIGINT;
 
     case DataType::DECIMAL:
       // TODO(Matt): when we support fixed point DECIMAL properly:
 
-      //        return access::type_id::Decimal;
+      //        return type_id::Decimal;
     case DataType::DOUBLE:
-    case DataType::FLOAT: return access::type_id::DOUBLE;
+    case DataType::FLOAT: return type_id::DOUBLE;
 
-    case DataType::BOOLEAN: return access::type_id::BOOLEAN;
+    case DataType::BOOLEAN: return type_id::BOOLEAN;
 
-    case DataType::TIMESTAMP: return access::type_id::BIGINT; // TODO parser timestamp
+    case DataType::TIMESTAMP: return type_id::BIGINT; // TODO parser timestamp
 
     case DataType::CHAR:
     case DataType::TEXT:
-    case DataType::VARCHAR: return access::type_id::VARCHAR;
+    case DataType::VARCHAR: return type_id::VARCHAR;
 
-    case DataType::VARBINARY: return access::type_id::VARBINARY;
+    case DataType::VARBINARY: return type_id::VARBINARY;
 
-    case DataType::DATE: return access::type_id::BIGINT; // TODO parser date
+    case DataType::DATE: return type_id::BIGINT; // TODO parser date
 
     case DataType::INVALID:
     case DataType::PRIMARY:
     case DataType::FOREIGN:
     case DataType::MULTIUNIQUE:
-    default: return access::type_id::INVALID;
+    default: return type_id::INVALID;
     }
   }
 

@@ -29,8 +29,7 @@ public:
    * @param type SQL type for NULL, apparently can be INVALID coming out of the
    * parser for NULLs
    */
-  explicit ConstantValueExpression(const access::type_id type)
-      : ConstantValueExpression(type, Val(true)) {
+  explicit ConstantValueExpression(const type_id type) : ConstantValueExpression(type, Val(true)) {
     Validate();
   }
 
@@ -41,7 +40,7 @@ public:
    * for NULLs
    * @param value underlying value to copy
    */
-  template <typename T> ConstantValueExpression(access::type_id type, T value);
+  template <typename T> ConstantValueExpression(type_id type, T value);
 
   /**
    * Construct a CVE of provided type and value
@@ -51,7 +50,7 @@ public:
    * @param buffer StringVal might not be inlined, so take ownership of that
    * buffer
    */
-  ConstantValueExpression(access::type_id type, StringVal value, std::unique_ptr<byte[]> buffer);
+  ConstantValueExpression(type_id type, StringVal value, std::unique_ptr<byte[]> buffer);
 
   /** Default constructor for deserialization. */
   ConstantValueExpression() = default;
@@ -164,7 +163,7 @@ public:
    * @param buffer StringVal might not be inlined, so take ownership of that
    * buffer
    */
-  void SetValue(const access::type_id type, const StringVal value, std::unique_ptr<byte[]> buffer) {
+  void SetValue(const type_id type, const StringVal value, std::unique_ptr<byte[]> buffer) {
     return_value_type_ = type;
     value_ = value;
     buffer_ = std::move(buffer);
@@ -179,7 +178,7 @@ public:
    * for NULLs
    * @param value underlying value to copy
    */
-  template <typename T> void SetValue(access::type_id type, T value) {
+  template <typename T> void SetValue(type_id type, T value) {
     return_value_type_ = type;
     value_ = value;
     buffer_ = nullptr;
@@ -192,20 +191,20 @@ public:
   bool IsNull() const {
     if (std::holds_alternative<Val>(value_) && std::get<Val>(value_).is_null_) return true;
     switch (return_value_type_) {
-    case access::type_id::BOOLEAN: {
+    case type_id::BOOLEAN: {
       return GetBoolVal().is_null_;
     }
-    case access::type_id::TINYINT:
-    case access::type_id::SMALLINT:
-    case access::type_id::INTEGER:
-    case access::type_id::BIGINT: {
+    case type_id::TINYINT:
+    case type_id::SMALLINT:
+    case type_id::INTEGER:
+    case type_id::BIGINT: {
       return GetInteger().is_null_;
     }
-    case access::type_id::DOUBLE: {
+    case type_id::DOUBLE: {
       return GetReal().is_null_;
     }
-    case access::type_id::VARCHAR:
-    case access::type_id::VARBINARY: {
+    case type_id::VARCHAR:
+    case type_id::VARBINARY: {
       return GetStringVal().is_null_;
     }
     default: assert(false && "Invalid TypeId."); __builtin_unreachable();
@@ -228,7 +227,7 @@ public:
   std::string ToString() const;
 
   /** @return A ConstantValueExpression from input string and type. */
-  static ConstantValueExpression FromString(const std::string &val_string, access::type_id type_id);
+  static ConstantValueExpression FromString(const std::string &val_string, type_id type_id);
 
   /**
    * @return expression serialized to json
@@ -244,30 +243,25 @@ public:
 DEFINE_JSON_HEADER_DECLARATIONS(ConstantValueExpression);
 
 /// @cond DOXYGEN_IGNORE
-extern template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+extern template ConstantValueExpression::ConstantValueExpression(const type_id type,
                                                                  const Val value);
-extern template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+extern template ConstantValueExpression::ConstantValueExpression(const type_id type,
                                                                  const BoolVal value);
-extern template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+extern template ConstantValueExpression::ConstantValueExpression(const type_id type,
                                                                  const Integer value);
-extern template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+extern template ConstantValueExpression::ConstantValueExpression(const type_id type,
                                                                  const Real value);
-extern template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+extern template ConstantValueExpression::ConstantValueExpression(const type_id type,
                                                                  const DecimalVal value);
-extern template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+extern template ConstantValueExpression::ConstantValueExpression(const type_id type,
                                                                  const StringVal value);
 
-extern template void ConstantValueExpression::SetValue(const access::type_id type, const Val value);
-extern template void ConstantValueExpression::SetValue(const access::type_id type,
-                                                       const BoolVal value);
-extern template void ConstantValueExpression::SetValue(const access::type_id type,
-                                                       const Integer value);
-extern template void ConstantValueExpression::SetValue(const access::type_id type,
-                                                       const Real value);
-extern template void ConstantValueExpression::SetValue(const access::type_id type,
-                                                       const DecimalVal value);
-extern template void ConstantValueExpression::SetValue(const access::type_id type,
-                                                       const StringVal value);
+extern template void ConstantValueExpression::SetValue(const type_id type, const Val value);
+extern template void ConstantValueExpression::SetValue(const type_id type, const BoolVal value);
+extern template void ConstantValueExpression::SetValue(const type_id type, const Integer value);
+extern template void ConstantValueExpression::SetValue(const type_id type, const Real value);
+extern template void ConstantValueExpression::SetValue(const type_id type, const DecimalVal value);
+extern template void ConstantValueExpression::SetValue(const type_id type, const StringVal value);
 
 extern template bool ConstantValueExpression::Peek() const;
 extern template int8_t ConstantValueExpression::Peek() const;

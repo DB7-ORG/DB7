@@ -1,10 +1,10 @@
 #pragma once
 
-#include "access/access_common.hpp"
 #include "access/data_chunk.hpp"
 #include "access/index/header.hpp"
 #include "shared/byte_utils.hpp"
 #include "shared/macro_helper.hpp"
+#include "shared/types/type_defs.hpp"
 #include "storage/varlen_entry.hpp"
 
 #include <cmath>

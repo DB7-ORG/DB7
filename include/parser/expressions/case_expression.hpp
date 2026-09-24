@@ -68,7 +68,7 @@ public:
    * @param when_clauses list of WhenClauses
    * @param default_expr default expression for this case
    */
-  CaseExpression(const access::type_id return_value_type, std::vector<WhenClause> &&when_clauses,
+  CaseExpression(const type_id return_value_type, std::vector<WhenClause> &&when_clauses,
                  std::unique_ptr<AbstractExpression> default_expr)
       : AbstractExpression(ExpressionType::OPERATOR_CASE_EXPR, return_value_type, {}),
         when_clauses_(std::move(when_clauses)), default_expr_(std::move(default_expr)) {}

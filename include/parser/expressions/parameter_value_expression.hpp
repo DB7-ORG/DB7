@@ -27,7 +27,7 @@ public:
    * the type should reflect the correct value
    */
   explicit ParameterValueExpression(const uint32_t value_idx)
-      : AbstractExpression(ExpressionType::VALUE_PARAMETER, access::type_id::INVALID, {}),
+      : AbstractExpression(ExpressionType::VALUE_PARAMETER, type_id::INVALID, {}),
         value_idx_(value_idx) {}
 
   /**
@@ -36,7 +36,7 @@ public:
    * @param value_idx the offset of the parameter
    * @param ret_type the return type of the expression
    */
-  explicit ParameterValueExpression(const uint32_t value_idx, access::type_id ret_type)
+  explicit ParameterValueExpression(const uint32_t value_idx, type_id ret_type)
       : AbstractExpression(ExpressionType::VALUE_PARAMETER, ret_type, {}), value_idx_(value_idx) {}
 
   /** Default constructor for deserialization. */

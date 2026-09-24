@@ -104,11 +104,11 @@ db7::catalog::Catalog *g_catalog;
 
 using namespace db7;
 
-constexpr auto phys_type = access::type_id::VARCHAR;
+constexpr auto phys_type = type_id::VARCHAR;
 
 template <typename T> void prep_keys(std::vector<access::DataChunk *> &strs, u32 n) {
 
-  auto layout = access::DataChunkLayout({1}, {access::SizeOf(phys_type)});
+  auto layout = access::DataChunkLayout({1}, {SizeOf(phys_type)});
   std::vector<access::TypeSize> types{{1, phys_type}};
   for (int i = 0; i < int(n); i++) {
     auto chunk = layout.CreateDataChunk();
@@ -119,7 +119,7 @@ template <typename T> void prep_keys(std::vector<access::DataChunk *> &strs, u32
       const std::string s = "k⎞" + std::string(num);
       db7::storage::VarlenEntry entry;
       entry.Set(std::span<const char>(s.data(), s.size()));
-      std::memcpy(chunk->Access(0), &entry, access::SizeOf(phys_type));
+      std::memcpy(chunk->Access(0), &entry, SizeOf(phys_type));
     }
     strs[i] = chunk;
   }
@@ -312,7 +312,7 @@ int main2() {
 
   std::vector<access::SchemaColumn> columns;
   columns.reserve(1);
-  columns.emplace_back(7000, access::type_id::INTEGER, "typlen");
+  columns.emplace_back(7000, type_id::INTEGER, "typlen");
   access::IndexSchema idx_schema(std::move(columns), false, false, false, false);
   auto idx_res = db_catalog->CreateIndex(context, sdata3, table_res.value, resns.value, idx_schema);
   DB7_ASSERT(idx_res.success, "Failed index");

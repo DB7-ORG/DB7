@@ -73,7 +73,7 @@ public:
       : databases_map_({}), next_db_oid_(catalog::db_oid_t(1)), buffer_pool_(buffer_pool),
         disk_mng_(disk_mng),
         data_chunk_layout_({CatalogColumnOid::DATOID, CatalogColumnOid::DATNAME},
-                           {SizeOf(access::type_id::INTEGER), SizeOf(access::type_id::VARCHAR)}) {
+                           {SizeOf(type_id::INTEGER), SizeOf(type_id::VARCHAR)}) {
     using enum CatalogTableOid;
     databases_ = new access::Table(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(),
                                    PG_DATABASES, PG_VARLEN);

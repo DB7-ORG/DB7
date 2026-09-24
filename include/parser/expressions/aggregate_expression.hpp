@@ -24,8 +24,7 @@ public:
    */
   AggregateExpression(ExpressionType type,
                       std::vector<std::unique_ptr<AbstractExpression>> &&children, bool distinct)
-      : AbstractExpression(type, access::type_id::INVALID, std::move(children)),
-        distinct_(distinct) {}
+      : AbstractExpression(type, type_id::INVALID, std::move(children)), distinct_(distinct) {}
 
   /** Default constructor for deserialization. */
   AggregateExpression() = default;

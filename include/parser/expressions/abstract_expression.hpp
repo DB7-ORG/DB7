@@ -1,10 +1,10 @@
 #pragma once
 
-#include "access/access_common.hpp"
 #include "common.hpp"
 #include "parser/expression_defs.hpp"
 #include "shared/json/json_util.hpp"
 #include "shared/managed_pointer.hpp"
+#include "shared/types/type_defs.hpp"
 
 #include <memory>
 #include <vector>
@@ -152,7 +152,7 @@ protected:
   AliasType alias_;
   /** Type of the return value */
 
-  access::type_id return_value_type_;
+  type_id return_value_type_;
 
   /**
    * MUTABLE Sub-query depth level for the current expression.
@@ -190,7 +190,7 @@ protected:
    */
   void SetChild(int index, shared::ManagedPointer<AbstractExpression> expr);
 
-  AbstractExpression(const ExpressionType expression_type, const access::type_id return_value_type,
+  AbstractExpression(const ExpressionType expression_type, const type_id return_value_type,
                      std::vector<std::unique_ptr<AbstractExpression>> &&children)
       : expression_type_(expression_type), return_value_type_(return_value_type),
         children_(std::move(children)) {}
@@ -203,7 +203,7 @@ protected:
    * @param alias alias of the column (used in column value expression)
    * @param children the list of children for this node
    */
-  AbstractExpression(const ExpressionType expression_type, const access::type_id return_value_type,
+  AbstractExpression(const ExpressionType expression_type, const type_id return_value_type,
                      AliasType alias, std::vector<std::unique_ptr<AbstractExpression>> &&children)
       : expression_type_(expression_type), alias_(std::move(alias)),
         return_value_type_(return_value_type), children_(std::move(children)) {}
@@ -234,9 +234,7 @@ protected:
    * @param return_value_type Set the return value type of the current
    * expression
    */
-  void SetReturnValueType(access::type_id return_value_type) {
-    return_value_type_ = return_value_type;
-  }
+  void SetReturnValueType(type_id return_value_type) { return_value_type_ = return_value_type; }
 
   /**
    * @param depth Set the depth of the current expression
@@ -303,7 +301,7 @@ public:
   /**
    * @return type of the return value
    */
-  access::type_id GetReturnValueType() const { return return_value_type_; }
+  type_id GetReturnValueType() const { return return_value_type_; }
 
   /**
    * @return number of children in this abstract expression

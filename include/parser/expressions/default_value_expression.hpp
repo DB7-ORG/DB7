@@ -16,7 +16,7 @@ class DefaultValueExpression : public AbstractExpression {
 public:
   /** Instantiates a new default value expression. */
   DefaultValueExpression()
-      : AbstractExpression(ExpressionType::VALUE_DEFAULT, access::type_id::INVALID, {}) {}
+      : AbstractExpression(ExpressionType::VALUE_DEFAULT, type_id::INVALID, {}) {}
 
   /**
    * Copies this DefaultValueExpression

@@ -14,7 +14,7 @@ public:
   /**
    * Instantiates a new star expression, e.g. as in COUNT(*).
    */
-  StarExpression() : AbstractExpression(ExpressionType::STAR, access::type_id::INTEGER, {}) {}
+  StarExpression() : AbstractExpression(ExpressionType::STAR, type_id::INTEGER, {}) {}
 
   /**
    * Copies this StarExpression

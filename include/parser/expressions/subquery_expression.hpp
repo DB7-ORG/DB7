@@ -24,7 +24,7 @@ public:
    * @param subselect the sub-select
    */
   explicit SubqueryExpression(std::unique_ptr<parser::SelectStatement> subselect)
-      : AbstractExpression(ExpressionType::ROW_SUBQUERY, access::type_id::INVALID, {}),
+      : AbstractExpression(ExpressionType::ROW_SUBQUERY, type_id::INVALID, {}),
         subselect_(std::move(subselect)) {}
 
   /** Default constructor for JSON deserialization. */

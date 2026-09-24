@@ -1,7 +1,7 @@
 #pragma once
 
-#include "access/access_common.hpp"
 #include "catalog/catalog_common.hpp"
+#include "shared/types/type_defs.hpp"
 
 #include <span>
 

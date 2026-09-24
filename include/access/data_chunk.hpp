@@ -1,9 +1,9 @@
 #pragma once
 
-#include "access/access_common.hpp"
 #include "access/schema.hpp"
 #include "catalog/catalog_common.hpp"
 #include "shared/align_util.hpp"
+#include "shared/types/type_defs.hpp"
 #include "storage/varlen_entry.hpp"
 
 #include <cstring>
@@ -201,7 +201,7 @@ public:
 
   static void BuildAttributeChunk(DataChunk *chunk, catalog::attribute_oid_t oid,
                                   catalog::class_oid_t rel_oid, const std::span<char> name,
-                                  access::type_id type_oid, u16 attr_len, bool not_null) {
+                                  type_id type_oid, u16 attr_len, bool not_null) {
     chunk->Write(catalog::CatalogColumnOid::ATTNUM, oid);
     chunk->Write(catalog::CatalogColumnOid::ATTRELID, rel_oid);
     storage::VarlenEntry entry;

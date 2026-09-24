@@ -1,8 +1,8 @@
 #pragma once
 
-#include "access/access_common.hpp"
 #include "catalog/catalog_common.hpp"
 #include "common.hpp"
+#include "shared/types/type_defs.hpp"
 #include "storage/storage_common.hpp"
 
 #include <vector>

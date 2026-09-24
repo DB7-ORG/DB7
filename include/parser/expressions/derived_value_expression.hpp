@@ -28,7 +28,7 @@ public:
    * @param tuple_idx index of the tuple
    * @param value_idx offset of the value in the tuple
    */
-  DerivedValueExpression(access::type_id type, int tuple_idx, int value_idx)
+  DerivedValueExpression(type_id type, int tuple_idx, int value_idx)
       : AbstractExpression(ExpressionType::VALUE_TUPLE, type, {}), tuple_idx_(tuple_idx),
         value_idx_(value_idx) {}
 

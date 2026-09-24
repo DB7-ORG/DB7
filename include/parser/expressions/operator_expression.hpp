@@ -18,7 +18,7 @@ public:
    * @param return_value_type return type of the operator
    * @param children vector containing arguments to the operator, left to right
    */
-  OperatorExpression(const ExpressionType expression_type, const access::type_id return_value_type,
+  OperatorExpression(const ExpressionType expression_type, const type_id return_value_type,
                      std::vector<std::unique_ptr<AbstractExpression>> &&children)
       : AbstractExpression(expression_type, return_value_type, std::move(children)) {}
 

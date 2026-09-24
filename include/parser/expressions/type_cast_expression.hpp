@@ -31,8 +31,7 @@ class TypeCastExpression : public AbstractExpression {
   // being used?
 public:
   /** Instantiates a new type cast expression. */
-  TypeCastExpression(access::type_id type,
-                     std::vector<std::unique_ptr<AbstractExpression>> &&children)
+  TypeCastExpression(type_id type, std::vector<std::unique_ptr<AbstractExpression>> &&children)
       : AbstractExpression(ExpressionType::OPERATOR_CAST, type, std::move(children)) {}
 
   /** Default constructor for JSON deserialization. */

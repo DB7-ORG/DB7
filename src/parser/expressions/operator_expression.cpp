@@ -23,7 +23,7 @@ void OperatorExpression::DeriveReturnValueType() {
       this->GetExpressionType() == ExpressionType::OPERATOR_IS_NULL ||
       this->GetExpressionType() == ExpressionType::OPERATOR_IS_NOT_NULL ||
       this->GetExpressionType() == ExpressionType::OPERATOR_EXISTS) {
-    this->SetReturnValueType(access::type_id::BOOLEAN);
+    this->SetReturnValueType(type_id::BOOLEAN);
     return;
   }
   const auto &children = this->GetChildren();
@@ -32,7 +32,7 @@ void OperatorExpression::DeriveReturnValueType() {
         return t1->GetReturnValueType() < t2->GetReturnValueType();
       });
   const auto &type = (*max_type_child)->GetReturnValueType();
-  assert(type <= access::type_id::DOUBLE && "Invalid operand type in Operator Expression.");
+  assert(type <= type_id::DOUBLE && "Invalid operand type in Operator Expression.");
   // TODO(Matt): What is this assertion doing? Why is order of the enum
   // important?
   this->SetReturnValueType(type);
