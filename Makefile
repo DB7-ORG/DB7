@@ -1,9 +1,17 @@
 MAKEFLAGS += -j$(shell nproc)
+# Quiet output by default; run `make V=1` to see full commands
+ifeq ($(V),1)
+  Q :=
+else
+  Q := @
+endif
+MAKEFLAGS += --no-print-directory
+
+
 CXX = clang++
 CC = gcc
 BASE_CXXFLAGS = -std=c++20 -Iinclude -Isrc -march=native -Wall -Wextra \
-				-Wno-unused-parameter -Wno-unused-but-set-variable -Wno-return-type
-				
+				-Wno-unused-parameter -Wno-unused-but-set-variable -Wno-return-type			
 DEPFLAGS = -MMD -MP
 
 # external libraries
@@ -49,21 +57,25 @@ all: $(TARGET)
 # Generic C++ rule
 $(OBJ_DIR)/%.o: src/%.cpp Makefile
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
+	@echo "  $(CXX)   $<"
+	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 
 # Generic C rule
 $(CACHE_OBJ_DIR)/%.o: src/%.c Makefile
 	@mkdir -p $(dir $@)
-	$(CC) $(CCO3FLAGS) $(DEPFLAGS) -march=native -c $< -o $@
+	@echo "  $(CC)    $<"
+	$(Q)$(CC) $(CCO3FLAGS) $(DEPFLAGS) -march=native -c $< -o $@
 
 $(PG_OBJS): CXXFLAGS += $(PG_QUERY_INC) -fno-strict-aliasing
 $(PG_OBJS): $(PG_QUERY_LIB)
 $(PG_QUERY_LIB):
-	$(MAKE) -C $(PG_QUERY_DIR) build
+	@echo "  BUILD libpg_query (this takes a few minutes)"
+	$(Q)$(MAKE) -C $(PG_QUERY_DIR) build
 
 $(TARGET): $(OBJS) $(PG_QUERY_LIB)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(OBJS) $(PG_QUERY_LIB) -o $@ $(LDFLAGS)
+	@echo "  LINK  $@"
+	$(Q)$(CXX) $(CXXFLAGS) $(OBJS) $(PG_QUERY_LIB) -o $@ $(LDFLAGS)
 
 run: $(TARGET)
 	./$(TARGET)
