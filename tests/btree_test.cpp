@@ -172,7 +172,7 @@ protected:
     layout_ = std::make_unique<DataChunkLayout>(std::span<const catalog::col_oid_t>(col_ids),
                                                 std::span<const u16>(sizes));
 
-    tree_ = std::make_unique<Tree>(bp_.get(), dm_.get(), next_tbl_++, attr);
+    tree_ = std::make_unique<Tree>(bp_.get(), dm_.get(), next_tbl_++, 0, attr);
   }
 
   void TearDown() override {

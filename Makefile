@@ -1,4 +1,6 @@
-MAKEFLAGS += -j$(shell nproc)
+ifeq ($(MAKELEVEL),0)
+  MAKEFLAGS += -j$(shell nproc)
+endif
 # Quiet output by default; run `make V=1` to see full commands
 ifeq ($(V),1)
   Q :=

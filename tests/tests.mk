@@ -5,13 +5,15 @@ TEST_OBJS := $(patsubst $(TEST_DIR)/%.cpp,$(OBJ_DIR)/tests/%.o,$(TEST_SRCS))
 APP_OBJS  := $(filter-out $(OBJ_DIR)/main.o,$(CXX_OBJS)) $(C_OBJS)
 TEST_LDFLAGS = $(LDFLAGS) -lgtest -lgtest_main -pthread
 
-$(OBJ_DIR)/tests/%.o: $(TEST_DIR)/%.cpp
+$(OBJ_DIR)/tests/%.o: $(TEST_DIR)/%.cpp Makefile
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -I$(TEST_DIR) -c $< -o $@
+	@echo "  $(CXX)   $<"
+	$(Q)$(CXX) $(CXXFLAGS) $(DEPFLAGS) -I$(TEST_DIR) -c $< -o $@
 
-$(TEST_BIN): $(TEST_OBJS) $(APP_OBJS)
+$(TEST_BIN): $(TEST_OBJS) $(APP_OBJS) $(PG_QUERY_LIB)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $^ -o $@ $(TEST_LDFLAGS)
+	@echo "  LINK  $@"
+	$(Q)$(CXX) $(CXXFLAGS) $(TEST_OBJS) $(APP_OBJS) $(PG_QUERY_LIB) -o $@ $(TEST_LDFLAGS)
 
 build-test: $(TEST_BIN)
 
@@ -22,4 +24,8 @@ run-test: $(TEST_BIN)
 	@echo "=== $(TEST_BIN) ===" && ./$(TEST_BIN)
 
 clean-test:
-	rm -rf $(TEST_BIN) $(OBJ_DIR)/tests
+	@echo "  CLEAN tests"
+	$(Q)rm -rf $(TEST_BIN) $(OBJ_DIR)/tests
+
+# Header dependency tracking for test objects
+-include $(TEST_OBJS:.o=.d)
