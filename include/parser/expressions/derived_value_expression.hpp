@@ -29,8 +29,8 @@ public:
    * @param value_idx offset of the value in the tuple
    */
   DerivedValueExpression(access::type_id type, int tuple_idx, int value_idx)
-      : AbstractExpression(ExpressionType::VALUE_TUPLE, type, {}),
-        tuple_idx_(tuple_idx), value_idx_(value_idx) {}
+      : AbstractExpression(ExpressionType::VALUE_TUPLE, type, {}), tuple_idx_(tuple_idx),
+        value_idx_(value_idx) {}
 
   /** Default constructor for deserialization. */
   DerivedValueExpression() = default;
@@ -47,10 +47,8 @@ public:
    * @returns copy of this with new children
    */
   std::unique_ptr<AbstractExpression>
-  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      const override {
-    assert(children.empty() &&
-           "DerivedValueExpression should have no children");
+  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children) const override {
+    assert(children.empty() && "DerivedValueExpression should have no children");
     (void)children;
     return Copy();
   }
@@ -72,8 +70,7 @@ public:
   nlohmann::json ToJson() const override;
 
   /** @param j json to deserialize */
-  std::vector<std::unique_ptr<AbstractExpression>>
-  FromJson(const nlohmann::json &j) override;
+  std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j) override;
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(DerivedValueExpression);

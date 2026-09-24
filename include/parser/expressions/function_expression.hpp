@@ -31,11 +31,9 @@ public:
    * @param return_value_type function return value type
    * @param children children arguments for the function
    */
-  FunctionExpression(
-      std::string &&func_name, const access::type_id return_value_type,
-      std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      : AbstractExpression(ExpressionType::FUNCTION, return_value_type,
-                           std::move(children)),
+  FunctionExpression(std::string &&func_name, const access::type_id return_value_type,
+                     std::vector<std::unique_ptr<AbstractExpression>> &&children)
+      : AbstractExpression(ExpressionType::FUNCTION, return_value_type, std::move(children)),
         func_name_(std::move(func_name)) {}
 
   /** Default constructor for deserialization. */
@@ -48,12 +46,10 @@ public:
    * @param children children arguments for the function
    * @param proc_oid proc id
    */
-  FunctionExpression(
-      std::string &&func_name, const access::type_id return_value_type,
-      std::vector<std::unique_ptr<AbstractExpression>> &&children,
-      catalog::proc_oid_t proc_oid)
-      : AbstractExpression(ExpressionType::FUNCTION, return_value_type,
-                           std::move(children)),
+  FunctionExpression(std::string &&func_name, const access::type_id return_value_type,
+                     std::vector<std::unique_ptr<AbstractExpression>> &&children,
+                     catalog::proc_oid_t proc_oid)
+      : AbstractExpression(ExpressionType::FUNCTION, return_value_type, std::move(children)),
         func_name_(std::move(func_name)), proc_oid_(proc_oid) {}
   /**
    * Copies this FunctionExpression
@@ -68,14 +64,12 @@ public:
    * @returns copy of this with new children
    */
   std::unique_ptr<AbstractExpression>
-  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      const override;
+  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children) const override;
 
   hash_t Hash() const override;
 
   bool operator==(const AbstractExpression &rhs) const override {
-    if (!AbstractExpression::operator==(rhs))
-      return false;
+    if (!AbstractExpression::operator==(rhs)) return false;
     auto const &other = dynamic_cast<const FunctionExpression &>(rhs);
     return GetFuncName() == other.GetFuncName();
   }
@@ -93,8 +87,7 @@ public:
   /**
    * @param j json to deserialize
    */
-  std::vector<std::unique_ptr<AbstractExpression>>
-  FromJson(const nlohmann::json &j) override;
+  std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j) override;
 
   /**
    * Sets the proc oid of this node

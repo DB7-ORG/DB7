@@ -59,15 +59,11 @@ struct ColumnDefinition {
    * @param update_action action to take upon update
    * @param match_type type of foreign key match
    */
-  ColumnDefinition(std::vector<std::string> fk_sources,
-                   std::vector<std::string> fk_sinks,
-                   std::string fk_sink_table_name,
-                   FKConstrActionType delete_action,
-                   FKConstrActionType update_action,
-                   FKConstrMatchType match_type)
+  ColumnDefinition(std::vector<std::string> fk_sources, std::vector<std::string> fk_sinks,
+                   std::string fk_sink_table_name, FKConstrActionType delete_action,
+                   FKConstrActionType update_action, FKConstrMatchType match_type)
       : type_(DataType::FOREIGN), fk_sources_(std::move(fk_sources)),
-        fk_sinks_(std::move(fk_sinks)),
-        fk_sink_table_name_(std::move(fk_sink_table_name)),
+        fk_sinks_(std::move(fk_sinks)), fk_sink_table_name_(std::move(fk_sink_table_name)),
         fk_delete_action_(delete_action), fk_update_action_(update_action),
         fk_match_type_(match_type) {}
 
@@ -83,14 +79,11 @@ struct ColumnDefinition {
    * @param type_modifier max length of varlen, or precision of decimal
    * (atttypmod)
    */
-  ColumnDefinition(std::string name, DataType type, bool is_primary,
-                   bool is_not_null, bool is_unique,
-                   shared::ManagedPointer<AbstractExpression> default_expr,
-                   shared::ManagedPointer<AbstractExpression> check_expr,
-                   int32_t type_modifier)
-      : name_(std::move(name)), type_(type), is_primary_(is_primary),
-        is_not_null_(is_not_null), is_unique_(is_unique),
-        default_expr_(default_expr), check_expr_(check_expr),
+  ColumnDefinition(std::string name, DataType type, bool is_primary, bool is_not_null,
+                   bool is_unique, shared::ManagedPointer<AbstractExpression> default_expr,
+                   shared::ManagedPointer<AbstractExpression> check_expr, int32_t type_modifier)
+      : name_(std::move(name)), type_(type), is_primary_(is_primary), is_not_null_(is_not_null),
+        is_unique_(is_unique), default_expr_(default_expr), check_expr_(check_expr),
         type_modifier_(type_modifier) {}
 
   /**
@@ -183,46 +176,35 @@ struct ColumnDefinition {
   access::type_id GetValueType() {
     switch (type_) {
     case DataType::INT:
-    case DataType::INTEGER:
-      return access::type_id::INTEGER;
-    case DataType::TINYINT:
-      return access::type_id::TINYINT;
-    case DataType::SMALLINT:
-      return access::type_id::SMALLINT;
-    case DataType::BIGINT:
-      return access::type_id::BIGINT;
+    case DataType::INTEGER: return access::type_id::INTEGER;
+    case DataType::TINYINT: return access::type_id::TINYINT;
+    case DataType::SMALLINT: return access::type_id::SMALLINT;
+    case DataType::BIGINT: return access::type_id::BIGINT;
 
     case DataType::DECIMAL:
       // TODO(Matt): when we support fixed point DECIMAL properly:
 
       //        return access::type_id::Decimal;
     case DataType::DOUBLE:
-    case DataType::FLOAT:
-      return access::type_id::DOUBLE;
+    case DataType::FLOAT: return access::type_id::DOUBLE;
 
-    case DataType::BOOLEAN:
-      return access::type_id::BOOLEAN;
+    case DataType::BOOLEAN: return access::type_id::BOOLEAN;
 
-    case DataType::TIMESTAMP:
-      return access::type_id::BIGINT; // TODO parser timestamp
+    case DataType::TIMESTAMP: return access::type_id::BIGINT; // TODO parser timestamp
 
     case DataType::CHAR:
     case DataType::TEXT:
-    case DataType::VARCHAR:
-      return access::type_id::VARCHAR;
+    case DataType::VARCHAR: return access::type_id::VARCHAR;
 
-    case DataType::VARBINARY:
-      return access::type_id::VARBINARY;
+    case DataType::VARBINARY: return access::type_id::VARBINARY;
 
-    case DataType::DATE:
-      return access::type_id::BIGINT; // TODO parser date
+    case DataType::DATE: return access::type_id::BIGINT; // TODO parser date
 
     case DataType::INVALID:
     case DataType::PRIMARY:
     case DataType::FOREIGN:
     case DataType::MULTIUNIQUE:
-    default:
-      return access::type_id::INVALID;
+    default: return access::type_id::INVALID;
     }
   }
 
@@ -230,9 +212,7 @@ struct ColumnDefinition {
   std::string GetColumnName() { return name_; }
 
   /** @return table information */
-  shared::ManagedPointer<TableInfo> GetTableInfo() {
-    return shared::ManagedPointer(table_info_);
-  }
+  shared::ManagedPointer<TableInfo> GetTableInfo() { return shared::ManagedPointer(table_info_); }
 
   /** @return column data type */
   DataType GetColumnType() { return type_; }
@@ -247,14 +227,10 @@ struct ColumnDefinition {
   bool IsUnique() { return is_unique_; }
 
   /** @return default expression */
-  shared::ManagedPointer<AbstractExpression> GetDefaultExpression() {
-    return default_expr_;
-  }
+  shared::ManagedPointer<AbstractExpression> GetDefaultExpression() { return default_expr_; }
 
   /** @return check expression */
-  shared::ManagedPointer<AbstractExpression> GetCheckExpression() {
-    return check_expr_;
-  }
+  shared::ManagedPointer<AbstractExpression> GetCheckExpression() { return check_expr_; }
 
   /** @return type modifier, max varlen size or precision for DECIMAL */
   int32_t GetTypeModifier() { return type_modifier_; }
@@ -285,33 +261,24 @@ struct ColumnDefinition {
    */
   hash_t Hash() const {
     hash_t hash = shared::HashUtil::Hash(name_);
-    hash = shared::HashUtil::CombineHashes(hash,
-                                           shared::HashUtil::Hash(table_info_));
+    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(table_info_));
     hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(type_));
-    hash = shared::HashUtil::CombineHashes(
-        hash, shared::HashUtil::Hash(static_cast<char>(is_primary_)));
-    hash = shared::HashUtil::CombineHashes(
-        hash, shared::HashUtil::Hash(static_cast<char>(is_not_null_)));
-    hash = shared::HashUtil::CombineHashes(
-        hash, shared::HashUtil::Hash(static_cast<char>(is_unique_)));
+    hash = shared::HashUtil::CombineHashes(hash,
+                                           shared::HashUtil::Hash(static_cast<char>(is_primary_)));
+    hash = shared::HashUtil::CombineHashes(hash,
+                                           shared::HashUtil::Hash(static_cast<char>(is_not_null_)));
+    hash = shared::HashUtil::CombineHashes(hash,
+                                           shared::HashUtil::Hash(static_cast<char>(is_unique_)));
     if (default_expr_ != nullptr)
       hash = shared::HashUtil::CombineHashes(hash, default_expr_->Hash());
-    if (check_expr_ != nullptr)
-      hash = shared::HashUtil::CombineHashes(hash, check_expr_->Hash());
-    hash = shared::HashUtil::CombineHashes(
-        hash, shared::HashUtil::Hash(type_modifier_));
-    hash = shared::HashUtil::CombineHashInRange(hash, fk_sources_.begin(),
-                                                fk_sources_.end());
-    hash = shared::HashUtil::CombineHashInRange(hash, fk_sinks_.begin(),
-                                                fk_sinks_.end());
-    hash = shared::HashUtil::CombineHashes(
-        hash, shared::HashUtil::Hash(fk_sink_table_name_));
-    hash = shared::HashUtil::CombineHashes(
-        hash, shared::HashUtil::Hash(fk_delete_action_));
-    hash = shared::HashUtil::CombineHashes(
-        hash, shared::HashUtil::Hash(fk_update_action_));
-    hash = shared::HashUtil::CombineHashes(
-        hash, shared::HashUtil::Hash(fk_match_type_));
+    if (check_expr_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, check_expr_->Hash());
+    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(type_modifier_));
+    hash = shared::HashUtil::CombineHashInRange(hash, fk_sources_.begin(), fk_sources_.end());
+    hash = shared::HashUtil::CombineHashInRange(hash, fk_sinks_.begin(), fk_sinks_.end());
+    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(fk_sink_table_name_));
+    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(fk_delete_action_));
+    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(fk_update_action_));
+    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(fk_match_type_));
     return hash;
   }
 
@@ -321,41 +288,27 @@ struct ColumnDefinition {
    * @return true if the two column definitions are logically equal
    */
   bool operator==(const ColumnDefinition &rhs) const {
-    if (name_ != rhs.name_)
+    if (name_ != rhs.name_) return false;
+    if (type_ != rhs.type_) return false;
+    if ((!table_info_ && rhs.table_info_) || (table_info_ && table_info_ != rhs.table_info_))
       return false;
-    if (type_ != rhs.type_)
-      return false;
-    if ((!table_info_ && rhs.table_info_) ||
-        (table_info_ && table_info_ != rhs.table_info_))
-      return false;
-    if (is_primary_ != rhs.is_primary_)
-      return false;
-    if (is_not_null_ != rhs.is_not_null_)
-      return false;
-    if (is_unique_ != rhs.is_unique_)
-      return false;
-    if (type_modifier_ != rhs.type_modifier_)
-      return false;
+    if (is_primary_ != rhs.is_primary_) return false;
+    if (is_not_null_ != rhs.is_not_null_) return false;
+    if (is_unique_ != rhs.is_unique_) return false;
+    if (type_modifier_ != rhs.type_modifier_) return false;
     if ((!default_expr_ && rhs.default_expr_) ||
         (default_expr_ && default_expr_ != rhs.default_expr_))
       return false;
-    if ((!check_expr_ && rhs.check_expr_) ||
-        (check_expr_ && check_expr_ != rhs.check_expr_))
+    if ((!check_expr_ && rhs.check_expr_) || (check_expr_ && check_expr_ != rhs.check_expr_))
       return false;
-    if (fk_sources_.size() != rhs.fk_sources_.size())
-      return false;
+    if (fk_sources_.size() != rhs.fk_sources_.size()) return false;
     for (size_t i = 0; i < fk_sources_.size(); i++)
-      if (fk_sources_[i] != rhs.fk_sources_[i])
-        return false;
-    if (fk_sinks_.size() != rhs.fk_sinks_.size())
-      return false;
+      if (fk_sources_[i] != rhs.fk_sources_[i]) return false;
+    if (fk_sinks_.size() != rhs.fk_sinks_.size()) return false;
     for (size_t i = 0; i < fk_sinks_.size(); i++)
-      if (fk_sinks_[i] != rhs.fk_sinks_[i])
-        return false;
-    if (fk_sink_table_name_ != rhs.fk_sink_table_name_)
-      return false;
-    if (fk_delete_action_ != rhs.fk_delete_action_)
-      return false;
+      if (fk_sinks_[i] != rhs.fk_sinks_[i]) return false;
+    if (fk_sink_table_name_ != rhs.fk_sink_table_name_) return false;
+    if (fk_delete_action_ != rhs.fk_delete_action_) return false;
     return fk_match_type_ == rhs.fk_match_type_;
   }
 
@@ -364,9 +317,7 @@ struct ColumnDefinition {
    * @param rhs other
    * @return true if the two column definitions are logically not equal
    */
-  bool operator!=(const ColumnDefinition &rhs) const {
-    return !operator==(rhs);
-  }
+  bool operator!=(const ColumnDefinition &rhs) const { return !operator==(rhs); }
 
 private:
   const std::string name_;
@@ -396,8 +347,7 @@ private:
 class IndexAttr {
 public:
   /** Create an index attribute on a column name. */
-  explicit IndexAttr(std::string name)
-      : has_expr_(false), name_(std::move(name)), expr_(nullptr) {}
+  explicit IndexAttr(std::string name) : has_expr_(false), name_(std::move(name)), expr_(nullptr) {}
 
   /** Create an index attribute on an expression. */
   explicit IndexAttr(shared::ManagedPointer<AbstractExpression> expr)
@@ -413,9 +363,7 @@ public:
   }
 
   /** @return the expression that we're indexed on */
-  shared::ManagedPointer<AbstractExpression> GetExpression() const {
-    return expr_;
-  }
+  shared::ManagedPointer<AbstractExpression> GetExpression() const { return expr_; }
 
 private:
   bool has_expr_;
@@ -445,9 +393,8 @@ public:
   CreateStatement(std::unique_ptr<TableInfo> table_info, CreateType create_type,
                   std::vector<std::unique_ptr<ColumnDefinition>> columns,
                   std::vector<std::unique_ptr<ColumnDefinition>> foreign_keys)
-      : TableRefStatement(StatementType::CREATE, std::move(table_info)),
-        create_type_(create_type), columns_(std::move(columns)),
-        foreign_keys_(std::move(foreign_keys)) {}
+      : TableRefStatement(StatementType::CREATE, std::move(table_info)), create_type_(create_type),
+        columns_(std::move(columns)), foreign_keys_(std::move(foreign_keys)) {}
 
   /**
    * CREATE INDEX
@@ -457,12 +404,10 @@ public:
    * @param index_name index name
    * @param index_attrs index attributes
    */
-  CreateStatement(std::unique_ptr<TableInfo> table_info, IndexType index_type,
-                  bool unique, std::string index_name,
-                  std::vector<IndexAttr> index_attrs)
-      : TableRefStatement(StatementType::CREATE, std::move(table_info)),
-        create_type_(kIndex), index_type_(index_type), unique_index_(unique),
-        index_name_(std::move(index_name)),
+  CreateStatement(std::unique_ptr<TableInfo> table_info, IndexType index_type, bool unique,
+                  std::string index_name, std::vector<IndexAttr> index_attrs)
+      : TableRefStatement(StatementType::CREATE, std::move(table_info)), create_type_(kIndex),
+        index_type_(index_type), unique_index_(unique), index_name_(std::move(index_name)),
         index_attrs_(std::move(index_attrs)) {}
 
   /**
@@ -471,8 +416,8 @@ public:
    * @param if_not_exists true if "IF NOT EXISTS" was used, false otherwise
    */
   CreateStatement(std::unique_ptr<TableInfo> table_info, bool if_not_exists)
-      : TableRefStatement(StatementType::CREATE, std::move(table_info)),
-        create_type_(kSchema), if_not_exists_(if_not_exists) {}
+      : TableRefStatement(StatementType::CREATE, std::move(table_info)), create_type_(kSchema),
+        if_not_exists_(if_not_exists) {}
 
   /**
    * CREATE TRIGGER
@@ -484,18 +429,13 @@ public:
    * @param trigger_when trigger when clause
    * @param trigger_type trigger type
    */
-  CreateStatement(std::unique_ptr<TableInfo> table_info,
-                  std::string trigger_name,
-                  std::vector<std::string> trigger_funcnames,
-                  std::vector<std::string> trigger_args,
+  CreateStatement(std::unique_ptr<TableInfo> table_info, std::string trigger_name,
+                  std::vector<std::string> trigger_funcnames, std::vector<std::string> trigger_args,
                   std::vector<std::string> trigger_columns,
-                  shared::ManagedPointer<AbstractExpression> trigger_when,
-                  int16_t trigger_type)
-      : TableRefStatement(StatementType::CREATE, std::move(table_info)),
-        create_type_(kTrigger), trigger_name_(std::move(trigger_name)),
-        trigger_funcnames_(std::move(trigger_funcnames)),
-        trigger_args_(std::move(trigger_args)),
-        trigger_columns_(std::move(trigger_columns)),
+                  shared::ManagedPointer<AbstractExpression> trigger_when, int16_t trigger_type)
+      : TableRefStatement(StatementType::CREATE, std::move(table_info)), create_type_(kTrigger),
+        trigger_name_(std::move(trigger_name)), trigger_funcnames_(std::move(trigger_funcnames)),
+        trigger_args_(std::move(trigger_args)), trigger_columns_(std::move(trigger_columns)),
         trigger_when_(trigger_when), trigger_type_(trigger_type) {}
 
   /**
@@ -503,8 +443,7 @@ public:
    * @param view_name view name
    * @param view_query query associated with view
    */
-  CreateStatement(std::string view_name,
-                  std::unique_ptr<SelectStatement> view_query)
+  CreateStatement(std::string view_name, std::unique_ptr<SelectStatement> view_query)
       : TableRefStatement(StatementType::CREATE, nullptr), create_type_(kView),
         view_name_(std::move(view_name)), view_query_(std::move(view_query)) {}
 
@@ -520,9 +459,7 @@ public:
   std::vector<shared::ManagedPointer<ColumnDefinition>> GetColumns() {
     std::vector<shared::ManagedPointer<ColumnDefinition>> cols;
     cols.reserve(columns_.size());
-    for (const auto &col : columns_) {
-      cols.emplace_back(shared::ManagedPointer(col));
-    }
+    for (const auto &col : columns_) { cols.emplace_back(shared::ManagedPointer(col)); }
     return cols;
   }
 
@@ -530,9 +467,7 @@ public:
   std::vector<shared::ManagedPointer<ColumnDefinition>> GetForeignKeys() {
     std::vector<shared::ManagedPointer<ColumnDefinition>> foreign_keys;
     foreign_keys.reserve(foreign_keys_.size());
-    for (const auto &fk : foreign_keys_) {
-      foreign_keys.emplace_back(shared::ManagedPointer(fk));
-    }
+    for (const auto &fk : foreign_keys_) { foreign_keys.emplace_back(shared::ManagedPointer(fk)); }
     return foreign_keys;
   }
 
@@ -546,9 +481,7 @@ public:
   std::string GetIndexName() { return index_name_; }
 
   /** @return index attributes for [CREATE INDEX] */
-  const std::vector<IndexAttr> &GetIndexAttributes() const {
-    return index_attrs_;
-  }
+  const std::vector<IndexAttr> &GetIndexAttributes() const { return index_attrs_; }
 
   /** @return true if "IF NOT EXISTS" for [CREATE SCHEMA], false otherwise */
   bool IsIfNotExists() { return if_not_exists_; }

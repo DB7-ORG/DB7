@@ -17,27 +17,17 @@ enum class ErrorSeverity : u8 {
   LOG // (in a notice message)
 };
 
-constexpr std::string_view
-ErrorSeverityToString(const shared::ErrorSeverity severity) {
+constexpr std::string_view ErrorSeverityToString(const shared::ErrorSeverity severity) {
   switch (severity) {
-  case ErrorSeverity::ERROR:
-    return "ERROR";
-  case ErrorSeverity::FATAL:
-    return "FATAL";
-  case ErrorSeverity::PANIC:
-    return "PANIC";
-  case ErrorSeverity::WARNING:
-    return "WARNING";
-  case ErrorSeverity::NOTICE:
-    return "NOTICE";
-  case ErrorSeverity::DEBUG:
-    return "DEBUG";
-  case ErrorSeverity::INFO:
-    return "INFO";
-  case ErrorSeverity::LOG:
-    return "LOG";
-  default:
-    return "UNKNOWN";
+  case ErrorSeverity::ERROR: return "ERROR";
+  case ErrorSeverity::FATAL: return "FATAL";
+  case ErrorSeverity::PANIC: return "PANIC";
+  case ErrorSeverity::WARNING: return "WARNING";
+  case ErrorSeverity::NOTICE: return "NOTICE";
+  case ErrorSeverity::DEBUG: return "DEBUG";
+  case ErrorSeverity::INFO: return "INFO";
+  case ErrorSeverity::LOG: return "LOG";
+  default: return "UNKNOWN";
   }
 }
 

@@ -30,9 +30,7 @@ public:
   u32 GetSize() const { return size_; }
   u32 GetPrefix() const { return prefix_; }
   VarlenRef GetRef() { return ref_content_; }
-  const char *GetInline() const {
-    return reinterpret_cast<const char *>(&prefix_);
-  }
+  const char *GetInline() const { return reinterpret_cast<const char *>(&prefix_); }
   bool IsInline() const { return size_ <= INLINE_SIZE_CAP; }
 
   void Set(const std::span<byte> data) {
@@ -63,27 +61,21 @@ public:
     return result;
   }
 
-  static VarlenEntry Create(const byte *content, u32 size,
-                            bool reclaim = false) {
+  static VarlenEntry Create(const byte *content, u32 size, bool reclaim = false) {
     VarlenEntry result;
     result.Set(std::span<const byte>{content, size});
     return result;
   }
 
-  std::string_view StringView() const {
-    return std::string_view(GetInline(), GetSize());
-  }
+  std::string_view StringView() const { return std::string_view(GetInline(), GetSize()); }
 
-  static constexpr u32 InlineThreshold() {
-    return sizeof(VarlenEntry) - sizeof(u32);
-  }
+  static constexpr u32 InlineThreshold() { return sizeof(VarlenEntry) - sizeof(u32); }
 
   int Compare(const std::span<byte> data) const {
     const char *inlined = GetInline();
     u32 cmp_len = std::min((u32)data.size(), GetSize());
     int result = std::memcmp(inlined, data.data(), cmp_len);
-    if (result != 0)
-      return result;
+    if (result != 0) return result;
 
     if (GetSize() < data.size())
       return -1;

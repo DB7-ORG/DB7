@@ -62,8 +62,7 @@ private:
     /* Update heap offset to point to new value */
     prev_heap_offset = new_heap_offset;
 
-    DB7_ASSERT(new_heap_offset >= old_offset,
-               "compaction must not move tuples down");
+    DB7_ASSERT(new_heap_offset >= old_offset, "compaction must not move tuples down");
 
     return new_heap_offset;
   }
@@ -73,8 +72,7 @@ private:
    * zero → slot == main
    * positive → slot > main
    */
-  inline int CmpPrefix(SlotValLeaf<ValTyp> slot_val,
-                       SlotValLeaf<ValTyp> main_val) {
+  inline int CmpPrefix(SlotValLeaf<ValTyp> slot_val, SlotValLeaf<ValTyp> main_val) {
     /* Find min value between 2 payloads */
     // DB7_ASSERT(main_val.len >= sizeof(ValTyp) && slot_val.len >=
     // sizeof(ValTyp), "key missing tid");
@@ -83,8 +81,7 @@ private:
       return 1; // returns dummy value since there is a concurrent reader/writer
     /* Compare their values */
     int cmp = std::memcmp(slot_val.data, main_val.data, min_len);
-    if (cmp != 0)
-      return cmp;
+    if (cmp != 0) return cmp;
     /* If values are the same compare lens */
     return (main_val.len < slot_val.len) - (main_val.len > slot_val.len);
   }
@@ -93,20 +90,17 @@ private:
    * As CmpPrefix, but breaks ties on the heap tuple identifier
    * so that (key, tid) is a total order.
    */
-  inline int CmpFull(SlotValLeaf<ValTyp> slot_val,
-                     SlotValLeaf<ValTyp> main_val) {
+  inline int CmpFull(SlotValLeaf<ValTyp> slot_val, SlotValLeaf<ValTyp> main_val) {
     /* Find min value between 2 payloads */
     u32 min_len = std::min(main_val.len, slot_val.len);
     /* Compare their values */
     int cmp = std::memcmp(slot_val.data, main_val.data, min_len);
-    if (cmp != 0)
-      return cmp;
+    if (cmp != 0) return cmp;
     /* If values are the same compare lens */
     return (main_val.len < slot_val.len) - (main_val.len > slot_val.len);
   }
 
-  int FindInsertPosition(byte *data, u16 *slots, SlotValLeaf<ValTyp> main_val,
-                         u16 count) {
+  int FindInsertPosition(byte *data, u16 *slots, SlotValLeaf<ValTyp> main_val, u16 count) {
     int hi = count, lo = 0;
     while (lo < hi) {
       int mid = lo + (hi - lo) / 2;
@@ -126,8 +120,7 @@ private:
     return lo;
   }
 
-  int FindStartPosition(byte *data, u16 *slots, SlotValLeaf<ValTyp> main_val,
-                        u16 count) {
+  int FindStartPosition(byte *data, u16 *slots, SlotValLeaf<ValTyp> main_val, u16 count) {
     int hi = count, lo = 0;
     while (lo < hi) {
       int mid = lo + (hi - lo) / 2;
@@ -147,8 +140,7 @@ private:
     return lo;
   }
 
-  int FindDeletePosition(byte *data, u16 *slots, SlotValLeaf<ValTyp> main_val,
-                         u16 count) {
+  int FindDeletePosition(byte *data, u16 *slots, SlotValLeaf<ValTyp> main_val, u16 count) {
     int hi = count, lo = 0;
     while (lo < hi) {
       int mid = lo + (hi - lo) / 2;
@@ -182,23 +174,20 @@ private:
     DB7_ASSERT(count >= 2, "cannot split fewer than two tuples");
 
     u32 live = 0;
-    for (int i = 0; i < count; i++)
-      live += *reinterpret_cast<u16 *>(data + slots[i]);
+    for (int i = 0; i < count; i++) live += *reinterpret_cast<u16 *>(data + slots[i]);
 
     u32 target = live / 2;
     u32 accumulated = 0;
 
     for (int i = 0; i < count; i++) {
       accumulated += *reinterpret_cast<u16 *>(data + slots[i]);
-      if (accumulated >= target)
-        return std::min(u16(i) + 1, count - 1);
+      if (accumulated >= target) return std::min(u16(i) + 1, count - 1);
     }
 
     return count - 1;
   }
 
-  u16 CopyHalfRight(byte *__restrict left_data, byte *__restrict right_data,
-                    u16 split) {
+  u16 CopyHalfRight(byte *__restrict left_data, byte *__restrict right_data, u16 split) {
     auto *left_header = VarlenHeader::CastHeader(left_data);
     u16 *left_slots = CastSlots(left_data);
     u16 *right_slots = CastSlots(right_data);
@@ -230,11 +219,9 @@ private:
 
     std::vector<u16> indexes;
     indexes.reserve(count);
-    for (u32 i = 0; i < count; i++)
-      indexes.emplace_back(i);
+    for (u32 i = 0; i < count; i++) indexes.emplace_back(i);
 
-    std::sort(indexes.begin(), indexes.end(),
-              [&](u32 a, u32 b) { return slots[a] > slots[b]; });
+    std::sort(indexes.begin(), indexes.end(), [&](u32 a, u32 b) { return slots[a] > slots[b]; });
 
     for (u32 i = 0; i < count; i++) {
       u16 idx = indexes[i];
@@ -248,9 +235,7 @@ private:
     DB7_ASSERT(key.len != 0, "invalid key");
 
     const auto *header = VarlenHeader::CastHeader(data);
-    if (header->max_val == UNDEFINED_OFFSET) {
-      return false;
-    }
+    if (header->max_val == UNDEFINED_OFFSET) { return false; }
     const auto max_val = SlotValLeaf<ValTyp>(data, header->max_val);
     const auto main_val = SlotValLeaf<ValTyp>(key);
     int cmp = CmpPrefix(max_val, main_val);
@@ -280,9 +265,7 @@ public:
     for (i = idx; i < int(count); i++) {
       auto cur = SlotValLeaf<ValTyp>(data, slots[i]);
       int cmp = CmpPrefix(cur, main_val);
-      if (cmp != 0) {
-        break;
-      }
+      if (cmp != 0) { break; }
       result.push_back(cur.Result());
     }
 
@@ -320,9 +303,7 @@ public:
     DB7_ASSERT(key.len != 0, "invalid key");
 
     const auto *header = VarlenHeader::CastHeader(data);
-    if (header->max_val == UNDEFINED_OFFSET) {
-      return false;
-    }
+    if (header->max_val == UNDEFINED_OFFSET) { return false; }
     const auto max_val = SlotValLeaf<ValTyp>(data, header->max_val);
     const auto main_val = SlotValLeaf<ValTyp>(key);
     int cmp = CmpFull(max_val, main_val);
@@ -335,8 +316,8 @@ public:
    * TODO might be better to use thread local buffer for this case
    * to avoid copying objects
    */
-  ResultObj<Key> Split(byte *__restrict left_data, byte *__restrict right_data,
-                       ValTyp new_pid, Key key) {
+  ResultObj<Key> Split(byte *__restrict left_data, byte *__restrict right_data, ValTyp new_pid,
+                       Key key) {
     DB7_ASSERT(key.data != nullptr, "invalid key");
     DB7_ASSERT(key.len != 0, "invalid key");
 
@@ -345,8 +326,7 @@ public:
     u16 *left_slots = CastSlots(left_data);
     u16 *right_slots = CastSlots(right_data);
 
-    DB7_ASSERT(right_header->heap_offset == DB7_PAGE_SIZE,
-               "Heap must not be filled");
+    DB7_ASSERT(right_header->heap_offset == DB7_PAGE_SIZE, "Heap must not be filled");
 
     // find split point
     u16 split = FindSplitPoint(left_data, left_slots, left_header->count);
@@ -376,14 +356,12 @@ public:
     int cmp = CmpFull(sentinel, main_val);
     if (cmp <= 0) {
       // insert right
-      DB7_ASSERT(HasSpace(right_data, key),
-                 "new key does not fit in right half after split");
+      DB7_ASSERT(HasSpace(right_data, key), "new key does not fit in right half after split");
       u16 tuple_heap_offset = AppendHeap(right_data, key);
       InsertSlot(right_data, tuple_heap_offset);
     } else {
       // insert left
-      DB7_ASSERT(HasSpace(left_data, key),
-                 "new key does not fit in left half after split");
+      DB7_ASSERT(HasSpace(left_data, key), "new key does not fit in left half after split");
       u16 tuple_heap_offset = AppendHeap(left_data, key);
       InsertSlot(left_data, tuple_heap_offset);
     }
@@ -409,30 +387,24 @@ public:
     return ResultObj<void>::Ok();
   }
 
-  ResultObj<bool> CheckUnique(transaction::TransactionContext *txn, byte *data,
-                              Key key, table_id tbl_id, int idx = -1) {
+  ResultObj<bool> CheckUnique(transaction::TransactionContext *txn, byte *data, Key key,
+                              table_id tbl_id, int idx = -1) {
     DB7_ASSERT(key.data != nullptr, "invalid key");
     DB7_ASSERT(key.len != 0, "invalid key");
 
     u16 count = VarlenHeader::CastHeader(data)->count;
     u16 *slots = CastSlots(data);
     const auto main_val = SlotValLeaf<ValTyp>(key);
-    if (idx == -1) {
-      idx = FindStartPosition(data, slots, main_val, count);
-    }
+    if (idx == -1) { idx = FindStartPosition(data, slots, main_val, count); }
 
     int i;
     for (i = idx; i < count; i++) {
       auto cur = SlotValLeaf<ValTyp>(data, slots[i]);
       int cmp = CmpPrefix(cur, main_val);
-      if (cmp != 0) {
-        break;
-      }
+      if (cmp != 0) { break; }
 
       ValTyp tid = cur.Result();
-      if (txn->HasUniqueConflict(tid, tbl_id)) {
-        return ResultObj<bool>::Fail();
-      }
+      if (txn->HasUniqueConflict(tid, tbl_id)) { return ResultObj<bool>::Fail(); }
     }
 
     return ResultObj<bool>(HighPrefixCmp(data, key));

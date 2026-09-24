@@ -8,9 +8,7 @@ namespace db7::storage {
 struct PageHeader {
   u32 count; // this is also offset for varlen storage
 
-  static PageHeader *CastHeader(byte *data) {
-    return reinterpret_cast<PageHeader *>(data);
-  }
+  static PageHeader *CastHeader(byte *data) { return reinterpret_cast<PageHeader *>(data); }
 };
 
 constexpr size_t HEADER_SIZE = sizeof(PageHeader);

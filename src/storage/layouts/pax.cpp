@@ -23,8 +23,7 @@ void PaxLayout::CalculateOffsets() {
     worst_case_pad += size - 1;
   }
 
-  max_row_count_ =
-      (DB7_PAGE_SIZE - header_size - worst_case_pad) * 8 / (1 + 8 * row_size);
+  max_row_count_ = (DB7_PAGE_SIZE - header_size - worst_case_pad) * 8 / (1 + 8 * row_size);
 
   u32 curr_offset = header_size + (max_row_count_ + 7) / 8;
   for (auto &size : sizes_) {
@@ -44,8 +43,7 @@ u32 PaxLayout::IncrementHeaderCount(byte *data, u32 count) const {
   auto *header = storage::PageHeader::CastHeader(data);
   u32 old = header->count;
   header->count += count;
-  DB7_ASSERT(max_row_count_ > header->count,
-             "Tried to insert more than available in page");
+  DB7_ASSERT(max_row_count_ > header->count, "Tried to insert more than available in page");
   return old;
 }
 
@@ -57,14 +55,14 @@ void PaxLayout::Update(byte *dest, std::span<byte> update_data) const {
   std::memcpy(dest, update_data.data(), update_data.size());
 }
 
-void PaxLayout::Update(byte *page_data, std::span<byte> update_data,
-                       u16 column_idx, u32 row_idx) const {
+void PaxLayout::Update(byte *page_data, std::span<byte> update_data, u16 column_idx,
+                       u32 row_idx) const {
   u32 off = CalcOffset(row_idx, column_idx);
   std::memcpy(page_data + off, update_data.data(), update_data.size());
 }
 
-void PaxLayout::Insert(byte *page_data, std::span<byte> insert_data,
-                       u16 column_idx, u32 row_idx) const {
+void PaxLayout::Insert(byte *page_data, std::span<byte> insert_data, u16 column_idx,
+                       u32 row_idx) const {
   u32 off = CalcOffset(row_idx, column_idx);
   InternalWrite(page_data + off, insert_data);
 }
@@ -92,15 +90,13 @@ void PaxLayout::PrintDebug(byte *page_data) {
   std::cout << sizes_[0] << sizes_[1] << std::endl;
 
   auto *header = storage::PageHeader::CastHeader(page_data);
-  std::cout << "=== PaxLayout dump (count=" << header->count
-            << ", max=" << max_row_count_ << ") ===\n";
+  std::cout << "=== PaxLayout dump (count=" << header->count << ", max=" << max_row_count_
+            << ") ===\n";
 
-  u32 rows =
-      std::min<u32>(header->count + 2, max_row_count_); // peek a bit past count
+  u32 rows = std::min<u32>(header->count + 2, max_row_count_); // peek a bit past count
 
   for (u32 i = 0; i < rows; i++) {
-    std::cout << "row " << std::setw(2) << i
-              << (IsDeleted(page_data, i) ? " [DEL]" : "      ")
+    std::cout << "row " << std::setw(2) << i << (IsDeleted(page_data, i) ? " [DEL]" : "      ")
               << (i >= header->count ? " [past count]" : "") << " | ";
 
     for (size_t col = 0; col < sizes_.size(); col++) {
@@ -108,18 +104,10 @@ void PaxLayout::PrintDebug(byte *page_data) {
       u16 sz = sizes_[col];
 
       switch (sz) {
-      case 1:
-        std::cout << (int)*(i8 *)ptr;
-        break;
-      case 2:
-        std::cout << *(i16 *)ptr;
-        break;
-      case 4:
-        std::cout << *(u32 *)ptr;
-        break;
-      case 8:
-        std::cout << *(u64 *)ptr;
-        break;
+      case 1: std::cout << (int)*(i8 *)ptr; break;
+      case 2: std::cout << *(i16 *)ptr; break;
+      case 4: std::cout << *(u32 *)ptr; break;
+      case 8: std::cout << *(u64 *)ptr; break;
       case sizeof(VarlenEntry): {
         auto *e = reinterpret_cast<VarlenEntry *>(ptr);
         u32 len = e->GetSize();
@@ -131,8 +119,7 @@ void PaxLayout::PrintDebug(byte *page_data) {
             std::cout << (std::isprint((unsigned char)p[k]) ? p[k] : '.');
           std::cout << "\"";
         } else {
-          std::cout << ",pid=" << e->GetRef().pid
-                    << ",off=" << e->GetRef().offset;
+          std::cout << ",pid=" << e->GetRef().pid << ",off=" << e->GetRef().offset;
         }
         std::cout << ")";
         break;
@@ -140,8 +127,8 @@ void PaxLayout::PrintDebug(byte *page_data) {
       default:
         // unknown size: hex dump
         for (u16 k = 0; k < sz; k++)
-          std::cout << std::hex << std::setw(2) << std::setfill('0')
-                    << (int)ptr[k] << std::dec << std::setfill(' ');
+          std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)ptr[k] << std::dec
+                    << std::setfill(' ');
       }
       std::cout << " | ";
     }

@@ -10,7 +10,6 @@
 #include "sql_statement.hpp"
 #include "table_ref.hpp"
 
-
 namespace db7::parser {
 /**
  * AnalyzeStatement represents the sql "ANALYZE ...".
@@ -31,8 +30,7 @@ public:
    */
   AnalyzeStatement(std::unique_ptr<TableRef> analyze_table,
                    std::unique_ptr<std::vector<std::string>> analyze_columns)
-      : SQLStatement(StatementType::ANALYZE),
-        analyze_table_(std::move(analyze_table)),
+      : SQLStatement(StatementType::ANALYZE), analyze_table_(std::move(analyze_table)),
         analyze_columns_(std::move(analyze_columns)) {}
 
   ~AnalyzeStatement() override = default;
@@ -57,9 +55,7 @@ public:
    * Sets the database oid
    * @param database_oid database oid
    */
-  void SetDatabaseOid(catalog::db_oid_t database_oid) {
-    database_oid_ = database_oid;
-  }
+  void SetDatabaseOid(catalog::db_oid_t database_oid) { database_oid_ = database_oid; }
 
   /** @return table oid */
   catalog::rel_oid_t GetTableOid() { return table_oid_; }
@@ -71,16 +67,12 @@ public:
   void SetTableOid(catalog::rel_oid_t table_oid) { table_oid_ = table_oid; }
 
   /** @return column oids */
-  const std::vector<catalog::col_oid_t> &GetColumnOids() {
-    return column_oids_;
-  }
+  const std::vector<catalog::col_oid_t> &GetColumnOids() { return column_oids_; }
 
   /**
    * Add a column oid
    * @param col_oid column oid to add
    */
-  void AddColumnOid(catalog::col_oid_t col_oid) {
-    column_oids_.push_back(col_oid);
-  }
+  void AddColumnOid(catalog::col_oid_t col_oid) { column_oids_.push_back(col_oid); }
 };
 } // namespace db7::parser

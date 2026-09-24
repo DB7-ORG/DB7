@@ -27,8 +27,7 @@ public:
    * the type should reflect the correct value
    */
   explicit ParameterValueExpression(const uint32_t value_idx)
-      : AbstractExpression(ExpressionType::VALUE_PARAMETER,
-                           access::type_id::INVALID, {}),
+      : AbstractExpression(ExpressionType::VALUE_PARAMETER, access::type_id::INVALID, {}),
         value_idx_(value_idx) {}
 
   /**
@@ -37,10 +36,8 @@ public:
    * @param value_idx the offset of the parameter
    * @param ret_type the return type of the expression
    */
-  explicit ParameterValueExpression(const uint32_t value_idx,
-                                    access::type_id ret_type)
-      : AbstractExpression(ExpressionType::VALUE_PARAMETER, ret_type, {}),
-        value_idx_(value_idx) {}
+  explicit ParameterValueExpression(const uint32_t value_idx, access::type_id ret_type)
+      : AbstractExpression(ExpressionType::VALUE_PARAMETER, ret_type, {}), value_idx_(value_idx) {}
 
   /** Default constructor for deserialization. */
   ParameterValueExpression() = default;
@@ -59,10 +56,8 @@ public:
    * @returns copy of this with new children
    */
   std::unique_ptr<AbstractExpression>
-  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      const override {
-    assert(children.empty() &&
-           "ParameterValueExpression should have 0 children");
+  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children) const override {
+    assert(children.empty() && "ParameterValueExpression should have 0 children");
     (void)children;
     return Copy();
   }
@@ -73,8 +68,7 @@ public:
   hash_t Hash() const override;
 
   bool operator==(const AbstractExpression &rhs) const override {
-    if (!AbstractExpression::operator==(rhs))
-      return false;
+    if (!AbstractExpression::operator==(rhs)) return false;
     auto const &other = dynamic_cast<const ParameterValueExpression &>(rhs);
     return GetValueIdx() == other.GetValueIdx();
   }
@@ -85,8 +79,7 @@ public:
   nlohmann::json ToJson() const override;
 
   /** @param j json to deserialize */
-  std::vector<std::unique_ptr<AbstractExpression>>
-  FromJson(const nlohmann::json &j) override;
+  std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j) override;
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(ParameterValueExpression);

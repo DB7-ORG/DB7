@@ -40,8 +40,7 @@ struct Range {
 /// Splits [offset, total) into `nthreads` contiguous chunks and returns
 /// the one belonging to thread `t`. Chunks never overlap, so a test that
 /// gives each thread its own Range gets a deterministic expected end state.
-inline Range PartitionRange(unsigned t, unsigned nthreads, size_t total,
-                            size_t offset = 0) {
+inline Range PartitionRange(unsigned t, unsigned nthreads, size_t total, size_t offset = 0) {
   const size_t measured = total > offset ? total - offset : 0;
   const size_t per = (measured + nthreads - 1) / nthreads;
   const size_t lo = std::min(offset + t * per, total);
@@ -67,22 +66,16 @@ template <typename Fn> double RunParallel(unsigned nthreads, Fn &&fn) {
   for (unsigned t = 0; t < nthreads; ++t) {
     workers.emplace_back([&, t] {
       ready.fetch_add(1, std::memory_order_acq_rel);
-      while (!go.load(std::memory_order_acquire)) {
-        /* spin */
-      }
+      while (!go.load(std::memory_order_acquire)) { /* spin */ }
       fn(t);
     });
   }
 
-  while (ready.load(std::memory_order_acquire) < nthreads) {
-    /* spin */
-  }
+  while (ready.load(std::memory_order_acquire) < nthreads) { /* spin */ }
 
   const auto t0 = std::chrono::steady_clock::now();
   go.store(true, std::memory_order_release);
-  for (auto &w : workers) {
-    w.join();
-  }
+  for (auto &w : workers) { w.join(); }
   const auto t1 = std::chrono::steady_clock::now();
 
   return std::chrono::duration<double, std::nano>(t1 - t0).count();
@@ -116,15 +109,11 @@ public:
   void Fail(std::string message) {
     count_.fetch_add(1, std::memory_order_relaxed);
     std::lock_guard<std::mutex> guard(mutex_);
-    if (messages_.size() < kMaxMessages) {
-      messages_.push_back(std::move(message));
-    }
+    if (messages_.size() < kMaxMessages) { messages_.push_back(std::move(message)); }
   }
 
   void FailIf(bool condition, std::string message) {
-    if (condition) {
-      Fail(std::move(message));
-    }
+    if (condition) { Fail(std::move(message)); }
   }
 
   /// Stream-style: log.Failf("key ", i, " missing, got ", n, " rids");
@@ -151,15 +140,11 @@ private:
 /// Call from the main thread after joining. Reports up to kMaxMessages
 /// distinct failures plus the total count.
 inline void ExpectNoFailures(const ErrorLog &log) {
-  if (log.Empty()) {
-    return;
-  }
+  if (log.Empty()) { return; }
 
   std::ostringstream os;
   os << log.Count() << " failure(s) across worker threads:";
-  for (const auto &m : log.Messages()) {
-    os << "\n  - " << m;
-  }
+  for (const auto &m : log.Messages()) { os << "\n  - " << m; }
   if (log.Count() > ErrorLog::kMaxMessages) {
     os << "\n  ... " << (log.Count() - ErrorLog::kMaxMessages) << " more";
   }
@@ -176,9 +161,7 @@ template <typename Fn> void Repeat(int times, Fn &&fn) {
   for (int i = 0; i < times; ++i) {
     SCOPED_TRACE(::testing::Message() << "iteration " << i);
     fn(i);
-    if (::testing::Test::HasFatalFailure()) {
-      return;
-    }
+    if (::testing::Test::HasFatalFailure()) { return; }
   }
 }
 

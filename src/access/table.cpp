@@ -9,30 +9,28 @@
 #include <iomanip>
 
 namespace db7::access {
-bool HasConflict(transaction::TransactionContext *txn,
-                 storage::UndoRecord *version_ptr) {
+bool HasConflict(transaction::TransactionContext *txn, storage::UndoRecord *version_ptr) {
   /* Nobody modified this tuple */
-  if (version_ptr == nullptr)
-    return false;
+  if (version_ptr == nullptr) return false;
 
-  return transaction::TransactionUtil::HasConflict(
-      version_ptr->GetTimestamp(), txn->FinishTime(), txn->StartTime());
+  return transaction::TransactionUtil::HasConflict(version_ptr->GetTimestamp(), txn->FinishTime(),
+                                                   txn->StartTime());
 }
 
 /**
  * @warning make sure to hold the page data lock like w other columns
  */
-bool Table::UpdateUndo(transaction::TransactionContext *txn, TupleId tup_id,
-                       storage::Page *page, DataChunk *chunk) {
+bool Table::UpdateUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page,
+                       DataChunk *chunk) {
   u32 count = layout_.GetMaxRowCount();
 
-  storage::UndoRecord *record = txn->UndoRecordForUpdate(
-      oid_, tup_id.GetPageId(), tup_id.GetIndex(), chunk);
+  storage::UndoRecord *record =
+      txn->UndoRecordForUpdate(oid_, tup_id.GetPageId(), tup_id.GetIndex(), chunk);
 
   DataChunk *delta = reinterpret_cast<DataChunk *>(record->GetDelta());
 
-  storage::VersionPtr *versions = txn->GetVersions(
-      page, storage::PageIdentifier{oid_, tup_id.GetPageId()}, count);
+  storage::VersionPtr *versions =
+      txn->GetVersions(page, storage::PageIdentifier{oid_, tup_id.GetPageId()}, count);
 
   storage::UndoRecord *version_ptr;
 
@@ -40,14 +38,12 @@ bool Table::UpdateUndo(transaction::TransactionContext *txn, TupleId tup_id,
     version_ptr = versions[tup_id.GetIndex()].Get();
 
     if (version_ptr != nullptr &&
-        (HasConflict(txn, version_ptr) ||
-         layout_.IsDeleted(page->GetData(), tup_id.GetIndex()))) {
+        (HasConflict(txn, version_ptr) || layout_.IsDeleted(page->GetData(), tup_id.GetIndex()))) {
       record->Invalidate();
       return false;
     }
 
-    ChunkUtils::UpdateSingle(schema_, layout_, chunk, delta, page,
-                             tup_id.GetIndex());
+    ChunkUtils::UpdateSingle(schema_, layout_, chunk, delta, page, tup_id.GetIndex());
 
     record->SetNext(version_ptr);
 
@@ -56,8 +52,7 @@ bool Table::UpdateUndo(transaction::TransactionContext *txn, TupleId tup_id,
   return true;
 }
 
-bool Table::Update(transaction::TransactionContext *txn, u32 idx,
-                   DataChunk *chunk) {
+bool Table::Update(transaction::TransactionContext *txn, u32 idx, DataChunk *chunk) {
   u32 page_id = 1;
   storage::PageIdentifier id(oid_, page_id);
   storage::Page *page = buffer_->Pin(id);
@@ -77,23 +72,21 @@ bool Table::Update(transaction::TransactionContext *txn, u32 idx,
 /**
  * @warning make sure to hold the page data lock like w other columns
  */
-void Table::InsertUndo(transaction::TransactionContext *txn, TupleId tup_id,
-                       storage::Page *page) {
+void Table::InsertUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page) {
   u32 count = layout_.GetMaxRowCount();
 
   storage::UndoRecord *record =
       txn->UndoRecordForInsert(oid_, tup_id.GetPageId(), tup_id.GetIndex());
 
-  storage::VersionPtr *versions = txn->GetVersions(
-      page, storage::PageIdentifier{oid_, tup_id.GetPageId()}, count);
+  storage::VersionPtr *versions =
+      txn->GetVersions(page, storage::PageIdentifier{oid_, tup_id.GetPageId()}, count);
 
   versions[tup_id.GetIndex()].Set(record);
 }
 
 TupleId Table::Insert(transaction::TransactionContext *txn, DataChunk *chunk) {
   // TODO shouldnt use GetSize that seems wastfull
-  u32 page_id =
-      storage::FreeSpaceManagerVarlen::Get(chunk->GetSize()); // TODO table oid
+  u32 page_id = storage::FreeSpaceManagerVarlen::Get(chunk->GetSize()); // TODO table oid
   storage::PageIdentifier id(oid_, page_id);
   storage::Page *insert_page = buffer_->Pin(id);
   insert_page->WaitIO();
@@ -119,23 +112,21 @@ TupleId Table::Insert(transaction::TransactionContext *txn, DataChunk *chunk) {
  * any way but relies on CAS semantics to make sure delete is atomic. This
  * version only touches the version manager hash table and not the buffer pool.
  */
-bool Table::DeleteUndoRaw(transaction::TransactionContext *txn,
-                          TupleId tup_id) {
+bool Table::DeleteUndoRaw(transaction::TransactionContext *txn, TupleId tup_id) {
   u32 count = GetMaxRowCount();
 
   storage::UndoRecord *record =
       txn->UndoRecordForDelete(oid_, tup_id.GetPageId(), tup_id.GetIndex());
 
-  storage::VersionPtr *versions = txn->GetVersions(
-      storage::PageIdentifier{oid_, tup_id.GetPageId()}, count);
+  storage::VersionPtr *versions =
+      txn->GetVersions(storage::PageIdentifier{oid_, tup_id.GetPageId()}, count);
 
   storage::UndoRecord *version_ptr;
 
   do {
     version_ptr = versions[tup_id.GetIndex()].Get();
 
-    if (version_ptr != nullptr &&
-        (HasConflict(txn, version_ptr) || version_ptr->IsDeleted())) {
+    if (version_ptr != nullptr && (HasConflict(txn, version_ptr) || version_ptr->IsDeleted())) {
       record->Invalidate();
       return false;
     }
@@ -150,23 +141,21 @@ bool Table::DeleteUndoRaw(transaction::TransactionContext *txn,
 /**
  * @warning make sure to hold the page data lock like w other columns
  */
-bool Table::DeleteUndo(transaction::TransactionContext *txn, TupleId tup_id,
-                       storage::Page *page) {
+bool Table::DeleteUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page) {
   u32 count = layout_.GetMaxRowCount();
 
   storage::UndoRecord *record =
       txn->UndoRecordForDelete(oid_, tup_id.GetPageId(), tup_id.GetIndex());
 
-  storage::VersionPtr *versions = txn->GetVersions(
-      page, storage::PageIdentifier{oid_, tup_id.GetPageId()}, count);
+  storage::VersionPtr *versions =
+      txn->GetVersions(page, storage::PageIdentifier{oid_, tup_id.GetPageId()}, count);
 
   storage::UndoRecord *version_ptr;
 
   do {
     version_ptr = versions[tup_id.GetIndex()].Get();
 
-    if (HasConflict(txn, version_ptr) ||
-        layout_.IsDeleted(page->GetData(), tup_id.GetIndex())) {
+    if (HasConflict(txn, version_ptr) || layout_.IsDeleted(page->GetData(), tup_id.GetIndex())) {
       record->Invalidate();
       return false;
     }
@@ -178,8 +167,7 @@ bool Table::DeleteUndo(transaction::TransactionContext *txn, TupleId tup_id,
   return true;
 }
 
-bool Table::Delete(transaction::TransactionContext *txn, u32 idx,
-                   catalog::rel_oid_t pid) {
+bool Table::Delete(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid) {
   storage::PageIdentifier id(oid_, pid);
   storage::Page *page = buffer_->Pin(id);
   page->WaitIO();
@@ -187,8 +175,7 @@ bool Table::Delete(transaction::TransactionContext *txn, u32 idx,
   page->WDataLock(); // TODO this could be done atomically also or it can use a
                      // read lock if i remove a bitmap
   bool is_valid = DeleteUndo(txn, {idx, id.pid}, page);
-  if (is_valid)
-    layout_.Delete(page->GetData(), idx);
+  if (is_valid) layout_.Delete(page->GetData(), idx);
   page->WDataUnlock();
 
   // PrintPage(page);
@@ -200,40 +187,35 @@ bool Table::Delete(transaction::TransactionContext *txn, u32 idx,
 
 u32 Table::PageCount() { return disk_mng_->PageCount(oid_); }
 
-RowStatus Table::SelectIntoChunk(transaction::TransactionContext *txn, u32 idx,
-                                 storage::Page *page, DataChunk *chunk) {
+RowStatus Table::SelectIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page,
+                                 DataChunk *chunk) {
   ChunkUtils::ReadSingleIntoChunk(schema_, layout_, chunk, page, idx);
 
   u32 count = layout_.GetMaxRowCount();
   DB7_ASSERT(idx < count, "Out of range index");
 
-  storage::VersionPtr *versions = txn->GetVersions(
-      page, storage::PageIdentifier{oid_, page->GetPageId()}, count);
+  storage::VersionPtr *versions =
+      txn->GetVersions(page, storage::PageIdentifier{oid_, page->GetPageId()}, count);
 
   storage::UndoRecord *version_ptr = versions[idx].Get();
 
-  bool is_deleted = version_ptr == nullptr
-                        ? layout_.IsDeleted(page->GetData(), idx)
-                        : version_ptr->IsDeleted();
-  if (version_ptr == nullptr ||
-      version_ptr->GetTimestamp() == txn->FinishTime()) {
+  bool is_deleted =
+      version_ptr == nullptr ? layout_.IsDeleted(page->GetData(), idx) : version_ptr->IsDeleted();
+  if (version_ptr == nullptr || version_ptr->GetTimestamp() == txn->FinishTime()) {
     return is_deleted ? RowStatus::Deleted : RowStatus::Visible;
   }
 
   while (version_ptr != nullptr &&
-         transaction::TransactionUtil::IsNewerThan(version_ptr->GetTimestamp(),
-                                                   txn->StartTime())) {
+         transaction::TransactionUtil::IsNewerThan(version_ptr->GetTimestamp(), txn->StartTime())) {
     switch (version_ptr->GetType()) {
     case storage::DeltaRecordType::UPDATE: {
       DataChunk *delta = reinterpret_cast<DataChunk *>(version_ptr->GetDelta());
       ChunkUtils::Merge(schema_, chunk, delta);
       break;
     }
-    case storage::DeltaRecordType::INSERT:
-      return RowStatus::NotVisible;
+    case storage::DeltaRecordType::INSERT: return RowStatus::NotVisible;
     case storage::DeltaRecordType::DELETE:
-    case storage::DeltaRecordType::INVALID:
-      break;
+    case storage::DeltaRecordType::INVALID: break;
     }
     version_ptr = version_ptr->GetNext();
   }
@@ -241,8 +223,8 @@ RowStatus Table::SelectIntoChunk(transaction::TransactionContext *txn, u32 idx,
   return is_deleted ? RowStatus::Deleted : RowStatus::Visible;
 }
 
-bool Table::Select(transaction::TransactionContext *txn, u32 idx,
-                   catalog::rel_oid_t pid, DataChunk *chunk) {
+bool Table::Select(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid,
+                   DataChunk *chunk) {
   storage::PageIdentifier id(oid_, pid);
   storage::Page *page = buffer_->Pin(id);
   page->WaitIO();
@@ -290,8 +272,8 @@ void Table::PrintPage(storage::Page *page) {
     u32 byte_offset = storage::HEADER_SIZE + i / 8;
     bool deleted = (body[byte_offset] >> (i % 8)) & 1;
 
-    std::cout << "  Row " << std::setw(3) << i
-              << (deleted ? "  [DELETED]  " : "             ") << "| ";
+    std::cout << "  Row " << std::setw(3) << i << (deleted ? "  [DELETED]  " : "             ")
+              << "| ";
 
     u32 col_idx = 0;
     for (const auto &column : schema_) {
@@ -300,8 +282,7 @@ void Table::PrintPage(storage::Page *page) {
 
       std::cout << column.GetName() << "=";
       if (type_size == 1) {
-        std::cout << static_cast<int>(
-            *reinterpret_cast<const int8_t *>(val_ptr));
+        std::cout << static_cast<int>(*reinterpret_cast<const int8_t *>(val_ptr));
       } else if (type_size == 2) {
         std::cout << *reinterpret_cast<const int16_t *>(val_ptr);
       } else if (type_size == 4) {
@@ -321,8 +302,7 @@ void Table::PrintPage(storage::Page *page) {
         }
       }
 
-      std::cout << std::setw(12) << std::left << /* value */ "" << std::right
-                << "| ";
+      std::cout << std::setw(12) << std::left << /* value */ "" << std::right << "| ";
     }
     std::cout << std::endl;
   }

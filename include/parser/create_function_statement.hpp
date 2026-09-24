@@ -93,16 +93,14 @@ public:
    * @param pl_type UDF language type
    * @param as_type executable or query string
    */
-  CreateFunctionStatement(
-      bool replace, std::string func_name, std::vector<std::string> func_body,
-      std::unique_ptr<ReturnType> return_type,
-      std::vector<std::unique_ptr<FuncParameter>> func_parameters,
-      PLType pl_type, AsType as_type)
+  CreateFunctionStatement(bool replace, std::string func_name, std::vector<std::string> func_body,
+                          std::unique_ptr<ReturnType> return_type,
+                          std::vector<std::unique_ptr<FuncParameter>> func_parameters,
+                          PLType pl_type, AsType as_type)
       : SQLStatement(StatementType::CREATE_FUNC), replace_(replace),
         func_name_(std::move(func_name)), return_type_(std::move(return_type)),
-        func_body_(std::move(func_body)),
-        func_parameters_(std::move(func_parameters)), pl_type_(pl_type),
-        as_type_(as_type) {}
+        func_body_(std::move(func_body)), func_parameters_(std::move(func_parameters)),
+        pl_type_(pl_type), as_type_(as_type) {}
 
   // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override {
   // v->Visit(shared::ManagedPointer(this)); }

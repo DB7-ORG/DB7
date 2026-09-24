@@ -21,8 +21,7 @@ public:
 
   void *GetDelta() { return varlen_contents_; }
 
-  static LogRecord *InitializeHeader(byte *const head, const LogRecordType type,
-                                     const u32 size,
+  static LogRecord *InitializeHeader(byte *const head, const LogRecordType type, const u32 size,
                                      const transaction::timestamp_t txn_begin) {
     auto *result = reinterpret_cast<LogRecord *>(head);
     result->type_ = type;

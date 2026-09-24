@@ -36,41 +36,33 @@ private:
     std::vector<u16> sizes;
     sizes.resize(schema.GetCount());
     for (const auto &col : schema) {
-      DB7_ASSERT(col.GetPosiiton() < sizes.size(),
-                 "Column position out of range");
+      DB7_ASSERT(col.GetPosiiton() < sizes.size(), "Column position out of range");
       sizes[col.GetPosiiton()] = col.GetTypeSize();
     }
     return storage::PaxLayout(std::move(sizes));
   }
 
-  bool UpdateUndo(transaction::TransactionContext *txn, TupleId tup_id,
-                  storage::Page *page, DataChunk *chunk);
+  bool UpdateUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page,
+                  DataChunk *chunk);
 
-  void InsertUndo(transaction::TransactionContext *txn, TupleId tup_id,
-                  storage::Page *page);
+  void InsertUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page);
 
-  bool DeleteUndo(transaction::TransactionContext *txn, TupleId tup_id,
-                  storage::Page *page);
+  bool DeleteUndo(transaction::TransactionContext *txn, TupleId tup_id, storage::Page *page);
 
-  RowStatus SelectIntoChunk(transaction::TransactionContext *txn, u32 idx,
-                            storage::Page *page, DataChunk *chunk);
+  RowStatus SelectIntoChunk(transaction::TransactionContext *txn, u32 idx, storage::Page *page,
+                            DataChunk *chunk);
 
 public:
   DB7_DISALLOW_COPY(Table);
 
-  Table(storage::BufferPool *buffer, storage::DiskManagerAsync *disk_mng,
-        Schema schema, catalog::rel_oid_t oid,
-        catalog::rel_oid_t varlen_oid = 0)
-      : buffer_(buffer), disk_mng_(disk_mng), schema_(std::move(schema)),
-        oid_(oid), varlen_oid_(varlen_oid),
-        layout_(CreateLayoutFromSchema(schema_)) {
+  Table(storage::BufferPool *buffer, storage::DiskManagerAsync *disk_mng, Schema schema,
+        catalog::rel_oid_t oid, catalog::rel_oid_t varlen_oid = 0)
+      : buffer_(buffer), disk_mng_(disk_mng), schema_(std::move(schema)), oid_(oid),
+        varlen_oid_(varlen_oid), layout_(CreateLayoutFromSchema(schema_)) {
     // TODO initialize a table file using disk manager
-    if (!disk_mng_->CreateOpenFile(oid_, 1)) {
-      throw IO_EXCEPTION("Could not create/open file");
-    }
+    if (!disk_mng_->CreateOpenFile(oid_, 1)) { throw IO_EXCEPTION("Could not create/open file"); }
 
-    if (varlen_oid_ != INVALID_REL_OID &&
-        !disk_mng_->CreateOpenFile(varlen_oid_, 1)) {
+    if (varlen_oid_ != INVALID_REL_OID && !disk_mng_->CreateOpenFile(varlen_oid_, 1)) {
       throw IO_EXCEPTION("Could not create/open file");
     }
   }
@@ -79,11 +71,10 @@ public:
 
   TupleId Insert(transaction::TransactionContext *txn, DataChunk *chunk);
 
-  bool Delete(transaction::TransactionContext *txn, u32 idx,
-              catalog::rel_oid_t pid);
+  bool Delete(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid);
 
-  bool Select(transaction::TransactionContext *txn, u32 idx,
-              catalog::rel_oid_t pid, DataChunk *chunk);
+  bool Select(transaction::TransactionContext *txn, u32 idx, catalog::rel_oid_t pid,
+              DataChunk *chunk);
 
   u32 PageCount();
 

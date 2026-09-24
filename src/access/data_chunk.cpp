@@ -8,8 +8,7 @@ static std::vector<catalog::col_oid_t> BuildColumnIds(const Schema &schema) {
   std::vector<catalog::col_oid_t> ids;
   ids.reserve(schema.GetCount());
 
-  for (const auto &col : schema)
-    ids.push_back(col.GetOid());
+  for (const auto &col : schema) ids.push_back(col.GetOid());
 
   return ids;
 }
@@ -18,8 +17,7 @@ static std::vector<u16> BuildAttrSizes(const Schema &schema) {
   std::vector<u16> sizes;
   sizes.reserve(schema.GetCount());
 
-  for (const auto &col : schema)
-    sizes.push_back(col.GetTypeSize());
+  for (const auto &col : schema) sizes.push_back(col.GetTypeSize());
 
   return sizes;
 }
@@ -40,8 +38,7 @@ DataChunkLayout::DataChunkLayout(std::span<const catalog::col_oid_t> col_ids,
 
   catalog::col_oid_t *column_ids_ptr =
       reinterpret_cast<catalog::col_oid_t *>(header_underlying_ + column_ids_);
-  std::memcpy(column_ids_ptr, col_ids.data(),
-              col_ids.size() * sizeof(catalog::col_oid_t));
+  std::memcpy(column_ids_ptr, col_ids.data(), col_ids.size() * sizeof(catalog::col_oid_t));
 
   u16 *offsets_ptr = reinterpret_cast<u16 *>(header_underlying_ + offsets_);
 
@@ -85,23 +82,17 @@ void DataChunk::Print(Schema *schema) {
       if (e->IsInline())
         std::cout.write(e->GetInline(), e->GetSize());
       else
-        std::cout << "vlen(pid=" << e->GetRef().pid
-                  << ",off=" << e->GetRef().offset << ")";
+        std::cout << "vlen(pid=" << e->GetRef().pid << ",off=" << e->GetRef().offset << ")";
     } else {
       switch (SizeOf(t)) {
       case 1:
         // print bools/tinyints as int, not char
-        std::cout << (t == type_id::TINYINT ? (i64) * (i8 *)ptr
-                                            : (u64) * (u8 *)ptr);
+        std::cout << (t == type_id::TINYINT ? (i64) * (i8 *)ptr : (u64) * (u8 *)ptr);
         break;
       case 2:
-        std::cout << (t == type_id::SMALLINT ? (i64) * (i16 *)ptr
-                                             : (u64) * (u16 *)ptr);
+        std::cout << (t == type_id::SMALLINT ? (i64) * (i16 *)ptr : (u64) * (u16 *)ptr);
         break;
-      case 4:
-        std::cout << (t == type_id::INTEGER ? (i64) * (i32 *)ptr
-                                            : (u64) * (u32 *)ptr);
-        break;
+      case 4: std::cout << (t == type_id::INTEGER ? (i64) * (i32 *)ptr : (u64) * (u32 *)ptr); break;
       case 8:
         if (t == type_id::DOUBLE)
           std::cout << *(double *)ptr;

@@ -16,16 +16,13 @@ private:
 
   u32 GetUnsafe(Map &partition_map, PageIdentifier id) {
     auto it = partition_map.find(id);
-    if (it != partition_map.end()) {
-      return it->second;
-    }
+    if (it != partition_map.end()) { return it->second; }
     return UINT32_MAX;
   }
 
 public:
   void Reserve(size_t n, u32 partIdx) {
-    shared::AdaptiveVersionLock::WriteGuard guard(
-        partition_locks_[partIdx].lock);
+    shared::AdaptiveVersionLock::WriteGuard guard(partition_locks_[partIdx].lock);
     partition_maps_[partIdx].reserve(n);
   }
 
@@ -38,8 +35,7 @@ public:
 
   bool Put(PageIdentifier id, u32 frame_idx, u32 &new_frame_idx, u32 partIdx) {
     auto &partition = partition_maps_[partIdx];
-    shared::AdaptiveVersionLock::WriteGuard guard(
-        partition_locks_[partIdx].lock);
+    shared::AdaptiveVersionLock::WriteGuard guard(partition_locks_[partIdx].lock);
     auto [it, inserted] = partition.emplace(id, frame_idx);
     new_frame_idx = it->second;
     return inserted;
@@ -47,12 +43,9 @@ public:
 
   void Delete(PageIdentifier evict_page_id, u32 old_frame_idx, u32 partIdx) {
     auto &partition = partition_maps_[partIdx];
-    shared::AdaptiveVersionLock::WriteGuard guard(
-        partition_locks_[partIdx].lock);
+    shared::AdaptiveVersionLock::WriteGuard guard(partition_locks_[partIdx].lock);
     auto it = partition.find(evict_page_id);
-    if (it != partition.end() && it->second == old_frame_idx) {
-      partition.erase(it);
-    }
+    if (it != partition.end() && it->second == old_frame_idx) { partition.erase(it); }
   }
 };
 } // namespace db7::storage

@@ -22,12 +22,10 @@ using proc_oid_t = u32;
 struct CatalogTableColCount {
   static constexpr u32 DATABASE = 2;  // DATOID, DATNAME
   static constexpr u32 NAMESPACE = 2; // NSPOID, NSPNAME
-  static constexpr u32 CLASS =
-      5; // RELOID, RELNAME, RELNAMESPACE, RELKIND, RELOPTIONS
+  static constexpr u32 CLASS = 5;     // RELOID, RELNAME, RELNAMESPACE, RELKIND, RELOPTIONS
   static constexpr u32 ATTRIBUTE =
       7; // ATTNUM, ATTRELID, ATTNAME, ATTTYPID, ATTLEN, ATTTYPMOD, ATTNOTNULL
-  static constexpr u32 TYPE =
-      6; // TYPOID, TYPNAME, TYPNAMESPACE, TYPLEN, TYPBYVAL, TYPTYPE
+  static constexpr u32 TYPE = 6;        // TYPOID, TYPNAME, TYPNAMESPACE, TYPLEN, TYPBYVAL, TYPTYPE
   static constexpr u32 CONSTRAINT = 12; // CONOID..CONBIN
   static constexpr u32 LANGUAGE = 7;    // LANOID..LANVALIDATOR
   static constexpr u32 PROC = 22;       // PROOID..PROCONFIG
@@ -195,9 +193,7 @@ enum class ConType : char {
   EXCLUSION = 'x',          ///< Exclusion constraint.
 };
 
-template <typename T> constexpr char ToChar(T kind) {
-  return static_cast<char>(kind);
-}
+template <typename T> constexpr char ToChar(T kind) { return static_cast<char>(kind); }
 
 struct ConstraintProps {
   const std::span<byte> name;

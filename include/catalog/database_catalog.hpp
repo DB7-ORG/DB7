@@ -34,35 +34,27 @@ private:
 
   bool TryLock(transaction::TransactionContext *txn);
 
-  ResultObj<namespace_oid_t>
-  CreateNamespaceEntry(transaction::TransactionContext *txn,
-                       const std::span<byte> name, namespace_oid_t oid);
+  ResultObj<namespace_oid_t> CreateNamespaceEntry(transaction::TransactionContext *txn,
+                                                  const std::span<byte> name, namespace_oid_t oid);
 
-  bool DeleteNamespaceEntry(transaction::TransactionContext *txn,
-                            namespace_oid_t oid);
+  bool DeleteNamespaceEntry(transaction::TransactionContext *txn, namespace_oid_t oid);
 
   ResultObj<class_oid_t> CreateTableEntry(transaction::TransactionContext *txn,
-                                          const std::span<byte> name,
-                                          class_oid_t oid,
-                                          namespace_oid_t namespace_oid,
-                                          RelKind kind);
+                                          const std::span<byte> name, class_oid_t oid,
+                                          namespace_oid_t namespace_oid, RelKind kind);
 
-  ResultObj<attribute_oid_t>
-  CreateColumnEntry(transaction::TransactionContext *txn, class_oid_t rel_oid,
-                    access::SchemaColumn &schema);
+  ResultObj<attribute_oid_t> CreateColumnEntry(transaction::TransactionContext *txn,
+                                               class_oid_t rel_oid, access::SchemaColumn &schema);
 
   bool DeleteTableEntry(transaction::TransactionContext *txn, class_oid_t oid);
 
   ResultObj<class_oid_t> CreateIndexEntry(transaction::TransactionContext *txn,
-                                          const std::span<byte> name,
-                                          class_oid_t class_oid,
-                                          class_oid_t rel_oid,
-                                          namespace_oid_t namespace_oid,
+                                          const std::span<byte> name, class_oid_t class_oid,
+                                          class_oid_t rel_oid, namespace_oid_t namespace_oid,
                                           access::IndexSchema &schema);
 
-  ResultObj<class_oid_t>
-  CreateConstraintEntry(transaction::TransactionContext *txn,
-                        constraint_oid_t oid, ConstraintProps props);
+  ResultObj<class_oid_t> CreateConstraintEntry(transaction::TransactionContext *txn,
+                                               constraint_oid_t oid, ConstraintProps props);
 
   // cached data
   access::Table *namespaces_;
@@ -110,8 +102,8 @@ private:
 
 public:
   DatabaseCatalog(catalog::db_oid_t db_id)
-      : db_id_(db_id), next_namespace_oid_(1), next_class_oid_(1),
-        next_attribute_oid_(1), next_constraint_oid_(1) {}
+      : db_id_(db_id), next_namespace_oid_(1), next_class_oid_(1), next_attribute_oid_(1),
+        next_constraint_oid_(1) {}
 
   ~DatabaseCatalog() {
     delete namespaces_;
@@ -151,40 +143,32 @@ public:
 
   catalog::db_oid_t GetDbOid() const { return db_id_; }
 
-  ResultObj<namespace_oid_t>
-  CreateNamespace(transaction::TransactionContext *txn,
-                  const std::span<byte> name);
+  ResultObj<namespace_oid_t> CreateNamespace(transaction::TransactionContext *txn,
+                                             const std::span<byte> name);
 
-  bool DeleteNamespace(transaction::TransactionContext *txn,
-                       namespace_oid_t oid);
+  bool DeleteNamespace(transaction::TransactionContext *txn, namespace_oid_t oid);
 
-  ResultObj<void> ExistsNamespace(transaction::TransactionContext *txn,
-                                  namespace_oid_t oid);
+  ResultObj<void> ExistsNamespace(transaction::TransactionContext *txn, namespace_oid_t oid);
 
-  bool UpdateNamespaceName(transaction::TransactionContext *txn,
-                           namespace_oid_t oid, std::span<byte> name);
+  bool UpdateNamespaceName(transaction::TransactionContext *txn, namespace_oid_t oid,
+                           std::span<byte> name);
 
   ResultObj<class_oid_t> CreateTable(transaction::TransactionContext *txn,
-                                     const std::span<byte> name,
-                                     namespace_oid_t namespace_oid,
+                                     const std::span<byte> name, namespace_oid_t namespace_oid,
                                      access::Schema &schema);
 
   ResultObj<class_oid_t> CreateIndexClass(transaction::TransactionContext *txn,
-                                          const std::span<byte> name,
-                                          namespace_oid_t namespace_oid,
+                                          const std::span<byte> name, namespace_oid_t namespace_oid,
                                           access::Schema &schema);
 
-  ResultObj<void> ExistsTable(transaction::TransactionContext *txn,
-                              class_oid_t oid);
+  ResultObj<void> ExistsTable(transaction::TransactionContext *txn, class_oid_t oid);
 
-  bool UpdateTableName(transaction::TransactionContext *txn, class_oid_t oid,
-                       std::span<byte> name, namespace_oid_t namespace_oid);
+  bool UpdateTableName(transaction::TransactionContext *txn, class_oid_t oid, std::span<byte> name,
+                       namespace_oid_t namespace_oid);
 
   ResultObj<class_oid_t> CreateIndex(transaction::TransactionContext *txn,
-                                     const std::span<byte> name,
-                                     class_oid_t rel_oid,
-                                     namespace_oid_t namespace_oid,
-                                     access::IndexSchema &schema);
+                                     const std::span<byte> name, class_oid_t rel_oid,
+                                     namespace_oid_t namespace_oid, access::IndexSchema &schema);
 
   ResultObj<class_oid_t> CreateConstraint(transaction::TransactionContext *txn,
                                           ConstraintProps props);

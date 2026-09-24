@@ -54,13 +54,10 @@ public:
    * @param message human readable error message
    * @param code sql error code
    */
-  ErrorData(const ErrorSeverity severity, std::string_view message,
-            const ErrorCode code)
+  ErrorData(const ErrorSeverity severity, std::string_view message, const ErrorCode code)
       : severity_(severity), message_(std::string(message)), code_(code),
-        fields_({{ErrorField::SEVERITY,
-                  std::string(ErrorSeverityToString(severity))},
-                 {ErrorField::SEVERITY_LOCALIZED,
-                  std::string(ErrorSeverityToString(severity))}}) {}
+        fields_({{ErrorField::SEVERITY, std::string(ErrorSeverityToString(severity))},
+                 {ErrorField::SEVERITY_LOCALIZED, std::string(ErrorSeverityToString(severity))}}) {}
 
   /**
    * @param field field type. There should not be duplicates
@@ -69,8 +66,7 @@ public:
   void AddField(ErrorField field, const std::string_view message) {
     DB7_ASSERT(field != ErrorField::HUMAN_READABLE_ERROR,
                "ErrorData already contains a required message.");
-    DB7_ASSERT(field != ErrorField::CODE,
-               "ErrorData already contains a required code.");
+    DB7_ASSERT(field != ErrorField::CODE, "ErrorData already contains a required code.");
     fields_.emplace_back(field, std::string(message));
   }
 
@@ -92,9 +88,7 @@ public:
   /**
    * @return all of the error message fields to write to the client
    */
-  const std::vector<std::pair<ErrorField, std::string>> &Fields() const {
-    return fields_;
-  }
+  const std::vector<std::pair<ErrorField, std::string>> &Fields() const { return fields_; }
 
 private:
   ErrorSeverity severity_;

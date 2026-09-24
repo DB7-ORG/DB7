@@ -5,27 +5,23 @@
 namespace db7::parser {
 
 std::unique_ptr<AbstractExpression> DerivedValueExpression::Copy() const {
-  auto expr = std::make_unique<DerivedValueExpression>(
-      GetReturnValueType(), GetTupleIdx(), GetValueIdx());
+  auto expr =
+      std::make_unique<DerivedValueExpression>(GetReturnValueType(), GetTupleIdx(), GetValueIdx());
   expr->SetMutableStateForCopy(*this);
   return expr;
 }
 
 hash_t DerivedValueExpression::Hash() const {
   hash_t hash = AbstractExpression::Hash();
-  hash =
-      shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(tuple_idx_));
-  hash =
-      shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(value_idx_));
+  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(tuple_idx_));
+  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(value_idx_));
   return hash;
 }
 
 bool DerivedValueExpression::operator==(const AbstractExpression &rhs) const {
-  if (!AbstractExpression::operator==(rhs))
-    return false;
+  if (!AbstractExpression::operator==(rhs)) return false;
   auto const &other = dynamic_cast<const DerivedValueExpression &>(rhs);
-  if (GetTupleIdx() != other.GetTupleIdx())
-    return false;
+  if (GetTupleIdx() != other.GetTupleIdx()) return false;
   return GetValueIdx() == other.GetValueIdx();
 }
 
@@ -47,8 +43,7 @@ std::vector<std::unique_ptr<AbstractExpression>>
 DerivedValueExpression::FromJson(const nlohmann::json &j) {
   std::vector<std::unique_ptr<AbstractExpression>> exprs;
   auto e1 = AbstractExpression::FromJson(j);
-  exprs.insert(exprs.end(), std::make_move_iterator(e1.begin()),
-               std::make_move_iterator(e1.end()));
+  exprs.insert(exprs.end(), std::make_move_iterator(e1.begin()), std::make_move_iterator(e1.end()));
   tuple_idx_ = j.at("tuple_idx").get<int>();
   value_idx_ = j.at("value_idx").get<int>();
   return exprs;

@@ -147,9 +147,7 @@ public:
    * @param seed The value to seed the hash with.
    * @return The hash value for this decimal instance.
    */
-  hash_t Hash(const hash_t seed) const {
-    return shared::HashUtil::HashCrc(value_);
-  }
+  hash_t Hash(const hash_t seed) const { return shared::HashUtil::HashCrc(value_); }
 
   /**
    * @return The hash value of this decimal instance.
@@ -228,8 +226,7 @@ struct DecimalVal : public Val {
    * Construct a non-NULL decimal value from the given 64-bit decimal value.
    * @param val The raw decimal value.
    */
-  explicit DecimalVal(Decimal64::NativeType val) noexcept
-      : DecimalVal(Decimal64{val}) {}
+  explicit DecimalVal(Decimal64::NativeType val) noexcept : DecimalVal(Decimal64{val}) {}
 
   /**
    * @return A NULL decimal value.
@@ -262,8 +259,7 @@ struct StringVal : public Val {
    * @param str The character sequence.
    * @param len The length of the sequence.
    */
-  StringVal(const char *str, uint32_t len) noexcept
-      : Val(false), val_(std::string(str, len)) {
+  StringVal(const char *str, uint32_t len) noexcept : Val(false), val_(std::string(str, len)) {
     DB7_ASSERT(str != nullptr, "String input cannot be NULL");
   }
 
@@ -281,8 +277,7 @@ struct StringVal : public Val {
    * null-terminated string.
    * @param str The C-string.
    */
-  explicit StringVal(const char *str) noexcept
-      : StringVal(const_cast<char *>(str), strlen(str)) {}
+  explicit StringVal(const char *str) noexcept : StringVal(const_cast<char *>(str), strlen(str)) {}
 
   /**
    * Get the length of the string value.
@@ -303,12 +298,8 @@ struct StringVal : public Val {
    * @return True if equivalent; false otherwise.
    */
   bool operator==(const StringVal &that) const {
-    if (is_null_ != that.is_null_) {
-      return false;
-    }
-    if (is_null_) {
-      return true;
-    }
+    if (is_null_ != that.is_null_) { return false; }
+    if (is_null_) { return true; }
 
     return std::strcmp(that.GetContent(), GetContent()) == 0;
   }

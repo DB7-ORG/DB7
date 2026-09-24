@@ -72,11 +72,7 @@ enum class PLType {
   PL_C = 2      // UDF language: PL_C
 };
 
-enum class AsType {
-  INVALID = INVALID_TYPE_ID,
-  EXECUTABLE = 1,
-  QUERY_STRING = 2
-};
+enum class AsType { INVALID = INVALID_TYPE_ID, EXECUTABLE = 1, QUERY_STRING = 2 };
 
 /**
  * The type of the common table expression.

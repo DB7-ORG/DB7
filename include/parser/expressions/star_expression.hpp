@@ -14,9 +14,7 @@ public:
   /**
    * Instantiates a new star expression, e.g. as in COUNT(*).
    */
-  StarExpression()
-      : AbstractExpression(ExpressionType::STAR, access::type_id::INTEGER, {}) {
-  }
+  StarExpression() : AbstractExpression(ExpressionType::STAR, access::type_id::INTEGER, {}) {}
 
   /**
    * Copies this StarExpression
@@ -34,8 +32,7 @@ public:
    * @returns copy of this
    */
   std::unique_ptr<AbstractExpression>
-  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      const override {
+  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children) const override {
     assert(children.empty() && "StarExpression should have 0 children");
     (void)children;
     return Copy();

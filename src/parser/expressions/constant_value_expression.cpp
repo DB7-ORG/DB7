@@ -6,18 +6,15 @@
 namespace db7::parser {
 
 template <typename T>
-ConstantValueExpression::ConstantValueExpression(const access::type_id type,
-                                                 const T value)
-    : AbstractExpression(ExpressionType::VALUE_CONSTANT, type, {}),
-      value_(value) {
+ConstantValueExpression::ConstantValueExpression(const access::type_id type, const T value)
+    : AbstractExpression(ExpressionType::VALUE_CONSTANT, type, {}), value_(value) {
   Validate();
 }
 
-ConstantValueExpression::ConstantValueExpression(const access::type_id type,
-                                                 const StringVal value,
+ConstantValueExpression::ConstantValueExpression(const access::type_id type, const StringVal value,
                                                  std::unique_ptr<byte[]> buffer)
-    : AbstractExpression(ExpressionType::VALUE_CONSTANT, type, {}),
-      value_(value), buffer_(std::move(buffer)) {
+    : AbstractExpression(ExpressionType::VALUE_CONSTANT, type, {}), value_(value),
+      buffer_(std::move(buffer)) {
   Validate();
 }
 
@@ -27,8 +24,7 @@ void ConstantValueExpression::Validate() const {
            "Should have only constructed a base-type Val in the event of a "
            "NULL (likely coming out of PostgresParser).");
   } else if (std::holds_alternative<BoolVal>(value_)) {
-    assert(return_value_type_ == access::type_id::BOOLEAN &&
-           "Invalid TypeId for Val type.");
+    assert(return_value_type_ == access::type_id::BOOLEAN && "Invalid TypeId for Val type.");
   } else if (std::holds_alternative<Integer>(value_)) {
     assert((return_value_type_ == access::type_id::TINYINT ||
             return_value_type_ == access::type_id::SMALLINT ||
@@ -36,8 +32,7 @@ void ConstantValueExpression::Validate() const {
             return_value_type_ == access::type_id::BIGINT) &&
            "Invalid TypeId for Val type.");
   } else if (std::holds_alternative<Real>(value_)) {
-    assert(return_value_type_ == access::type_id::DOUBLE &&
-           "Invalid TypeId for Val type.");
+    assert(return_value_type_ == access::type_id::DOUBLE && "Invalid TypeId for Val type.");
   } else if (std::holds_alternative<StringVal>(value_)) {
     assert((return_value_type_ == access::type_id::VARCHAR ||
             return_value_type_ == access::type_id::VARBINARY) &&
@@ -50,13 +45,10 @@ void ConstantValueExpression::Validate() const {
 template <typename T> T ConstantValueExpression::Peek() const {
   // NOLINTNEXTLINE: bugprone-suspicious-semicolon: seems like a false positive
   // because of constexpr
-  if constexpr (std::is_same_v<T, bool>) {
-    return static_cast<T>(GetBoolVal().val_);
-  }
+  if constexpr (std::is_same_v<T, bool>) { return static_cast<T>(GetBoolVal().val_); }
   // NOLINTNEXTLINE: bugprone-suspicious-semicolon: seems like a false positive
   // because of constexpr
-  if constexpr (std::is_same_v<T, i8> || std::is_same_v<T, i16> ||
-                std::is_same_v<T, i32> ||
+  if constexpr (std::is_same_v<T, i8> || std::is_same_v<T, i16> || std::is_same_v<T, i32> ||
                 std::is_same_v<T,
                                i64>) { // NOLINT: bugprone-suspicious-semicolon:
                                        // seems like a false positive
@@ -86,14 +78,11 @@ template <typename T> T ConstantValueExpression::Peek() const {
   }
   // NOLINTNEXTLINE: bugprone-suspicious-semicolon: seems like a false positive
   // because of constexpr
-  if constexpr (std::is_same_v<T, std::string>) {
-    return GetStringVal().val_;
-  }
+  if constexpr (std::is_same_v<T, std::string>) { return GetStringVal().val_; }
   __builtin_unreachable();
 }
 
-ConstantValueExpression &
-ConstantValueExpression::operator=(const ConstantValueExpression &other) {
+ConstantValueExpression &ConstantValueExpression::operator=(const ConstantValueExpression &other) {
   if (this != &other) { // self-assignment check expected
     // AbstractExpression fields we need copied over
     expression_type_ = other.expression_type_;
@@ -117,8 +106,7 @@ ConstantValueExpression::operator=(const ConstantValueExpression &other) {
   return *this;
 }
 
-ConstantValueExpression::ConstantValueExpression(
-    const ConstantValueExpression &other)
+ConstantValueExpression::ConstantValueExpression(const ConstantValueExpression &other)
     : AbstractExpression(other) {
   if (std::holds_alternative<StringVal>(other.value_)) {
     auto string_val = ValueUtil::CreateStringVal(other.GetStringVal());
@@ -151,8 +139,7 @@ ConstantValueExpression::operator=(ConstantValueExpression &&other) noexcept {
   return *this;
 }
 
-ConstantValueExpression::ConstantValueExpression(
-    ConstantValueExpression &&other) noexcept
+ConstantValueExpression::ConstantValueExpression(ConstantValueExpression &&other) noexcept
     : AbstractExpression(other) {
   value_ = other.value_;
   buffer_ = std::move(other.buffer_);
@@ -162,47 +149,37 @@ ConstantValueExpression::ConstantValueExpression(
 }
 
 hash_t ConstantValueExpression::Hash() const {
-  const auto hash = shared::HashUtil::CombineHashes(
-      AbstractExpression::Hash(), shared::HashUtil::Hash(IsNull()));
-  if (IsNull())
-    return hash;
+  const auto hash =
+      shared::HashUtil::CombineHashes(AbstractExpression::Hash(), shared::HashUtil::Hash(IsNull()));
+  if (IsNull()) return hash;
 
   switch (GetReturnValueType()) {
   case access::type_id::BOOLEAN: {
-    return shared::HashUtil::CombineHashes(
-        hash, shared::HashUtil::Hash(Peek<bool>()));
+    return shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(Peek<bool>()));
   }
   case access::type_id::TINYINT:
   case access::type_id::SMALLINT:
   case access::type_id::INTEGER:
   case access::type_id::BIGINT: {
-    return shared::HashUtil::CombineHashes(hash,
-                                           shared::HashUtil::Hash(Peek<i64>()));
+    return shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(Peek<i64>()));
   }
   case access::type_id::DOUBLE: {
-    return shared::HashUtil::CombineHashes(
-        hash, shared::HashUtil::Hash(Peek<double>()));
+    return shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(Peek<double>()));
   }
   case access::type_id::VARCHAR:
   case access::type_id::VARBINARY: {
-    return shared::HashUtil::CombineHashes(
-        hash, shared::HashUtil::Hash(Peek<std::string_view>()));
+    return shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(Peek<std::string_view>()));
   }
-  default:
-    __builtin_unreachable();
+  default: __builtin_unreachable();
   }
 }
 
-bool ConstantValueExpression::operator==(
-    const AbstractExpression &other) const {
-  if (!AbstractExpression::operator==(other))
-    return false;
+bool ConstantValueExpression::operator==(const AbstractExpression &other) const {
+  if (!AbstractExpression::operator==(other)) return false;
   const auto &other_cve = dynamic_cast<const ConstantValueExpression &>(other);
 
-  if (IsNull() != other_cve.IsNull())
-    return false;
-  if (IsNull() && other_cve.IsNull())
-    return true;
+  if (IsNull() != other_cve.IsNull()) return false;
+  if (IsNull() && other_cve.IsNull()) return true;
 
   switch (other.GetReturnValueType()) {
   case access::type_id::BOOLEAN: {
@@ -221,8 +198,7 @@ bool ConstantValueExpression::operator==(
   case access::type_id::VARBINARY: {
     return Peek<std::string_view>() == other_cve.Peek<std::string_view>();
   }
-  default:
-    __builtin_unreachable();
+  default: __builtin_unreachable();
   }
 }
 
@@ -244,16 +220,13 @@ std::string ConstantValueExpression::ToString() const {
   case access::type_id::VARBINARY: {
     return fmt::format("{}", GetStringVal().val_);
   }
-  default:
-    __builtin_unreachable();
+  default: __builtin_unreachable();
   }
 }
 
-ConstantValueExpression
-ConstantValueExpression::FromString(const std::string &val,
-                                    access::type_id type_id) {
-  if (val.empty())
-    return ConstantValueExpression(type_id);
+ConstantValueExpression ConstantValueExpression::FromString(const std::string &val,
+                                                            access::type_id type_id) {
+  if (val.empty()) return ConstantValueExpression(type_id);
   switch (type_id) {
   case access::type_id::BOOLEAN: {
     return ConstantValueExpression(type_id, BoolVal(std::stoi(val) != 0));
@@ -270,11 +243,9 @@ ConstantValueExpression::FromString(const std::string &val,
   case access::type_id::VARCHAR:
   case access::type_id::VARBINARY: {
     auto string_val = ValueUtil::CreateStringVal(val);
-    return ConstantValueExpression(type_id, string_val.first,
-                                   std::move(string_val.second));
+    return ConstantValueExpression(type_id, string_val.first, std::move(string_val.second));
   }
-  default:
-    __builtin_unreachable();
+  default: __builtin_unreachable();
   }
 }
 
@@ -304,8 +275,7 @@ nlohmann::json ConstantValueExpression::ToJson() const {
       j["value"] = val;
       break;
     }
-    default:
-      __builtin_unreachable();
+    default: __builtin_unreachable();
     }
   }
   return j;
@@ -315,8 +285,7 @@ std::vector<std::unique_ptr<AbstractExpression>>
 ConstantValueExpression::FromJson(const nlohmann::json &j) {
   std::vector<std::unique_ptr<AbstractExpression>> exprs;
   auto e1 = AbstractExpression::FromJson(j);
-  exprs.insert(exprs.end(), std::make_move_iterator(e1.begin()),
-               std::make_move_iterator(e1.end()));
+  exprs.insert(exprs.end(), std::make_move_iterator(e1.begin()), std::make_move_iterator(e1.end()));
 
   if (j.find("value") != j.end()) {
     // it's not NULL
@@ -338,16 +307,14 @@ ConstantValueExpression::FromJson(const nlohmann::json &j) {
     }
     case access::type_id::VARCHAR:
     case access::type_id::VARBINARY: {
-      auto string_val =
-          ValueUtil::CreateStringVal(j.at("value").get<std::string>());
+      auto string_val = ValueUtil::CreateStringVal(j.at("value").get<std::string>());
 
       value_ = string_val.first;
       buffer_ = std::move(string_val.second);
 
       break;
     }
-    default:
-      __builtin_unreachable();
+    default: __builtin_unreachable();
     }
   } else {
     value_ = Val(true);
@@ -367,31 +334,25 @@ ConstantValueExpression::FromJson(const nlohmann::json &j) {
 
 DEFINE_JSON_BODY_DECLARATIONS(ConstantValueExpression);
 
-template ConstantValueExpression::ConstantValueExpression(
-    const access::type_id type, const Val value);
-template ConstantValueExpression::ConstantValueExpression(
-    const access::type_id type, const BoolVal value);
-template ConstantValueExpression::ConstantValueExpression(
-    const access::type_id type, const Integer value);
-template ConstantValueExpression::ConstantValueExpression(
-    const access::type_id type, const Real value);
-template ConstantValueExpression::ConstantValueExpression(
-    const access::type_id type, const DecimalVal value);
-template ConstantValueExpression::ConstantValueExpression(
-    const access::type_id type, const StringVal value);
+template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+                                                          const Val value);
+template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+                                                          const BoolVal value);
+template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+                                                          const Integer value);
+template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+                                                          const Real value);
+template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+                                                          const DecimalVal value);
+template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+                                                          const StringVal value);
 
-template void ConstantValueExpression::SetValue(const access::type_id type,
-                                                const Val value);
-template void ConstantValueExpression::SetValue(const access::type_id type,
-                                                const BoolVal value);
-template void ConstantValueExpression::SetValue(const access::type_id type,
-                                                const Integer value);
-template void ConstantValueExpression::SetValue(const access::type_id type,
-                                                const Real value);
-template void ConstantValueExpression::SetValue(const access::type_id type,
-                                                const DecimalVal value);
-template void ConstantValueExpression::SetValue(const access::type_id type,
-                                                const StringVal value);
+template void ConstantValueExpression::SetValue(const access::type_id type, const Val value);
+template void ConstantValueExpression::SetValue(const access::type_id type, const BoolVal value);
+template void ConstantValueExpression::SetValue(const access::type_id type, const Integer value);
+template void ConstantValueExpression::SetValue(const access::type_id type, const Real value);
+template void ConstantValueExpression::SetValue(const access::type_id type, const DecimalVal value);
+template void ConstantValueExpression::SetValue(const access::type_id type, const StringVal value);
 
 template bool ConstantValueExpression::Peek() const;
 template i8 ConstantValueExpression::Peek() const;

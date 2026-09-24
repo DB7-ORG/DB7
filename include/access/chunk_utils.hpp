@@ -8,10 +8,8 @@
 namespace db7::access {
 class ChunkUtils {
 public:
-  static void ReadSingleIntoChunk(const Schema &schema,
-                                  const storage::PaxLayout &layout,
-                                  DataChunk *chunk, storage::Page *page,
-                                  u32 idx) {
+  static void ReadSingleIntoChunk(const Schema &schema, const storage::PaxLayout &layout,
+                                  DataChunk *chunk, storage::Page *page, u32 idx) {
     byte *data = page->GetData();
     for (auto id : chunk->GetColumnIds()) {
       auto info = schema.GetColumn(id);
@@ -21,25 +19,21 @@ public:
     }
   }
 
-  static u32 InsertBulk(const Schema &schema, const storage::PaxLayout &layout,
-                        DataChunk *chunk, storage::Page *page,
-                        u32 item_count = 1) {
+  static u32 InsertBulk(const Schema &schema, const storage::PaxLayout &layout, DataChunk *chunk,
+                        storage::Page *page, u32 item_count = 1) {
     byte *data = page->GetData();
     u32 old_count = layout.IncrementHeaderCount(data, item_count);
 
     for (auto id : chunk->GetColumnIds()) {
       auto info = schema.GetColumn(id);
-      layout.Insert(
-          data,
-          std::span<byte>(chunk->Get(id), info.GetTypeSize() * item_count),
-          info.GetPosiiton(), old_count);
+      layout.Insert(data, std::span<byte>(chunk->Get(id), info.GetTypeSize() * item_count),
+                    info.GetPosiiton(), old_count);
     }
 
     return old_count;
   }
 
-  static void UpdateSingle(const Schema &schema,
-                           const storage::PaxLayout &layout, DataChunk *chunk,
+  static void UpdateSingle(const Schema &schema, const storage::PaxLayout &layout, DataChunk *chunk,
                            DataChunk *delta, storage::Page *page, u32 idx) {
     auto delta_iter = delta->InitIterator();
     auto chunk_iter = chunk->InitIterator();
@@ -51,8 +45,7 @@ public:
     }
   }
 
-  static void Merge(const Schema &schema, DataChunk *curr_chunk,
-                    DataChunk *new_chunk) {
+  static void Merge(const Schema &schema, DataChunk *curr_chunk, DataChunk *new_chunk) {
     int new_idx = 0;
     for (auto new_id : new_chunk->GetColumnIds()) {
       int cur_idx = 0;

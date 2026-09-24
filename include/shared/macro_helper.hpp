@@ -8,30 +8,30 @@
  * Must use default move because when u disable copy ctor compiler doesnt
  * generate move. For now not aware of better way to do this.
  */
-#define DB7_DISALLOW_COPY(ClassName)                                           \
-  ClassName(const ClassName &) = delete;                                       \
-  ClassName &operator=(const ClassName &) = delete;                            \
-  ClassName(ClassName &&) = default;                                           \
+#define DB7_DISALLOW_COPY(ClassName)                                                               \
+  ClassName(const ClassName &) = delete;                                                           \
+  ClassName &operator=(const ClassName &) = delete;                                                \
+  ClassName(ClassName &&) = default;                                                               \
   ClassName &operator=(ClassName &&) = default;
 
 #define DB7_ASSERT(expr, message) assert((expr) && (message))
 
-#define DB7_ASSERT_FMT(cond, fmt_str, ...)                                     \
-  do {                                                                         \
-    if (!(cond)) {                                                             \
-      fmt::print(stderr, "{}:{}: assertion failed: " fmt_str "\n", __FILE__,   \
-                 __LINE__, __VA_ARGS__);                                       \
-      std::abort();                                                            \
-    }                                                                          \
+#define DB7_ASSERT_FMT(cond, fmt_str, ...)                                                         \
+  do {                                                                                             \
+    if (!(cond)) {                                                                                 \
+      fmt::print(stderr, "{}:{}: assertion failed: " fmt_str "\n", __FILE__, __LINE__,             \
+                 __VA_ARGS__);                                                                     \
+      std::abort();                                                                                \
+    }                                                                                              \
   } while (0)
 
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
 #define LIKELY(x) __builtin_expect(!!(x), 1)
 
-#define DB7_UNREACHABLE()                                                      \
-  do {                                                                         \
-    DB7_ASSERT(false, "unreachable");                                          \
-    __builtin_unreachable();                                                   \
+#define DB7_UNREACHABLE()                                                                          \
+  do {                                                                                             \
+    DB7_ASSERT(false, "unreachable");                                                              \
+    __builtin_unreachable();                                                                       \
   } while (0)
 
 #define DB7_UNIMPLEMENTED() throw std::logic_error("Not implemented")

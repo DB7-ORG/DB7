@@ -102,8 +102,7 @@ public:
    * Returns ownership of the expressions in this parse result.
    * @return moved expressions
    */
-  std::vector<std::unique_ptr<AbstractExpression>> &&
-  TakeExpressionsOwnership() {
+  std::vector<std::unique_ptr<AbstractExpression>> &&TakeExpressionsOwnership() {
     return std::move(expressions_);
   }
 };

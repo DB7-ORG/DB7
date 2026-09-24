@@ -17,9 +17,7 @@ private:
 
   VersionPtr *GetUnsafe(PageIdentifier new_page_id) {
     auto it = table_.find(new_page_id);
-    if (it != table_.end()) {
-      return it->second;
-    }
+    if (it != table_.end()) { return it->second; }
 
     return nullptr;
   }
@@ -28,8 +26,7 @@ public:
   PageVersionManager() = default;
 
   ~PageVersionManager() {
-    for (auto &[id, versions] : table_)
-      delete[] versions;
+    for (auto &[id, versions] : table_) delete[] versions;
   }
 
   VersionPtr *Get(PageIdentifier new_page_id) {
@@ -53,8 +50,7 @@ public:
   storage::UndoRecord *GetDelta(TupleId tid, table_id tbl_id) {
     shared::AdaptiveVersionLock::WriteGuard guard(lock_);
     auto *versions = GetUnsafe({tbl_id, tid.GetPageId()});
-    if (!versions)
-      return nullptr;
+    if (!versions) return nullptr;
     auto *undo = versions[tid.GetIndex()].Get();
     return undo;
   }

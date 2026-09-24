@@ -31,11 +31,9 @@ class TypeCastExpression : public AbstractExpression {
   // being used?
 public:
   /** Instantiates a new type cast expression. */
-  TypeCastExpression(
-      access::type_id type,
-      std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      : AbstractExpression(ExpressionType::OPERATOR_CAST, type,
-                           std::move(children)) {}
+  TypeCastExpression(access::type_id type,
+                     std::vector<std::unique_ptr<AbstractExpression>> &&children)
+      : AbstractExpression(ExpressionType::OPERATOR_CAST, type, std::move(children)) {}
 
   /** Default constructor for JSON deserialization. */
   TypeCastExpression() = default;
@@ -53,8 +51,7 @@ public:
    * @returns copy of this with new children
    */
   std::unique_ptr<AbstractExpression>
-  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      const override;
+  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children) const override;
 
   // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override;
 };

@@ -10,8 +10,7 @@ nlohmann::json TableInfo::ToJson() const {
   return j;
 }
 
-std::vector<std::unique_ptr<AbstractExpression>>
-TableInfo::FromJson(const nlohmann::json &j) {
+std::vector<std::unique_ptr<AbstractExpression>> TableInfo::FromJson(const nlohmann::json &j) {
   std::vector<std::unique_ptr<AbstractExpression>> exprs;
   table_name_ = j.at("table_name").get<std::string>();
   namespace_name_ = j.at("namespace_name").get<std::string>();

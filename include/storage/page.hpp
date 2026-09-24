@@ -81,9 +81,7 @@ public:
   void SetDirty() { flags_.fetch_or(DIRTY_FLAG); }
   void ClearDirty() { flags_.fetch_and(~DIRTY_FLAG); }
 
-  bool IsEvictable() const {
-    return !IsPinned() && !IsDirty() && !IsIOInProgress();
-  }
+  bool IsEvictable() const { return !IsPinned() && !IsDirty() && !IsIOInProgress(); }
 
   /**
    * Locks
@@ -106,8 +104,7 @@ public:
    * Channel
    */
   void WaitIO() {
-    if (!IsIOInProgress())
-      return;
+    if (!IsIOInProgress()) return;
 
     std::unique_lock lk(latch_);
     io_cv_.wait(lk, [&] { return !IsIOInProgress(); });

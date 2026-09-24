@@ -13,28 +13,22 @@ namespace db7 {
  * They record where the exception was generated.
  */
 
-#define NOT_IMPLEMENTED_EXCEPTION(msg)                                         \
-  NotImplementedException(msg, __FILE__, __LINE__)
+#define NOT_IMPLEMENTED_EXCEPTION(msg) NotImplementedException(msg, __FILE__, __LINE__)
 #define CATALOG_EXCEPTION(msg) CatalogException(msg, __FILE__, __LINE__)
 #define CONVERSION_EXCEPTION(msg) ConversionException(msg, __FILE__, __LINE__)
 #define PARSER_EXCEPTION(msg) ParserException(msg, __FILE__, __LINE__)
 #define MESSENGER_EXCEPTION(msg) MessengerException(msg, __FILE__, __LINE__)
-#define NETWORK_PROCESS_EXCEPTION(msg)                                         \
-  NetworkProcessException(msg, __FILE__, __LINE__)
+#define NETWORK_PROCESS_EXCEPTION(msg) NetworkProcessException(msg, __FILE__, __LINE__)
 #define OPTIMIZER_EXCEPTION(msg) OptimizerException(msg, __FILE__, __LINE__)
 #define REPLICATION_EXCEPTION(msg) ReplicationException(msg, __FILE__, __LINE__)
 #define SYNTAX_EXCEPTION(msg) SyntaxException(msg, __FILE__, __LINE__)
 #define ABORT_EXCEPTION(msg) AbortException(msg, __FILE__, __LINE__)
 #define IO_EXCEPTION(msg) IOException(msg, __FILE__, __LINE__)
 #define MEMORY_EXCEPTION(msg) MemoryException(msg, __FILE__, __LINE__)
-#define EXECUTION_EXCEPTION(msg, code)                                         \
-  ExecutionException(msg, __FILE__, __LINE__, (code))
-#define BINDER_EXCEPTION(msg, code)                                            \
-  BinderException(msg, __FILE__, __LINE__, (code))
-#define SETTINGS_EXCEPTION(msg, code)                                          \
-  SettingsException(msg, __FILE__, __LINE__, (code))
-#define PILOT_EXCEPTION(msg, code)                                             \
-  PilotException(msg, __FILE__, __LINE__, (code))
+#define EXECUTION_EXCEPTION(msg, code) ExecutionException(msg, __FILE__, __LINE__, (code))
+#define BINDER_EXCEPTION(msg, code) BinderException(msg, __FILE__, __LINE__, (code))
+#define SETTINGS_EXCEPTION(msg, code) SettingsException(msg, __FILE__, __LINE__, (code))
+#define PILOT_EXCEPTION(msg, code) PilotException(msg, __FILE__, __LINE__, (code))
 
 /**
  * Exception types
@@ -70,8 +64,7 @@ public:
    * @param file name of the file in which the exception occurred
    * @param line line number at which the exception occurred
    */
-  Exception(const ExceptionType type, const char *msg, const char *file,
-            int line)
+  Exception(const ExceptionType type, const char *msg, const char *file, int line)
       : std::runtime_error(msg), type_(type), file_(file), line_(line) {}
 
   /**
@@ -91,30 +84,18 @@ public:
    */
   const char *GetType() const {
     switch (type_) {
-    case ExceptionType::NOT_IMPLEMENTED:
-      return "Not Implemented";
-    case ExceptionType::CATALOG:
-      return "Catalog";
-    case ExceptionType::PARSER:
-      return "Parser";
-    case ExceptionType::MESSENGER:
-      return "Messenger";
-    case ExceptionType::NETWORK:
-      return "Network";
-    case ExceptionType::REPLICATION:
-      return "Replication";
-    case ExceptionType::SETTINGS:
-      return "Settings";
-    case ExceptionType::BINDER:
-      return "Binder";
-    case ExceptionType::OPTIMIZER:
-      return "Optimizer";
-    case ExceptionType::EXECUTION:
-      return "Execution";
-    case ExceptionType::PILOT:
-      return "Pilot";
-    default:
-      return "Unknown exception type";
+    case ExceptionType::NOT_IMPLEMENTED: return "Not Implemented";
+    case ExceptionType::CATALOG: return "Catalog";
+    case ExceptionType::PARSER: return "Parser";
+    case ExceptionType::MESSENGER: return "Messenger";
+    case ExceptionType::NETWORK: return "Network";
+    case ExceptionType::REPLICATION: return "Replication";
+    case ExceptionType::SETTINGS: return "Settings";
+    case ExceptionType::BINDER: return "Binder";
+    case ExceptionType::OPTIMIZER: return "Optimizer";
+    case ExceptionType::EXECUTION: return "Execution";
+    case ExceptionType::PILOT: return "Pilot";
+    default: return "Unknown exception type";
     }
   }
 
@@ -147,31 +128,28 @@ protected:
 // Derived exception types
 // -----------------------
 
-#define DEFINE_EXCEPTION(e_name, e_type)                                       \
-  class e_name : public Exception {                                            \
-    e_name() = delete;                                                         \
-                                                                               \
-  public:                                                                      \
-    e_name(const char *msg, const char *file, int line)                        \
-        : Exception(e_type, msg, file, line) {}                                \
-    e_name(const std::string &msg, const char *file, int line)                 \
-        : Exception(e_type, msg.c_str(), file, line) {}                        \
+#define DEFINE_EXCEPTION(e_name, e_type)                                                           \
+  class e_name : public Exception {                                                                \
+    e_name() = delete;                                                                             \
+                                                                                                   \
+  public:                                                                                          \
+    e_name(const char *msg, const char *file, int line) : Exception(e_type, msg, file, line) {}    \
+    e_name(const std::string &msg, const char *file, int line)                                     \
+        : Exception(e_type, msg.c_str(), file, line) {}                                            \
   }
 
-#define DEFINE_EXCEPTION_WITH_ERRCODE(e_name, e_type)                          \
-  class e_name : public Exception {                                            \
-    e_name() = delete;                                                         \
-                                                                               \
-  public:                                                                      \
-    e_name(const char *msg, const char *file, int line,                        \
-           shared::ErrorCode code)                                             \
-        : Exception(e_type, msg, file, line), code_(code) {}                   \
-    e_name(const std::string &msg, const char *file, int line,                 \
-           shared::ErrorCode code)                                             \
-        : Exception(e_type, msg.c_str(), file, line), code_(code) {}           \
-                                                                               \
-    /** The SQL error code. */                                                 \
-    shared::ErrorCode code_;                                                   \
+#define DEFINE_EXCEPTION_WITH_ERRCODE(e_name, e_type)                                              \
+  class e_name : public Exception {                                                                \
+    e_name() = delete;                                                                             \
+                                                                                                   \
+  public:                                                                                          \
+    e_name(const char *msg, const char *file, int line, shared::ErrorCode code)                    \
+        : Exception(e_type, msg, file, line), code_(code) {}                                       \
+    e_name(const std::string &msg, const char *file, int line, shared::ErrorCode code)             \
+        : Exception(e_type, msg.c_str(), file, line), code_(code) {}                               \
+                                                                                                   \
+    /** The SQL error code. */                                                                     \
+    shared::ErrorCode code_;                                                                       \
   }
 
 DEFINE_EXCEPTION(NotImplementedException, ExceptionType::NOT_IMPLEMENTED);
@@ -224,10 +202,8 @@ public:
    * @param line line number at which the exception occurred
    * @param cursorpos from libpgquery
    */
-  ParserException(const char *msg, const char *file, int line,
-                  uint32_t cursorpos)
-      : Exception(ExceptionType::PARSER, msg, file, line),
-        cursorpos_(cursorpos) {}
+  ParserException(const char *msg, const char *file, int line, uint32_t cursorpos)
+      : Exception(ExceptionType::PARSER, msg, file, line), cursorpos_(cursorpos) {}
 
   /**
    * Creates a new ParserException with the given parameters.
@@ -236,10 +212,8 @@ public:
    * @param line line number at which the exception occurred
    * @param cursorpos from libpgquery
    */
-  ParserException(const std::string &msg, const char *file, int line,
-                  uint32_t cursorpos)
-      : Exception(ExceptionType::PARSER, msg.c_str(), file, line),
-        cursorpos_(cursorpos) {}
+  ParserException(const std::string &msg, const char *file, int line, uint32_t cursorpos)
+      : Exception(ExceptionType::PARSER, msg.c_str(), file, line), cursorpos_(cursorpos) {}
 
   /**
    * @return from libpgquery

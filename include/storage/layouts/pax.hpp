@@ -35,11 +35,9 @@ public:
 
   void Update(byte *dest, std::span<byte> update_data) const;
 
-  void Update(byte *page_data, std::span<byte> update_data, u16 column_idx,
-              u32 row_idx) const;
+  void Update(byte *page_data, std::span<byte> update_data, u16 column_idx, u32 row_idx) const;
 
-  void Insert(byte *page_data, std::span<byte> insert_data, u16 column_idx,
-              u32 row_idx) const;
+  void Insert(byte *page_data, std::span<byte> insert_data, u16 column_idx, u32 row_idx) const;
 
   void Delete(byte *data, u32 row_idx) const;
 

@@ -30,8 +30,6 @@ public:
     return res;
   }
 
-  bool HasAvailableSpace(u32 size) {
-    return size_ + AlignUp(size, u32(8)) <= ALLOCATOR_BLOCK_SIZE;
-  }
+  bool HasAvailableSpace(u32 size) { return size_ + AlignUp(size, u32(8)) <= ALLOCATOR_BLOCK_SIZE; }
 };
 } // namespace db7::shared

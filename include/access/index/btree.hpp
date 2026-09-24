@@ -52,15 +52,13 @@ private:
 
     byte *new_root_data = new_root_page->GetData();
 
-    layout_inter_.InitHeader(new_root_data, 1, level + 1,
-                             new_root_page->GetPageId());
+    layout_inter_.InitHeader(new_root_data, 1, level + 1, new_root_page->GetPageId());
 
     layout_inter_.CreateRoot(new_root_data, key, pid, new_pid);
 
     root_id_.store(new_root_page->GetPageId());
 
-    DB7_ASSERT(BaseLyHeader::GetLevel(new_root_data) == level + 1,
-               "root level clobbered");
+    DB7_ASSERT(BaseLyHeader::GetLevel(new_root_data) == level + 1, "root level clobbered");
 
     ReleaseNode<shared::LockMode::Write>(new_root_page);
   }
@@ -82,8 +80,7 @@ private:
 
     layout_leaf_.InitHeader(right_data, 0, 0, new_pid);
 
-    ResultObj<Key> sentinel_obj =
-        layout_leaf_.Split(data, right_data, new_pid, key);
+    ResultObj<Key> sentinel_obj = layout_leaf_.Split(data, right_data, new_pid, key);
 
     Key &sentinel = sentinel_obj.value;
     CopyKey(sentinel_copy, sentinel);
@@ -101,8 +98,7 @@ private:
 
     byte *right_data = right_page->GetData();
 
-    layout_inter_.InitHeader(right_data, 0, BaseLyHeader::GetLevel(data),
-                             new_pid);
+    layout_inter_.InitHeader(right_data, 0, BaseLyHeader::GetLevel(data), new_pid);
 
     Key sentinel = layout_inter_.Split(data, right_data, new_pid, key, value);
 
@@ -168,26 +164,21 @@ private:
 
       u8 level = BaseLyHeader::GetLevel(data);
       if (level <= 0) {
-        if (!shared::Unlock<LM>(page))
-          continue;
+        if (!shared::Unlock<LM>(page)) continue;
 
         return page;
       } else if (layout_inter_.HasSplit(data, key)) {
         page_id new_pid = layout_inter_.GetRLink(data);
 
-        if (!shared::Unlock<LM>(page))
-          continue;
+        if (!shared::Unlock<LM>(page)) continue;
 
         pid = new_pid;
       } else {
-        page_id new_pid =
-            layout_inter_.Get(data, BaseLyHeader::GetCount(data), key);
+        page_id new_pid = layout_inter_.Get(data, BaseLyHeader::GetCount(data), key);
 
-        if (!shared::Unlock<LM>(page))
-          continue;
+        if (!shared::Unlock<LM>(page)) continue;
 
-        shared::TlState::Push(
-            pid); // TODO should probably store a pointer and keep pages pinned
+        shared::TlState::Push(pid); // TODO should probably store a pointer and keep pages pinned
         pid = new_pid;
         level--;
       }
@@ -222,8 +213,7 @@ private:
       shared::Lock<LM>(page);
 
       if (level <= drop_level) {
-        if (!shared::Unlock<LM>(page))
-          continue;
+        if (!shared::Unlock<LM>(page)) continue;
 
         shared::TlState::Push(pid);
 
@@ -231,19 +221,15 @@ private:
       } else if (layout_inter_.HasSplit(data, key)) {
         page_id new_pid = layout_inter_.GetRLink(data);
 
-        if (!shared::Unlock<LM>(page))
-          continue;
+        if (!shared::Unlock<LM>(page)) continue;
 
         pid = new_pid;
       } else {
-        page_id new_pid =
-            layout_inter_.Get(data, BaseLyHeader::GetCount(data), key);
+        page_id new_pid = layout_inter_.Get(data, BaseLyHeader::GetCount(data), key);
 
-        if (!shared::Unlock<LM>(page))
-          continue;
+        if (!shared::Unlock<LM>(page)) continue;
 
-        shared::TlState::Push(
-            pid); // TODO should probably store a pointer and keep pages pinned
+        shared::TlState::Push(pid); // TODO should probably store a pointer and keep pages pinned
         pid = new_pid;
         level--;
       }
@@ -280,8 +266,7 @@ private:
       u8 level = BaseLyHeader::GetLevel(data);
       ReleaseNode<shared::LockMode::Write>(page);
 
-      if (!split_result.success)
-        return ResultObj<void>::Fail(split_result.message);
+      if (!split_result.success) return ResultObj<void>::Fail(split_result.message);
 
       if (shared::TlState::IsEmpty()) {
         root_mtx_.lock();
@@ -301,11 +286,8 @@ private:
     return ResultObj<void>::Ok();
   }
 
-  template <shared::LockMode Mode>
-  void FreePages(std::vector<storage::Page *> &visited) {
-    for (auto *ptr : visited) {
-      ReleaseNode<Mode>(ptr);
-    }
+  template <shared::LockMode Mode> void FreePages(std::vector<storage::Page *> &visited) {
+    for (auto *ptr : visited) { ReleaseNode<Mode>(ptr); }
   }
 
   ResultObj<void> InsertInternalUnique(storage::Page *page, Key key,
@@ -330,8 +312,7 @@ private:
 
       FreePages<LM>(visited);
 
-      if (!split_result.success)
-        return ResultObj<void>::Fail(split_result.message);
+      if (!split_result.success) return ResultObj<void>::Fail(split_result.message);
 
       if (shared::TlState::IsEmpty()) {
         root_mtx_.lock();
@@ -399,15 +380,12 @@ private:
     return ResultObj<void>::Ok();
   }
 
-  ResultObj<void> InternalGet(storage::Page *page, Key key,
-                              shared::VectorValues<ValTyp> &results) {
-    DB7_ASSERT(page->GetPageId() != std::numeric_limits<page_id>::max(),
-               "invalid pid");
+  ResultObj<void> InternalGet(storage::Page *page, Key key, shared::VectorValues<ValTyp> &results) {
+    DB7_ASSERT(page->GetPageId() != std::numeric_limits<page_id>::max(), "invalid pid");
     auto *data = page->GetData();
 
     do {
-      DB7_ASSERT(page->GetPageId() != std::numeric_limits<page_id>::max(),
-                 "invalid pid");
+      DB7_ASSERT(page->GetPageId() != std::numeric_limits<page_id>::max(), "invalid pid");
 
       constexpr shared::LockMode LM = shared::LockMode::Optimistic;
       shared::Lock<LM>(page);
@@ -416,30 +394,24 @@ private:
       if (layout_leaf_.HasSplit(data, key)) {
         page_id new_pid = layout_leaf_.GetRLink(data);
 
-        if (!shared::Unlock<LM>(page))
-          continue;
+        if (!shared::Unlock<LM>(page)) continue;
 
         ReleaseNode<shared::LockMode::None>(page);
         page = GetNode<shared::LockMode::None>(new_pid);
         data = page->GetData();
       } else {
         auto tmp_results = shared::VectorValues<ValTyp>();
-        auto result = layout_leaf_.Get(data, BaseLyHeader::GetCount(data), key,
-                                       tmp_results);
+        auto result = layout_leaf_.Get(data, BaseLyHeader::GetCount(data), key, tmp_results);
 
-        if (!shared::Unlock<LM>(page))
-          continue;
+        if (!shared::Unlock<LM>(page)) continue;
 
-        results.vec.insert(results.vec.end(), tmp_results.vec.begin(),
-                           tmp_results.vec.end());
+        results.vec.insert(results.vec.end(), tmp_results.vec.begin(), tmp_results.vec.end());
 
         if (tmp_results.proceed) {
           page_id new_pid = layout_leaf_.GetRLink(data);
           ReleaseNode<shared::LockMode::None>(page);
 
-          if (new_pid == std::numeric_limits<page_id>::max()) {
-            return result;
-          }
+          if (new_pid == std::numeric_limits<page_id>::max()) { return result; }
 
           page = GetNode<shared::LockMode::None>(new_pid);
           data = page->GetData();
@@ -469,12 +441,10 @@ private:
   }
 
 public:
-  BTreeIndex(storage::BufferPool *buffer_pool,
-             storage::DiskManagerAsync *disk_mng, table_id tbl_id,
+  BTreeIndex(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, table_id tbl_id,
              table_id heap_tbl_id, std::vector<TypeSize> attr)
-      : buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id),
-        heap_tbl_id_(heap_tbl_id), layout_inter_(), layout_leaf_(),
-        attrs_(std::move(attr)) {
+      : buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id), heap_tbl_id_(heap_tbl_id),
+        layout_inter_(), layout_leaf_(), attrs_(std::move(attr)) {
 
     if (!disk_mng_->CreateOpenFile(tbl_id_, 1)) {
       throw IO_EXCEPTION("IO exception could not open file");
@@ -493,21 +463,21 @@ public:
   ~BTreeIndex() = default;
 
   ResultObj<void> Insert(DataChunk *chunk, ValTyp value) {
-    auto ptr = std::make_unique_for_overwrite<byte[]>(
-        key_buffer_size_); // TODO if i ever get larger strings ill need to
-                           // change this
+    auto ptr =
+        std::make_unique_for_overwrite<byte[]>(key_buffer_size_); // TODO if i ever get larger
+                                                                  // strings ill need to change this
     Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, value, attrs_);
     shared::TlState::Clear();
     storage::Page *page = DropToLevel(key);
     return InsertInternal(page, key);
   }
 
-  ResultObj<void> InsertUnique(transaction::TransactionContext *txn,
-                               DataChunk *chunk, ValTyp value) {
+  ResultObj<void> InsertUnique(transaction::TransactionContext *txn, DataChunk *chunk,
+                               ValTyp value) {
 
-    auto ptr = std::make_unique_for_overwrite<byte[]>(
-        key_buffer_size_); // TODO if i ever get larger strings ill need to
-                           // change this
+    auto ptr =
+        std::make_unique_for_overwrite<byte[]>(key_buffer_size_); // TODO if i ever get larger
+                                                                  // strings ill need to change this
     Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, 0, attrs_);
 
     shared::TlState::Clear();
@@ -540,8 +510,7 @@ public:
        * Checks mvcc of these tuples to determine whether duplicate entries
        * exist in the tree. This is only necessary for unique indexes.
        */
-      auto res =
-          layout_leaf_.CheckUnique(txn, page_data, key, heap_tbl_id_, idx);
+      auto res = layout_leaf_.CheckUnique(txn, page_data, key, heap_tbl_id_, idx);
       if (!res.success) {
         FreePages<LM>(visited);
         return ResultObj<void>::Fail(res.message);
@@ -550,13 +519,9 @@ public:
       /**
        * Saves the page where we need to insert key if no conflict exists
        */
-      if (insert_page == nullptr && !layout_leaf_.HasSplit(page_data, key)) {
-        insert_page = page;
-      }
+      if (insert_page == nullptr && !layout_leaf_.HasSplit(page_data, key)) { insert_page = page; }
 
-      if (!res.value) {
-        break;
-      }
+      if (!res.value) { break; }
 
       idx = 0;
       page_id new_pid = layout_leaf_.GetRLink(page_data);

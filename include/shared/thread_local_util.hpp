@@ -68,15 +68,12 @@ template <LockMode Mode> void Lock(storage::Page *page) {
     page->RDataLock();
   else if constexpr (Mode == LockMode::Optimistic) {
     u64 ver = 0;
-    while (TlState::GetTries() < MAX_OPTIMISTIC_TRIES &&
-           !page->ReadVersion(ver)) {
+    while (TlState::GetTries() < MAX_OPTIMISTIC_TRIES && !page->ReadVersion(ver)) {
       TlState::IncrementTries();
     }
     TlState::SetVersion(ver);
 
-    if (TlState::GetTries() >= MAX_OPTIMISTIC_TRIES) {
-      page->RDataLock();
-    }
+    if (TlState::GetTries() >= MAX_OPTIMISTIC_TRIES) { page->RDataLock(); }
   } else if constexpr (Mode == LockMode::None)
     return;
   else

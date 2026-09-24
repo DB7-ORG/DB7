@@ -3,7 +3,6 @@
 #include "access/access_common.hpp"
 #include "common.hpp"
 #include "parser/expression_defs.hpp"
-#include "shared/json/json.hpp"
 #include "shared/json/json_util.hpp"
 #include "shared/managed_pointer.hpp"
 
@@ -45,8 +44,7 @@ public:
    * Constructs an alias with a name and invalid serial number
    * @param name Alias name
    */
-  explicit AliasType(std::string &&name)
-      : name_{name}, serial_no_{0}, serial_valid_{false} {}
+  explicit AliasType(std::string &&name) : name_{name}, serial_no_{0}, serial_valid_{false} {}
 
   /**
    * Constructs an alias with a name and invalid serial number
@@ -94,9 +92,7 @@ public:
    */
   bool operator==(const AliasType &other) const {
     bool names_equal = (name_ == other.name_);
-    if (!serial_valid_ || !other.serial_valid_) {
-      return names_equal;
-    }
+    if (!serial_valid_ || !other.serial_valid_) { return names_equal; }
     return names_equal && (serial_no_ == other.serial_no_);
   }
 
@@ -194,12 +190,10 @@ protected:
    */
   void SetChild(int index, shared::ManagedPointer<AbstractExpression> expr);
 
-  AbstractExpression(
-      const ExpressionType expression_type,
-      const access::type_id return_value_type,
-      std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      : expression_type_(expression_type),
-        return_value_type_(return_value_type), children_(std::move(children)) {}
+  AbstractExpression(const ExpressionType expression_type, const access::type_id return_value_type,
+                     std::vector<std::unique_ptr<AbstractExpression>> &&children)
+      : expression_type_(expression_type), return_value_type_(return_value_type),
+        children_(std::move(children)) {}
 
   /**
    * Instantiates a new abstract expression with alias used for select statement
@@ -209,10 +203,8 @@ protected:
    * @param alias alias of the column (used in column value expression)
    * @param children the list of children for this node
    */
-  AbstractExpression(
-      const ExpressionType expression_type,
-      const access::type_id return_value_type, AliasType alias,
-      std::vector<std::unique_ptr<AbstractExpression>> &&children)
+  AbstractExpression(const ExpressionType expression_type, const access::type_id return_value_type,
+                     AliasType alias, std::vector<std::unique_ptr<AbstractExpression>> &&children)
       : expression_type_(expression_type), alias_(std::move(alias)),
         return_value_type_(return_value_type), children_(std::move(children)) {}
 
@@ -227,9 +219,8 @@ protected:
    * @param other the abstract expression to be copied
    */
   AbstractExpression(const AbstractExpression &other)
-      : expression_type_(other.expression_type_),
-        expression_name_(other.expression_name_), alias_(other.alias_),
-        return_value_type_(other.return_value_type_), depth_(other.depth_),
+      : expression_type_(other.expression_type_), expression_name_(other.expression_name_),
+        alias_(other.alias_), return_value_type_(other.return_value_type_), depth_(other.depth_),
         has_subquery_(other.has_subquery_) {}
 
   /**
@@ -279,9 +270,7 @@ public:
    * @param rhs other
    * @return true if the two expressions are logically not equal
    */
-  virtual bool operator!=(const AbstractExpression &rhs) const {
-    return !operator==(rhs);
-  }
+  virtual bool operator!=(const AbstractExpression &rhs) const { return !operator==(rhs); }
 
   /**
    * Creates a deep copy of the current AbstractExpression.
@@ -303,8 +292,8 @@ public:
    * AbstractExpression.
    * @param children New children to be owned by the copy
    */
-  virtual std::unique_ptr<AbstractExpression> CopyWithChildren(
-      std::vector<std::unique_ptr<AbstractExpression>> &&) const = 0;
+  virtual std::unique_ptr<AbstractExpression>
+  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&) const = 0;
 
   /**
    * @return type of this expression
@@ -405,15 +394,12 @@ public:
    * Derived expressions should call this base method
    * @param j json to deserialize
    */
-  virtual std::vector<std::unique_ptr<AbstractExpression>>
-  FromJson(const nlohmann::json &j);
+  virtual std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j);
 
   /**
    * @param expression_type Set the expression type of the current expression
    */
-  void SetExpressionType(ExpressionType expression_type) {
-    expression_type_ = expression_type;
-  }
+  void SetExpressionType(ExpressionType expression_type) { expression_type_ = expression_type; }
 };
 
 /**
@@ -448,9 +434,7 @@ template <> struct hash<db7::parser::AbstractExpression> {
    * @param expr the expression to hash
    * @return hash code of the given expression
    */
-  size_t operator()(const db7::parser::AbstractExpression &expr) const {
-    return expr.Hash();
-  }
+  size_t operator()(const db7::parser::AbstractExpression &expr) const { return expr.Hash(); }
 };
 
 /**

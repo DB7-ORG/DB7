@@ -8,7 +8,7 @@
 #include "expressions/abstract_expression.hpp"
 #include "parser_defs.hpp"
 #include "shared/hash_util.hpp"
-#include "shared/json/json.hpp"
+
 #include "shared/json/json_util.hpp"
 
 namespace db7::parser {
@@ -33,10 +33,8 @@ public:
    * @param namespace_name namespace name
    * @param database_name database name
    */
-  TableInfo(std::string table_name, std::string namespace_name,
-            std::string database_name)
-      : table_name_(std::move(table_name)),
-        namespace_name_(std::move(namespace_name)),
+  TableInfo(std::string table_name, std::string namespace_name, std::string database_name)
+      : table_name_(std::move(table_name)), namespace_name_(std::move(namespace_name)),
         database_name_(std::move(database_name)) {}
 
   TableInfo() = default;
@@ -45,8 +43,7 @@ public:
    * @return a copy of the table location information
    */
   std::unique_ptr<TableInfo> Copy() {
-    return std::make_unique<TableInfo>(GetTableName(), GetNamespaceName(),
-                                       GetDatabaseName());
+    return std::make_unique<TableInfo>(GetTableName(), GetNamespaceName(), GetDatabaseName());
   }
 
   /**
@@ -69,10 +66,8 @@ public:
    */
   hash_t Hash() const {
     hash_t hash = shared::HashUtil::Hash(table_name_);
-    hash = shared::HashUtil::CombineHashes(
-        hash, shared::HashUtil::Hash(namespace_name_));
-    hash = shared::HashUtil::CombineHashes(
-        hash, shared::HashUtil::Hash(database_name_));
+    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(namespace_name_));
+    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(database_name_));
     return hash;
   }
 
@@ -82,10 +77,8 @@ public:
    * @return true if the two TableInfo are logically equal
    */
   bool operator==(const TableInfo &rhs) const {
-    if (table_name_ != rhs.table_name_)
-      return false;
-    if (namespace_name_ != rhs.namespace_name_)
-      return false;
+    if (table_name_ != rhs.table_name_) return false;
+    if (namespace_name_ != rhs.namespace_name_) return false;
     return database_name_ == rhs.database_name_;
   }
 
@@ -104,8 +97,7 @@ public:
   /**
    * @param j json to deserialize
    */
-  std::vector<std::unique_ptr<AbstractExpression>>
-  FromJson(const nlohmann::json &j);
+  std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j);
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(TableInfo);
@@ -174,11 +166,9 @@ public:
    * @param type type of SQLStatement being referred to
    * @param table_info table being referred to
    */
-  TableRefStatement(const StatementType type,
-                    std::unique_ptr<TableInfo> table_info)
+  TableRefStatement(const StatementType type, std::unique_ptr<TableInfo> table_info)
       : SQLStatement(type), table_info_(std::move(table_info)) {
-    if (!table_info_)
-      table_info_ = std::make_unique<TableInfo>();
+    if (!table_info_) table_info_ = std::make_unique<TableInfo>();
   }
 
   ~TableRefStatement() override = default;
@@ -186,23 +176,17 @@ public:
   /**
    * @return table name
    */
-  virtual const std::string &GetTableName() const {
-    return table_info_->GetTableName();
-  }
+  virtual const std::string &GetTableName() const { return table_info_->GetTableName(); }
 
   /**
    * @return namespace name
    */
-  virtual const std::string &GetNamespaceName() const {
-    return table_info_->GetNamespaceName();
-  }
+  virtual const std::string &GetNamespaceName() const { return table_info_->GetNamespaceName(); }
 
   /**
    * @return database name
    */
-  virtual const std::string &GetDatabaseName() const {
-    return table_info_->GetDatabaseName();
-  }
+  virtual const std::string &GetDatabaseName() const { return table_info_->GetDatabaseName(); }
 };
 
 } // namespace db7::parser

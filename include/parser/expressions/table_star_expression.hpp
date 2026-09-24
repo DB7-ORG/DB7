@@ -18,8 +18,7 @@ public:
    * [tbls]
    */
   TableStarExpression()
-      : AbstractExpression(ExpressionType::TABLE_STAR, access::type_id::INVALID,
-                           {}) {}
+      : AbstractExpression(ExpressionType::TABLE_STAR, access::type_id::INVALID, {}) {}
 
   /**
    * Instantiates a new table star expression used to indicate SELECT t.* FROM
@@ -27,8 +26,7 @@ public:
    * @param tbl Table to select all columns from
    */
   explicit TableStarExpression(std::string tbl)
-      : AbstractExpression(ExpressionType::TABLE_STAR, access::type_id::INVALID,
-                           {}),
+      : AbstractExpression(ExpressionType::TABLE_STAR, access::type_id::INVALID, {}),
         target_table_specified_(true), target_table_(std::move(tbl)) {}
 
   /**
@@ -45,8 +43,7 @@ public:
    * @returns copy of this
    */
   std::unique_ptr<AbstractExpression>
-  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      const override {
+  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children) const override {
     assert(children.empty() && "TableStarExpression should have 0 children");
     (void)children;
     return Copy();

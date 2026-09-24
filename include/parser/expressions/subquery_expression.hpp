@@ -23,10 +23,8 @@ public:
    * parser.
    * @param subselect the sub-select
    */
-  explicit SubqueryExpression(
-      std::unique_ptr<parser::SelectStatement> subselect)
-      : AbstractExpression(ExpressionType::ROW_SUBQUERY,
-                           access::type_id::INVALID, {}),
+  explicit SubqueryExpression(std::unique_ptr<parser::SelectStatement> subselect)
+      : AbstractExpression(ExpressionType::ROW_SUBQUERY, access::type_id::INVALID, {}),
         subselect_(std::move(subselect)) {}
 
   /** Default constructor for JSON deserialization. */
@@ -46,8 +44,7 @@ public:
    * @returns copy of this with new children
    */
   std::unique_ptr<AbstractExpression>
-  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      const override {
+  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children) const override {
     assert(children.empty() && "SubqueryExpression should have 0 children");
     (void)children;
     return Copy();
@@ -70,8 +67,7 @@ public:
   hash_t Hash() const override;
 
   bool operator==(const AbstractExpression &rhs) const override {
-    if (!AbstractExpression::operator==(rhs))
-      return false;
+    if (!AbstractExpression::operator==(rhs)) return false;
     auto const &other = dynamic_cast<const SubqueryExpression &>(rhs);
     return *subselect_ == *(other.subselect_);
   }
@@ -80,8 +76,7 @@ public:
   nlohmann::json ToJson() const override;
 
   /** @param j json to deserialize */
-  std::vector<std::unique_ptr<AbstractExpression>>
-  FromJson(const nlohmann::json &j) override;
+  std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j) override;
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(SubqueryExpression);

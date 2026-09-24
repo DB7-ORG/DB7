@@ -45,8 +45,7 @@ struct HashUtil {
   static hash_t HashBytes(const byte *bytes, const uint64_t length) {
     hash_t hash = length;
     for (uint64_t i = 0; i < length; ++i) {
-      hash = ((hash << 5) ^ (hash >> 27)) ^
-             static_cast<uint8_t>(bytes[i]); // NOLINT
+      hash = ((hash << 5) ^ (hash >> 27)) ^ static_cast<uint8_t>(bytes[i]); // NOLINT
     }
     return hash;
   }
@@ -59,8 +58,7 @@ struct HashUtil {
    */
   template <typename T>
   static auto Hash(const T &obj)
-      -> std::enable_if_t<!std::is_arithmetic_v<T> &&
-                              !std::is_same<T, std::string>::value &&
+      -> std::enable_if_t<!std::is_arithmetic_v<T> && !std::is_same<T, std::string>::value &&
                               !std::is_same<T, char>::value,
                           hash_t> {
     return XXH3_64bits(reinterpret_cast<const byte *>(&obj), sizeof(T));
@@ -75,11 +73,9 @@ struct HashUtil {
    * @return combined hash
    */
   template <class IteratorType>
-  static hash_t CombineHashInRange(const hash_t base, IteratorType first,
-                                   IteratorType last) {
+  static hash_t CombineHashInRange(const hash_t base, IteratorType first, IteratorType last) {
     hash_t result = base;
-    for (; first != last; ++first)
-      result = CombineHashes(result, Hash(*first));
+    for (; first != last; ++first) result = CombineHashes(result, Hash(*first));
     return result;
   }
 
@@ -105,8 +101,7 @@ struct HashUtil {
    * @return The computed hash.
    */
   template <typename T>
-  static auto Hash(T val, hash_t seed)
-      -> std::enable_if_t<std::is_arithmetic_v<T>, hash_t> {
+  static auto Hash(T val, hash_t seed) -> std::enable_if_t<std::is_arithmetic_v<T>, hash_t> {
     return HashCrc(val, seed);
   }
 
@@ -128,9 +123,7 @@ struct HashUtil {
    * @param len The length of the input buffer to hash.
    * @return The computed hash value based on the contents of the input buffer.
    */
-  static auto Hash(const uint8_t *buf, std::size_t len) -> hash_t {
-    return HashXX3(buf, len);
-  }
+  static auto Hash(const uint8_t *buf, std::size_t len) -> hash_t { return HashXX3(buf, len); }
 
   /**
    * Compute the hash value of the input buffer with the provided length and
@@ -177,8 +170,7 @@ struct HashUtil {
    * @param second_hash The second hash value
    * @return The mixed hash value
    */
-  static hash_t CombineHashes(const hash_t first_hash,
-                              const hash_t second_hash) {
+  static hash_t CombineHashes(const hash_t first_hash, const hash_t second_hash) {
     // Based on Hash128to64() from cityhash.xxh3
     static constexpr auto k_mul = uint64_t(0x9ddfea08eb382d69);
     hash_t a = (first_hash ^ second_hash) * k_mul;
@@ -203,14 +195,12 @@ struct HashUtil {
    * Integer CRC hashing based on HyPer.
    */
   template <typename T>
-  static auto HashCrc(T val, hash_t seed)
-      -> std::enable_if_t<std::is_fundamental_v<T>, hash_t> {
+  static auto HashCrc(T val, hash_t seed) -> std::enable_if_t<std::is_fundamental_v<T>, hash_t> {
     // Thanks HyPer
     static constexpr hash_t k_default_crc_seed = 0x04c11db7ULL;
 
     uint64_t result1 = _mm_crc32_u64(seed, static_cast<uint64_t>(val));
-    uint64_t result2 =
-        _mm_crc32_u64(k_default_crc_seed, static_cast<uint64_t>(val));
+    uint64_t result2 = _mm_crc32_u64(k_default_crc_seed, static_cast<uint64_t>(val));
     return ((result2 << 32u) | result1) * 0x2545f4914f6cdd1dULL;
   }
 
@@ -218,8 +208,7 @@ struct HashUtil {
    * Integer CRC hashing based on HyPer with a seed of 0.
    */
   template <typename T>
-  static auto HashCrc(T val)
-      -> std::enable_if_t<std::is_fundamental_v<T>, hash_t> {
+  static auto HashCrc(T val) -> std::enable_if_t<std::is_fundamental_v<T>, hash_t> {
     return HashCrc(val, 0);
   }
 
@@ -243,17 +232,10 @@ struct HashUtil {
 
     // Process the tail.
     switch (len) {
-    case 3:
-      hash ^= (static_cast<uint64_t>(buf[2])) << 16u;
-      DB7_FALLTHROUGH;
-    case 2:
-      hash ^= (static_cast<uint64_t>(buf[1])) << 8u;
-      DB7_FALLTHROUGH;
-    case 1:
-      hash ^= buf[0];
-      DB7_FALLTHROUGH;
-    default:
-      break;
+    case 3: hash ^= (static_cast<uint64_t>(buf[2])) << 16u; DB7_FALLTHROUGH;
+    case 2: hash ^= (static_cast<uint64_t>(buf[1])) << 8u; DB7_FALLTHROUGH;
+    case 1: hash ^= buf[0]; DB7_FALLTHROUGH;
+    default: break;
     }
 
     return hash;
@@ -262,16 +244,13 @@ struct HashUtil {
   /**
    * String CRC hashing with a seed of 0.
    */
-  static hash_t HashCrc(const uint8_t *buf, uint32_t len) {
-    return HashCrc(buf, len, 0);
-  }
+  static hash_t HashCrc(const uint8_t *buf, uint32_t len) { return HashCrc(buf, len, 0); }
 
   /**
    * Integer Murmur3 hashing.
    */
   template <typename T>
-  static auto HashMurmur(T val, hash_t seed)
-      -> std::enable_if_t<std::is_arithmetic_v<T>, hash_t> {
+  static auto HashMurmur(T val, hash_t seed) -> std::enable_if_t<std::is_arithmetic_v<T>, hash_t> {
     auto k = static_cast<uint64_t>(val);
     k ^= seed;
     k ^= k >> 33;
@@ -286,8 +265,7 @@ struct HashUtil {
    * Integer Murmur3 hashing with a seed of 0.
    */
   template <typename T>
-  static auto HashMurmur(T val)
-      -> std::enable_if_t<std::is_fundamental_v<T>, hash_t> {
+  static auto HashMurmur(T val) -> std::enable_if_t<std::is_fundamental_v<T>, hash_t> {
     return HashMurmur(val, 0);
   }
 
@@ -301,16 +279,13 @@ struct HashUtil {
   /**
    * String XXH3 hashing (no seed).
    */
-  static hash_t HashXX3(const uint8_t *buf, uint32_t len) {
-    return XXH3_64bits(buf, len);
-  }
+  static hash_t HashXX3(const uint8_t *buf, uint32_t len) { return XXH3_64bits(buf, len); }
 
   /**
    * Arbitrary object XXH3 hashing.
    */
   template <typename T>
-  static auto HashXX3(T val, hash_t seed)
-      -> std::enable_if_t<std::is_arithmetic_v<T>, hash_t> {
+  static auto HashXX3(T val, hash_t seed) -> std::enable_if_t<std::is_arithmetic_v<T>, hash_t> {
     return XXH3_64bits_withSeed(&val, sizeof(T), seed);
   }
 
@@ -318,8 +293,7 @@ struct HashUtil {
    * Arbitrary object XXH3 hashing (no seed).
    */
   template <typename T>
-  static auto HashXX3(const T val)
-      -> std::enable_if_t<std::is_arithmetic_v<T>, hash_t> {
+  static auto HashXX3(const T val) -> std::enable_if_t<std::is_arithmetic_v<T>, hash_t> {
     return XXH3_64bits(&val, sizeof(T));
   }
 };

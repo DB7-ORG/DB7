@@ -28,9 +28,8 @@ public:
    * @param types order by types
    * @param exprs order by expressions
    */
-  OrderByDescription(
-      std::vector<OrderType> types,
-      std::vector<shared::ManagedPointer<AbstractExpression>> exprs)
+  OrderByDescription(std::vector<OrderType> types,
+                     std::vector<shared::ManagedPointer<AbstractExpression>> exprs)
       : types_(std::move(types)), exprs_(std::move(exprs)) {}
 
   /**
@@ -44,16 +43,11 @@ public:
   std::unique_ptr<OrderByDescription> Copy() {
     std::vector<OrderType> types;
     types.reserve(types_.size());
-    for (const auto &type : types_) {
-      types.emplace_back(type);
-    }
+    for (const auto &type : types_) { types.emplace_back(type); }
     std::vector<shared::ManagedPointer<AbstractExpression>> exprs;
     exprs.reserve(exprs_.size());
-    for (const auto &expr : exprs_) {
-      exprs.emplace_back(expr);
-    }
-    return std::make_unique<OrderByDescription>(std::move(types),
-                                                std::move(exprs));
+    for (const auto &expr : exprs_) { exprs.emplace_back(expr); }
+    return std::make_unique<OrderByDescription>(std::move(types), std::move(exprs));
   }
 
   // TODO(WAN): no SQLStatement? maybe a Description base class?
@@ -76,8 +70,7 @@ public:
   /**
    * @return order by expression
    */
-  std::vector<shared::ManagedPointer<AbstractExpression>> &
-  GetOrderByExpressions() {
+  std::vector<shared::ManagedPointer<AbstractExpression>> &GetOrderByExpressions() {
     return exprs_;
   }
 
@@ -86,11 +79,8 @@ public:
    */
   hash_t Hash() const {
     hash_t hash = shared::HashUtil::Hash(types_.size());
-    hash = shared::HashUtil::CombineHashInRange(hash, types_.begin(),
-                                                types_.end());
-    for (const auto &expr : exprs_) {
-      hash = shared::HashUtil::CombineHashes(hash, expr->Hash());
-    }
+    hash = shared::HashUtil::CombineHashInRange(hash, types_.begin(), types_.end());
+    for (const auto &expr : exprs_) { hash = shared::HashUtil::CombineHashes(hash, expr->Hash()); }
     return hash;
   }
 
@@ -100,16 +90,12 @@ public:
    * @return true if the two OrderByDescriptions are logically equal
    */
   bool operator==(const OrderByDescription &rhs) const {
-    if (types_.size() != rhs.types_.size())
-      return false;
+    if (types_.size() != rhs.types_.size()) return false;
     for (size_t i = 0; i < types_.size(); i++)
-      if (types_[i] != rhs.types_[i])
-        return false;
-    if (exprs_.size() != rhs.exprs_.size())
-      return false;
+      if (types_[i] != rhs.types_[i]) return false;
+    if (exprs_.size() != rhs.exprs_.size()) return false;
     for (size_t i = 0; i < exprs_.size(); i++)
-      if (*(exprs_[i]) != *(rhs.exprs_[i]))
-        return false;
+      if (*(exprs_[i]) != *(rhs.exprs_[i])) return false;
     return true;
   }
 
@@ -118,9 +104,7 @@ public:
    * @param rhs other
    * @return true if the two OrderByDescriptions are logically unequal
    */
-  bool operator!=(const OrderByDescription &rhs) const {
-    return !(operator==(rhs));
-  }
+  bool operator!=(const OrderByDescription &rhs) const { return !(operator==(rhs)); }
 
   /**
    * @return OrderByDescription serialized to json
@@ -130,8 +114,7 @@ public:
   /**
    * @param j json to deserialize
    */
-  std::vector<std::unique_ptr<AbstractExpression>>
-  FromJson(const nlohmann::json &j);
+  std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j);
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(OrderByDescription);
@@ -159,8 +142,7 @@ public:
    * @param limit limit
    * @param offset offset
    */
-  LimitDescription(int64_t limit, int64_t offset)
-      : limit_(limit), offset_(offset) {}
+  LimitDescription(int64_t limit, int64_t offset) : limit_(limit), offset_(offset) {}
 
   /**
    * Default constructor for deserialization
@@ -198,8 +180,7 @@ public:
    */
   hash_t Hash() const {
     hash_t hash = shared::HashUtil::Hash(limit_);
-    hash =
-        shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(offset_));
+    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(offset_));
     return hash;
   }
   /**
@@ -208,8 +189,7 @@ public:
    * @return true if the two GroupByDescriptions are logically equal
    */
   bool operator==(const LimitDescription &rhs) const {
-    if (limit_ != rhs.limit_)
-      return false;
+    if (limit_ != rhs.limit_) return false;
     return offset_ == rhs.offset_;
   }
 
@@ -218,9 +198,7 @@ public:
    * @param rhs other
    * @return true if the two LimitDescription are logically unequal
    */
-  bool operator!=(const LimitDescription &rhs) const {
-    return !(operator==(rhs));
-  }
+  bool operator!=(const LimitDescription &rhs) const { return !(operator==(rhs)); }
 
   /**
    * @return LimitDescription serialized to json
@@ -230,8 +208,7 @@ public:
   /**
    * @param j json to deserialize
    */
-  std::vector<std::unique_ptr<AbstractExpression>>
-  FromJson(const nlohmann::json &j);
+  std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j);
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(LimitDescription);
@@ -249,9 +226,8 @@ public:
    * @param columns group by columns
    * @param having having clause
    */
-  GroupByDescription(
-      std::vector<shared::ManagedPointer<AbstractExpression>> columns,
-      shared::ManagedPointer<AbstractExpression> having)
+  GroupByDescription(std::vector<shared::ManagedPointer<AbstractExpression>> columns,
+                     shared::ManagedPointer<AbstractExpression> having)
       : columns_(std::move(columns)), having_(having) {}
 
   /**
@@ -265,9 +241,7 @@ public:
   std::unique_ptr<GroupByDescription> Copy() {
     std::vector<shared::ManagedPointer<AbstractExpression>> columns;
     columns.reserve(columns.size());
-    for (const auto &col : columns_) {
-      columns.emplace_back(col);
-    }
+    for (const auto &col : columns_) { columns.emplace_back(col); }
     auto having = having_;
     return std::make_unique<GroupByDescription>(std::move(columns), having);
   }
@@ -281,25 +255,18 @@ public:
   // v->Visit(shared::ManagedPointer(this)); }
 
   /** @return group by columns */
-  const std::vector<shared::ManagedPointer<AbstractExpression>> &GetColumns() {
-    return columns_;
-  }
+  const std::vector<shared::ManagedPointer<AbstractExpression>> &GetColumns() { return columns_; }
 
   /** @return having clause */
-  shared::ManagedPointer<AbstractExpression> GetHaving() {
-    return shared::ManagedPointer(having_);
-  }
+  shared::ManagedPointer<AbstractExpression> GetHaving() { return shared::ManagedPointer(having_); }
 
   /**
    * @return the hashed value of this group by description
    */
   hash_t Hash() const {
     hash_t hash = shared::HashUtil::Hash(columns_.size());
-    for (const auto &col : columns_) {
-      hash = shared::HashUtil::CombineHashes(hash, col->Hash());
-    }
-    if (having_ != nullptr)
-      hash = shared::HashUtil::CombineHashes(hash, having_->Hash());
+    for (const auto &col : columns_) { hash = shared::HashUtil::CombineHashes(hash, col->Hash()); }
+    if (having_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, having_->Hash());
     return hash;
   }
 
@@ -309,18 +276,13 @@ public:
    * @return true if the two GroupByDescriptions are logically equal
    */
   bool operator==(const GroupByDescription &rhs) const {
-    if (columns_.size() != rhs.columns_.size())
-      return false;
+    if (columns_.size() != rhs.columns_.size()) return false;
     for (size_t i = 0; i < columns_.size(); i++)
-      if (*(columns_[i]) != *(rhs.columns_[i]))
-        return false;
+      if (*(columns_[i]) != *(rhs.columns_[i])) return false;
 
-    if (having_ != nullptr && rhs.having_ == nullptr)
-      return false;
-    if (having_ == nullptr && rhs.having_ != nullptr)
-      return false;
-    if (having_ == nullptr && rhs.having_ == nullptr)
-      return true;
+    if (having_ != nullptr && rhs.having_ == nullptr) return false;
+    if (having_ == nullptr && rhs.having_ != nullptr) return false;
+    if (having_ == nullptr && rhs.having_ == nullptr) return true;
     return *(having_) == *(rhs.having_);
   }
 
@@ -329,9 +291,7 @@ public:
    * @param rhs other
    * @return true if the two GroupByDescription are logically unequal
    */
-  bool operator!=(const GroupByDescription &rhs) const {
-    return !(operator==(rhs));
-  }
+  bool operator!=(const GroupByDescription &rhs) const { return !(operator==(rhs)); }
 
   /**
    * @return GroupDescription serialized to json
@@ -340,8 +300,7 @@ public:
   /**
    * @param j json to deserialize
    */
-  std::vector<std::unique_ptr<AbstractExpression>>
-  FromJson(const nlohmann::json &j);
+  std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j);
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(GroupByDescription);
@@ -384,8 +343,7 @@ private:
   std::vector<std::unique_ptr<TableRef>> with_table_;
 
   /** @param select List of SELECT columns */
-  void SetSelectColumns(
-      std::vector<shared::ManagedPointer<AbstractExpression>> select) {
+  void SetSelectColumns(std::vector<shared::ManagedPointer<AbstractExpression>> select) {
     select_ = std::move(select);
   }
 
@@ -405,18 +363,16 @@ public:
    * @param limit LIMIT condition
    * @param with accompanying CTE query
    */
-  SelectStatement(
-      std::vector<shared::ManagedPointer<AbstractExpression>> select,
-      bool select_distinct, std::unique_ptr<TableRef> from,
-      shared::ManagedPointer<AbstractExpression> where,
-      std::unique_ptr<GroupByDescription> group_by,
-      std::unique_ptr<OrderByDescription> order_by,
-      std::unique_ptr<LimitDescription> limit,
-      std::vector<std::unique_ptr<TableRef>> &&with)
+  SelectStatement(std::vector<shared::ManagedPointer<AbstractExpression>> select,
+                  bool select_distinct, std::unique_ptr<TableRef> from,
+                  shared::ManagedPointer<AbstractExpression> where,
+                  std::unique_ptr<GroupByDescription> group_by,
+                  std::unique_ptr<OrderByDescription> order_by,
+                  std::unique_ptr<LimitDescription> limit,
+                  std::vector<std::unique_ptr<TableRef>> &&with)
       : SQLStatement(StatementType::SELECT), select_(std::move(select)),
-        select_distinct_(select_distinct), from_(std::move(from)),
-        where_(where), group_by_(std::move(group_by)),
-        order_by_(std::move(order_by)), limit_(std::move(limit)),
+        select_distinct_(select_distinct), from_(std::move(from)), where_(where),
+        group_by_(std::move(group_by)), order_by_(std::move(order_by)), limit_(std::move(limit)),
         union_select_(nullptr), with_table_(std::move(with)) {}
 
   /** Default constructor for deserialization. */
@@ -429,8 +385,7 @@ public:
   std::unique_ptr<SelectStatement> Copy();
 
   /** @return The columns targeted by SELECT */
-  const std::vector<shared::ManagedPointer<AbstractExpression>> &
-  GetSelectColumns() {
+  const std::vector<shared::ManagedPointer<AbstractExpression>> &GetSelectColumns() {
     return select_;
   }
 
@@ -438,18 +393,14 @@ public:
   bool IsSelectDistinct() const { return select_distinct_; }
 
   /** @return The table over which SELECT is performed */
-  shared::ManagedPointer<TableRef> GetSelectTable() {
-    return shared::ManagedPointer(from_);
-  }
+  shared::ManagedPointer<TableRef> GetSelectTable() { return shared::ManagedPointer(from_); }
 
   /** @return `true` if the SELECT statement has a target table, `false`
    * otherwise */
   bool HasSelectTable() const { return static_cast<bool>(from_); }
 
   /** @return The predicate associated with SELECT */
-  shared::ManagedPointer<AbstractExpression> GetSelectCondition() {
-    return where_;
-  }
+  shared::ManagedPointer<AbstractExpression> GetSelectCondition() { return where_; }
 
   /** @return The GROUP BY associated with SELECT */
   shared::ManagedPointer<GroupByDescription> GetSelectGroupBy() {
@@ -470,10 +421,8 @@ public:
   std::vector<shared::ManagedPointer<TableRef>> GetSelectWith() {
     std::vector<shared::ManagedPointer<TableRef>> table_refs{};
     table_refs.reserve(with_table_.size());
-    std::transform(with_table_.cbegin(), with_table_.cend(),
-                   std::back_inserter(table_refs), [](const auto &ref) {
-                     return shared::ManagedPointer<TableRef>(ref);
-                   });
+    std::transform(with_table_.cbegin(), with_table_.cend(), std::back_inserter(table_refs),
+                   [](const auto &ref) { return shared::ManagedPointer<TableRef>(ref); });
     return table_refs;
   }
 
@@ -518,16 +467,13 @@ public:
    * @param rhs other
    * @return true if the two SelectStatement are logically unequal
    */
-  bool operator!=(const SelectStatement &rhs) const {
-    return !(operator==(rhs));
-  }
+  bool operator!=(const SelectStatement &rhs) const { return !(operator==(rhs)); }
 
   /** @return statement serialized to json */
   nlohmann::json ToJson() const override;
 
   /** @param j json to deserialize */
-  std::vector<std::unique_ptr<AbstractExpression>>
-  FromJson(const nlohmann::json &j) override;
+  std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j) override;
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(SelectStatement);

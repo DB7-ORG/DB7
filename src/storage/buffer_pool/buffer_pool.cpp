@@ -6,12 +6,11 @@
 #include <thread>
 
 namespace db7::storage {
-BufferPool::BufferPool(DiskScheduler *disk_mng,
-                       PageVersionManager *version_table, size_t page_num)
+BufferPool::BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_table, size_t page_num)
     : disk_mng_(disk_mng), pool_size_(page_num), version_table_(version_table) {
   pages_ = new Page[page_num];
-  auto data = static_cast<u8 *>(
-      std::aligned_alloc(4096, static_cast<size_t>(page_num) * DB7_PAGE_SIZE));
+  auto data =
+      static_cast<u8 *>(std::aligned_alloc(4096, static_cast<size_t>(page_num) * DB7_PAGE_SIZE));
   DB7_ASSERT(data != nullptr, "Failed to allocate");
   PageIdentifier id(0);
   for (u32 i = 0; i < page_num; i++) {
@@ -22,9 +21,7 @@ BufferPool::BufferPool(DiskScheduler *disk_mng,
   }
 
   size_t per_partition = page_num / BUFFER_POOL_PARTITION_NUM;
-  for (u32 i = 0; i < BUFFER_POOL_PARTITION_NUM; i++) {
-    partitions_.Reserve(per_partition, i);
-  }
+  for (u32 i = 0; i < BUFFER_POOL_PARTITION_NUM; i++) { partitions_.Reserve(per_partition, i); }
 
   FreeSpaceManagerIndex::Reset();
 }
@@ -46,9 +43,7 @@ Page *BufferPool::GetVictim(PageIdentifier id, u32 &victim_frame_idx,
         victim_page_id = page->GetId();
         page->SetId(id);
         page->Pin();
-        if (isIO) {
-          page->SetIOInProgress();
-        }
+        if (isIO) { page->SetIOInProgress(); }
         page->WUnlock();
         victim_frame_idx = head;
         return page;
@@ -56,9 +51,7 @@ Page *BufferPool::GetVictim(PageIdentifier id, u32 &victim_frame_idx,
       page->WUnlock();
     }
 
-    if (iters % max_iters == 0) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
+    if (iters % max_iters == 0) { std::this_thread::sleep_for(std::chrono::milliseconds(1)); }
   }
 
   DB7_UNREACHABLE();
@@ -72,10 +65,9 @@ void BufferPool::UndoState(Page *victim_page, PageIdentifier victim_page_id) {
   victim_page->WUnlock();
 }
 
-bool BufferPool::PageVisit(
-    Page *page,
-    PageIdentifier id) { // TODO  might be able to use optimistic here but i
-                         // think this is just a spinlock anyway
+bool BufferPool::PageVisit(Page *page,
+                           PageIdentifier id) { // TODO  might be able to use optimistic here but i
+                                                // think this is just a spinlock anyway
   // page->RLock();
   // if (page->GetId() == id)
   // { // PageVisit
@@ -86,9 +78,7 @@ bool BufferPool::PageVisit(
   // page->RUnlock();
 
   page->Pin(); // optimistic pin
-  if (page->GetId() == id) {
-    return true;
-  }
+  if (page->GetId() == id) { return true; }
   page->Unpin();
 
   return false;
@@ -111,9 +101,7 @@ Page *BufferPool::Pin(PageIdentifier id) {
     if (frame_idx != UINT32_MAX) // page found (fast path)
     {
       page = &pages_[frame_idx];
-      if (PageVisit(page, id)) {
-        return page;
-      }
+      if (PageVisit(page, id)) { return page; }
     }
 
     // FindVictim (slow path)
@@ -139,9 +127,7 @@ Page *BufferPool::Pin(PageIdentifier id) {
     UndoState(page, victim_page_id);
 
     page = &pages_[new_frame_idx];
-    if (PageVisit(page, id)) {
-      return page;
-    }
+    if (PageVisit(page, id)) { return page; }
     // goto Lookup
   }
 }

@@ -15,8 +15,7 @@ public:
 
   void Set(UndoRecord *new_ptr) { ptr.store(new_ptr); }
 
-  bool CompareAndSwap(storage::UndoRecord *expected,
-                      storage::UndoRecord *desired) {
+  bool CompareAndSwap(storage::UndoRecord *expected, storage::UndoRecord *desired) {
     return ptr.compare_exchange_strong(expected, desired);
   }
 };

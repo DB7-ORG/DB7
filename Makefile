@@ -1,17 +1,18 @@
 MAKEFLAGS += -j$(shell nproc)
 CXX = clang++
 CC = gcc
-BASE_CXXFLAGS = -std=c++20 -Iinclude -Isrc -Iinclude/third_party/libpg_query/src/postgres/include -march=native -Wall -Wextra \
-				-Wno-unused-parameter -Wno-unused-but-set-variable -Wno-return-type \
-				-isystem include/third_party/libpg_query \
-				-isystem include/third_party/libpg_query/src \
-				-isystem include/third_party/libpg_query/src/postgres/include 
+BASE_CXXFLAGS = -std=c++20 -Iinclude -Isrc -march=native -Wall -Wextra \
+				-Wno-unused-parameter -Wno-unused-but-set-variable -Wno-return-type
+				
 DEPFLAGS = -MMD -MP
 
 # external libraries
 PG_QUERY_DIR := include/third_party/libpg_query
 PG_QUERY_LIB := $(PG_QUERY_DIR)/libpg_query.a
-BASE_CXXFLAGS += -I$(PG_QUERY_DIR)
+PG_QUERY_INC := -isystem $(PG_QUERY_DIR) \
+                -isystem $(PG_QUERY_DIR)/src \
+                -isystem $(PG_QUERY_DIR)/src/postgres/include
+
 LDFLAGS = -lxxhash -lfmt -luring -ljemalloc -lutf8proc
 
 BUILD ?= release
@@ -41,6 +42,8 @@ C_OBJS := $(patsubst src/%.c,$(CACHE_OBJ_DIR)/%.o,$(C_SRCS))
 OBJS := $(CXX_OBJS) $(C_OBJS)
 DEPS := $(OBJS:.o=.d)
 
+PG_OBJS := $(OBJ_DIR)/parser/postgres_parser.o
+
 all: $(TARGET)
 
 # Generic C++ rule
@@ -53,6 +56,8 @@ $(CACHE_OBJ_DIR)/%.o: src/%.c Makefile
 	@mkdir -p $(dir $@)
 	$(CC) $(CCO3FLAGS) $(DEPFLAGS) -march=native -c $< -o $@
 
+$(PG_OBJS): CXXFLAGS += $(PG_QUERY_INC) -fno-strict-aliasing
+$(PG_OBJS): $(PG_QUERY_LIB)
 $(PG_QUERY_LIB):
 	$(MAKE) -C $(PG_QUERY_DIR) build
 

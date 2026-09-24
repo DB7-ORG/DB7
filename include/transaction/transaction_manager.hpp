@@ -17,8 +17,7 @@ private:
   shared::AdaptiveSpinLock commit_latch_;
 
 public:
-  TransactionManager(TimestampManager *timestamp_manager,
-                     storage::BufferPool *buffer_pool,
+  TransactionManager(TimestampManager *timestamp_manager, storage::BufferPool *buffer_pool,
                      storage::PageVersionManager *version_manager,
                      shared::ObjectPool<shared::FixedBumpArena> *mem_pool)
       : timestamp_manager_(timestamp_manager), buffer_pool_(buffer_pool),

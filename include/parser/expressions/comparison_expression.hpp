@@ -19,11 +19,9 @@ public:
    * @param cmp_type type of comparison
    * @param children vector containing exactly two children, left then right
    */
-  ComparisonExpression(
-      const ExpressionType cmp_type,
-      std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      : AbstractExpression(cmp_type, access::type_id::BOOLEAN,
-                           std::move(children)) {}
+  ComparisonExpression(const ExpressionType cmp_type,
+                       std::vector<std::unique_ptr<AbstractExpression>> &&children)
+      : AbstractExpression(cmp_type, access::type_id::BOOLEAN, std::move(children)) {}
 
   /** Default constructor for deserialization. */
   ComparisonExpression() = default;
@@ -42,8 +40,7 @@ public:
    * @returns copy of this with new children
    */
   std::unique_ptr<AbstractExpression>
-  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      const override;
+  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children) const override;
 
   // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override;
 };

@@ -7,8 +7,7 @@ namespace db7::storage {
 class FreeSpaceManager {
 private:
   inline static u32 next_page_id = 1;
-  inline static u32 free_space =
-      DB7_PAGE_SIZE - sizeof(PageHeader); // TODO should be max index
+  inline static u32 free_space = DB7_PAGE_SIZE - sizeof(PageHeader); // TODO should be max index
 
 public:
   static u32 Get(u32 space) {

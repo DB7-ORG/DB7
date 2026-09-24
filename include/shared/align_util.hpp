@@ -13,8 +13,7 @@ constexpr uintptr_t AlignUp(uintptr_t addr, u32 alignment) {
 }
 
 inline byte *AlignUp(byte *value, u32 alignment) {
-  return reinterpret_cast<byte *>(
-      AlignUp(reinterpret_cast<uintptr_t>(value), alignment));
+  return reinterpret_cast<byte *>(AlignUp(reinterpret_cast<uintptr_t>(value), alignment));
 }
 
 template <typename T> constexpr T AlignDown(T value, size_t alignment) {

@@ -31,11 +31,9 @@ public:
    * @param right right table
    * @param condition join condition
    */
-  JoinDefinition(JoinType type, std::unique_ptr<TableRef> left,
-                 std::unique_ptr<TableRef> right,
+  JoinDefinition(JoinType type, std::unique_ptr<TableRef> left, std::unique_ptr<TableRef> right,
                  shared::ManagedPointer<AbstractExpression> condition)
-      : type_(type), left_(std::move(left)), right_(std::move(right)),
-        condition_(condition) {}
+      : type_(type), left_(std::move(left)), right_(std::move(right)), condition_(condition) {}
 
   /**
    * Default constructor used for deserialization
@@ -61,23 +59,17 @@ public:
   /**
    * @return left table
    */
-  shared::ManagedPointer<TableRef> GetLeftTable() {
-    return shared::ManagedPointer(left_);
-  }
+  shared::ManagedPointer<TableRef> GetLeftTable() { return shared::ManagedPointer(left_); }
 
   /**
    * @return right table
    */
-  shared::ManagedPointer<TableRef> GetRightTable() {
-    return shared::ManagedPointer(right_);
-  }
+  shared::ManagedPointer<TableRef> GetRightTable() { return shared::ManagedPointer(right_); }
 
   /**
    * @return join condition
    */
-  shared::ManagedPointer<AbstractExpression> GetJoinCondition() {
-    return condition_;
-  }
+  shared::ManagedPointer<AbstractExpression> GetJoinCondition() { return condition_; }
 
   /**
    * @return the hashed value of this join definition
@@ -96,9 +88,7 @@ public:
    * @param rhs other
    * @return true if the two JoinDefinition are logically unequal
    */
-  bool operator!=(const JoinDefinition &rhs) const {
-    return !(operator==(rhs));
-  }
+  bool operator!=(const JoinDefinition &rhs) const { return !(operator==(rhs)); }
 
   /**
    * @return JoinDefinition serialized to json
@@ -108,8 +98,7 @@ public:
   /**
    * @param j json to deserialize
    */
-  std::vector<std::unique_ptr<AbstractExpression>>
-  FromJson(const nlohmann::json &j);
+  std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j);
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(JoinDefinition);
@@ -179,8 +168,7 @@ public:
    * @param select select statement to use in creation
    */
   TableRef(AliasType alias, std::unique_ptr<SelectStatement> select)
-      : type_(TableReferenceType::SELECT), alias_(std::move(alias)),
-        select_(std::move(select)) {}
+      : type_(TableReferenceType::SELECT), alias_(std::move(alias)), select_(std::move(select)) {}
 
   /**
    * Construct a table reference.
@@ -191,8 +179,7 @@ public:
    */
   TableRef(AliasType alias, std::unique_ptr<SelectStatement> select,
            std::vector<AliasType> cte_col_aliases, parser::CteType cte_type)
-      : type_(TableReferenceType::SELECT), alias_(std::move(alias)),
-        select_(std::move(select)),
+      : type_(TableReferenceType::SELECT), alias_(std::move(alias)), select_(std::move(select)),
         cte_col_aliases_(std::move(cte_col_aliases)), cte_type_(cte_type) {}
 
   /**
@@ -214,8 +201,8 @@ public:
    * @param table_info table info to use in creation
    * @return unique pointer to the created table ref
    */
-  static std::unique_ptr<TableRef>
-  CreateTableRefByName(AliasType alias, std::unique_ptr<TableInfo> table_info) {
+  static std::unique_ptr<TableRef> CreateTableRefByName(AliasType alias,
+                                                        std::unique_ptr<TableInfo> table_info) {
     return std::make_unique<TableRef>(std::move(alias), std::move(table_info));
   }
 
@@ -224,9 +211,8 @@ public:
    * @param select select statement to use in creation
    * @return unique pointer to the created table ref
    */
-  static std::unique_ptr<TableRef>
-  CreateTableRefBySelect(AliasType alias,
-                         std::unique_ptr<SelectStatement> select) {
+  static std::unique_ptr<TableRef> CreateTableRefBySelect(AliasType alias,
+                                                          std::unique_ptr<SelectStatement> select) {
     return std::make_unique<TableRef>(std::move(alias), std::move(select));
   }
 
@@ -237,11 +223,10 @@ public:
    * @param cte_type the type of CTE
    * @return unique pointer to the created (CTE) table ref
    */
-  static std::unique_ptr<TableRef> CreateCTETableRefBySelect(
-      std::string alias, std::unique_ptr<SelectStatement> select,
-      std::vector<AliasType> cte_col_aliases, parser::CteType cte_type) {
-    return std::make_unique<TableRef>(parser::AliasType(std::move(alias)),
-                                      std::move(select),
+  static std::unique_ptr<TableRef>
+  CreateCTETableRefBySelect(std::string alias, std::unique_ptr<SelectStatement> select,
+                            std::vector<AliasType> cte_col_aliases, parser::CteType cte_type) {
+    return std::make_unique<TableRef>(parser::AliasType(std::move(alias)), std::move(select),
                                       std::move(cte_col_aliases), cte_type);
   }
 
@@ -258,8 +243,7 @@ public:
    * @param join join definition to use in creation
    * @return unique pointer to the created table ref
    */
-  static std::unique_ptr<TableRef>
-  CreateTableRefByJoin(std::unique_ptr<JoinDefinition> join) {
+  static std::unique_ptr<TableRef> CreateTableRefByJoin(std::unique_ptr<JoinDefinition> join) {
     return std::make_unique<TableRef>(std::move(join));
   }
 
@@ -272,9 +256,7 @@ public:
 
   /** @return The table alias */
   AliasType &GetAlias() {
-    if (alias_.Empty()) {
-      alias_ = AliasType(GetTableName());
-    }
+    if (alias_.Empty()) { alias_ = AliasType(GetTableName()); }
     return alias_;
   }
 
@@ -292,8 +274,7 @@ public:
   /** @return `true` if this table reference represents an inductive CTE,
    * `false` otherwise */
   bool IsSyntacticallyInductiveCte() const {
-    return (cte_type_ == CteType::RECURSIVE) ||
-           (cte_type_ == CteType::ITERATIVE) ||
+    return (cte_type_ == CteType::RECURSIVE) || (cte_type_ == CteType::ITERATIVE) ||
            (cte_type_ == CteType::STRUCTURALLY_RECURSIVE) ||
            (cte_type_ == CteType::STRUCTURALLY_ITERATIVE);
   }
@@ -309,19 +290,13 @@ public:
   const std::string &GetTableName() { return table_info_->GetTableName(); }
 
   /** @return The namespace name */
-  const std::string &GetNamespaceName() {
-    return table_info_->GetNamespaceName();
-  }
+  const std::string &GetNamespaceName() { return table_info_->GetNamespaceName(); }
 
   /** @return The database name */
-  const std::string &GetDatabaseName() {
-    return table_info_->GetDatabaseName();
-  }
+  const std::string &GetDatabaseName() { return table_info_->GetDatabaseName(); }
 
   /** @return The SELECT statement */
-  shared::ManagedPointer<SelectStatement> GetSelect() {
-    return shared::ManagedPointer(select_);
-  }
+  shared::ManagedPointer<SelectStatement> GetSelect() { return shared::ManagedPointer(select_); }
 
   /** @return `true` if this table reference has an associated SELECT, `false`
    * otherwise */
@@ -331,16 +306,12 @@ public:
   std::vector<shared::ManagedPointer<TableRef>> GetList() {
     std::vector<shared::ManagedPointer<TableRef>> list;
     list.reserve(list_.size());
-    for (const auto &item : list_) {
-      list.emplace_back(shared::ManagedPointer(item));
-    }
+    for (const auto &item : list_) { list.emplace_back(shared::ManagedPointer(item)); }
     return list;
   }
 
   /** @return The join */
-  shared::ManagedPointer<JoinDefinition> GetJoin() {
-    return shared::ManagedPointer(join_);
-  }
+  shared::ManagedPointer<JoinDefinition> GetJoin() { return shared::ManagedPointer(join_); }
 
   /** @return The hashed value of this table ref object */
   hash_t Hash() const;
@@ -371,8 +342,7 @@ public:
   nlohmann::json ToJson() const;
 
   /** @param j json to deserialize */
-  std::vector<std::unique_ptr<AbstractExpression>>
-  FromJson(const nlohmann::json &j);
+  std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j);
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(TableRef);

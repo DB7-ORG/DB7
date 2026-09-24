@@ -22,10 +22,8 @@ public:
    * @param distinct whether to eliminate duplicate values in aggregate function
    * calculations
    */
-  AggregateExpression(
-      ExpressionType type,
-      std::vector<std::unique_ptr<AbstractExpression>> &&children,
-      bool distinct)
+  AggregateExpression(ExpressionType type,
+                      std::vector<std::unique_ptr<AbstractExpression>> &&children, bool distinct)
       : AbstractExpression(type, access::type_id::INVALID, std::move(children)),
         distinct_(distinct) {}
 
@@ -46,14 +44,12 @@ public:
    * @returns copy of this with new children
    */
   std::unique_ptr<AbstractExpression>
-  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      const override;
+  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children) const override;
 
   hash_t Hash() const override;
 
   bool operator==(const AbstractExpression &rhs) const override {
-    if (!AbstractExpression::operator==(rhs))
-      return false;
+    if (!AbstractExpression::operator==(rhs)) return false;
     auto const &other = dynamic_cast<const AggregateExpression &>(rhs);
     return IsDistinct() == other.IsDistinct();
   }
@@ -79,8 +75,7 @@ public:
   /**
    * @param j json to deserialize
    */
-  std::vector<std::unique_ptr<AbstractExpression>>
-  FromJson(const nlohmann::json &j) override;
+  std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j) override;
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(AggregateExpression);

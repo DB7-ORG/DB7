@@ -10,20 +10,16 @@ void Print(const storage::PageIdentifier &pid) {
 }
 
 void Print(const storage::Page &page) {
-  printf("Page{table_id=%-4u  page_id=%-6u  ref=%-3u  io_in_progress=%s}\n",
-         page.GetId().tbl_id, page.GetId().pid, page.PinCount(),
-         page.IsIOInProgress() ? "true" : "false");
+  printf("Page{table_id=%-4u  page_id=%-6u  ref=%-3u  io_in_progress=%s}\n", page.GetId().tbl_id,
+         page.GetId().pid, page.PinCount(), page.IsIOInProgress() ? "true" : "false");
 }
 
 void Print(const storage::BufferPool &pool) {
   const storage::Page *pages = pool.GetPagesDebug();
   printf("===========================================================\n");
-  printf("%-10s %-8s %-5s %s\n", "table_id", "page_id", "ref",
-         "io_in_progress");
+  printf("%-10s %-8s %-5s %s\n", "table_id", "page_id", "ref", "io_in_progress");
   printf("-----------------------------------------------------------\n");
-  for (u32 i = 0; i < (u32)BUFFER_POOL_PAGE_NUM; i++) {
-    Print(pages[i]);
-  }
+  for (u32 i = 0; i < (u32)BUFFER_POOL_PAGE_NUM; i++) { Print(pages[i]); }
   printf("===========================================================\n");
 }
 

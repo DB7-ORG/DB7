@@ -33,9 +33,7 @@ using Tree = BTreeIndex<Rid>;
 //    When the tree API changes, this is the only block you edit.
 // =========================================================================
 namespace api {
-inline bool Insert(Tree &tree, DataChunk *key, Rid rid) {
-  return tree.Insert(key, rid).success;
-}
+inline bool Insert(Tree &tree, DataChunk *key, Rid rid) { return tree.Insert(key, rid).success; }
 
 inline bool Get(Tree &tree, DataChunk *key, std::vector<Rid> &out) {
   shared::VectorValues<Rid> res;
@@ -44,9 +42,7 @@ inline bool Get(Tree &tree, DataChunk *key, std::vector<Rid> &out) {
   return ok;
 }
 
-inline bool Delete(Tree &tree, DataChunk *key, Rid rid) {
-  return tree.Delete(key, rid).success;
-}
+inline bool Delete(Tree &tree, DataChunk *key, Rid rid) { return tree.Delete(key, rid).success; }
 
 // TODO: when Scan lands, add it here and the test at the bottom of this
 // file stops being DISABLED_.
@@ -56,9 +52,7 @@ inline bool Delete(Tree &tree, DataChunk *key, Rid rid) {
 /// DataChunk*, so it must be released as a byte array — deleting
 /// through the DataChunk* is the wrong type and is undefined behaviour.
 struct ChunkDeleter {
-  void operator()(DataChunk *chunk) const noexcept {
-    delete[] reinterpret_cast<byte *>(chunk);
-  }
+  void operator()(DataChunk *chunk) const noexcept { delete[] reinterpret_cast<byte *>(chunk); }
 };
 } // namespace api
 
@@ -70,8 +64,8 @@ using ChunkPtr = std::unique_ptr<DataChunk, api::ChunkDeleter>;
 
 /// One column value. std::string (not const char *) so rows built from
 /// temporaries in a loop can't dangle.
-using Value = std::variant<bool, int8_t, int16_t, int32_t, int64_t, uint8_t,
-                           uint16_t, uint32_t, uint64_t, double, std::string>;
+using Value = std::variant<bool, int8_t, int16_t, int32_t, int64_t, uint8_t, uint16_t, uint32_t,
+                           uint64_t, double, std::string>;
 
 using Row = std::vector<Value>;
 
@@ -116,13 +110,10 @@ Row NthRow(size_t i) {
 /// Never 0 — tid 0 is reserved for the [encoded][0] search sentinel.
 constexpr Rid RidFor(size_t i) { return 10'000 + i; }
 
-template <typename Proj>
-auto Project(std::span<const TypeSize> types, Proj proj) {
+template <typename Proj> auto Project(std::span<const TypeSize> types, Proj proj) {
   std::vector<decltype(proj(types.front()))> out;
   out.reserve(types.size());
-  for (const auto &t : types) {
-    out.push_back(proj(t));
-  }
+  for (const auto &t : types) { out.push_back(proj(t)); }
   return out;
 }
 
@@ -171,18 +162,15 @@ protected:
     sched_ = std::make_unique<storage::DiskScheduler>(dm_.get());
     sched_->Start();
     vm_ = std::make_unique<storage::PageVersionManager>();
-    bp_ = std::make_unique<storage::BufferPool>(sched_.get(), vm_.get(),
-                                                PoolPages());
+    bp_ = std::make_unique<storage::BufferPool>(sched_.get(), vm_.get(), PoolPages());
 
     const std::vector<TypeSize> attr = Schema();
 
-    const auto col_ids =
-        Project(attr, [](const TypeSize &t) { return t.col_id; });
+    const auto col_ids = Project(attr, [](const TypeSize &t) { return t.col_id; });
     const auto sizes = Project(attr, [](const TypeSize &t) { return t.size; });
 
-    layout_ = std::make_unique<DataChunkLayout>(
-        std::span<const catalog::col_oid_t>(col_ids),
-        std::span<const u16>(sizes));
+    layout_ = std::make_unique<DataChunkLayout>(std::span<const catalog::col_oid_t>(col_ids),
+                                                std::span<const u16>(sizes));
 
     tree_ = std::make_unique<Tree>(bp_.get(), dm_.get(), next_tbl_++, attr);
   }
@@ -191,9 +179,7 @@ protected:
     // Start() with no matching Stop() leaves the scheduler thread
     // running past the end of the test. Drop this line if your
     // scheduler has no Stop().
-    if (sched_) {
-      sched_->Stop();
-    }
+    if (sched_) { sched_->Stop(); }
   }
 
   // ---- Chunk construction (thread-safe) --------------------------------
@@ -291,9 +277,7 @@ TEST_F(BTreeTest, DistinctKeysDoNotCollide) {
   for (size_t i = 0; i < rows.size(); ++i) {
     ASSERT_TRUE(Insert(rows[i], 100 + i)) << "insert #" << i;
   }
-  for (size_t i = 0; i < rows.size(); ++i) {
-    ExpectRids(rows[i], {100 + i});
-  }
+  for (size_t i = 0; i < rows.size(); ++i) { ExpectRids(rows[i], {100 + i}); }
 }
 
 // =========================================================================
@@ -356,8 +340,7 @@ TEST_F(BTreeTest, EmptyStringIsAValidKey) {
 
 TEST_F(BTreeTest, IntegerBoundaryValues) {
   const std::vector<int32_t> bounds = {
-      std::numeric_limits<int32_t>::min(), -1, 0, 1,
-      std::numeric_limits<int32_t>::max(),
+      std::numeric_limits<int32_t>::min(), -1, 0, 1, std::numeric_limits<int32_t>::max(),
   };
 
   for (size_t i = 0; i < bounds.size(); ++i) {
@@ -417,9 +400,7 @@ TEST_F(BTreeTest, ManyKeysShuffled) {
   std::iota(order.begin(), order.end(), 0);
   std::shuffle(order.begin(), order.end(), std::mt19937{0xD7}); // fixed seed
 
-  for (size_t i : order) {
-    ASSERT_TRUE(Insert(NthRow(i), RidFor(i))) << "insert " << i;
-  }
+  for (size_t i : order) { ASSERT_TRUE(Insert(NthRow(i), RidFor(i))) << "insert " << i; }
   for (size_t i = 0; i < kManyKeys; ++i) {
     SCOPED_TRACE(i);
     ExpectRids(NthRow(i), {RidFor(i)});
@@ -569,8 +550,7 @@ TEST_F(BTreeTest, InterleavedInsertDeleteChurn) {
       const size_t at = pick(rng);
       const size_t victim = live[at];
 
-      ASSERT_TRUE(Delete(NthRow(victim), RidFor(victim)))
-          << "delete " << victim;
+      ASSERT_TRUE(Delete(NthRow(victim), RidFor(victim))) << "delete " << victim;
 
       live.erase(live.begin() + at);
     }
@@ -621,9 +601,7 @@ TEST_F(BTreeConcurrencyTest, ConcurrentInsertDisjointKeys) {
   RunParallel(T, [&](unsigned t) {
     const Range r = PartitionRange(t, T, kManyKeys);
     for (size_t i = r.lo; i < r.hi; ++i) {
-      if (!Insert(NthRow(i), RidFor(i))) {
-        log.Failf("insert failed for key ", i);
-      }
+      if (!Insert(NthRow(i), RidFor(i))) { log.Failf("insert failed for key ", i); }
     }
   });
 
@@ -644,9 +622,7 @@ TEST_F(BTreeConcurrencyTest, ConcurrentInsertDescendingWithinRange) {
   RunParallel(T, [&](unsigned t) {
     const Range r = PartitionRange(t, T, kManyKeys);
     for (size_t i = r.hi; i-- > r.lo;) {
-      if (!Insert(NthRow(i), RidFor(i))) {
-        log.Failf("insert failed for key ", i);
-      }
+      if (!Insert(NthRow(i), RidFor(i))) { log.Failf("insert failed for key ", i); }
     }
   });
 
@@ -671,9 +647,7 @@ TEST_F(BTreeConcurrencyTest, ConcurrentInsertSameKeyDistinctRids) {
   RunParallel(T, [&](unsigned t) {
     for (size_t j = 0; j < kPerThread; ++j) {
       const Rid rid = RidFor(t * kPerThread + j);
-      if (!Insert(key, rid)) {
-        log.Failf("insert failed for rid ", rid);
-      }
+      if (!Insert(key, rid)) { log.Failf("insert failed for rid ", rid); }
     }
   });
 
@@ -682,9 +656,7 @@ TEST_F(BTreeConcurrencyTest, ConcurrentInsertSameKeyDistinctRids) {
   std::vector<Rid> expected;
   expected.reserve(T * kPerThread);
   for (unsigned t = 0; t < T; ++t) {
-    for (size_t j = 0; j < kPerThread; ++j) {
-      expected.push_back(RidFor(t * kPerThread + j));
-    }
+    for (size_t j = 0; j < kPerThread; ++j) { expected.push_back(RidFor(t * kPerThread + j)); }
   }
   std::sort(expected.begin(), expected.end());
 
@@ -717,9 +689,7 @@ TEST_F(BTreeConcurrencyTest, ReadersNeverMissPrefilledKeysDuringWrites) {
       [&](unsigned t) {
         const Range r = PartitionRange(t, writers, kWritten, kPrefill);
         for (size_t i = r.lo; i < r.hi; ++i) {
-          if (!Insert(NthRow(i), RidFor(i))) {
-            log.Failf("writer: insert failed for key ", i);
-          }
+          if (!Insert(NthRow(i), RidFor(i))) { log.Failf("writer: insert failed for key ", i); }
         }
       },
       readers,
@@ -732,8 +702,7 @@ TEST_F(BTreeConcurrencyTest, ReadersNeverMissPrefilledKeysDuringWrites) {
           const auto rids = Lookup(NthRow(i));
 
           if (!std::binary_search(rids.begin(), rids.end(), RidFor(i))) {
-            log.Failf("reader: key ", i, " lost rid ", RidFor(i), " (saw ",
-                      rids.size(), " rids)");
+            log.Failf("reader: key ", i, " lost rid ", RidFor(i), " (saw ", rids.size(), " rids)");
           }
         }
       });
@@ -750,9 +719,7 @@ TEST_F(BTreeConcurrencyTest, ReadersNeverMissPrefilledKeysDuringWrites) {
 /// path itself rather than in write interference — a useful bisection.
 TEST_F(BTreeConcurrencyTest, ConcurrentReadersOnStableTree) {
   constexpr size_t kN = 5'000;
-  for (size_t i = 0; i < kN; ++i) {
-    ASSERT_TRUE(Insert(NthRow(i), RidFor(i))) << "prefill " << i;
-  }
+  for (size_t i = 0; i < kN; ++i) { ASSERT_TRUE(Insert(NthRow(i), RidFor(i))) << "prefill " << i; }
 
   const unsigned T = DefaultThreads();
   ErrorLog log;
@@ -786,9 +753,7 @@ TEST_F(BTreeConcurrencyTest, ConcurrentDeleteDisjointKeys) {
   RunParallel(T, [&](unsigned t) {
     const Range r = PartitionRange(t, T, kManyKeys);
     for (size_t i = r.lo; i < r.hi; ++i) {
-      if (!Delete(NthRow(i), RidFor(i))) {
-        log.Failf("delete failed for key ", i);
-      }
+      if (!Delete(NthRow(i), RidFor(i))) { log.Failf("delete failed for key ", i); }
     }
   });
 
@@ -822,18 +787,14 @@ TEST_F(BTreeConcurrencyTest, ConcurrentInsertAndDeleteDisjointRanges) {
       [&](unsigned t) {
         const Range r = PartitionRange(t, deleters, kOld);
         for (size_t i = r.lo; i < r.hi; ++i) {
-          if (!Delete(NthRow(i), RidFor(i))) {
-            log.Failf("delete failed for key ", i);
-          }
+          if (!Delete(NthRow(i), RidFor(i))) { log.Failf("delete failed for key ", i); }
         }
       },
       inserters,
       [&](unsigned t) {
         const Range r = PartitionRange(t, inserters, kNew, kOld);
         for (size_t i = r.lo; i < r.hi; ++i) {
-          if (!Insert(NthRow(i), RidFor(i))) {
-            log.Failf("insert failed for key ", i);
-          }
+          if (!Insert(NthRow(i), RidFor(i))) { log.Failf("insert failed for key ", i); }
         }
       });
 
@@ -860,9 +821,7 @@ TEST_F(BTreeConcurrencyTest, MixedOperationsOnPerThreadRanges) {
 
   RunParallel(T, [&](unsigned t) {
     const Range r = PartitionRange(t, T, kManyKeys);
-    if (r.empty()) {
-      return;
-    }
+    if (r.empty()) { return; }
 
     std::mt19937 rng{0xC0FFEEu + t};
     std::uniform_int_distribution<size_t> pick(r.lo, r.hi - 1);
@@ -897,8 +856,7 @@ TEST_F(BTreeConcurrencyTest, MixedOperationsOnPerThreadRanges) {
       {
         const bool found = Contains(NthRow(i), RidFor(i));
         if (found != present[at]) {
-          log.Failf("key ", i, ": expected present=", present[at],
-                    " but found=", found);
+          log.Failf("key ", i, ": expected present=", present[at], " but found=", found);
         }
         break;
       }
@@ -906,9 +864,7 @@ TEST_F(BTreeConcurrencyTest, MixedOperationsOnPerThreadRanges) {
     }
 
     for (size_t at = 0; at < present.size(); ++at) {
-      if (present[at]) {
-        live[t].push_back(r.lo + at);
-      }
+      if (present[at]) { live[t].push_back(r.lo + at); }
     }
   });
 
@@ -918,8 +874,7 @@ TEST_F(BTreeConcurrencyTest, MixedOperationsOnPerThreadRanges) {
     const Range r = PartitionRange(t, T, kManyKeys);
     for (size_t i = r.lo; i < r.hi; ++i) {
       SCOPED_TRACE(i);
-      const bool expected =
-          std::binary_search(live[t].begin(), live[t].end(), i);
+      const bool expected = std::binary_search(live[t].begin(), live[t].end(), i);
       if (expected) {
         ExpectRids(NthRow(i), {RidFor(i)});
       } else {
@@ -959,8 +914,8 @@ TEST_F(BTreeConcurrencyTest, RepeatedSmallConcurrentInsert) {
     for (size_t i = 0; i < kSmall; ++i) {
       const auto rids = Lookup(NthRow(i));
       if (rids.size() != 1 || rids[0] != RidFor(i)) {
-        ADD_FAILURE() << "iter " << iteration << ": key " << i << " returned "
-                      << rids.size() << " rids";
+        ADD_FAILURE() << "iter " << iteration << ": key " << i << " returned " << rids.size()
+                      << " rids";
         break;
       }
     }
@@ -971,8 +926,6 @@ TEST_F(BTreeConcurrencyTest, RepeatedSmallConcurrentInsert) {
 // 10. PENDING API
 // =========================================================================
 
-TEST_F(BTreeTest, DISABLED_RangeScanReturnsKeysInOrder) {
-  GTEST_SKIP() << "Scan not yet in api::";
-}
+TEST_F(BTreeTest, DISABLED_RangeScanReturnsKeysInOrder) { GTEST_SKIP() << "Scan not yet in api::"; }
 
 } // namespace

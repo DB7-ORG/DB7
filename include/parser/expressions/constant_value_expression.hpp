@@ -20,8 +20,7 @@ private:
   // friend class binder::BindNodeVisitor; /* value_ may be modified, e.g., when
   // parsing dates. */
   void Validate() const;
-  std::variant<Val, BoolVal, Integer, Real, DecimalVal, StringVal> value_{
-      Val(true)};
+  std::variant<Val, BoolVal, Integer, Real, DecimalVal, StringVal> value_{Val(true)};
   std::unique_ptr<byte[]> buffer_ = nullptr;
 
 public:
@@ -52,8 +51,7 @@ public:
    * @param buffer StringVal might not be inlined, so take ownership of that
    * buffer
    */
-  ConstantValueExpression(access::type_id type, StringVal value,
-                          std::unique_ptr<byte[]> buffer);
+  ConstantValueExpression(access::type_id type, StringVal value, std::unique_ptr<byte[]> buffer);
 
   /** Default constructor for deserialization. */
   ConstantValueExpression() = default;
@@ -93,8 +91,7 @@ public:
    * @returns copy of this
    */
   std::unique_ptr<AbstractExpression> Copy() const override {
-    return std::unique_ptr<AbstractExpression>{
-        std::make_unique<ConstantValueExpression>(*this)};
+    return std::unique_ptr<AbstractExpression>{std::make_unique<ConstantValueExpression>(*this)};
   }
 
   /**
@@ -105,26 +102,21 @@ public:
    * @returns copy of this with new children
    */
   std::unique_ptr<AbstractExpression>
-  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      const override {
-    assert(children.empty() &&
-           "ConstantValueExpression should have 0 children");
+  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children) const override {
+    assert(children.empty() && "ConstantValueExpression should have 0 children");
     (void)children;
     return Copy();
   }
 
   void DeriveExpressionName() override {
-    if (!this->GetAliasName().empty()) {
-      this->SetExpressionName(this->GetAliasName());
-    }
+    if (!this->GetAliasName().empty()) { this->SetExpressionName(this->GetAliasName()); }
   }
 
   /**
    * @return copy of the underlying Val
    */
   BoolVal GetBoolVal() const {
-    assert(std::holds_alternative<BoolVal>(value_) &&
-           "Invalid variant type for Get.");
+    assert(std::holds_alternative<BoolVal>(value_) && "Invalid variant type for Get.");
     return std::get<BoolVal>(value_);
   }
 
@@ -132,8 +124,7 @@ public:
    * @return copy of the underlying Val
    */
   Integer GetInteger() const {
-    assert(std::holds_alternative<Integer>(value_) &&
-           "Invalid variant type for Get.");
+    assert(std::holds_alternative<Integer>(value_) && "Invalid variant type for Get.");
     return std::get<Integer>(value_);
   }
 
@@ -141,8 +132,7 @@ public:
    * @return copy of the underlying Val
    */
   Real GetReal() const {
-    assert(std::holds_alternative<Real>(value_) &&
-           "Invalid variant type for Get.");
+    assert(std::holds_alternative<Real>(value_) && "Invalid variant type for Get.");
     return std::get<Real>(value_);
   }
 
@@ -150,8 +140,7 @@ public:
    * @return copy of underlying Val
    */
   DecimalVal GetDecimalVal() const {
-    assert(std::holds_alternative<DecimalVal>(value_) &&
-           "Invalid variant type for Get.");
+    assert(std::holds_alternative<DecimalVal>(value_) && "Invalid variant type for Get.");
     return std::get<DecimalVal>(value_);
   }
 
@@ -162,8 +151,7 @@ public:
    * this CVE. In that case, do not destroy this CVE before the copied StringVal
    */
   StringVal GetStringVal() const {
-    assert(std::holds_alternative<StringVal>(value_) &&
-           "Invalid variant type for Get.");
+    assert(std::holds_alternative<StringVal>(value_) && "Invalid variant type for Get.");
     return std::get<StringVal>(value_);
   }
 
@@ -176,8 +164,7 @@ public:
    * @param buffer StringVal might not be inlined, so take ownership of that
    * buffer
    */
-  void SetValue(const access::type_id type, const StringVal value,
-                std::unique_ptr<byte[]> buffer) {
+  void SetValue(const access::type_id type, const StringVal value, std::unique_ptr<byte[]> buffer) {
     return_value_type_ = type;
     value_ = value;
     buffer_ = std::move(buffer);
@@ -203,8 +190,7 @@ public:
    * @return true if CVE value represents a NULL
    */
   bool IsNull() const {
-    if (std::holds_alternative<Val>(value_) && std::get<Val>(value_).is_null_)
-      return true;
+    if (std::holds_alternative<Val>(value_) && std::get<Val>(value_).is_null_) return true;
     switch (return_value_type_) {
     case access::type_id::BOOLEAN: {
       return GetBoolVal().is_null_;
@@ -222,9 +208,7 @@ public:
     case access::type_id::VARBINARY: {
       return GetStringVal().is_null_;
     }
-    default:
-      assert(false && "Invalid TypeId.");
-      __builtin_unreachable();
+    default: assert(false && "Invalid TypeId."); __builtin_unreachable();
     }
   }
 
@@ -244,8 +228,7 @@ public:
   std::string ToString() const;
 
   /** @return A ConstantValueExpression from input string and type. */
-  static ConstantValueExpression FromString(const std::string &val_string,
-                                            access::type_id type_id);
+  static ConstantValueExpression FromString(const std::string &val_string, access::type_id type_id);
 
   /**
    * @return expression serialized to json
@@ -255,42 +238,36 @@ public:
   /**
    * @param j json to deserialize
    */
-  std::vector<std::unique_ptr<AbstractExpression>>
-  FromJson(const nlohmann::json &j) override;
+  std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j) override;
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(ConstantValueExpression);
 
 /// @cond DOXYGEN_IGNORE
-extern template ConstantValueExpression::ConstantValueExpression(
-    const access::type_id type, const Val value);
-extern template ConstantValueExpression::ConstantValueExpression(
-    const access::type_id type, const BoolVal value);
-extern template ConstantValueExpression::ConstantValueExpression(
-    const access::type_id type, const Integer value);
-extern template ConstantValueExpression::ConstantValueExpression(
-    const access::type_id type, const Real value);
-extern template ConstantValueExpression::ConstantValueExpression(
-    const access::type_id type, const DecimalVal value);
-extern template ConstantValueExpression::ConstantValueExpression(
-    const access::type_id type, const StringVal value);
+extern template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+                                                                 const Val value);
+extern template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+                                                                 const BoolVal value);
+extern template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+                                                                 const Integer value);
+extern template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+                                                                 const Real value);
+extern template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+                                                                 const DecimalVal value);
+extern template ConstantValueExpression::ConstantValueExpression(const access::type_id type,
+                                                                 const StringVal value);
 
-extern template void
-ConstantValueExpression::SetValue(const access::type_id type, const Val value);
-extern template void
-ConstantValueExpression::SetValue(const access::type_id type,
-                                  const BoolVal value);
-extern template void
-ConstantValueExpression::SetValue(const access::type_id type,
-                                  const Integer value);
-extern template void
-ConstantValueExpression::SetValue(const access::type_id type, const Real value);
-extern template void
-ConstantValueExpression::SetValue(const access::type_id type,
-                                  const DecimalVal value);
-extern template void
-ConstantValueExpression::SetValue(const access::type_id type,
-                                  const StringVal value);
+extern template void ConstantValueExpression::SetValue(const access::type_id type, const Val value);
+extern template void ConstantValueExpression::SetValue(const access::type_id type,
+                                                       const BoolVal value);
+extern template void ConstantValueExpression::SetValue(const access::type_id type,
+                                                       const Integer value);
+extern template void ConstantValueExpression::SetValue(const access::type_id type,
+                                                       const Real value);
+extern template void ConstantValueExpression::SetValue(const access::type_id type,
+                                                       const DecimalVal value);
+extern template void ConstantValueExpression::SetValue(const access::type_id type,
+                                                       const StringVal value);
 
 extern template bool ConstantValueExpression::Peek() const;
 extern template int8_t ConstantValueExpression::Peek() const;

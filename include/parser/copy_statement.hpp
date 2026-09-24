@@ -32,14 +32,12 @@ public:
    * @param quote quote character
    * @param escape escape character
    */
-  CopyStatement(std::unique_ptr<TableRef> table,
-                std::unique_ptr<SelectStatement> select_stmt,
-                std::string file_path, ExternalFileFormat format, bool is_from,
-                char delimiter, char quote, char escape)
+  CopyStatement(std::unique_ptr<TableRef> table, std::unique_ptr<SelectStatement> select_stmt,
+                std::string file_path, ExternalFileFormat format, bool is_from, char delimiter,
+                char quote, char escape)
       : SQLStatement(StatementType::COPY), table_(std::move(table)),
-        select_stmt_(std::move(select_stmt)), file_path_(std::move(file_path)),
-        format_(format), is_from_(is_from), delimiter_(delimiter),
-        quote_(quote), escape_(escape) {}
+        select_stmt_(std::move(select_stmt)), file_path_(std::move(file_path)), format_(format),
+        is_from_(is_from), delimiter_(delimiter), quote_(quote), escape_(escape) {}
 
   ~CopyStatement() override = default;
 
@@ -47,9 +45,7 @@ public:
   // v->Visit(shared::ManagedPointer(this)); }
 
   /** @return copy table */
-  shared::ManagedPointer<TableRef> GetCopyTable() {
-    return shared::ManagedPointer(table_);
-  }
+  shared::ManagedPointer<TableRef> GetCopyTable() { return shared::ManagedPointer(table_); }
 
   /** @return select statement */
   shared::ManagedPointer<SelectStatement> GetSelectStatement() {

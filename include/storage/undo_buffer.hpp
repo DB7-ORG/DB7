@@ -25,9 +25,7 @@ private:
 public:
   transaction::timestamp_t GetTimestamp() { return timestamp_.load(); }
 
-  void SetTimestamp(const transaction::timestamp_t time) {
-    timestamp_.store(time);
-  }
+  void SetTimestamp(const transaction::timestamp_t time) { timestamp_.store(time); }
 
   DeltaRecordType GetType() { return type_; }
 
@@ -43,8 +41,7 @@ public:
 
   void *GetDelta() { return varlen_contents_; }
 
-  static UndoRecord *InitializeInsert(byte *head,
-                                      const transaction::timestamp_t timestamp,
+  static UndoRecord *InitializeInsert(byte *head, const transaction::timestamp_t timestamp,
                                       table_id tbl_id, page_id pid, u32 idx) {
     auto *result = reinterpret_cast<UndoRecord *>(head);
     result->type_ = DeltaRecordType::INSERT;
@@ -56,8 +53,7 @@ public:
     return result;
   }
 
-  static UndoRecord *InitializeDelete(byte *head,
-                                      const transaction::timestamp_t timestamp,
+  static UndoRecord *InitializeDelete(byte *head, const transaction::timestamp_t timestamp,
                                       table_id tbl_id, page_id pid, u32 idx) {
     auto *result = reinterpret_cast<UndoRecord *>(head);
     result->type_ = DeltaRecordType::DELETE;
@@ -69,8 +65,7 @@ public:
     return result;
   }
 
-  static UndoRecord *InitializeUpdate(byte *head,
-                                      const transaction::timestamp_t timestamp,
+  static UndoRecord *InitializeUpdate(byte *head, const transaction::timestamp_t timestamp,
                                       table_id tbl_id, page_id pid, u32 idx,
                                       std::span<byte> chunk_header) {
     auto *result = reinterpret_cast<UndoRecord *>(head);
@@ -80,16 +75,14 @@ public:
     result->t_id_ = tbl_id;
     result->p_id_ = pid;
     result->idx_ = idx;
-    std::memcpy(result->varlen_contents_, chunk_header.data(),
-                chunk_header.size());
+    std::memcpy(result->varlen_contents_, chunk_header.data(), chunk_header.size());
     return result;
   }
 };
 
-static_assert(
-    sizeof(UndoRecord) % 8 == 0,
-    "a projected row inside the undo record needs to be aligned to 8 bytes"
-    "to ensure true atomicity");
+static_assert(sizeof(UndoRecord) % 8 == 0,
+              "a projected row inside the undo record needs to be aligned to 8 bytes"
+              "to ensure true atomicity");
 
 class UndoBuffer {
   using Segment = shared::FixedBumpArena;
@@ -106,8 +99,7 @@ public:
   UndoBuffer(Pool *pool) : pool_(pool), last_record_(nullptr) {}
 
   ~UndoBuffer() {
-    for (auto *segment : buffers_)
-      pool_->Release(segment);
+    for (auto *segment : buffers_) pool_->Release(segment);
   }
 
   byte *GetLastRecord() const { return last_record_; }
@@ -120,8 +112,7 @@ public:
   byte *NewEntry(uint32_t size) {
     if (buffers_.empty() || !buffers_.back()->HasAvailableSpace(size)) {
       Segment *new_segment = pool_->Get();
-      DB7_ASSERT(shared::IsAligned<u64>(new_segment),
-                 "a delta entry should be aligned to 8 bytes");
+      DB7_ASSERT(shared::IsAligned<u64>(new_segment), "a delta entry should be aligned to 8 bytes");
       buffers_.push_back(new_segment);
     }
     last_record_ = buffers_.back()->Allocate(size);
@@ -136,26 +127,22 @@ public:
     std::vector<Segment *>::iterator curr_segment_;
     u32 segment_offset_;
 
-    Iterator(std::vector<Segment *>::iterator curr_segment,
-             uint32_t segment_offset)
+    Iterator(std::vector<Segment *>::iterator curr_segment, uint32_t segment_offset)
         : curr_segment_(curr_segment), segment_offset_(segment_offset) {}
 
   public:
     UndoRecord &operator*() const {
-      return *reinterpret_cast<UndoRecord *>((*curr_segment_)->data_ +
-                                             segment_offset_);
+      return *reinterpret_cast<UndoRecord *>((*curr_segment_)->data_ + segment_offset_);
     }
 
     UndoRecord *operator->() const {
-      return reinterpret_cast<UndoRecord *>((*curr_segment_)->data_ +
-                                            segment_offset_);
+      return reinterpret_cast<UndoRecord *>((*curr_segment_)->data_ + segment_offset_);
     }
 
     Iterator &operator++() {
       UndoRecord &me = this->operator*();
       segment_offset_ +=
-          sizeof(UndoRecord) +
-          reinterpret_cast<access::DataChunk *>(me.GetDelta())->GetSize();
+          sizeof(UndoRecord) + reinterpret_cast<access::DataChunk *>(me.GetDelta())->GetSize();
       if (segment_offset_ == (*curr_segment_)->size_) {
         // need to advance into the next segment
         ++curr_segment_;
@@ -172,8 +159,7 @@ public:
     }
 
     bool operator==(const Iterator &other) const {
-      return segment_offset_ == other.segment_offset_ &&
-             curr_segment_ == other.curr_segment_;
+      return segment_offset_ == other.segment_offset_ && curr_segment_ == other.curr_segment_;
     }
 
     bool operator!=(const Iterator &other) const { return !(*this == other); }

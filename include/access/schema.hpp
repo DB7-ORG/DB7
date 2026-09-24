@@ -24,9 +24,7 @@ public:
     }
   }
 
-  const SchemaColumn &GetColumn(catalog::col_oid_t id) const {
-    return mapping_.at(id);
-  }
+  const SchemaColumn &GetColumn(catalog::col_oid_t id) const { return mapping_.at(id); }
 
   u32 GetCount() const { return mapping_.size(); }
 

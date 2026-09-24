@@ -52,8 +52,7 @@ public:
      * Derived expressions should call this base method
      * @param j json to deserialize
      */
-    std::vector<std::unique_ptr<AbstractExpression>>
-    FromJson(const nlohmann::json &j);
+    std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j);
   };
 
 private:
@@ -69,13 +68,10 @@ public:
    * @param when_clauses list of WhenClauses
    * @param default_expr default expression for this case
    */
-  CaseExpression(const access::type_id return_value_type,
-                 std::vector<WhenClause> &&when_clauses,
+  CaseExpression(const access::type_id return_value_type, std::vector<WhenClause> &&when_clauses,
                  std::unique_ptr<AbstractExpression> default_expr)
-      : AbstractExpression(ExpressionType::OPERATOR_CASE_EXPR,
-                           return_value_type, {}),
-        when_clauses_(std::move(when_clauses)),
-        default_expr_(std::move(default_expr)) {}
+      : AbstractExpression(ExpressionType::OPERATOR_CASE_EXPR, return_value_type, {}),
+        when_clauses_(std::move(when_clauses)), default_expr_(std::move(default_expr)) {}
 
   /** Default constructor for deserialization. */
   CaseExpression() = default;
@@ -107,8 +103,7 @@ public:
    * @returns copy of this
    */
   std::unique_ptr<AbstractExpression>
-  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      const override {
+  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children) const override {
     assert(children.empty() && "CaseExpression should have no children");
     (void)children;
     return Copy();
@@ -123,8 +118,7 @@ public:
    * @param index index of WhenClause to get
    * @return condition at that index
    */
-  shared::ManagedPointer<AbstractExpression>
-  GetWhenClauseCondition(size_t index) const {
+  shared::ManagedPointer<AbstractExpression> GetWhenClauseCondition(size_t index) const {
     assert(index < when_clauses_.size() && "Index must be in bounds.");
     return shared::ManagedPointer(when_clauses_[index].condition_);
   }
@@ -133,8 +127,7 @@ public:
    * @param index index of WhenClause to get
    * @return result at that index
    */
-  shared::ManagedPointer<AbstractExpression>
-  GetWhenClauseResult(size_t index) const {
+  shared::ManagedPointer<AbstractExpression> GetWhenClauseResult(size_t index) const {
     assert(index < when_clauses_.size() && "Index must be in bounds.");
     return shared::ManagedPointer(when_clauses_[index].then_);
   }
@@ -150,8 +143,7 @@ public:
   nlohmann::json ToJson() const override;
 
   /** @param j json to deserialize */
-  std::vector<std::unique_ptr<AbstractExpression>>
-  FromJson(const nlohmann::json &j) override;
+  std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j) override;
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(CaseExpression::WhenClause);

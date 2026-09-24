@@ -26,18 +26,14 @@ public:
 
   ~ObjectPool() {
     ObjectType *obj = nullptr;
-    while (queue_.try_dequeue(obj)) {
-      delete obj;
-    }
+    while (queue_.try_dequeue(obj)) { delete obj; }
   }
 
   u32 GetCurrentSize() { return curr_size_.load(); }
 
   ObjectType *Get() {
     ObjectType *obj = nullptr;
-    if (queue_.try_dequeue(obj)) {
-      return obj;
-    }
+    if (queue_.try_dequeue(obj)) { return obj; }
     u32 size = curr_size_++;
     if (size >= size_limit_) {
       curr_size_--;

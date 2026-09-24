@@ -4,16 +4,14 @@ namespace db7::parser {
 
 std::unique_ptr<AbstractExpression> OperatorExpression::Copy() const {
   std::vector<std::unique_ptr<AbstractExpression>> children;
-  for (const auto &child : GetChildren()) {
-    children.emplace_back(child->Copy());
-  }
+  for (const auto &child : GetChildren()) { children.emplace_back(child->Copy()); }
   return CopyWithChildren(std::move(children));
 }
 
 std::unique_ptr<AbstractExpression> OperatorExpression::CopyWithChildren(
     std::vector<std::unique_ptr<AbstractExpression>> &&children) const {
-  auto expr = std::make_unique<OperatorExpression>(
-      GetExpressionType(), GetReturnValueType(), std::move(children));
+  auto expr = std::make_unique<OperatorExpression>(GetExpressionType(), GetReturnValueType(),
+                                                   std::move(children));
   expr->SetMutableStateForCopy(*this);
   return expr;
 }
@@ -29,13 +27,12 @@ void OperatorExpression::DeriveReturnValueType() {
     return;
   }
   const auto &children = this->GetChildren();
-  const auto &max_type_child = std::max_element(
-      children.begin(), children.end(), [](const auto &t1, const auto &t2) {
+  const auto &max_type_child =
+      std::max_element(children.begin(), children.end(), [](const auto &t1, const auto &t2) {
         return t1->GetReturnValueType() < t2->GetReturnValueType();
       });
   const auto &type = (*max_type_child)->GetReturnValueType();
-  assert(type <= access::type_id::DOUBLE &&
-         "Invalid operand type in Operator Expression.");
+  assert(type <= access::type_id::DOUBLE && "Invalid operand type in Operator Expression.");
   // TODO(Matt): What is this assertion doing? Why is order of the enum
   // important?
   this->SetReturnValueType(type);

@@ -64,8 +64,7 @@ private:
     }
 
     // drain remaining on shutdown
-    while (inflight_ > 0)
-      DrainCompletions();
+    while (inflight_ > 0) DrainCompletions();
   }
 
   void SubmitPending() {
@@ -73,8 +72,7 @@ private:
 
     // Bulk dequeue up to available inflight slots
     u32 slots = std::min((u32)IOURING_QUEUE_SIZE, max_inflight_ - inflight_);
-    if (slots == 0)
-      return;
+    if (slots == 0) return;
     IoTask tasks[IOURING_QUEUE_SIZE]; // or use max_inflight_ with a vector if
                                       // it varies
     size_t count = queue_.try_dequeue_bulk(tasks, slots);
@@ -82,13 +80,11 @@ private:
     for (size_t i = 0; i < count; ++i) {
       bool ok;
       if (tasks[i].op == IoTask::READ)
-        ok = io_->SubmitRead(
-            tasks[i].id.tbl_id, tasks[i].page->GetData(), DB7_PAGE_SIZE,
-            (tasks[i].id.pid - 1) * DB7_PAGE_SIZE, (void *)tasks[i].page);
+        ok = io_->SubmitRead(tasks[i].id.tbl_id, tasks[i].page->GetData(), DB7_PAGE_SIZE,
+                             (tasks[i].id.pid - 1) * DB7_PAGE_SIZE, (void *)tasks[i].page);
       else
-        ok = io_->SubmitWrite(
-            tasks[i].id.tbl_id, tasks[i].page->GetData(), DB7_PAGE_SIZE,
-            (tasks[i].id.pid - 1) * DB7_PAGE_SIZE, (void *)tasks[i].page);
+        ok = io_->SubmitWrite(tasks[i].id.tbl_id, tasks[i].page->GetData(), DB7_PAGE_SIZE,
+                              (tasks[i].id.pid - 1) * DB7_PAGE_SIZE, (void *)tasks[i].page);
 
       if (ok) {
         inflight_++;
@@ -101,20 +97,17 @@ private:
       }
     }
 
-    if (submitted_any)
-      io_->Submit();
+    if (submitted_any) io_->Submit();
   }
 
   void DrainCompletions() {
-    if (inflight_ > 0) {
-      inflight_ -= io_->ReapCompletions(max_inflight_);
-    }
+    if (inflight_ > 0) { inflight_ -= io_->ReapCompletions(max_inflight_); }
   }
 
 public:
   DiskScheduler(DiskManagerAsync *io)
-      : io_(io), inflight_(0), max_inflight_(IOURING_QUEUE_SIZE),
-        running_(false), queue_(IOURING_QUEUE_SIZE) {}
+      : io_(io), inflight_(0), max_inflight_(IOURING_QUEUE_SIZE), running_(false),
+        queue_(IOURING_QUEUE_SIZE) {}
 
   ~DiskScheduler() { Stop(); }
 
@@ -125,8 +118,7 @@ public:
 
   void Stop() {
     running_ = false;
-    if (worker_.joinable())
-      worker_.join();
+    if (worker_.joinable()) worker_.join();
   }
 
   void Enqueue(IoTask task) { queue_.enqueue(task); }

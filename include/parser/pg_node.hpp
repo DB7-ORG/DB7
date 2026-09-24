@@ -15,11 +15,11 @@
 #include <vector>
 
 extern "C" {
-#include "postgres.h"
+#include "third_party/libpg_query/src/postgres/include/postgres.h"
 
-#include "nodes/parsenodes.h"
-#include "pg_query.h"
-#include "src/pg_query_internal.h"
+#include "third_party/libpg_query/pg_query.h"
+#include "third_party/libpg_query/src/pg_query_internal.h"
+#include "third_party/libpg_query/src/postgres/include/nodes/parsenodes.h"
 }
 
 // Postgres's replacements for the printf family (port.h)
@@ -56,15 +56,7 @@ extern "C" {
 #undef PANIC
 
 // Safe accessors for Postgres value nodes (see earlier)
-inline int PgIntVal(const void *node) {
-  return static_cast<const ::Integer *>(node)->ival;
-}
-inline const char *PgStrVal(const void *node) {
-  return static_cast<const ::String *>(node)->sval;
-}
-inline const char *PgFloatVal(const void *node) {
-  return static_cast<const ::Float *>(node)->fval;
-}
-inline bool PgBoolVal(const void *node) {
-  return static_cast<const ::Boolean *>(node)->boolval;
-}
+inline int PgIntVal(const void *node) { return static_cast<const ::Integer *>(node)->ival; }
+inline const char *PgStrVal(const void *node) { return static_cast<const ::String *>(node)->sval; }
+inline const char *PgFloatVal(const void *node) { return static_cast<const ::Float *>(node)->fval; }
+inline bool PgBoolVal(const void *node) { return static_cast<const ::Boolean *>(node)->boolval; }

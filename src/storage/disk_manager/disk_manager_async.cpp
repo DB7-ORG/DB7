@@ -24,24 +24,20 @@ void DiskManagerAsync::BuildPath(table_id tid, char *buf, u32 len) {
 
 void DiskManagerAsync::LoadExistingTables() {
   DIR *dir = opendir(base_dir_);
-  if (!dir)
-    return;
+  if (!dir) return;
 
   struct dirent *entry;
   while ((entry = readdir(dir)) != nullptr) {
-    if (entry->d_type != DT_REG)
-      continue;
+    if (entry->d_type != DT_REG) continue;
 
     table_id tbl_id;
-    if (sscanf(entry->d_name, "table_%u", &tbl_id) != 1)
-      continue;
+    if (sscanf(entry->d_name, "table_%u", &tbl_id) != 1) continue;
 
     char path[MAX_PATH_LEN];
     BuildPath(tbl_id, path, sizeof(path));
 
     int fd = open(path, O_RDWR | O_DIRECT);
-    if (fd < 0)
-      continue;
+    if (fd < 0) continue;
 
     struct stat st;
     fstat(fd, &st);
@@ -59,14 +55,11 @@ void DiskManagerAsync::LoadExistingTables() {
 DiskManagerAsync::DiskManagerAsync(const char *base_dir, u32 queue_depth)
     : cache_(std::make_unique<FdCache>()) {
   int ret = io_uring_queue_init(queue_depth, &ring_, 0);
-  if (ret < 0)
-    throw std::runtime_error("io_uring_queue_init failed");
+  if (ret < 0) throw std::runtime_error("io_uring_queue_init failed");
 
   strncpy(base_dir_, base_dir, MAX_PATH_LEN_2 - 1);
 
-  for (u32 i = 0; i < MAX_OPEN_FILES; i++) {
-    cache_->Invalidate(i);
-  }
+  for (u32 i = 0; i < MAX_OPEN_FILES; i++) { cache_->Invalidate(i); }
 
   mkdir(base_dir_, 0755);
 
@@ -83,9 +76,7 @@ DiskManagerAsync::~DiskManagerAsync() {
 
   for (u32 i = 0; i < MAX_OPEN_FILES; i++) {
     int fd = cache_->Get(i).fd;
-    if (fd >= 0) {
-      close(fd);
-    }
+    if (fd >= 0) { close(fd); }
   }
 
   DeleteDir(base_dir_);
@@ -94,8 +85,7 @@ DiskManagerAsync::~DiskManagerAsync() {
 /**
  * sqe - Submission Queue Entry
  */
-bool DiskManagerAsync::SubmitRead(table_id tid, void *buf, u32 len,
-                                  off_t offset, void *user_data) {
+bool DiskManagerAsync::SubmitRead(table_id tid, void *buf, u32 len, off_t offset, void *user_data) {
   DB7_ASSERT((uintptr_t)buf % 4096 == 0, "unaligned buffer");
   DB7_ASSERT(len % 4096 == 0, "unaligned length");
   DB7_ASSERT(offset % 4096 == 0, "unaligned offset");
@@ -104,16 +94,15 @@ bool DiskManagerAsync::SubmitRead(table_id tid, void *buf, u32 len,
   DB7_ASSERT(hdr.fd >= 0, "No valid file descriptor");
 
   struct io_uring_sqe *sqe = io_uring_get_sqe(&ring_);
-  if (!sqe)
-    return false;
+  if (!sqe) return false;
 
   io_uring_prep_read(sqe, hdr.fd, buf, len, offset);
   io_uring_sqe_set_data(sqe, user_data);
   return true;
 }
 
-bool DiskManagerAsync::SubmitWrite(table_id tid, const void *buf, u32 len,
-                                   off_t offset, void *user_data) {
+bool DiskManagerAsync::SubmitWrite(table_id tid, const void *buf, u32 len, off_t offset,
+                                   void *user_data) {
   DB7_ASSERT((uintptr_t)buf % 4096 == 0, "unaligned buffer");
   DB7_ASSERT(len % 4096 == 0, "unaligned length");
   DB7_ASSERT(offset % 4096 == 0, "unaligned offset");
@@ -122,8 +111,7 @@ bool DiskManagerAsync::SubmitWrite(table_id tid, const void *buf, u32 len,
   DB7_ASSERT(hdr.fd >= 0, "No valid file descriptor");
 
   struct io_uring_sqe *sqe = io_uring_get_sqe(&ring_);
-  if (!sqe)
-    return false;
+  if (!sqe) return false;
 
   io_uring_prep_write(sqe, hdr.fd, buf, len, offset);
   io_uring_sqe_set_data(sqe, user_data);
@@ -146,25 +134,20 @@ int DiskManagerAsync::ReapCompletions(u32 max_completions) {
     io_uring_cqe_seen(&ring_, cqe);
     reaped++;
 
-    if ((u32)reaped >= max_completions)
-      break;
+    if ((u32)reaped >= max_completions) break;
   }
 
   return reaped;
 }
 
 bool DiskManagerAsync::CreateTable(table_id tbl_id, u32 initial_pages) {
-  if (cache_->Get(tbl_id).fd != -1) {
-    throw IO_EXCEPTION("File already exists");
-  }
+  if (cache_->Get(tbl_id).fd != -1) { throw IO_EXCEPTION("File already exists"); }
 
   char path[MAX_PATH_LEN];
   BuildPath(tbl_id, path, sizeof(path));
 
   int fd = open(path, O_RDWR | O_CREAT | O_EXCL | O_DIRECT, 0644);
-  if (fd < 0) {
-    throw IO_EXCEPTION("File not found");
-  }
+  if (fd < 0) { throw IO_EXCEPTION("File not found"); }
 
   FdCacheEntry entry(fd, initial_pages);
   cache_->Set(tbl_id, entry);
@@ -183,9 +166,7 @@ bool DiskManagerAsync::OpenFile(table_id tbl_id) {
   BuildPath(tbl_id, path, sizeof(path));
 
   int fd = open(path, O_RDWR | O_DIRECT, 0644);
-  if (fd < 0) {
-    throw IO_EXCEPTION("File not found");
-  }
+  if (fd < 0) { throw IO_EXCEPTION("File not found"); }
 
   struct stat st;
   fstat(fd, &st);
@@ -231,8 +212,7 @@ bool DiskManagerAsync::ExtendFile(table_id tbl_id, u64 pages_num) {
   FdCacheEntry hdr = cache_->Get(tbl_id);
   DB7_ASSERT(hdr.fd >= 0, "File not found");
 
-  int ret = fallocate(hdr.fd, 0, hdr.page_count * DB7_PAGE_SIZE,
-                      (off_t)pages_num * DB7_PAGE_SIZE);
+  int ret = fallocate(hdr.fd, 0, hdr.page_count * DB7_PAGE_SIZE, (off_t)pages_num * DB7_PAGE_SIZE);
   (void)ret;
   DB7_ASSERT(ret == 0, "fallocate failed");
 

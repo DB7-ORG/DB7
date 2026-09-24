@@ -34,45 +34,38 @@ public:
    * @param col_name column name
    * @param alias alias of the expression
    */
-  ColumnValueExpression(AliasType table_alias, std::string col_name,
-                        AliasType alias)
-      : AbstractExpression(ExpressionType::COLUMN_VALUE,
-                           access::type_id::INVALID, std::move(alias), {}),
-        table_alias_(std::move(table_alias)),
-        column_name_(std::move(col_name)) {}
+  ColumnValueExpression(AliasType table_alias, std::string col_name, AliasType alias)
+      : AbstractExpression(ExpressionType::COLUMN_VALUE, access::type_id::INVALID, std::move(alias),
+                           {}),
+        table_alias_(std::move(table_alias)), column_name_(std::move(col_name)) {}
 
   /**
    * @param table_alias table name
    * @param col_name column name
    */
   ColumnValueExpression(AliasType table_alias, std::string col_name)
-      : AbstractExpression(ExpressionType::COLUMN_VALUE,
-                           access::type_id::INVALID, {}),
-        table_alias_(std::move(table_alias)),
-        column_name_(std::move(col_name)) {}
+      : AbstractExpression(ExpressionType::COLUMN_VALUE, access::type_id::INVALID, {}),
+        table_alias_(std::move(table_alias)), column_name_(std::move(col_name)) {}
 
   /**
    * @param database_oid database OID
    * @param table_oid table OID
    * @param column_oid column OID
    */
-  ColumnValueExpression(catalog::db_oid_t database_oid,
-                        catalog::rel_oid_t table_oid,
+  ColumnValueExpression(catalog::db_oid_t database_oid, catalog::rel_oid_t table_oid,
                         catalog::col_oid_t column_oid)
-      : AbstractExpression(ExpressionType::COLUMN_VALUE,
-                           access::type_id::INVALID, {}),
-        database_oid_(database_oid), table_oid_(table_oid),
-        column_oid_(column_oid) {}
+      : AbstractExpression(ExpressionType::COLUMN_VALUE, access::type_id::INVALID, {}),
+        database_oid_(database_oid), table_oid_(table_oid), column_oid_(column_oid) {}
 
   /**
    * @param table_oid OID of the table.
    * @param column_oid OID of the column.
    * @param type Type of the column.
    */
-  ColumnValueExpression(catalog::rel_oid_t table_oid,
-                        catalog::col_oid_t column_oid, access::type_id type)
-      : AbstractExpression(ExpressionType::COLUMN_VALUE, type, {}),
-        table_oid_(table_oid), column_oid_(column_oid) {}
+  ColumnValueExpression(catalog::rel_oid_t table_oid, catalog::col_oid_t column_oid,
+                        access::type_id type)
+      : AbstractExpression(ExpressionType::COLUMN_VALUE, type, {}), table_oid_(table_oid),
+        column_oid_(column_oid) {}
 
   /**
    * This constructor is used to construct abstract value expressions used by
@@ -83,11 +76,9 @@ public:
    * @param alias Alias of the column this is referencing
    * @param column_oid Oid of the column (it should be a temp oid in this case)
    */
-  ColumnValueExpression(std::string table_name, std::string col_name,
-                        access::type_id type, AliasType alias,
-                        catalog::col_oid_t column_oid)
-      : AbstractExpression(ExpressionType::COLUMN_VALUE, type, std::move(alias),
-                           {}),
+  ColumnValueExpression(std::string table_name, std::string col_name, access::type_id type,
+                        AliasType alias, catalog::col_oid_t column_oid)
+      : AbstractExpression(ExpressionType::COLUMN_VALUE, type, std::move(alias), {}),
         table_alias_(std::move(table_name)), column_name_(std::move(col_name)),
         column_oid_(column_oid) {}
 
@@ -100,11 +91,9 @@ public:
    * @param alias Alias of the column this is referencing
    * @param column_oid Oid of the column (it should be a temp oid in this case)
    */
-  ColumnValueExpression(AliasType table_alias, std::string col_name,
-                        access::type_id type, AliasType alias,
-                        catalog::col_oid_t column_oid)
-      : AbstractExpression(ExpressionType::COLUMN_VALUE, type, std::move(alias),
-                           {}),
+  ColumnValueExpression(AliasType table_alias, std::string col_name, access::type_id type,
+                        AliasType alias, catalog::col_oid_t column_oid)
+      : AbstractExpression(ExpressionType::COLUMN_VALUE, type, std::move(alias), {}),
         table_alias_(std::move(table_alias)), column_name_(std::move(col_name)),
         column_oid_(column_oid) {}
 
@@ -116,14 +105,12 @@ public:
    * @param column_oid column OID
    * @param type Type of the column.
    */
-  ColumnValueExpression(AliasType table_alias, std::string col_name,
-                        catalog::db_oid_t database_oid,
-                        catalog::rel_oid_t table_oid,
-                        catalog::col_oid_t column_oid, access::type_id type)
+  ColumnValueExpression(AliasType table_alias, std::string col_name, catalog::db_oid_t database_oid,
+                        catalog::rel_oid_t table_oid, catalog::col_oid_t column_oid,
+                        access::type_id type)
       : AbstractExpression(ExpressionType::COLUMN_VALUE, type, {}),
         table_alias_(std::move(table_alias)), column_name_(std::move(col_name)),
-        database_oid_(database_oid), table_oid_(table_oid),
-        column_oid_(column_oid) {}
+        database_oid_(database_oid), table_oid_(table_oid), column_oid_(column_oid) {}
 
   /** Default constructor for deserialization. */
   ColumnValueExpression() = default;
@@ -132,9 +119,7 @@ public:
   AliasType GetTableAlias() const { return table_alias_; }
 
   /** @param table_alias Table alias to be assigned to this expression */
-  void SetTableAlias(const AliasType &table_alias) {
-    table_alias_ = AliasType(table_alias);
-  }
+  void SetTableAlias(const AliasType &table_alias) { table_alias_ = AliasType(table_alias); }
 
   /** @return column name */
   std::string GetColumnName() const { return column_name_; }
@@ -152,9 +137,7 @@ public:
    * Get Column Full Name [tbl].[col]
    */
   std::string GetFullName() const {
-    if (!table_alias_.Empty()) {
-      return table_alias_.GetName() + "." + column_name_;
-    }
+    if (!table_alias_.Empty()) { return table_alias_.GetName() + "." + column_name_; }
 
     return column_name_;
   }
@@ -171,8 +154,7 @@ public:
    * @returns copy of this with new children
    */
   std::unique_ptr<AbstractExpression>
-  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children)
-      const override {
+  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children) const override {
     assert(children.empty() && "ColumnValueExpression should have no children");
     (void)children;
     return Copy();
@@ -205,23 +187,18 @@ public:
   /**
    * @param j json to deserialize
    */
-  std::vector<std::unique_ptr<AbstractExpression>>
-  FromJson(const nlohmann::json &j) override;
+  std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j) override;
 
   // friend class binder::BinderContext;
   // friend class execution::sql::TableGenerator;
   /** @param database_oid Database OID to be assigned to this expression */
-  void SetDatabaseOID(catalog::db_oid_t database_oid) {
-    database_oid_ = database_oid;
-  }
+  void SetDatabaseOID(catalog::db_oid_t database_oid) { database_oid_ = database_oid; }
   /** @param table_oid Table OID to be assigned to this expression */
   void SetTableOID(catalog::rel_oid_t table_oid) { table_oid_ = table_oid; }
   /** @param column_oid Column OID to be assigned to this expression */
   void SetColumnOID(catalog::col_oid_t column_oid) { column_oid_ = column_oid; }
   /** @param column_oid Column OID to be assigned to this expression */
-  void SetColumnName(const std::string &col_name) {
-    column_name_ = std::string(col_name);
-  }
+  void SetColumnName(const std::string &col_name) { column_name_ = std::string(col_name); }
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(ColumnValueExpression);

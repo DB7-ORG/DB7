@@ -77,8 +77,7 @@ void test_buffer_pool(db7::storage::BufferPool &buffer_pool) {
     });
   }
 
-  for (auto &t : threads)
-    t.join();
+  for (auto &t : threads) t.join();
 
   u64 t0 = now_ns();
 
@@ -107,8 +106,7 @@ using namespace db7;
 
 constexpr auto phys_type = access::type_id::VARCHAR;
 
-template <typename T>
-void prep_keys(std::vector<access::DataChunk *> &strs, u32 n) {
+template <typename T> void prep_keys(std::vector<access::DataChunk *> &strs, u32 n) {
 
   auto layout = access::DataChunkLayout({1}, {access::SizeOf(phys_type)});
   std::vector<access::TypeSize> types{{1, phys_type}};
@@ -145,8 +143,7 @@ template <typename Fn> inline double run_parallel(unsigned nthreads, Fn &&fn) {
   }
   auto t0 = std::chrono::steady_clock::now();
   go.store(true, std::memory_order_release);
-  for (auto &th : ts)
-    th.join();
+  for (auto &th : ts) th.join();
   auto t1 = std::chrono::steady_clock::now();
   return std::chrono::duration<double, std::nano>(t1 - t0).count();
 }
@@ -276,17 +273,15 @@ int main2() {
 
   db7::shared::ObjectPool<shared::FixedBumpArena> pool(10'000, 2000);
 
-  db7::transaction::TransactionManager txn_manager(
-      &timestamp_manager, &buffer_pool, &version_manager, &pool);
+  db7::transaction::TransactionManager txn_manager(&timestamp_manager, &buffer_pool,
+                                                   &version_manager, &pool);
 
   auto cat = new catalog::Catalog(&buffer_pool, &disk_mng_async);
   g_catalog = cat;
 
-  db7::transaction::TransactionContext *context =
-      txn_manager.BeginTransaction();
+  db7::transaction::TransactionContext *context = txn_manager.BeginTransaction();
 
-  db7::transaction::TransactionContext *context1 =
-      txn_manager.BeginTransaction();
+  db7::transaction::TransactionContext *context1 = txn_manager.BeginTransaction();
 
   std::string s = "ssss";
   std::span<byte> sdata(reinterpret_cast<byte *>(s.data()), s.size());
@@ -312,23 +307,19 @@ int main2() {
   DB7_ASSERT(resns.success, "Failed namespace");
 
   auto schema = catalog::Builder::CreateTypeSchema();
-  auto table_res =
-      db_catalog->CreateTable(context, sdata2, resns.value, schema);
+  auto table_res = db_catalog->CreateTable(context, sdata2, resns.value, schema);
   DB7_ASSERT(table_res.success, "Failed table");
 
   std::vector<access::SchemaColumn> columns;
   columns.reserve(1);
   columns.emplace_back(7000, access::type_id::INTEGER, "typlen");
-  access::IndexSchema idx_schema(std::move(columns), false, false, false,
-                                 false);
-  auto idx_res = db_catalog->CreateIndex(context, sdata3, table_res.value,
-                                         resns.value, idx_schema);
+  access::IndexSchema idx_schema(std::move(columns), false, false, false, false);
+  auto idx_res = db_catalog->CreateIndex(context, sdata3, table_res.value, resns.value, idx_schema);
   DB7_ASSERT(idx_res.success, "Failed index");
 
-  catalog::ConstraintProps props = {
-      sdata4,          resns.value,   catalog::ConType::PRIMARY_KEY,
-      false,           false,         false,
-      table_res.value, idx_res.value, table_res.value};
+  catalog::ConstraintProps props = {sdata4,          resns.value,   catalog::ConType::PRIMARY_KEY,
+                                    false,           false,         false,
+                                    table_res.value, idx_res.value, table_res.value};
   auto rel_res = db_catalog->CreateConstraint(context, props);
   DB7_ASSERT(rel_res.success, "Failed namespace");
 
@@ -350,20 +341,19 @@ int main2() {
 }
 
 int main() {
-  const std::string query =
-      "SELECT id, name FROM users WHERE id > 10 ORDER BY name LIMIT 5";
+  const std::string query = "SELECT id, name FROM users WHERE id > 10 ORDER BY name LIMIT 5";
 
   try {
     auto result = parser::PostgresParser::BuildParseTree(query);
     for (auto statement : result->GetStatements()) {
       // Quick way to see the whole tree
-      std::cout << statement->ToJson().dump(2) << "\n";
+      // std::cout << statement->ToJson().dump(2) << "\n";
 
       if (statement->GetType() == parser::StatementType::SELECT) {
         auto select = statement.CastManagedPointerTo<parser::SelectStatement>();
-
-        std::cout << "table: " << select->GetSelectTable()->GetTableName()
-                  << "\n";
+        auto j = select->ToJson();
+        std::cout << j.dump(2) << "\n";
+        std::cout << "table: " << select->GetSelectTable()->GetTableName() << "\n";
 
         for (auto column : select->GetSelectColumns()) {
           column->DeriveExpressionName();
@@ -373,8 +363,7 @@ int main() {
     }
   } catch (const ParserException &e) {
     // Syntax errors and unsupported features end up here
-    std::cerr << "parse error at position " << e.GetCursorPos() << ": "
-              << e.what() << "\n";
+    std::cerr << "parse error at position " << e.GetCursorPos() << ": " << e.what() << "\n";
     return 1;
   } catch (const Exception &e) {
     std::cerr << e << "\n";

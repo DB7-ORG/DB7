@@ -11,10 +11,9 @@ template <typename Typ> struct ResultObj {
 
   static_assert(!std::is_same_v<Typ, char *>, "Typ cant be char*");
 
-  ResultObj() : success(true) {};
+  ResultObj() : success(true){};
 
-  ResultObj(const char *message, bool success)
-      : message(message), success(success) {}
+  ResultObj(const char *message, bool success) : message(message), success(success) {}
 
   ResultObj(Typ value, bool success = true) : value(value), success(success) {}
 

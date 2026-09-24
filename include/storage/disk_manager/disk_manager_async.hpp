@@ -29,17 +29,12 @@ private:
   void LoadExistingTables();
 
 public:
-  explicit DiskManagerAsync(const char *base_dir,
-                            u32 queue_depth = IOURING_QUEUE_SIZE);
+  explicit DiskManagerAsync(const char *base_dir, u32 queue_depth = IOURING_QUEUE_SIZE);
   ~DiskManagerAsync();
-  void SetCompletionCallback(CompletionCb cb) {
-    completion_cb_ = std::move(cb);
-  }
+  void SetCompletionCallback(CompletionCb cb) { completion_cb_ = std::move(cb); }
 
-  bool SubmitRead(table_id pid, void *buf, u32 len, off_t offset,
-                  void *user_data);
-  bool SubmitWrite(table_id pid, const void *buf, u32 len, off_t offset,
-                   void *user_data);
+  bool SubmitRead(table_id pid, void *buf, u32 len, off_t offset, void *user_data);
+  bool SubmitWrite(table_id pid, const void *buf, u32 len, off_t offset, void *user_data);
   int ReapCompletions(u32 max_completions = IOURING_QUEUE_SIZE);
   int Submit();
 

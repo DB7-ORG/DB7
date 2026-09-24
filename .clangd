@@ -1,4 +1,7 @@
+Index:
+  StandardLibrary: No
+---
 If:
-  PathMatch: include/third_party/libpg_query/.*\.c
+  PathMatch: include/third_party/libpg_query/.*
 Index:
   Background: Skip

@@ -15,9 +15,7 @@ public:
   void Unlock() { counter_--; }
 
   void Try() {
-    while (counter_.load() > 0) {
-      _mm_pause();
-    }
+    while (counter_.load() > 0) { _mm_pause(); }
   }
 
   class SpinGuard {

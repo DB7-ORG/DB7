@@ -85,43 +85,32 @@ public:
    * @param query_string query string to be parsed
    * @return unique pointer to parse tree
    */
-  static std::unique_ptr<parser::ParseResult>
-  BuildParseTree(const std::string &query_string);
+  static std::unique_ptr<parser::ParseResult> BuildParseTree(const std::string &query_string);
 
 private:
   static FKConstrActionType CharToActionType(const char &type) {
     switch (type) {
-    case 'a':
-      return FKConstrActionType::NOACTION;
-    case 'r':
-      return FKConstrActionType::RESTRICT_;
-    case 'c':
-      return FKConstrActionType::CASCADE;
-    case 'n':
-      return FKConstrActionType::SETNULL;
-    case 'd':
-      return FKConstrActionType::SETDEFAULT;
-    default:
-      return FKConstrActionType::NOACTION;
+    case 'a': return FKConstrActionType::NOACTION;
+    case 'r': return FKConstrActionType::RESTRICT_;
+    case 'c': return FKConstrActionType::CASCADE;
+    case 'n': return FKConstrActionType::SETNULL;
+    case 'd': return FKConstrActionType::SETDEFAULT;
+    default: return FKConstrActionType::NOACTION;
     }
   }
 
   static FKConstrMatchType CharToMatchType(const char &type) {
     switch (type) {
-    case 'f':
-      return FKConstrMatchType::FULL;
-    case 'p':
-      return FKConstrMatchType::PARTIAL;
-    case 's':
-      return FKConstrMatchType::SIMPLE;
-    default:
-      return FKConstrMatchType::SIMPLE;
+    case 'f': return FKConstrMatchType::FULL;
+    case 'p': return FKConstrMatchType::PARTIAL;
+    case 's': return FKConstrMatchType::SIMPLE;
+    default: return FKConstrMatchType::SIMPLE;
     }
   }
 
   static bool IsAggregateFunction(const std::string &fun_name) {
-    return (fun_name == "min" || fun_name == "max" || fun_name == "count" ||
-            fun_name == "avg" || fun_name == "sum");
+    return (fun_name == "min" || fun_name == "max" || fun_name == "count" || fun_name == "avg" ||
+            fun_name == "sum");
   }
 
   /**
@@ -139,82 +128,77 @@ private:
    * @param node parsed node
    * @return SQLStatement corresponding to the parsed node
    */
-  static std::unique_ptr<SQLStatement> NodeTransform(ParseResult *parse_result,
-                                                     Node *node);
+  static std::unique_ptr<SQLStatement> NodeTransform(ParseResult *parse_result, Node *node);
 
-  static std::unique_ptr<AbstractExpression>
-  ExprTransform(ParseResult *parse_result, Node *node, char *alias);
+  static std::unique_ptr<AbstractExpression> ExprTransform(ParseResult *parse_result, Node *node,
+                                                           char *alias);
   static ExpressionType StringToExpressionType(const std::string &parser_str);
-  static std::unique_ptr<AbstractExpression>
-  AExprTransform(ParseResult *parse_result, A_Expr *root);
-  static std::unique_ptr<AbstractExpression>
-  BoolExprTransform(ParseResult *parse_result, BoolExpr *root);
-  static std::unique_ptr<AbstractExpression>
-  CaseExprTransform(ParseResult *parse_result, CaseExpr *root);
-  static std::unique_ptr<AbstractExpression>
-  ColumnRefTransform(ParseResult *parse_result, ColumnRef *root, char *alias);
-  static std::unique_ptr<AbstractExpression>
-  ConstTransform(ParseResult *parse_result, A_Const *root);
-  static std::unique_ptr<AbstractExpression>
-  FuncCallTransform(ParseResult *parse_result, FuncCall *root);
-  static std::unique_ptr<AbstractExpression>
-  NullTestTransform(ParseResult *parse_result, NullTest *root);
-  static std::unique_ptr<AbstractExpression>
-  ParamRefTransform(ParseResult *parse_result, ParamRef *root);
-  static std::unique_ptr<AbstractExpression>
-  SubqueryExprTransform(ParseResult *parse_result, SubLink *node);
-  static std::unique_ptr<AbstractExpression>
-  TypeCastTransform(ParseResult *parse_result, TypeCast *root);
-  static std::unique_ptr<AbstractExpression>
-  ValueTransform(ParseResult *parse_result, A_Const *root);
+  static std::unique_ptr<AbstractExpression> AExprTransform(ParseResult *parse_result,
+                                                            A_Expr *root);
+  static std::unique_ptr<AbstractExpression> BoolExprTransform(ParseResult *parse_result,
+                                                               BoolExpr *root);
+  static std::unique_ptr<AbstractExpression> CaseExprTransform(ParseResult *parse_result,
+                                                               CaseExpr *root);
+  static std::unique_ptr<AbstractExpression> ColumnRefTransform(ParseResult *parse_result,
+                                                                ColumnRef *root, char *alias);
+  static std::unique_ptr<AbstractExpression> ConstTransform(ParseResult *parse_result,
+                                                            A_Const *root);
+  static std::unique_ptr<AbstractExpression> FuncCallTransform(ParseResult *parse_result,
+                                                               FuncCall *root);
+  static std::unique_ptr<AbstractExpression> NullTestTransform(ParseResult *parse_result,
+                                                               NullTest *root);
+  static std::unique_ptr<AbstractExpression> ParamRefTransform(ParseResult *parse_result,
+                                                               ParamRef *root);
+  static std::unique_ptr<AbstractExpression> SubqueryExprTransform(ParseResult *parse_result,
+                                                                   SubLink *node);
+  static std::unique_ptr<AbstractExpression> TypeCastTransform(ParseResult *parse_result,
+                                                               TypeCast *root);
+  static std::unique_ptr<AbstractExpression> ValueTransform(ParseResult *parse_result,
+                                                            A_Const *root);
 
   // SELECT statements
-  static std::unique_ptr<SelectStatement>
-  SelectTransform(ParseResult *parse_result, SelectStmt *root);
+  static std::unique_ptr<SelectStatement> SelectTransform(ParseResult *parse_result,
+                                                          SelectStmt *root);
   // SELECT helpers
   static std::vector<shared::ManagedPointer<AbstractExpression>>
   TargetTransform(ParseResult *parse_result, List *root);
-  static std::unique_ptr<TableRef> FromItemTransform(ParseResult *parse_result,
-                                                     Node *node);
+  static std::unique_ptr<TableRef> FromItemTransform(ParseResult *parse_result, Node *node);
   static std::unique_ptr<TableRef> FromTransform(ParseResult *parse_result,
                                                  SelectStmt *select_root);
-  static std::unique_ptr<GroupByDescription>
-  GroupByTransform(ParseResult *parse_result, List *group, Node *having_node);
-  static std::unique_ptr<OrderByDescription>
-  OrderByTransform(ParseResult *parse_result, List *order);
-  static shared::ManagedPointer<AbstractExpression>
-  WhereTransform(ParseResult *parse_result, Node *root);
-  static std::vector<std::unique_ptr<TableRef>>
-  WithTransform(ParseResult *parse_result, WithClause *root);
+  static std::unique_ptr<GroupByDescription> GroupByTransform(ParseResult *parse_result,
+                                                              List *group, Node *having_node);
+  static std::unique_ptr<OrderByDescription> OrderByTransform(ParseResult *parse_result,
+                                                              List *order);
+  static shared::ManagedPointer<AbstractExpression> WhereTransform(ParseResult *parse_result,
+                                                                   Node *root);
+  static std::vector<std::unique_ptr<TableRef>> WithTransform(ParseResult *parse_result,
+                                                              WithClause *root);
 
   // FromTransform helpers
-  static std::unique_ptr<JoinDefinition>
-  JoinTransform(ParseResult *parse_result, JoinExpr *root);
+  static std::unique_ptr<JoinDefinition> JoinTransform(ParseResult *parse_result, JoinExpr *root);
   static AliasType AliasTransform(Alias *root);
-  static std::unique_ptr<TableRef> RangeVarTransform(ParseResult *parse_result,
-                                                     RangeVar *root);
-  static std::unique_ptr<TableRef>
-  RangeSubselectTransform(ParseResult *parse_result, RangeSubselect *root);
+  static std::unique_ptr<TableRef> RangeVarTransform(ParseResult *parse_result, RangeVar *root);
+  static std::unique_ptr<TableRef> RangeSubselectTransform(ParseResult *parse_result,
+                                                           RangeSubselect *root);
 
   //// COPY statements
   // static std::unique_ptr<CopyStatement> CopyTransform(ParseResult
   // *parse_result, CopyStmt *root);
 
   // CREATE statements
-  static std::unique_ptr<SQLStatement>
-  CreateTransform(ParseResult *parse_result, CreateStmt *root);
-  static std::unique_ptr<SQLStatement>
-  CreateDatabaseTransform(ParseResult *parse_result, CreatedbStmt *root);
-  static std::unique_ptr<SQLStatement>
-  CreateFunctionTransform(ParseResult *parse_result, CreateFunctionStmt *root);
-  static std::unique_ptr<SQLStatement>
-  CreateIndexTransform(ParseResult *parse_result, IndexStmt *root);
-  static std::unique_ptr<SQLStatement>
-  CreateSchemaTransform(ParseResult *parse_result, CreateSchemaStmt *root);
-  static std::unique_ptr<SQLStatement>
-  CreateTriggerTransform(ParseResult *parse_result, CreateTrigStmt *root);
-  static std::unique_ptr<SQLStatement>
-  CreateViewTransform(ParseResult *parse_result, ViewStmt *root);
+  static std::unique_ptr<SQLStatement> CreateTransform(ParseResult *parse_result, CreateStmt *root);
+  static std::unique_ptr<SQLStatement> CreateDatabaseTransform(ParseResult *parse_result,
+                                                               CreatedbStmt *root);
+  static std::unique_ptr<SQLStatement> CreateFunctionTransform(ParseResult *parse_result,
+                                                               CreateFunctionStmt *root);
+  static std::unique_ptr<SQLStatement> CreateIndexTransform(ParseResult *parse_result,
+                                                            IndexStmt *root);
+  static std::unique_ptr<SQLStatement> CreateSchemaTransform(ParseResult *parse_result,
+                                                             CreateSchemaStmt *root);
+  static std::unique_ptr<SQLStatement> CreateTriggerTransform(ParseResult *parse_result,
+                                                              CreateTrigStmt *root);
+  static std::unique_ptr<SQLStatement> CreateViewTransform(ParseResult *parse_result,
+                                                           ViewStmt *root);
 
   // CREATE helpers
   struct ColumnDefTransResult {
@@ -222,19 +206,15 @@ private:
     std::vector<std::unique_ptr<ColumnDefinition>> fks_; // foreign keys
   };
 
-  static ColumnDefTransResult ColumnDefTransform(ParseResult *parse_result,
-                                                 ColumnDef *root);
+  static ColumnDefTransResult ColumnDefTransform(ParseResult *parse_result, ColumnDef *root);
 
   // CREATE FUNCTION helpers
-  static std::unique_ptr<FuncParameter>
-  FunctionParameterTransform(ParseResult *parse_result,
-                             FunctionParameter *root);
-  static std::unique_ptr<ReturnType>
-  ReturnTypeTransform(ParseResult *parse_result, TypeName *root);
+  static std::unique_ptr<FuncParameter> FunctionParameterTransform(ParseResult *parse_result,
+                                                                   FunctionParameter *root);
+  static std::unique_ptr<ReturnType> ReturnTypeTransform(ParseResult *parse_result, TypeName *root);
 
   // CREATE TRIGGER helpers
-  static std::unique_ptr<AbstractExpression>
-  WhenTransform(ParseResult *parse_result, Node *root);
+  static std::unique_ptr<AbstractExpression> WhenTransform(ParseResult *parse_result, Node *root);
 
   // // DELETE statements
   // static std::unique_ptr<DeleteStatement> DeleteTransform(ParseResult
@@ -268,10 +248,8 @@ private:
   // *parse_result, InsertStmt *root);
 
   // INSERT helpers
-  static std::unique_ptr<std::vector<std::string>>
-  ColumnNameTransform(List *root);
-  static std::unique_ptr<
-      std::vector<std::vector<shared::ManagedPointer<AbstractExpression>>>>
+  static std::unique_ptr<std::vector<std::string>> ColumnNameTransform(List *root);
+  static std::unique_ptr<std::vector<std::vector<shared::ManagedPointer<AbstractExpression>>>>
   ValueListsTransform(ParseResult *parse_result, List *root);
 
   // // PREPARE statements
@@ -324,8 +302,8 @@ private:
    * - from clause
    * - returning a list
    */
-  static std::unique_ptr<UpdateStatement>
-  UpdateTransform(ParseResult *parse_result, UpdateStmt *update_stmt);
+  static std::unique_ptr<UpdateStatement> UpdateTransform(ParseResult *parse_result,
+                                                          UpdateStmt *update_stmt);
 };
 
 } // namespace db7::parser

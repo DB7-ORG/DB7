@@ -42,8 +42,8 @@ public:
                      storage::PageVersionManager *version_manager,
                      shared::ObjectPool<shared::FixedBumpArena> *pool)
       : start_time_(time), finish_time_(finish_time), rollback_(false),
-        version_manager_(version_manager), undo_buffer_(pool),
-        redo_buffer_(nullptr, pool) {} // TODO
+        version_manager_(version_manager), undo_buffer_(pool), redo_buffer_(nullptr, pool) {
+  } // TODO
 
   timestamp_t StartTime() const { return start_time_; }
 
@@ -54,16 +54,13 @@ public:
   bool GetState() { return rollback_; }
 
   void RestampVersions(timestamp_t commit_time) {
-    for (auto &item : undo_buffer_) {
-      item.SetTimestamp(commit_time);
-    }
+    for (auto &item : undo_buffer_) { item.SetTimestamp(commit_time); }
   }
 
   /**
    * @warning make sure to hold the page data lock like w other columns
    */
-  storage::VersionPtr *GetVersions(storage::Page *page,
-                                   storage::PageIdentifier id, u32 count) {
+  storage::VersionPtr *GetVersions(storage::Page *page, storage::PageIdentifier id, u32 count) {
     storage::VersionPtr *versions_arr = page->GetVersions();
 
     if (versions_arr == nullptr) {
@@ -81,34 +78,28 @@ public:
     return version_manager_->GetCreateVersions(id, count);
   }
 
-  storage::UndoRecord *UndoRecordForInsert(table_id tbl_id, page_id pid,
-                                           u32 idx) {
+  storage::UndoRecord *UndoRecordForInsert(table_id tbl_id, page_id pid, u32 idx) {
     byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord));
-    return storage::UndoRecord::InitializeInsert(result, finish_time_, tbl_id,
-                                                 pid, idx);
+    return storage::UndoRecord::InitializeInsert(result, finish_time_, tbl_id, pid, idx);
   }
 
-  storage::UndoRecord *UndoRecordForDelete(table_id tbl_id, page_id pid,
-                                           u32 idx) {
+  storage::UndoRecord *UndoRecordForDelete(table_id tbl_id, page_id pid, u32 idx) {
     byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord));
-    return storage::UndoRecord::InitializeDelete(result, finish_time_, tbl_id,
-                                                 pid, idx);
+    return storage::UndoRecord::InitializeDelete(result, finish_time_, tbl_id, pid, idx);
   }
 
-  storage::UndoRecord *UndoRecordForUpdate(table_id tbl_id, page_id pid,
-                                           u32 idx, access::DataChunk *chunk) {
-    byte *result =
-        undo_buffer_.NewEntry(sizeof(storage::UndoRecord) + chunk->GetSize());
-    return storage::UndoRecord::InitializeUpdate(
-        result, finish_time_, tbl_id, pid, idx, chunk->GetHeaderPtr());
+  storage::UndoRecord *UndoRecordForUpdate(table_id tbl_id, page_id pid, u32 idx,
+                                           access::DataChunk *chunk) {
+    byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord) + chunk->GetSize());
+    return storage::UndoRecord::InitializeUpdate(result, finish_time_, tbl_id, pid, idx,
+                                                 chunk->GetHeaderPtr());
   }
 
   storage::RedoRecord *StageWrite(table_id t_id, page_id p_id, u32 idx,
                                   access::DataChunkLayout *initializer) {
     const u32 size = storage::RedoRecord::GetHeadersSize();
     auto *const log_record = storage::RedoRecord::Initialize(
-        redo_buffer_.NewEntry(size, durability_policy_), start_time_,
-        initializer, t_id, p_id, idx);
+        redo_buffer_.NewEntry(size, durability_policy_), start_time_, initializer, t_id, p_id, idx);
     return reinterpret_cast<storage::RedoRecord *>(log_record->GetDelta());
   }
 
@@ -122,20 +113,16 @@ public:
     //     undo = undo->GetNext();
     // }
 
-    if (undo == nullptr) {
-      return true;
-    }
+    if (undo == nullptr) { return true; }
 
     const bool safely_deleted =
         undo->IsDeleted() &&
-        !transaction::TransactionUtil::HasConflict(undo->GetTimestamp(),
-                                                   FinishTime(), StartTime());
+        !transaction::TransactionUtil::HasConflict(undo->GetTimestamp(), FinishTime(), StartTime());
 
     return !safely_deleted;
   }
 
-  ResultObj<TupleId> GetTidForModify(std::vector<TupleId> &tids,
-                                     table_id tbl_id) {
+  ResultObj<TupleId> GetTidForModify(std::vector<TupleId> &tids, table_id tbl_id) {
     TupleId result = INVALID_TID;
     for (auto tid : tids) {
       auto *undo = version_manager_->GetDelta(tid, tbl_id);
@@ -144,8 +131,8 @@ public:
         break;
       }
 
-      if (transaction::TransactionUtil::HasConflict(
-              undo->GetTimestamp(), FinishTime(), StartTime())) {
+      if (transaction::TransactionUtil::HasConflict(undo->GetTimestamp(), FinishTime(),
+                                                    StartTime())) {
         return ResultObj<TupleId>::Fail("Conflicting version");
       }
 
@@ -160,9 +147,7 @@ public:
   bool GetTidExists(std::vector<TupleId> &tids, table_id tbl_id) {
     for (auto tid : tids) {
       auto *undo = version_manager_->GetDelta(tid, tbl_id);
-      if (undo == nullptr || !undo->IsDeleted()) {
-        return true;
-      }
+      if (undo == nullptr || !undo->IsDeleted()) { return true; }
     }
     return false;
   }

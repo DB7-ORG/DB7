@@ -34,9 +34,7 @@ struct PACKED PageIdentifier {
 
   PageIdentifier(u64 packed) : packed(packed) {}
 
-  bool operator==(const PageIdentifier &other) const {
-    return packed == other.packed;
-  }
+  bool operator==(const PageIdentifier &other) const { return packed == other.packed; }
 };
 } // namespace db7::storage
 

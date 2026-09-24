@@ -19,24 +19,20 @@ void DiskManager::BuildPath(table_id tid, char *buf, u32 len) {
 
 void DiskManager::LoadExistingTables() {
   DIR *dir = opendir(base_dir_);
-  if (!dir)
-    return;
+  if (!dir) return;
 
   struct dirent *entry;
   while ((entry = readdir(dir)) != nullptr) {
-    if (entry->d_type != DT_REG)
-      continue;
+    if (entry->d_type != DT_REG) continue;
 
     table_id tbl_id;
-    if (sscanf(entry->d_name, "table_%u", &tbl_id) != 1)
-      continue;
+    if (sscanf(entry->d_name, "table_%u", &tbl_id) != 1) continue;
 
     char path[MAX_PATH_LEN];
     BuildPath(tbl_id, path, sizeof(path));
 
     int fd = open(path, O_RDWR | O_DIRECT);
-    if (fd < 0)
-      continue;
+    if (fd < 0) continue;
 
     struct stat st;
     fstat(fd, &st);
@@ -51,13 +47,10 @@ void DiskManager::LoadExistingTables() {
   closedir(dir);
 }
 
-DiskManager::DiskManager(const char *base_dir)
-    : cache_(std::make_unique<FdCache>()) {
+DiskManager::DiskManager(const char *base_dir) : cache_(std::make_unique<FdCache>()) {
   strncpy(base_dir_, base_dir, MAX_PATH_LEN_2 - 1);
 
-  for (u32 i = 0; i < MAX_OPEN_FILES; i++) {
-    cache_->Invalidate(i);
-  }
+  for (u32 i = 0; i < MAX_OPEN_FILES; i++) { cache_->Invalidate(i); }
 
   mkdir(base_dir_, 0755);
 
@@ -67,9 +60,7 @@ DiskManager::DiskManager(const char *base_dir)
 DiskManager::~DiskManager() {
   for (u32 i = 0; i < MAX_OPEN_FILES; i++) {
     int fd = cache_->Get(i).fd;
-    if (fd >= 0) {
-      close(fd);
-    }
+    if (fd >= 0) { close(fd); }
   }
 }
 
@@ -116,8 +107,7 @@ bool DiskManager::ExistsTable(table_id tbl_id) {
 }
 
 bool DiskManager::ReadPage(table_id tbl_id, page_id pid, void *dest) {
-  DB7_ASSERT(((uintptr_t)dest & (DIRECT_ALIGN - 1)) == 0,
-             "Dest not aligned to 4096");
+  DB7_ASSERT(((uintptr_t)dest & (DIRECT_ALIGN - 1)) == 0, "Dest not aligned to 4096");
 
   FdCacheEntry hdr = cache_->Get(tbl_id);
   DB7_ASSERT(hdr.fd >= 0, "File not found");
@@ -132,8 +122,7 @@ bool DiskManager::ReadPage(table_id tbl_id, page_id pid, void *dest) {
 }
 
 bool DiskManager::WritePage(table_id tbl_id, page_id pid, const void *src) {
-  DB7_ASSERT(((uintptr_t)src & (DIRECT_ALIGN - 1)) == 0,
-             "Dest not aligned to 4096");
+  DB7_ASSERT(((uintptr_t)src & (DIRECT_ALIGN - 1)) == 0, "Dest not aligned to 4096");
 
   int fd = cache_->Get(tbl_id).fd;
   DB7_ASSERT(fd >= 0, "File not found");

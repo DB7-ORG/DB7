@@ -13,8 +13,7 @@ namespace db7::access {
 class DataChunk;
 
 constexpr u32 SIZE_PART = 2 * sizeof(u32);
-constexpr u32 COLUMN_IDS_START =
-    shared::AlignUp(SIZE_PART, u32(sizeof(catalog::col_oid_t)));
+constexpr u32 COLUMN_IDS_START = shared::AlignUp(SIZE_PART, u32(sizeof(catalog::col_oid_t)));
 
 class DataChunkLayout {
 private:
@@ -25,8 +24,7 @@ private:
   byte *header_underlying_;
 
   catalog::col_oid_t *GetColumnIdsPtr() {
-    return reinterpret_cast<catalog::col_oid_t *>(header_underlying_ +
-                                                  COLUMN_IDS_START);
+    return reinterpret_cast<catalog::col_oid_t *>(header_underlying_ + COLUMN_IDS_START);
   }
 
 public:
@@ -34,15 +32,12 @@ public:
 
   DataChunkLayout(const Schema &schema);
 
-  DataChunkLayout(std::span<const catalog::col_oid_t> col_ids,
-                  std::span<const u16> attr_sizes);
+  DataChunkLayout(std::span<const catalog::col_oid_t> col_ids, std::span<const u16> attr_sizes);
 
   DataChunkLayout(std::initializer_list<catalog::col_oid_t> col_ids,
                   std::initializer_list<u16> attr_sizes)
-      : DataChunkLayout(
-            std::span<const catalog::col_oid_t>(col_ids.begin(),
-                                                col_ids.size()),
-            std::span<const u16>(attr_sizes.begin(), attr_sizes.size())) {}
+      : DataChunkLayout(std::span<const catalog::col_oid_t>(col_ids.begin(), col_ids.size()),
+                        std::span<const u16>(attr_sizes.begin(), attr_sizes.size())) {}
 
   ~DataChunkLayout() { delete[] header_underlying_; }
 
@@ -66,30 +61,23 @@ private:
   byte *GetUnderlyingPtr() { return reinterpret_cast<byte *>(this); }
 
   catalog::col_oid_t *GetColumnIdsPtr() {
-    return reinterpret_cast<catalog::col_oid_t *>(GetUnderlyingPtr() +
-                                                  COLUMN_IDS_START);
+    return reinterpret_cast<catalog::col_oid_t *>(GetUnderlyingPtr() + COLUMN_IDS_START);
   }
 
   u16 *GetOffsetsPtr() {
-    auto aligned = shared::AlignUp(uintptr_t(GetColumnIdsPtr() + column_count_),
-                                   uintptr_t(sizeof(u32)));
+    auto aligned =
+        shared::AlignUp(uintptr_t(GetColumnIdsPtr() + column_count_), uintptr_t(sizeof(u32)));
     return reinterpret_cast<u16 *>(aligned);
   }
 
-  byte *GetDataPtr() {
-    return reinterpret_cast<byte *>(GetOffsetsPtr() + column_count_);
-  }
+  byte *GetDataPtr() { return reinterpret_cast<byte *>(GetOffsetsPtr() + column_count_); }
 
 public:
   DB7_DISALLOW_COPY(DataChunk);
 
-  std::span<byte> GetUnderlying() {
-    return std::span<byte>(GetUnderlyingPtr(), total_size_);
-  }
+  std::span<byte> GetUnderlying() { return std::span<byte>(GetUnderlyingPtr(), total_size_); }
 
-  std::span<byte> GetHeaderPtr() {
-    return std::span<byte>(GetUnderlyingPtr(), GetHeaderSize());
-  }
+  std::span<byte> GetHeaderPtr() { return std::span<byte>(GetUnderlyingPtr(), GetHeaderSize()); }
 
   std::span<catalog::col_oid_t> GetColumnIds() {
     return std::span<catalog::col_oid_t>(GetColumnIdsPtr(), column_count_);
@@ -100,9 +88,7 @@ public:
   byte *Get(catalog::col_oid_t oid) {
     int idx = 0;
     for (auto id : GetColumnIds()) {
-      if (id == oid) {
-        return Access(idx);
-      }
+      if (id == oid) { return Access(idx); }
       idx++;
     }
 
@@ -159,16 +145,12 @@ public:
     }
 
     template <typename T> void PushBack(T new_data) {
-      DB7_ASSERT(shared::IsAligned<T>(iterator_data_ptr_ +
-                                      iterator_offsets_[iterator_idx_]),
+      DB7_ASSERT(shared::IsAligned<T>(iterator_data_ptr_ + iterator_offsets_[iterator_idx_]),
                  "unaligned write");
-      *(T *)(iterator_data_ptr_ + iterator_offsets_[iterator_idx_++]) =
-          new_data;
+      *(T *)(iterator_data_ptr_ + iterator_offsets_[iterator_idx_++]) = new_data;
     }
 
-    byte *Next() {
-      return iterator_data_ptr_ + iterator_offsets_[iterator_idx_++];
-    }
+    byte *Next() { return iterator_data_ptr_ + iterator_offsets_[iterator_idx_++]; }
   };
 
   Iterator InitIterator() { return Iterator(this); }
@@ -187,8 +169,7 @@ public:
     iter.PushBack(entry);
   }
 
-  static void BuildNamespaceChunk(DataChunk *chunk,
-                                  catalog::namespace_oid_t oid,
+  static void BuildNamespaceChunk(DataChunk *chunk, catalog::namespace_oid_t oid,
                                   const std::span<byte> name) {
     chunk->Write(catalog::CatalogColumnOid::NSPOID, oid);
     storage::VarlenEntry entry;
@@ -196,8 +177,7 @@ public:
     chunk->Write(catalog::CatalogColumnOid::NSPNAME, entry);
   }
 
-  static void BuildNamespaceChunk(DataChunk *chunk,
-                                  catalog::namespace_oid_t oid) {
+  static void BuildNamespaceChunk(DataChunk *chunk, catalog::namespace_oid_t oid) {
     chunk->Write(catalog::CatalogColumnOid::NSPOID, oid);
   }
 
@@ -206,9 +186,8 @@ public:
   }
 
   static void BuildClassChunk(DataChunk *chunk, catalog::class_oid_t oid,
-                              const std::span<byte> name,
-                              catalog::namespace_oid_t namespace_oid, char kind,
-                              const std::span<byte> options) {
+                              const std::span<byte> name, catalog::namespace_oid_t namespace_oid,
+                              char kind, const std::span<byte> options) {
     chunk->Write(catalog::CatalogColumnOid::RELOID, oid);
     storage::VarlenEntry entry;
     entry.Set(name);
@@ -220,10 +199,9 @@ public:
     chunk->Write(catalog::CatalogColumnOid::RELOPTIONS, options_entry);
   }
 
-  static void
-  BuildAttributeChunk(DataChunk *chunk, catalog::attribute_oid_t oid,
-                      catalog::class_oid_t rel_oid, const std::span<char> name,
-                      access::type_id type_oid, u16 attr_len, bool not_null) {
+  static void BuildAttributeChunk(DataChunk *chunk, catalog::attribute_oid_t oid,
+                                  catalog::class_oid_t rel_oid, const std::span<char> name,
+                                  access::type_id type_oid, u16 attr_len, bool not_null) {
     chunk->Write(catalog::CatalogColumnOid::ATTNUM, oid);
     chunk->Write(catalog::CatalogColumnOid::ATTRELID, rel_oid);
     storage::VarlenEntry entry;
@@ -235,9 +213,8 @@ public:
   }
 
   static void BuildIndexChunk(DataChunk *chunk, catalog::index_oid_t oid,
-                              catalog::class_oid_t rel_oid, bool is_unique,
-                              bool is_primary, bool is_exclusion,
-                              bool is_imediate, bool is_valid, bool is_ready,
+                              catalog::class_oid_t rel_oid, bool is_unique, bool is_primary,
+                              bool is_exclusion, bool is_imediate, bool is_valid, bool is_ready,
                               bool is_live, u8 index_type) {
     chunk->Write(catalog::CatalogColumnOid::INDOID, oid);
     chunk->Write(catalog::CatalogColumnOid::INDRELID, rel_oid);
@@ -251,8 +228,7 @@ public:
     chunk->Write(catalog::CatalogColumnOid::IND_TYPE, index_type);
   }
 
-  static void BuildConstraintChunk(DataChunk *chunk,
-                                   catalog::constraint_oid_t oid,
+  static void BuildConstraintChunk(DataChunk *chunk, catalog::constraint_oid_t oid,
                                    catalog::ConstraintProps props) {
     chunk->Write(catalog::CatalogColumnOid::CONOID, oid);
     storage::VarlenEntry entry;

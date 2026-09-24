@@ -53,8 +53,8 @@ private:
    * @param dbc database catalog instance
    * @result success flag
    */
-  bool CreateDatabaseEntry(transaction::TransactionContext *txn,
-                           const std::span<byte> name, db_oid_t oid);
+  bool CreateDatabaseEntry(transaction::TransactionContext *txn, const std::span<byte> name,
+                           db_oid_t oid);
 
   /**
    * Deletes a tuple from a system database table.
@@ -62,8 +62,7 @@ private:
    * @param oid database id
    * @result success flag
    */
-  bool DeleteDatabaseEntry(transaction::TransactionContext *txn,
-                           const db_oid_t oid);
+  bool DeleteDatabaseEntry(transaction::TransactionContext *txn, const db_oid_t oid);
 
 public:
   /**
@@ -71,27 +70,23 @@ public:
    * This should newer be called in regular code other than at startup..
    */
   Catalog(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng)
-      : databases_map_({}), next_db_oid_(catalog::db_oid_t(1)),
-        buffer_pool_(buffer_pool), disk_mng_(disk_mng),
-        data_chunk_layout_(
-            {CatalogColumnOid::DATOID, CatalogColumnOid::DATNAME},
-            {SizeOf(access::type_id::INTEGER),
-             SizeOf(access::type_id::VARCHAR)}) {
+      : databases_map_({}), next_db_oid_(catalog::db_oid_t(1)), buffer_pool_(buffer_pool),
+        disk_mng_(disk_mng),
+        data_chunk_layout_({CatalogColumnOid::DATOID, CatalogColumnOid::DATNAME},
+                           {SizeOf(access::type_id::INTEGER), SizeOf(access::type_id::VARCHAR)}) {
     using enum CatalogTableOid;
-    databases_ = new access::Table(buffer_pool, disk_mng,
-                                   Builder::CreateDatabaseSchema(),
+    databases_ = new access::Table(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(),
                                    PG_DATABASES, PG_VARLEN);
-    databases_index_datoid = new access::BTreeIndex<TupleId>(
-        buffer_pool, disk_mng, PG_INDEX_DATABASE_DATOID, PG_DATABASES,
-        access::AttrsFor(PG_INDEX_DATABASE_DATOID));
-    databases_index_datname = new access::BTreeIndex<TupleId>(
-        buffer_pool, disk_mng, PG_INDEX_DATABASE_DATNAME, PG_DATABASES,
-        access::AttrsFor(PG_INDEX_DATABASE_DATNAME));
+    databases_index_datoid =
+        new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_DATABASE_DATOID,
+                                        PG_DATABASES, access::AttrsFor(PG_INDEX_DATABASE_DATOID));
+    databases_index_datname =
+        new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_DATABASE_DATNAME,
+                                        PG_DATABASES, access::AttrsFor(PG_INDEX_DATABASE_DATNAME));
   }
 
   ~Catalog() {
-    for (auto &[oid, dbc] : databases_map_)
-      delete dbc;
+    for (auto &[oid, dbc] : databases_map_) delete dbc;
     delete databases_;
     delete databases_index_datoid;
     delete databases_index_datname;
@@ -107,8 +102,7 @@ public:
    * @result id of a new database instance
    */
   ResultObj<db_oid_t> CreateDatabase(db7::transaction::TransactionContext *txn,
-                                     const std::span<byte> name,
-                                     const bool bootstrap);
+                                     const std::span<byte> name, const bool bootstrap);
 
   /**
    * Reverses everything CreateDatabase did
@@ -118,15 +112,12 @@ public:
    */
   bool DeleteDatabase(transaction::TransactionContext *txn, db_oid_t oid);
 
-  bool UpdateDatabaseName(transaction::TransactionContext *txn, db_oid_t oid,
-                          std::span<byte> name);
+  bool UpdateDatabaseName(transaction::TransactionContext *txn, db_oid_t oid, std::span<byte> name);
 
   void Select(transaction::TransactionContext *txn);
 
   // TODO this is temporary so i can test stuff
-  DatabaseCatalog *GetDatabaseCatalog(db_oid_t oid) {
-    return databases_map_[oid];
-  }
+  DatabaseCatalog *GetDatabaseCatalog(db_oid_t oid) { return databases_map_[oid]; }
 };
 
 } // namespace db7::catalog

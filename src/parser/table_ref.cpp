@@ -6,7 +6,7 @@
 
 #include "parser/select_statement.hpp"
 #include "shared/hash_util.hpp"
-#include "shared/json/json.hpp"
+
 #include "shared/json/json_util.hpp"
 
 namespace db7::parser {
@@ -25,38 +25,25 @@ nlohmann::json JoinDefinition::ToJson() const {
 
 hash_t JoinDefinition::Hash() const {
   hash_t hash = shared::HashUtil::Hash(type_);
-  if (left_ != nullptr)
-    hash = shared::HashUtil::CombineHashes(hash, left_->Hash());
-  if (right_ != nullptr)
-    hash = shared::HashUtil::CombineHashes(hash, right_->Hash());
-  if (condition_ != nullptr)
-    hash = shared::HashUtil::CombineHashes(hash, condition_->Hash());
+  if (left_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, left_->Hash());
+  if (right_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, right_->Hash());
+  if (condition_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, condition_->Hash());
   return hash;
 }
 
 bool JoinDefinition::operator==(const JoinDefinition &rhs) const {
-  if (type_ != rhs.type_)
-    return false;
-  if (left_ != nullptr && rhs.left_ == nullptr)
-    return false;
-  if (left_ == nullptr && rhs.left_ != nullptr)
-    return false;
-  if (left_ != nullptr && rhs.left_ != nullptr && *(left_) != *(rhs.left_))
-    return false;
+  if (type_ != rhs.type_) return false;
+  if (left_ != nullptr && rhs.left_ == nullptr) return false;
+  if (left_ == nullptr && rhs.left_ != nullptr) return false;
+  if (left_ != nullptr && rhs.left_ != nullptr && *(left_) != *(rhs.left_)) return false;
 
-  if (right_ != nullptr && rhs.right_ == nullptr)
-    return false;
-  if (right_ == nullptr && rhs.right_ != nullptr)
-    return false;
-  if (right_ != nullptr && rhs.right_ != nullptr && *(right_) != *(rhs.right_))
-    return false;
+  if (right_ != nullptr && rhs.right_ == nullptr) return false;
+  if (right_ == nullptr && rhs.right_ != nullptr) return false;
+  if (right_ != nullptr && rhs.right_ != nullptr && *(right_) != *(rhs.right_)) return false;
 
-  if (condition_ != nullptr && rhs.condition_ == nullptr)
-    return false;
-  if (condition_ == nullptr && rhs.condition_ != nullptr)
-    return false;
-  if (condition_ != nullptr && rhs.condition_ != nullptr &&
-      *(condition_) != *(rhs.condition_))
+  if (condition_ != nullptr && rhs.condition_ == nullptr) return false;
+  if (condition_ == nullptr && rhs.condition_ != nullptr) return false;
+  if (condition_ != nullptr && rhs.condition_ != nullptr && *(condition_) != *(rhs.condition_))
     return false;
   return true;
 }
@@ -64,8 +51,7 @@ bool JoinDefinition::operator==(const JoinDefinition &rhs) const {
 /**
  * @param j json to deserialize
  */
-std::vector<std::unique_ptr<AbstractExpression>>
-JoinDefinition::FromJson(const nlohmann::json &j) {
+std::vector<std::unique_ptr<AbstractExpression>> JoinDefinition::FromJson(const nlohmann::json &j) {
   std::vector<std::unique_ptr<AbstractExpression>> exprs;
   // Deserialize type
   type_ = j.at("type").get<JoinType>();
@@ -91,8 +77,7 @@ JoinDefinition::FromJson(const nlohmann::json &j) {
     auto deserialized = DeserializeExpression(j.at("condition"));
     condition_ = shared::ManagedPointer(deserialized.result_);
     exprs.emplace_back(std::move(deserialized.result_));
-    exprs.insert(exprs.end(),
-                 std::make_move_iterator(deserialized.non_owned_exprs_.begin()),
+    exprs.insert(exprs.end(), std::make_move_iterator(deserialized.non_owned_exprs_.begin()),
                  std::make_move_iterator(deserialized.non_owned_exprs_.end()));
   }
 
@@ -102,30 +87,24 @@ JoinDefinition::FromJson(const nlohmann::json &j) {
 DEFINE_JSON_BODY_DECLARATIONS(JoinDefinition);
 
 std::unique_ptr<JoinDefinition> JoinDefinition::Copy() {
-  return std::make_unique<JoinDefinition>(type_, left_->Copy(), right_->Copy(),
-                                          condition_);
+  return std::make_unique<JoinDefinition>(type_, left_->Copy(), right_->Copy(), condition_);
 }
 
 nlohmann::json TableRef::ToJson() const {
   nlohmann::json j;
   j["type"] = type_;
   j["alias"] = alias_.ToJson();
-  j["table_info"] =
-      table_info_ == nullptr ? nlohmann::json(nullptr) : table_info_->ToJson();
-  j["select"] =
-      select_ == nullptr ? nlohmann::json(nullptr) : select_->ToJson();
+  j["table_info"] = table_info_ == nullptr ? nlohmann::json(nullptr) : table_info_->ToJson();
+  j["select"] = select_ == nullptr ? nlohmann::json(nullptr) : select_->ToJson();
   std::vector<nlohmann::json> list;
   list.reserve(list_.size());
-  for (const auto &item : list_) {
-    list.emplace_back(item->ToJson());
-  }
+  for (const auto &item : list_) { list.emplace_back(item->ToJson()); }
   j["list"] = list;
   j["join"] = join_ == nullptr ? nlohmann::json(nullptr) : join_->ToJson();
   return j;
 }
 
-std::vector<std::unique_ptr<AbstractExpression>>
-TableRef::FromJson(const nlohmann::json &j) {
+std::vector<std::unique_ptr<AbstractExpression>> TableRef::FromJson(const nlohmann::json &j) {
   std::vector<std::unique_ptr<AbstractExpression>> exprs;
   // Deserialize type
   type_ = j.at("type").get<TableReferenceType>();
@@ -175,51 +154,32 @@ DEFINE_JSON_BODY_DECLARATIONS(TableRef);
 hash_t TableRef::Hash() const {
   hash_t hash = shared::HashUtil::Hash(type_);
   hash = shared::HashUtil::CombineHashes(hash, std::hash<AliasType>{}(alias_));
-  if (table_info_ != nullptr)
-    hash = shared::HashUtil::CombineHashes(hash, table_info_->Hash());
-  if (select_ != nullptr)
-    hash = shared::HashUtil::CombineHashes(hash, select_->Hash());
-  if (join_ != nullptr)
-    hash = shared::HashUtil::CombineHashes(hash, join_->Hash());
-  for (const auto &tb : list_) {
-    hash = shared::HashUtil::CombineHashes(hash, tb->Hash());
-  }
+  if (table_info_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, table_info_->Hash());
+  if (select_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, select_->Hash());
+  if (join_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, join_->Hash());
+  for (const auto &tb : list_) { hash = shared::HashUtil::CombineHashes(hash, tb->Hash()); }
   return hash;
 }
 
 bool TableRef::operator==(const TableRef &rhs) const {
-  if (type_ != rhs.type_)
-    return false;
-  if (alias_ != rhs.alias_)
-    return false;
-  if (table_info_ != nullptr && rhs.table_info_ == nullptr)
-    return false;
-  if (table_info_ == nullptr && rhs.table_info_ != nullptr)
-    return false;
-  if (table_info_ != nullptr && rhs.table_info_ != nullptr &&
-      *(table_info_) != *(rhs.table_info_))
+  if (type_ != rhs.type_) return false;
+  if (alias_ != rhs.alias_) return false;
+  if (table_info_ != nullptr && rhs.table_info_ == nullptr) return false;
+  if (table_info_ == nullptr && rhs.table_info_ != nullptr) return false;
+  if (table_info_ != nullptr && rhs.table_info_ != nullptr && *(table_info_) != *(rhs.table_info_))
     return false;
 
-  if (select_ != nullptr && rhs.select_ == nullptr)
-    return false;
-  if (select_ == nullptr && rhs.select_ != nullptr)
-    return false;
-  if (select_ != nullptr && rhs.select_ != nullptr &&
-      *(select_) != *(rhs.select_))
-    return false;
+  if (select_ != nullptr && rhs.select_ == nullptr) return false;
+  if (select_ == nullptr && rhs.select_ != nullptr) return false;
+  if (select_ != nullptr && rhs.select_ != nullptr && *(select_) != *(rhs.select_)) return false;
 
-  if (join_ != nullptr && rhs.join_ == nullptr)
-    return false;
-  if (join_ == nullptr && rhs.join_ != nullptr)
-    return false;
-  if (join_ != nullptr && rhs.join_ != nullptr && *(join_) != *(rhs.join_))
-    return false;
+  if (join_ != nullptr && rhs.join_ == nullptr) return false;
+  if (join_ == nullptr && rhs.join_ != nullptr) return false;
+  if (join_ != nullptr && rhs.join_ != nullptr && *(join_) != *(rhs.join_)) return false;
 
-  if (list_.size() != rhs.list_.size())
-    return false;
+  if (list_.size() != rhs.list_.size()) return false;
   for (size_t i = 0; i < list_.size(); i++)
-    if (*(list_[i]) != *(rhs.list_[i]))
-      return false;
+    if (*(list_[i]) != *(rhs.list_[i])) return false;
   return true;
 }
 
@@ -228,15 +188,12 @@ std::unique_ptr<TableRef> TableRef::Copy() const {
 
   table_ref->type_ = type_;
   table_ref->alias_ = alias_;
-  table_ref->table_info_ =
-      table_info_ == nullptr ? nullptr : table_info_->Copy();
+  table_ref->table_info_ = table_info_ == nullptr ? nullptr : table_info_->Copy();
   table_ref->select_ = select_ == nullptr ? nullptr : select_->Copy();
   table_ref->join_ = join_ == nullptr ? nullptr : join_->Copy();
 
   table_ref->list_.reserve(list_.size());
-  for (const auto &item : list_) {
-    table_ref->list_.emplace_back(item->Copy());
-  }
+  for (const auto &item : list_) { table_ref->list_.emplace_back(item->Copy()); }
   return table_ref;
 }
 
