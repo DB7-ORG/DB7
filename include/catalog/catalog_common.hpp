@@ -17,6 +17,7 @@ using attribute_oid_t = u32;
 using attribute_type_oid_t = u32;
 using index_oid_t = u32;
 using constraint_oid_t = u32;
+using proc_oid_t = u32;
 
 struct CatalogTableColCount {
   static constexpr u32 DATABASE = 2;  // DATOID, DATNAME

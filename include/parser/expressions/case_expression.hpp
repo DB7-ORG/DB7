@@ -5,149 +5,155 @@
 #include <vector>
 
 #include "abstract_expression.hpp"
-#include "json_util.hpp"
 
-namespace noisepage::parser
-{
+namespace db7::parser {
+
+/**
+ * CaseExpression represents a SQL WHEN ... THEN ... statement.
+ */
+class CaseExpression : public AbstractExpression {
+public:
+  struct WhenClause {
+    /** The condition to be checked for this case expression. */
+    std::unique_ptr<AbstractExpression> condition_;
+    /** The value that this expression should have if the corresponding
+     * condition is true. */
+    std::unique_ptr<AbstractExpression> then_;
 
     /**
-     * CaseExpression represents a SQL WHEN ... THEN ... statement.
+     * Equality check
+     * @param rhs the other WhenClause to compare to
+     * @return if the two are equal
      */
-    class CaseExpression : public AbstractExpression
-    {
-    public:
-        struct WhenClause
-        {
-            /** The condition to be checked for this case expression. */
-            std::unique_ptr<AbstractExpression> condition_;
-            /** The value that this expression should have if the corresponding condition is true. */
-            std::unique_ptr<AbstractExpression> then_;
+    bool operator==(const WhenClause &rhs) const {
+      return *condition_ == *rhs.condition_ && *then_ == *rhs.then_;
+    }
 
-            /**
-             * Equality check
-             * @param rhs the other WhenClause to compare to
-             * @return if the two are equal
-             */
-            bool operator==(const WhenClause &rhs) const { return *condition_ == *rhs.condition_ && *then_ == *rhs.then_; }
+    /**
+     * Inequality check
+     * @param rhs the other WhenClause to compare toz
+     * @return if the two are not equal
+     */
+    bool operator!=(const WhenClause &rhs) const { return !operator==(rhs); }
 
-            /**
-             * Inequality check
-             * @param rhs the other WhenClause to compare toz
-             * @return if the two are not equal
-             */
-            bool operator!=(const WhenClause &rhs) const { return !operator==(rhs); }
+    /**
+     * Hash the current WhenClause.
+     * @return hash of WhenClause
+     */
+    hash_t Hash() const;
 
-            /**
-             * Hash the current WhenClause.
-             * @return hash of WhenClause
-             */
-            hash_t Hash() const;
+    /**
+     * Derived expressions should call this base method
+     * @return expression serialized to json
+     */
+    nlohmann::json ToJson() const;
 
-            /**
-             * Derived expressions should call this base method
-             * @return expression serialized to json
-             */
-            nlohmann::json ToJson() const;
+    /**
+     * Derived expressions should call this base method
+     * @param j json to deserialize
+     */
+    std::vector<std::unique_ptr<AbstractExpression>>
+    FromJson(const nlohmann::json &j);
+  };
 
-            /**
-             * Derived expressions should call this base method
-             * @param j json to deserialize
-             */
-            std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j);
-        };
+private:
+  /** List of condition and result cases: WHEN ... THEN ... */
+  std::vector<WhenClause> when_clauses_;
+  /** Default result case. */
+  std::unique_ptr<AbstractExpression> default_expr_;
 
-    private:
-        /** List of condition and result cases: WHEN ... THEN ... */
-        std::vector<WhenClause> when_clauses_;
-        /** Default result case. */
-        std::unique_ptr<AbstractExpression> default_expr_;
+public:
+  /**
+   * Instantiate a new case expression.
+   * @param return_value_type return value of the case expression
+   * @param when_clauses list of WhenClauses
+   * @param default_expr default expression for this case
+   */
+  CaseExpression(const access::type_id return_value_type,
+                 std::vector<WhenClause> &&when_clauses,
+                 std::unique_ptr<AbstractExpression> default_expr)
+      : AbstractExpression(ExpressionType::OPERATOR_CASE_EXPR,
+                           return_value_type, {}),
+        when_clauses_(std::move(when_clauses)),
+        default_expr_(std::move(default_expr)) {}
 
-    public:
-        /**
-         * Instantiate a new case expression.
-         * @param return_value_type return value of the case expression
-         * @param when_clauses list of WhenClauses
-         * @param default_expr default expression for this case
-         */
-        CaseExpression(const execution::sql::SqlTypeId return_value_type, std::vector<WhenClause> &&when_clauses,
-                       std::unique_ptr<AbstractExpression> default_expr)
-            : AbstractExpression(ExpressionType::OPERATOR_CASE_EXPR, return_value_type, {}),
-              when_clauses_(std::move(when_clauses)),
-              default_expr_(std::move(default_expr)) {}
+  /** Default constructor for deserialization. */
+  CaseExpression() = default;
 
-        /** Default constructor for deserialization. */
-        CaseExpression() = default;
+  /**
+   * Hashe the current case expression.
+   * @return hash of CaseExpression
+   */
+  hash_t Hash() const override;
 
-        /**
-         * Hashe the current case expression.
-         * @return hash of CaseExpression
-         */
-        hash_t Hash() const override;
+  /**
+   * Logical equality check.
+   * @param rhs other
+   * @return true if the two expressions are logically equal
+   */
+  bool operator==(const AbstractExpression &rhs) const override;
 
-        /**
-         * Logical equality check.
-         * @param rhs other
-         * @return true if the two expressions are logically equal
-         */
-        bool operator==(const AbstractExpression &rhs) const override;
+  /**
+   * Copies this CaseExpression
+   * @returns copy of this
+   */
+  std::unique_ptr<AbstractExpression> Copy() const override;
 
-        /**
-         * Copies this CaseExpression
-         * @returns copy of this
-         */
-        std::unique_ptr<AbstractExpression> Copy() const override;
+  /**
+   * Creates a copy of the current AbstractExpression with new children
+   * implanted. The children should not be owned by any other
+   * AbstractExpression.
+   * @param children New children to be owned by the copy
+   * @returns copy of this
+   */
+  std::unique_ptr<AbstractExpression>
+  CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children)
+      const override {
+    assert(children.empty() && "CaseExpression should have no children");
+    (void)children;
+    return Copy();
+  }
 
-        /**
-         * Creates a copy of the current AbstractExpression with new children implanted.
-         * The children should not be owned by any other AbstractExpression.
-         * @param children New children to be owned by the copy
-         * @returns copy of this
-         */
-        std::unique_ptr<AbstractExpression> CopyWithChildren(
-            std::vector<std::unique_ptr<AbstractExpression>> &&children) const override
-        {
-            assert(children.empty() && "CaseExpression should have no children");
-            (void)children;
-            return Copy();
-        }
+  /**
+   * @return the number of WhenClauses
+   */
+  size_t GetWhenClauseSize() const { return when_clauses_.size(); }
 
-        /**
-         * @return the number of WhenClauses
-         */
-        size_t GetWhenClauseSize() const { return when_clauses_.size(); }
+  /**
+   * @param index index of WhenClause to get
+   * @return condition at that index
+   */
+  shared::ManagedPointer<AbstractExpression>
+  GetWhenClauseCondition(size_t index) const {
+    assert(index < when_clauses_.size() && "Index must be in bounds.");
+    return shared::ManagedPointer(when_clauses_[index].condition_);
+  }
 
-        /**
-         * @param index index of WhenClause to get
-         * @return condition at that index
-         */
-        common::ManagedPointer<AbstractExpression> GetWhenClauseCondition(size_t index) const
-        {
-            assert(index < when_clauses_.size() && "Index must be in bounds.");
-            return common::ManagedPointer(when_clauses_[index].condition_);
-        }
+  /**
+   * @param index index of WhenClause to get
+   * @return result at that index
+   */
+  shared::ManagedPointer<AbstractExpression>
+  GetWhenClauseResult(size_t index) const {
+    assert(index < when_clauses_.size() && "Index must be in bounds.");
+    return shared::ManagedPointer(when_clauses_[index].then_);
+  }
 
-        /**
-         * @param index index of WhenClause to get
-         * @return result at that index
-         */
-        common::ManagedPointer<AbstractExpression> GetWhenClauseResult(size_t index) const
-        {
-            assert(index < when_clauses_.size() && "Index must be in bounds.");
-            return common::ManagedPointer(when_clauses_[index].then_);
-        }
+  /** @return default clause, if it exists */
+  shared::ManagedPointer<AbstractExpression> GetDefaultClause() const {
+    return shared::ManagedPointer(default_expr_);
+  }
 
-        /** @return default clause, if it exists */
-        common::ManagedPointer<AbstractExpression> GetDefaultClause() const { return common::ManagedPointer(default_expr_); }
+  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override;
 
-        // void Accept(common::ManagedPointer<binder::SqlNodeVisitor> v) override;
+  /** @return expression serialized to json */
+  nlohmann::json ToJson() const override;
 
-        /** @return expression serialized to json */
-        nlohmann::json ToJson() const override;
+  /** @param j json to deserialize */
+  std::vector<std::unique_ptr<AbstractExpression>>
+  FromJson(const nlohmann::json &j) override;
+};
 
-        /** @param j json to deserialize */
-        std::vector<std::unique_ptr<AbstractExpression>> FromJson(const nlohmann::json &j) override;
-    };
-
-    DEFINE_JSON_HEADER_DECLARATIONS(CaseExpression::WhenClause);
-    DEFINE_JSON_HEADER_DECLARATIONS(CaseExpression);
-}
+DEFINE_JSON_HEADER_DECLARATIONS(CaseExpression::WhenClause);
+DEFINE_JSON_HEADER_DECLARATIONS(CaseExpression);
+} // namespace db7::parser

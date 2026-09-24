@@ -1,0 +1,4 @@
+If:
+  PathMatch: include/third_party/libpg_query/.*\.c
+Index:
+  Background: Skip

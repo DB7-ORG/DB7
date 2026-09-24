@@ -2,6 +2,9 @@
 
 #include "common.hpp"
 
+#include <cstdint>
+#include <functional>
+
 #define DB7_PAGE_SIZE (1 << 13)
 #define DB7_MAX_ROW_SIZE DB7_PAGE_SIZE / 10
 #define BUFFER_POOL_PAGE_NUM 80000

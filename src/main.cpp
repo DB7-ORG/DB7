@@ -10,6 +10,9 @@
 #include "storage/buffer_pool/buffer_pool.hpp"
 #include "storage/disk_manager/disk_scheduler.hpp"
 #include "transaction/transaction_manager.hpp"
+
+#include "parser/postgres_parser.hpp"
+
 #include <fmt/core.h>
 #include <random>
 
@@ -254,7 +257,7 @@ inline unsigned default_threads() {
 //     return 0;
 // }
 
-int main() {
+int main2() {
   fmt::print("Hello, {}!\n", "world");
 
   // // populate_table();
@@ -344,4 +347,37 @@ int main() {
   disk_scheduler.Stop();
 
   return 0;
+}
+
+int main() {
+  const std::string query =
+      "SELECT id, name FROM users WHERE id > 10 ORDER BY name LIMIT 5";
+
+  try {
+    auto result = parser::PostgresParser::BuildParseTree(query);
+    for (auto statement : result->GetStatements()) {
+      // Quick way to see the whole tree
+      std::cout << statement->ToJson().dump(2) << "\n";
+
+      if (statement->GetType() == parser::StatementType::SELECT) {
+        auto select = statement.CastManagedPointerTo<parser::SelectStatement>();
+
+        std::cout << "table: " << select->GetSelectTable()->GetTableName()
+                  << "\n";
+
+        for (auto column : select->GetSelectColumns()) {
+          column->DeriveExpressionName();
+          std::cout << "column: " << column->GetExpressionName() << "\n";
+        }
+      }
+    }
+  } catch (const ParserException &e) {
+    // Syntax errors and unsupported features end up here
+    std::cerr << "parse error at position " << e.GetCursorPos() << ": "
+              << e.what() << "\n";
+    return 1;
+  } catch (const Exception &e) {
+    std::cerr << e << "\n";
+    return 1;
+  }
 }

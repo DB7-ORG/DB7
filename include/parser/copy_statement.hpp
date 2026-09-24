@@ -4,74 +4,74 @@
 #include <string>
 #include <utility>
 
-#include "table_ref.hpp"
+#include "shared/managed_pointer.hpp"
 #include "sql_statement.hpp"
-#include "managed_pointer.hpp"
+#include "table_ref.hpp"
 
-namespace noisepage::parser
-{
-    class CopyStatement : public SQLStatement
-    {
-    private:
-        const std::unique_ptr<TableRef> table_;
-        const std::unique_ptr<SelectStatement> select_stmt_;
-        const std::string file_path_;
-        const ExternalFileFormat format_;
+namespace db7::parser {
+class CopyStatement : public SQLStatement {
+private:
+  const std::unique_ptr<TableRef> table_;
+  const std::unique_ptr<SelectStatement> select_stmt_;
+  const std::string file_path_;
+  const ExternalFileFormat format_;
 
-        const bool is_from_;
-        const char delimiter_;
-        const char quote_;
-        const char escape_;
+  const bool is_from_;
+  const char delimiter_;
+  const char quote_;
+  const char escape_;
 
-    public:
-        /**
-         * @param table table to copy from
-         * @param select_stmt select statement to copy from
-         * @param file_path path to output file
-         * @param format file format
-         * @param is_from true if FROM, false if TO
-         * @param delimiter delimiter to be used for copying
-         * @param quote quote character
-         * @param escape escape character
-         */
-        CopyStatement(std::unique_ptr<TableRef> table, std::unique_ptr<SelectStatement> select_stmt, std::string file_path,
-                      ExternalFileFormat format, bool is_from, char delimiter, char quote, char escape)
-            : SQLStatement(StatementType::COPY),
-              table_(std::move(table)),
-              select_stmt_(std::move(select_stmt)),
-              file_path_(std::move(file_path)),
-              format_(format),
-              is_from_(is_from),
-              delimiter_(delimiter),
-              quote_(quote),
-              escape_(escape) {}
+public:
+  /**
+   * @param table table to copy from
+   * @param select_stmt select statement to copy from
+   * @param file_path path to output file
+   * @param format file format
+   * @param is_from true if FROM, false if TO
+   * @param delimiter delimiter to be used for copying
+   * @param quote quote character
+   * @param escape escape character
+   */
+  CopyStatement(std::unique_ptr<TableRef> table,
+                std::unique_ptr<SelectStatement> select_stmt,
+                std::string file_path, ExternalFileFormat format, bool is_from,
+                char delimiter, char quote, char escape)
+      : SQLStatement(StatementType::COPY), table_(std::move(table)),
+        select_stmt_(std::move(select_stmt)), file_path_(std::move(file_path)),
+        format_(format), is_from_(is_from), delimiter_(delimiter),
+        quote_(quote), escape_(escape) {}
 
-        ~CopyStatement() override = default;
+  ~CopyStatement() override = default;
 
-        // void Accept(common::ManagedPointer<binder::SqlNodeVisitor> v) override { v->Visit(common::ManagedPointer(this)); }
+  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override {
+  // v->Visit(shared::ManagedPointer(this)); }
 
-        /** @return copy table */
-        common::ManagedPointer<TableRef> GetCopyTable() { return common::ManagedPointer(table_); }
+  /** @return copy table */
+  shared::ManagedPointer<TableRef> GetCopyTable() {
+    return shared::ManagedPointer(table_);
+  }
 
-        /** @return select statement */
-        common::ManagedPointer<SelectStatement> GetSelectStatement() { return common::ManagedPointer(select_stmt_); }
+  /** @return select statement */
+  shared::ManagedPointer<SelectStatement> GetSelectStatement() {
+    return shared::ManagedPointer(select_stmt_);
+  }
 
-        /** @return file path */
-        std::string GetFilePath() { return file_path_; }
+  /** @return file path */
+  std::string GetFilePath() { return file_path_; }
 
-        /** @return external file format */
-        ExternalFileFormat GetExternalFileFormat() { return format_; }
+  /** @return external file format */
+  ExternalFileFormat GetExternalFileFormat() { return format_; }
 
-        /** @return true if FROM, false if TO */
-        bool IsFrom() { return is_from_; }
+  /** @return true if FROM, false if TO */
+  bool IsFrom() { return is_from_; }
 
-        /** @return delimiter */
-        char GetDelimiter() { return delimiter_; }
+  /** @return delimiter */
+  char GetDelimiter() { return delimiter_; }
 
-        /** @return quote char */
-        char GetQuoteChar() { return quote_; }
+  /** @return quote char */
+  char GetQuoteChar() { return quote_; }
 
-        /** @return escape char */
-        char GetEscapeChar() { return escape_; }
-    };
-}
+  /** @return escape char */
+  char GetEscapeChar() { return escape_; }
+};
+} // namespace db7::parser

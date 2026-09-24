@@ -1,9 +1,17 @@
 MAKEFLAGS += -j$(shell nproc)
 CXX = clang++
 CC = gcc
-BASE_CXXFLAGS = -std=c++20 -Iinclude -Isrc -march=native -Wall -Wextra \
-				-Wno-unused-parameter -Wno-unused-but-set-variable -Wno-return-type
+BASE_CXXFLAGS = -std=c++20 -Iinclude -Isrc -Iinclude/third_party/libpg_query/src/postgres/include -march=native -Wall -Wextra \
+				-Wno-unused-parameter -Wno-unused-but-set-variable -Wno-return-type \
+				-isystem include/third_party/libpg_query \
+				-isystem include/third_party/libpg_query/src \
+				-isystem include/third_party/libpg_query/src/postgres/include 
 DEPFLAGS = -MMD -MP
+
+# external libraries
+PG_QUERY_DIR := include/third_party/libpg_query
+PG_QUERY_LIB := $(PG_QUERY_DIR)/libpg_query.a
+BASE_CXXFLAGS += -I$(PG_QUERY_DIR)
 LDFLAGS = -lxxhash -lfmt -luring -ljemalloc -lutf8proc
 
 BUILD ?= release
@@ -45,9 +53,12 @@ $(CACHE_OBJ_DIR)/%.o: src/%.c Makefile
 	@mkdir -p $(dir $@)
 	$(CC) $(CCO3FLAGS) $(DEPFLAGS) -march=native -c $< -o $@
 
-$(TARGET): $(OBJS)
+$(PG_QUERY_LIB):
+	$(MAKE) -C $(PG_QUERY_DIR) build
+
+$(TARGET): $(OBJS) $(PG_QUERY_LIB)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(OBJS) -o $@ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) $(OBJS) $(PG_QUERY_LIB) -o $@ $(LDFLAGS)
 
 run: $(TARGET)
 	./$(TARGET)
@@ -57,6 +68,7 @@ clean:
 
 clean-force:
 	rm -rf obj cache bin
+	$(MAKE) -C $(PG_QUERY_DIR) clean
 
 install:
 	sudo apt install -y liburing-dev libxxhash-dev libfmt-dev build-essential libjemalloc-dev libutf8proc-dev libgtest-dev

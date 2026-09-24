@@ -8,24 +8,23 @@
 #include "default_value_expression.hpp"
 #include "derived_value_expression.hpp"
 #include "function_expression.hpp"
-#include "hash_util.hpp"
 #include "operator_expression.hpp"
 #include "parameter_value_expression.hpp"
+#include "shared/hash_util.hpp"
+#include "shared/json/json.hpp"
 #include "star_expression.hpp"
 #include "subquery_expression.hpp"
 #include "table_star_expression.hpp"
-#include "third_party/json.hpp"
 #include "type_cast_expression.hpp"
 
-
-namespace noisepage::parser {
+namespace db7::parser {
 
 nlohmann::json AliasType::ToJson() const {
   nlohmann::json j;
   j["name"] = name_;
   j["serial_valid"] = serial_valid_;
   if (serial_valid_) {
-    j["serial_no"] = serial_no_.UnderlyingValue();
+    j["serial_no"] = serial_no_;
   }
   return j;
 }
@@ -48,18 +47,18 @@ void AbstractExpression::SetMutableStateForCopy(
 }
 
 hash_t AbstractExpression::Hash() const {
-  hash_t hash = common::HashUtil::Hash(expression_type_);
+  hash_t hash = shared::HashUtil::Hash(expression_type_);
   for (const auto &child : children_) {
-    hash = common::HashUtil::CombineHashes(hash, child->Hash());
+    hash = shared::HashUtil::CombineHashes(hash, child->Hash());
   }
-  hash = common::HashUtil::CombineHashes(
-      hash, common::HashUtil::Hash(return_value_type_));
-  hash = common::HashUtil::CombineHashes(
-      hash, common::HashUtil::Hash(expression_name_));
-  hash = common::HashUtil::CombineHashes(hash, std::hash<AliasType>{}(alias_));
-  hash = common::HashUtil::CombineHashes(hash, common::HashUtil::Hash(depth_));
-  hash = common::HashUtil::CombineHashes(
-      hash, common::HashUtil::Hash(static_cast<char>(has_subquery_)));
+  hash = shared::HashUtil::CombineHashes(
+      hash, shared::HashUtil::Hash(return_value_type_));
+  hash = shared::HashUtil::CombineHashes(
+      hash, shared::HashUtil::Hash(expression_name_));
+  hash = shared::HashUtil::CombineHashes(hash, std::hash<AliasType>{}(alias_));
+  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(depth_));
+  hash = shared::HashUtil::CombineHashes(
+      hash, shared::HashUtil::Hash(static_cast<char>(has_subquery_)));
 
   return hash;
 }
@@ -85,18 +84,18 @@ bool AbstractExpression::operator==(const AbstractExpression &rhs) const {
   return return_value_type_ == rhs.return_value_type_;
 }
 
-std::vector<common::ManagedPointer<AbstractExpression>>
+std::vector<shared::ManagedPointer<AbstractExpression>>
 AbstractExpression::GetChildren() const {
-  std::vector<common::ManagedPointer<AbstractExpression>> children;
+  std::vector<shared::ManagedPointer<AbstractExpression>> children;
   children.reserve(children_.size());
   for (const auto &child : children_) {
-    children.emplace_back(common::ManagedPointer(child));
+    children.emplace_back(shared::ManagedPointer(child));
   }
   return children;
 }
 
 void AbstractExpression::SetChild(
-    int index, common::ManagedPointer<AbstractExpression> expr) {
+    int index, shared::ManagedPointer<AbstractExpression> expr) {
   if (index >= static_cast<int>(children_.size())) {
     children_.resize(index + 1);
   }
@@ -129,8 +128,7 @@ AbstractExpression::FromJson(const nlohmann::json &j) {
       ExpressionTypeFromString(j.at("expression_type").get<std::string>());
   expression_name_ = j.at("expression_name").get<std::string>();
   alias_ = parser::AliasType(j.at("alias").get<std::string>());
-  return_value_type_ =
-      j.at("return_value_type").get<execution::sql::SqlTypeId>();
+  return_value_type_ = j.at("return_value_type").get<access::type_id>();
   depth_ = j.at("depth").get<int>();
   has_subquery_ = j.at("has_subquery").get<bool>();
 
@@ -303,4 +301,4 @@ void AbstractExpression::DeriveExpressionName() {
 
 DEFINE_JSON_BODY_DECLARATIONS(AbstractExpression);
 
-} // namespace noisepage::parser
+} // namespace db7::parser

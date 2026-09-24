@@ -24,6 +24,8 @@ enum class type_id : u8 {
 
   VARCHAR,
   VARBINARY,
+
+  INVALID
 };
 
 constexpr u8 SizeOf(type_id t) {

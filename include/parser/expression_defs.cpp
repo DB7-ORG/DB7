@@ -2,14 +2,11 @@
 
 #include <string>
 
-namespace noisepage::parser
-{
+namespace db7::parser {
 
-    std::string ExpressionTypeToShortString(ExpressionType type)
-    {
-        switch (type)
-        {
-            // clang-format off
+std::string ExpressionTypeToShortString(ExpressionType type) {
+  switch (type) {
+    // clang-format off
             case ExpressionType::OPERATOR_PLUS:                     return "+";
             case ExpressionType::OPERATOR_MINUS:                    return "-";
             case ExpressionType::OPERATOR_MULTIPLY:                 return "*";
@@ -34,8 +31,8 @@ namespace noisepage::parser
             case ExpressionType::AGGREGATE_TOP_K:                   return "TOP_K";
             case ExpressionType::AGGREGATE_HISTOGRAM:               return "HISTOGRAM";
             default: return ExpressionTypeToString(type);
-            // clang-format on
-        }
-    }
+    // clang-format on
+  }
+}
 
-} // namespace noisepage::parser
+} // namespace db7::parser
