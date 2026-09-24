@@ -61,7 +61,8 @@ enum class LockMode { None, Optimistic, Read, Write };
  *      No locks taken at all. Noop.
  *      Useful when combined w reserve page, where no locks are taken.
  */
-template <LockMode Mode> void Lock(storage::Page *page) {
+template <LockMode Mode>
+void Lock(storage::Page *page) {
   if constexpr (Mode == LockMode::Write)
     page->WDataLock();
   else if constexpr (Mode == LockMode::Read)
@@ -80,7 +81,8 @@ template <LockMode Mode> void Lock(storage::Page *page) {
     DB7_UNREACHABLE();
 }
 
-template <LockMode Mode> bool Unlock(storage::Page *page) {
+template <LockMode Mode>
+bool Unlock(storage::Page *page) {
   if constexpr (Mode == LockMode::Write)
     page->WDataUnlock();
   else if constexpr (Mode == LockMode::Read)

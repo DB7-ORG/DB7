@@ -92,7 +92,10 @@ clean-force:
 install:
 	sudo apt install -y liburing-dev libxxhash-dev libfmt-dev build-essential libjemalloc-dev libutf8proc-dev libgtest-dev
 
-.PHONY: all clean clean-force run install test run-test clean-test
+format:
+	find src include tests \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \)   -not -path '*/third_party/*' -print0 | xargs -0 clang-format -i
+
+.PHONY: all clean clean-force run install test run-test clean-test format
 
 # Header dependency tracking (must come after 'all' so it stays the default target)
 -include $(DEPS)

@@ -426,7 +426,8 @@ namespace std {
 /**
  * Implements std::hash for abstract expressions
  */
-template <> struct hash<db7::parser::AbstractExpression> {
+template <>
+struct hash<db7::parser::AbstractExpression> {
   /**
    * Hashes the given expression
    * @param expr the expression to hash
@@ -441,7 +442,8 @@ template <> struct hash<db7::parser::AbstractExpression> {
  * considered equal. In other words, if the serial number is invalid, it should
  * match with all alias types with a matching string regardless of serial number
  */
-template <> struct hash<db7::parser::AliasType> {
+template <>
+struct hash<db7::parser::AliasType> {
   /**
    * @param p Alias we are hashing
    * @return Hash value of alias, effectively the hash of the name

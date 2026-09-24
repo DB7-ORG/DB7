@@ -42,7 +42,8 @@ public:
     return data_ + offset;
   }
 
-  template <typename T> void WriteOffset(u32 offset, T value) {
+  template <typename T>
+  void WriteOffset(u32 offset, T value) {
     DB7_ASSERT(data_ != nullptr, "Page data in null");
     memcpy(data_ + offset, &value,
            sizeof(T)); // TODO Compiler should optimize this for const fixed

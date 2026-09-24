@@ -40,7 +40,8 @@ public:
    * for NULLs
    * @param value underlying value to copy
    */
-  template <typename T> ConstantValueExpression(type_id type, T value);
+  template <typename T>
+  ConstantValueExpression(type_id type, T value);
 
   /**
    * Construct a CVE of provided type and value
@@ -178,7 +179,8 @@ public:
    * for NULLs
    * @param value underlying value to copy
    */
-  template <typename T> void SetValue(type_id type, T value) {
+  template <typename T>
+  void SetValue(type_id type, T value) {
     return_value_type_ = type;
     value_ = value;
     buffer_ = nullptr;
@@ -219,7 +221,8 @@ public:
    * the buffer in this CVE. In that case, do not destroy this CVE before the
    * std::string_view
    */
-  template <typename T> T Peek() const;
+  template <typename T>
+  T Peek() const;
 
   // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override;
 

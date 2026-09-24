@@ -12,7 +12,8 @@
 #include <mutex>
 
 namespace db7::access {
-template <typename ValTyp> class BTreeIndex {
+template <typename ValTyp>
+class BTreeIndex {
   // TODO assert ValTyp is correct type
 
 private:
@@ -29,14 +30,16 @@ private:
 
   static constexpr size_t ALLOC_CONST = 3;
 
-  template <shared::LockMode Mode> storage::Page *GetNode(page_id id) {
+  template <shared::LockMode Mode>
+  storage::Page *GetNode(page_id id) {
     storage::Page *page = buffer_pool_->Pin({tbl_id_, id});
     page->WaitIO();
     shared::Lock<Mode>(page);
     return page;
   }
 
-  template <shared::LockMode Mode> void ReleaseNode(storage::Page *page) {
+  template <shared::LockMode Mode>
+  void ReleaseNode(storage::Page *page) {
     shared::Unlock<Mode>(page);
     buffer_pool_->Unpin(page);
   }
@@ -286,7 +289,8 @@ private:
     return ResultObj<void>::Ok();
   }
 
-  template <shared::LockMode Mode> void FreePages(std::vector<storage::Page *> &visited) {
+  template <shared::LockMode Mode>
+  void FreePages(std::vector<storage::Page *> &visited) {
     for (auto *ptr : visited) { ReleaseNode<Mode>(ptr); }
   }
 

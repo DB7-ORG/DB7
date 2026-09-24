@@ -193,7 +193,10 @@ enum class ConType : char {
   EXCLUSION = 'x',          ///< Exclusion constraint.
 };
 
-template <typename T> constexpr char ToChar(T kind) { return static_cast<char>(kind); }
+template <typename T>
+constexpr char ToChar(T kind) {
+  return static_cast<char>(kind);
+}
 
 struct ConstraintProps {
   const std::span<byte> name;

@@ -9,12 +9,14 @@
 #include <vector>
 
 namespace db7::access {
-template <typename R> struct SlotValHeaderInter {
+template <typename R>
+struct SlotValHeaderInter {
   R result;
   u16 len;
 };
 
-template <typename R> struct SlotValInter {
+template <typename R>
+struct SlotValInter {
   SlotValHeaderInter<R> hdr;
   byte *data;
 
@@ -29,7 +31,8 @@ template <typename R> struct SlotValInter {
   SlotValInter(Key key, R value) : hdr({value, key.len}), data(key.data) {}
 };
 
-template <typename ValTyp> class BtreeVarlenLayoutIntermediate : public BaseLayout {
+template <typename ValTyp>
+class BtreeVarlenLayoutIntermediate : public BaseLayout {
 private:
   /** Same as in leaf shoul be templated */
   u16 CalculateHeapOffset(u16 prev_heap_offset, u16 tuple_len) {

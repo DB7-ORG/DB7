@@ -2,7 +2,8 @@
 
 #include <type_traits>
 namespace db7 {
-template <typename Typ> struct ResultObj {
+template <typename Typ>
+struct ResultObj {
   const char *message;
 
   Typ value;
@@ -11,7 +12,7 @@ template <typename Typ> struct ResultObj {
 
   static_assert(!std::is_same_v<Typ, char *>, "Typ cant be char*");
 
-  ResultObj() : success(true){};
+  ResultObj() : success(true) {};
 
   ResultObj(const char *message, bool success) : message(message), success(success) {}
 
@@ -20,7 +21,8 @@ template <typename Typ> struct ResultObj {
   static ResultObj Fail(const char *m = nullptr) { return {m, false}; }
 };
 
-template <> struct ResultObj<void> {
+template <>
+struct ResultObj<void> {
   const char *message = nullptr;
   bool success = false;
 

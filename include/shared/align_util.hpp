@@ -16,11 +16,13 @@ inline byte *AlignUp(byte *value, u32 alignment) {
   return reinterpret_cast<byte *>(AlignUp(reinterpret_cast<uintptr_t>(value), alignment));
 }
 
-template <typename T> constexpr T AlignDown(T value, size_t alignment) {
+template <typename T>
+constexpr T AlignDown(T value, size_t alignment) {
   return value & ~(alignment - 1);
 }
 
-template <typename T> static bool IsAligned(void *ptr) {
+template <typename T>
+static bool IsAligned(void *ptr) {
   return reinterpret_cast<uintptr_t>(ptr) % alignof(T) == 0;
 }
 

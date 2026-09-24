@@ -39,7 +39,8 @@ struct PACKED PageIdentifier {
 } // namespace db7::storage
 
 namespace std {
-template <> struct hash<db7::storage::PageIdentifier> {
+template <>
+struct hash<db7::storage::PageIdentifier> {
   size_t operator()(const db7::storage::PageIdentifier &p) const {
     return hash<uint64_t>{}(p.packed);
   }

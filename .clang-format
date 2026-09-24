@@ -7,3 +7,4 @@ AllowShortCaseLabelsOnASingleLine: true
 AllowShortLambdasOnASingleLine: All
 AllowShortEnumsOnASingleLine: true
 ColumnLimit: 100
+BreakTemplateDeclarations: Yes

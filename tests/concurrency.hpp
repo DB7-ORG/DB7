@@ -56,7 +56,8 @@ inline Range PartitionRange(unsigned t, unsigned nthreads, size_t total, size_t 
 /// barrier simultaneously so the measured window excludes thread startup
 /// and every thread is genuinely contending from the first instruction.
 /// Returns elapsed nanoseconds.
-template <typename Fn> double RunParallel(unsigned nthreads, Fn &&fn) {
+template <typename Fn>
+double RunParallel(unsigned nthreads, Fn &&fn) {
   std::atomic<unsigned> ready{0};
   std::atomic<bool> go{false};
 
@@ -66,12 +67,14 @@ template <typename Fn> double RunParallel(unsigned nthreads, Fn &&fn) {
   for (unsigned t = 0; t < nthreads; ++t) {
     workers.emplace_back([&, t] {
       ready.fetch_add(1, std::memory_order_acq_rel);
-      while (!go.load(std::memory_order_acquire)) { /* spin */ }
+      while (!go.load(std::memory_order_acquire)) { /* spin */
+      }
       fn(t);
     });
   }
 
-  while (ready.load(std::memory_order_acquire) < nthreads) { /* spin */ }
+  while (ready.load(std::memory_order_acquire) < nthreads) { /* spin */
+  }
 
   const auto t0 = std::chrono::steady_clock::now();
   go.store(true, std::memory_order_release);
@@ -117,7 +120,8 @@ public:
   }
 
   /// Stream-style: log.Failf("key ", i, " missing, got ", n, " rids");
-  template <typename... Args> void Failf(Args &&...parts) {
+  template <typename... Args>
+  void Failf(Args &&...parts) {
     std::ostringstream os;
     (os << ... << std::forward<Args>(parts));
     Fail(os.str());
@@ -157,7 +161,8 @@ inline void ExpectNoFailures(const ErrorLog &log) {
 
 /// Races are probabilistic: a single pass proves very little. Repeat runs
 /// the body `times` times and tags each iteration in the failure output.
-template <typename Fn> void Repeat(int times, Fn &&fn) {
+template <typename Fn>
+void Repeat(int times, Fn &&fn) {
   for (int i = 0; i < times; ++i) {
     SCOPED_TRACE(::testing::Message() << "iteration " << i);
     fn(i);

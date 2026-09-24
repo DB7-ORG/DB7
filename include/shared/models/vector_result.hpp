@@ -3,7 +3,8 @@
 #include <cstddef>
 #include <vector>
 namespace db7::shared {
-template <typename ValTyp> struct VectorValues {
+template <typename ValTyp>
+struct VectorValues {
   std::vector<ValTyp> vec;
   bool proceed;
 

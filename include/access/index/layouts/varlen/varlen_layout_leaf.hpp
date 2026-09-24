@@ -12,7 +12,8 @@
 #include <vector>
 
 namespace db7::access {
-template <typename R> struct SlotValLeaf {
+template <typename R>
+struct SlotValLeaf {
   u16 len;
   byte *data;
 
@@ -29,7 +30,8 @@ template <typename R> struct SlotValLeaf {
   }
 };
 
-template <typename ValTyp> class BtreeVarlenLayoutLeaf : public BaseLayout {
+template <typename ValTyp>
+class BtreeVarlenLayoutLeaf : public BaseLayout {
 private:
   static constexpr auto header_size_ = sizeof(VarlenHeader);
 

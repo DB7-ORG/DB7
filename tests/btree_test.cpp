@@ -110,7 +110,8 @@ Row NthRow(size_t i) {
 /// Never 0 — tid 0 is reserved for the [encoded][0] search sentinel.
 constexpr Rid RidFor(size_t i) { return 10'000 + i; }
 
-template <typename Proj> auto Project(std::span<const TypeSize> types, Proj proj) {
+template <typename Proj>
+auto Project(std::span<const TypeSize> types, Proj proj) {
   std::vector<decltype(proj(types.front()))> out;
   out.reserve(types.size());
   for (const auto &t : types) { out.push_back(proj(t)); }

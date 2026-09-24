@@ -106,7 +106,8 @@ using namespace db7;
 
 constexpr auto phys_type = type_id::VARCHAR;
 
-template <typename T> void prep_keys(std::vector<access::DataChunk *> &strs, u32 n) {
+template <typename T>
+void prep_keys(std::vector<access::DataChunk *> &strs, u32 n) {
 
   auto layout = access::DataChunkLayout({1}, {SizeOf(phys_type)});
   std::vector<access::TypeSize> types{{1, phys_type}};
@@ -125,7 +126,8 @@ template <typename T> void prep_keys(std::vector<access::DataChunk *> &strs, u32
   }
 }
 
-template <typename Fn> inline double run_parallel(unsigned nthreads, Fn &&fn) {
+template <typename Fn>
+inline double run_parallel(unsigned nthreads, Fn &&fn) {
   std::atomic<unsigned> ready{0};
   std::atomic<bool> go{false};
   std::vector<std::thread> ts;

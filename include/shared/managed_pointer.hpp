@@ -16,7 +16,8 @@ namespace db7::shared {
  *
  * @tparam Underlying the type of the object ManagedPointer points to.
  */
-template <class Underlying> class ManagedPointer {
+template <class Underlying>
+class ManagedPointer {
 private:
   Underlying *underlying_;
 
@@ -137,7 +138,8 @@ public:
    * new type
    * @return ManagedPointer holding the new type
    */
-  template <class NewType> ManagedPointer<NewType> CastManagedPointerTo() const {
+  template <class NewType>
+  ManagedPointer<NewType> CastManagedPointerTo() const {
     // Either "Underlying is a valid NewType" or "Underlying is base class of
     // NewType".
     static_assert(std::is_convertible_v<Underlying *, NewType *> ||
@@ -152,7 +154,8 @@ namespace std {
  * Implements std::hash for ManagedPointer.
  * @tparam Underlying the type of the object ManagedPointer points to.
  */
-template <class Underlying> struct hash<db7::shared::ManagedPointer<Underlying>> {
+template <class Underlying>
+struct hash<db7::shared::ManagedPointer<Underlying>> {
   /**
    * @param ptr the ManagedPointer to be hashed.
    * @return the hash of the ManagedPointer.

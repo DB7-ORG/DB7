@@ -117,7 +117,8 @@ struct Real : public Val { // TODO(Matt): should this be refactored to Double
   }
 };
 
-template <typename T> class Decimal {
+template <typename T>
+class Decimal {
 private:
   // The encoded decimal value
   T value_;

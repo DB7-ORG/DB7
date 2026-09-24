@@ -52,13 +52,15 @@ private:
   }
 
 public:
-  template <typename T> static u32 EncodeUnsigned(byte *buf, T data) {
+  template <typename T>
+  static u32 EncodeUnsigned(byte *buf, T data) {
     T swapped = shared::ByteUtil::ByteSwapIfLittleEndian(data);
     std::memcpy(buf, &swapped, sizeof(T));
     return sizeof(T);
   }
 
-  template <typename T> static u32 Encode(byte *buf, T data, bool is_data_null, KeySpecs specs) {
+  template <typename T>
+  static u32 Encode(byte *buf, T data, bool is_data_null, KeySpecs specs) {
     u32 size = 0;
 
     if (specs.is_nullable) {

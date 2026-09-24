@@ -95,7 +95,8 @@ public:
     throw std::runtime_error("Tried to access invalid column");
   }
 
-  template <typename T> void Write(catalog::col_oid_t oid, T new_data) {
+  template <typename T>
+  void Write(catalog::col_oid_t oid, T new_data) {
     int idx = 0;
     for (auto id : GetColumnIds()) {
       if (id == oid) {
@@ -144,7 +145,8 @@ public:
       std::memcpy(iterator_data_ptr_ + off, new_data.data(), new_data.size());
     }
 
-    template <typename T> void PushBack(T new_data) {
+    template <typename T>
+    void PushBack(T new_data) {
       DB7_ASSERT(shared::IsAligned<T>(iterator_data_ptr_ + iterator_offsets_[iterator_idx_]),
                  "unaligned write");
       *(T *)(iterator_data_ptr_ + iterator_offsets_[iterator_idx_++]) = new_data;

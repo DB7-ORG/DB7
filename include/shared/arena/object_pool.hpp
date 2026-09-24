@@ -6,7 +6,8 @@
 #include "third_party/concurrentqueue_safe.hpp"
 
 namespace db7::shared {
-template <typename ObjectType> class ObjectPool {
+template <typename ObjectType>
+class ObjectPool {
 private:
   moodycamel::ConcurrentQueue<ObjectType *> queue_;
   u32 size_limit_;
