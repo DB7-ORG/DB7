@@ -1,4 +1,4 @@
-#include "table_star_expression.hpp"
+#include "parser/expressions/table_star_expression.hpp"
 
 namespace db7::parser {
 

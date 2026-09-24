@@ -1,6 +1,6 @@
 #include "shared/error/exception.hpp"
 
-#include "postgres_parser.hpp"
+#include "parser/postgres_parser.hpp"
 
 #include "parser/create_function_statement.hpp"
 #include "parser/create_statement.hpp"
@@ -18,22 +18,12 @@
 #include "parser/expressions/subquery_expression.hpp"
 #include "parser/expressions/table_star_expression.hpp"
 #include "parser/expressions/type_cast_expression.hpp"
-
-#include "expressions/value_util.hpp"
-#include <fmt/format.h>
-#include <unordered_set>
+#include "parser/expressions/value_util.hpp"
 
 #include "parser/pg_node.hpp"
 
-/**
- * Log information about the error, then throw an exception
- * FN_NAME - name of current function
- * TYPE_MSG - message about the type in error
- * ARG - to print, i.e. unknown or unsupported type
- */
-#define PARSER_LOG_AND_THROW(FN_NAME, TYPE_MSG, ARG)                           \
-  fmt::print(#FN_NAME #TYPE_MSG " {} unsupported", ARG);                       \
-  throw PARSER_EXCEPTION(#FN_NAME ":" #TYPE_MSG " unsupported")
+#include <fmt/format.h>
+#include <unordered_set>
 
 namespace db7::parser {
 
@@ -206,7 +196,8 @@ PostgresParser::NodeTransform(ParseResult *parse_result, Node *node) {
   //   break;
   // }
   default: {
-    fmt::print("NodeTransform: statement type {} unsupported", node->type);
+    fmt::print("NodeTransform: statement type {} unsupported\n",
+               static_cast<int>(node->type));
     throw PARSER_EXCEPTION("NodeTransform: unsupported statement type");
   }
   }
@@ -270,7 +261,8 @@ PostgresParser::ExprTransform(ParseResult *parse_result, Node *node,
     break;
   }
   default: {
-    fmt::print("ExprTransform: type {} unsupported", node->type);
+    fmt::print("ExprTransform: type {} unsupported",
+               static_cast<int>(node->type));
     throw PARSER_EXCEPTION("ExprTransform: unsupported type");
   }
   }

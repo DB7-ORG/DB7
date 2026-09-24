@@ -1,10 +1,10 @@
-#include "table_ref.hpp"
+#include "parser/table_ref.hpp"
 
 #include <memory>
 #include <utility>
 #include <vector>
 
-#include "select_statement.hpp"
+#include "parser/select_statement.hpp"
 #include "shared/hash_util.hpp"
 #include "shared/json/json.hpp"
 #include "shared/json/json_util.hpp"

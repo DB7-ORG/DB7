@@ -1,4 +1,4 @@
-#include "aggregate_expression.hpp"
+#include "parser/expressions/aggregate_expression.hpp"
 #include "shared/hash_util.hpp"
 
 namespace db7::parser {
@@ -89,7 +89,7 @@ bool AggregateExpression::RequiresCleanup() const {
     return true;
   default:
     throw std::runtime_error("Not a valid aggregation expression type: " +
-                             static_cast<int>(expr_type));
+                             std::to_string(static_cast<int>(expr_type)));
   }
 }
 

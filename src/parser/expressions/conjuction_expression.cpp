@@ -1,4 +1,4 @@
-#include "conjuction_expression.hpp"
+#include "parser/expressions/conjuction_expression.hpp"
 
 namespace db7::parser {
 std::unique_ptr<AbstractExpression> ConjunctionExpression::Copy() const {

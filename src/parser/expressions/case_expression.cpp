@@ -1,4 +1,4 @@
-#include "case_expression.hpp"
+#include "parser/expressions/case_expression.hpp"
 #include "shared/hash_util.hpp"
 
 namespace db7::parser {

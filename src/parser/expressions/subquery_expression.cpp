@@ -1,4 +1,4 @@
-#include "subquery_expression.hpp"
+#include "parser/expressions/subquery_expression.hpp"
 
 #include "shared/hash_util.hpp"
 

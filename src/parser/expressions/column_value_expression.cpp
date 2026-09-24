@@ -1,4 +1,4 @@
-#include "column_value_expression.hpp"
+#include "parser/expressions/column_value_expression.hpp"
 #include "shared/hash_util.hpp"
 
 namespace db7::parser {

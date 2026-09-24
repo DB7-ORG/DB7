@@ -1,4 +1,4 @@
-#include "comparison_expression.hpp"
+#include "parser/expressions/comparison_expression.hpp"
 
 namespace db7::parser {
 
