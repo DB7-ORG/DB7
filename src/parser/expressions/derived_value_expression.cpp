@@ -25,12 +25,9 @@ bool DerivedValueExpression::operator==(const AbstractExpression &rhs) const {
   return GetValueIdx() == other.GetValueIdx();
 }
 
-// void
-// DerivedValueExpression::Accept(shared::ManagedPointer<binder::SqlNodeVisitor>
-// v)
-// {
-//     v->Visit(shared::ManagedPointer(this));
-// }
+void DerivedValueExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) {
+  v->Visit(ManagedPointer(this));
+}
 
 nlohmann::json DerivedValueExpression::ToJson() const {
   nlohmann::json j = AbstractExpression::ToJson();

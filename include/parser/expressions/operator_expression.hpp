@@ -43,7 +43,7 @@ public:
 
   void DeriveReturnValueType() override;
 
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override;
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) override;
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(OperatorExpression);

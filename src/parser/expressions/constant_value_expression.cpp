@@ -323,12 +323,9 @@ ConstantValueExpression::FromJson(const nlohmann::json &j) {
   return exprs;
 }
 
-// void
-// ConstantValueExpression::Accept(shared::ManagedPointer<binder::SqlNodeVisitor>
-// v)
-// {
-//     v->Visit(shared::ManagedPointer(this));
-// }
+void ConstantValueExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) {
+  v->Visit(ManagedPointer(this));
+}
 
 DEFINE_JSON_BODY_DECLARATIONS(ConstantValueExpression);
 

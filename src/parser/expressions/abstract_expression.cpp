@@ -69,14 +69,14 @@ bool AbstractExpression::operator==(const AbstractExpression &rhs) const {
   return return_value_type_ == rhs.return_value_type_;
 }
 
-std::vector<shared::ManagedPointer<AbstractExpression>> AbstractExpression::GetChildren() const {
-  std::vector<shared::ManagedPointer<AbstractExpression>> children;
+std::vector<ManagedPointer<AbstractExpression>> AbstractExpression::GetChildren() const {
+  std::vector<ManagedPointer<AbstractExpression>> children;
   children.reserve(children_.size());
-  for (const auto &child : children_) { children.emplace_back(shared::ManagedPointer(child)); }
+  for (const auto &child : children_) { children.emplace_back(ManagedPointer(child)); }
   return children;
 }
 
-void AbstractExpression::SetChild(int index, shared::ManagedPointer<AbstractExpression> expr) {
+void AbstractExpression::SetChild(int index, ManagedPointer<AbstractExpression> expr) {
   if (index >= static_cast<int>(children_.size())) { children_.resize(index + 1); }
   auto new_child = expr->Copy();
   children_[index] = std::move(new_child);

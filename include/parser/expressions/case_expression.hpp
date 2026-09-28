@@ -118,26 +118,26 @@ public:
    * @param index index of WhenClause to get
    * @return condition at that index
    */
-  shared::ManagedPointer<AbstractExpression> GetWhenClauseCondition(size_t index) const {
+  ManagedPointer<AbstractExpression> GetWhenClauseCondition(size_t index) const {
     assert(index < when_clauses_.size() && "Index must be in bounds.");
-    return shared::ManagedPointer(when_clauses_[index].condition_);
+    return ManagedPointer(when_clauses_[index].condition_);
   }
 
   /**
    * @param index index of WhenClause to get
    * @return result at that index
    */
-  shared::ManagedPointer<AbstractExpression> GetWhenClauseResult(size_t index) const {
+  ManagedPointer<AbstractExpression> GetWhenClauseResult(size_t index) const {
     assert(index < when_clauses_.size() && "Index must be in bounds.");
-    return shared::ManagedPointer(when_clauses_[index].then_);
+    return ManagedPointer(when_clauses_[index].then_);
   }
 
   /** @return default clause, if it exists */
-  shared::ManagedPointer<AbstractExpression> GetDefaultClause() const {
-    return shared::ManagedPointer(default_expr_);
+  ManagedPointer<AbstractExpression> GetDefaultClause() const {
+    return ManagedPointer(default_expr_);
   }
 
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override;
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) override;
 
   /** @return expression serialized to json */
   nlohmann::json ToJson() const override;

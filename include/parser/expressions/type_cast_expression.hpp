@@ -52,7 +52,7 @@ public:
   std::unique_ptr<AbstractExpression>
   CopyWithChildren(std::vector<std::unique_ptr<AbstractExpression>> &&children) const override;
 
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override;
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) override;
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(TypeCastExpression);

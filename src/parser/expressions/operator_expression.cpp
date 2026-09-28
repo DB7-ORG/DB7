@@ -38,11 +38,9 @@ void OperatorExpression::DeriveReturnValueType() {
   this->SetReturnValueType(type);
 }
 
-// void
-// OperatorExpression::Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v)
-// {
-//     v->Visit(shared::ManagedPointer(this));
-// }
+void OperatorExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) {
+  v->Visit(ManagedPointer(this));
+}
 
 DEFINE_JSON_BODY_DECLARATIONS(OperatorExpression);
 

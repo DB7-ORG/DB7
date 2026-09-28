@@ -224,7 +224,7 @@ public:
   template <typename T>
   T Peek() const;
 
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override;
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) override;
 
   /** @return A string representation of this ConstantValueExpression. */
   std::string ToString() const;

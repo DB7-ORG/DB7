@@ -69,5 +69,9 @@ ColumnValueExpression::FromJson(const nlohmann::json &j) {
   return exprs;
 }
 
+void ColumnValueExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) {
+  v->Visit(ManagedPointer(this));
+}
+
 DEFINE_JSON_BODY_DECLARATIONS(ColumnValueExpression);
 } // namespace db7::parser

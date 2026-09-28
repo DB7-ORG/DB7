@@ -14,12 +14,9 @@ std::unique_ptr<AbstractExpression> ConjunctionExpression::CopyWithChildren(
   return expr;
 }
 
-// void
-// ConjunctionExpression::Accept(shared::ManagedPointer<binder::SqlNodeVisitor>
-// v)
-// {
-//     v->Visit(shared::ManagedPointer(this));
-// }
+void ConjunctionExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) {
+  v->Visit(ManagedPointer(this));
+}
 
 DEFINE_JSON_BODY_DECLARATIONS(ConjunctionExpression);
 

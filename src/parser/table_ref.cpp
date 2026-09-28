@@ -75,7 +75,7 @@ std::vector<std::unique_ptr<AbstractExpression>> JoinDefinition::FromJson(const 
   // Deserialize condition
   if (!j.at("condition").is_null()) {
     auto deserialized = DeserializeExpression(j.at("condition"));
-    condition_ = shared::ManagedPointer(deserialized.result_);
+    condition_ = ManagedPointer(deserialized.result_);
     exprs.emplace_back(std::move(deserialized.result_));
     exprs.insert(exprs.end(), std::make_move_iterator(deserialized.non_owned_exprs_.begin()),
                  std::make_move_iterator(deserialized.non_owned_exprs_.end()));

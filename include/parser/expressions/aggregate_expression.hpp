@@ -66,7 +66,7 @@ public:
    */
   void DeriveReturnValueType() override;
 
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override;
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) override;
 
   /** @return expression serialized to json */
   nlohmann::json ToJson() const override;

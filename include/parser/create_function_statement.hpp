@@ -102,8 +102,7 @@ public:
         func_body_(std::move(func_body)), func_parameters_(std::move(func_parameters)),
         pl_type_(pl_type), as_type_(as_type) {}
 
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override {
-  // v->Visit(shared::ManagedPointer(this)); }
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) override { v->Visit(ManagedPointer(this)); }
 
   /**
    * @return true if this function should replace existing definitions
@@ -118,9 +117,7 @@ public:
   /**
    * @return return type
    */
-  shared::ManagedPointer<ReturnType> GetFuncReturnType() {
-    return shared::ManagedPointer(return_type_);
-  }
+  ManagedPointer<ReturnType> GetFuncReturnType() { return ManagedPointer(return_type_); }
 
   /**
    * @return function body
@@ -130,12 +127,10 @@ public:
   /**
    * @return function parameters
    */
-  std::vector<shared::ManagedPointer<FuncParameter>> GetFuncParameters() {
-    std::vector<shared::ManagedPointer<FuncParameter>> params;
+  std::vector<ManagedPointer<FuncParameter>> GetFuncParameters() {
+    std::vector<ManagedPointer<FuncParameter>> params;
     params.reserve(func_parameters_.size());
-    for (const auto &param : func_parameters_) {
-      params.emplace_back(shared::ManagedPointer(param));
-    }
+    for (const auto &param : func_parameters_) { params.emplace_back(ManagedPointer(param)); }
     return params;
   }
 

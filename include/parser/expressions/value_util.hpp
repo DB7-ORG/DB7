@@ -26,7 +26,7 @@ public:
    * optionally-allocated buffer
    */
   static std::pair<StringVal, std::unique_ptr<byte[]>>
-  CreateStringVal(shared::ManagedPointer<const char> string, u32 length);
+  CreateStringVal(ManagedPointer<const char> string, u32 length);
   /**
    * Construct a StringVal, optionally allocating a byte buffer if the input
    * can't be inlined.

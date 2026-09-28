@@ -26,7 +26,7 @@ OrderByDescription::FromJson(const nlohmann::json &j) {
   auto expressions = j.at("exprs").get<std::vector<nlohmann::json>>();
   for (const auto &expr : expressions) {
     auto deserialized_expr = DeserializeExpression(expr);
-    exprs_.emplace_back(shared::ManagedPointer(deserialized_expr.result_));
+    exprs_.emplace_back(ManagedPointer(deserialized_expr.result_));
     result.emplace_back(std::move(deserialized_expr.result_));
     result.insert(result.end(), std::make_move_iterator(deserialized_expr.non_owned_exprs_.begin()),
                   std::make_move_iterator(deserialized_expr.non_owned_exprs_.end()));
@@ -70,7 +70,7 @@ GroupByDescription::FromJson(const nlohmann::json &j) {
   auto column_expressions = j.at("columns").get<std::vector<nlohmann::json>>();
   for (const auto &expr : column_expressions) {
     auto deserialized_expr = DeserializeExpression(expr);
-    columns_.emplace_back(shared::ManagedPointer(deserialized_expr.result_));
+    columns_.emplace_back(ManagedPointer(deserialized_expr.result_));
     exprs.emplace_back(std::move(deserialized_expr.result_));
     exprs.insert(exprs.end(), std::make_move_iterator(deserialized_expr.non_owned_exprs_.begin()),
                  std::make_move_iterator(deserialized_expr.non_owned_exprs_.end()));
@@ -79,7 +79,7 @@ GroupByDescription::FromJson(const nlohmann::json &j) {
   // Deserialize having
   if (!j.at("having").is_null()) {
     auto deserialized_expr = DeserializeExpression(j.at("having"));
-    having_ = shared::ManagedPointer(deserialized_expr.result_);
+    having_ = ManagedPointer(deserialized_expr.result_);
     exprs.emplace_back(std::move(deserialized_expr.result_));
     exprs.insert(exprs.end(), std::make_move_iterator(deserialized_expr.non_owned_exprs_.begin()),
                  std::make_move_iterator(deserialized_expr.non_owned_exprs_.end()));
@@ -116,7 +116,7 @@ SelectStatement::FromJson(const nlohmann::json &j) {
   auto select_expressions = j.at("select").get<std::vector<nlohmann::json>>();
   for (const auto &expr : select_expressions) {
     auto deserialized = DeserializeExpression(expr);
-    select_.emplace_back(shared::ManagedPointer(deserialized.result_));
+    select_.emplace_back(ManagedPointer(deserialized.result_));
     exprs.emplace_back(std::move(deserialized.result_));
     exprs.insert(exprs.end(), std::make_move_iterator(deserialized.non_owned_exprs_.begin()),
                  std::make_move_iterator(deserialized.non_owned_exprs_.end()));
@@ -135,7 +135,7 @@ SelectStatement::FromJson(const nlohmann::json &j) {
   // Deserialize where
   if (!j.at("where").is_null()) {
     auto deserialized = DeserializeExpression(j.at("where"));
-    where_ = shared::ManagedPointer(deserialized.result_);
+    where_ = ManagedPointer(deserialized.result_);
     exprs.emplace_back(std::move(deserialized.result_));
     exprs.insert(exprs.end(), std::make_move_iterator(deserialized.non_owned_exprs_.begin()),
                  std::make_move_iterator(deserialized.non_owned_exprs_.end()));

@@ -22,7 +22,7 @@ private:
   JoinType type_;
   std::unique_ptr<TableRef> left_;
   std::unique_ptr<TableRef> right_;
-  shared::ManagedPointer<AbstractExpression> condition_;
+  ManagedPointer<AbstractExpression> condition_;
 
 public:
   /**
@@ -32,7 +32,7 @@ public:
    * @param condition join condition
    */
   JoinDefinition(JoinType type, std::unique_ptr<TableRef> left, std::unique_ptr<TableRef> right,
-                 shared::ManagedPointer<AbstractExpression> condition)
+                 ManagedPointer<AbstractExpression> condition)
       : type_(type), left_(std::move(left)), right_(std::move(right)), condition_(condition) {}
 
   /**
@@ -48,8 +48,7 @@ public:
   /**
    * @param v Visitor pattern for the JOIN definition
    */
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) {
-  // v->Visit(shared::ManagedPointer(this)); }
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) { v->Visit(ManagedPointer(this)); }
 
   /**
    * @return type of join
@@ -59,17 +58,17 @@ public:
   /**
    * @return left table
    */
-  shared::ManagedPointer<TableRef> GetLeftTable() { return shared::ManagedPointer(left_); }
+  ManagedPointer<TableRef> GetLeftTable() { return ManagedPointer(left_); }
 
   /**
    * @return right table
    */
-  shared::ManagedPointer<TableRef> GetRightTable() { return shared::ManagedPointer(right_); }
+  ManagedPointer<TableRef> GetRightTable() { return ManagedPointer(right_); }
 
   /**
    * @return join condition
    */
-  shared::ManagedPointer<AbstractExpression> GetJoinCondition() { return condition_; }
+  ManagedPointer<AbstractExpression> GetJoinCondition() { return condition_; }
 
   /**
    * @return the hashed value of this join definition
@@ -248,8 +247,7 @@ public:
   }
 
   /** @param v Visitor pattern for the table reference */
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) {
-  // v->Visit(shared::ManagedPointer(this)); }
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) { v->Visit(ManagedPointer(this)); }
 
   /** @return The table reference type */
   TableReferenceType GetTableReferenceType() { return type_; }
@@ -296,22 +294,22 @@ public:
   const std::string &GetDatabaseName() { return table_info_->GetDatabaseName(); }
 
   /** @return The SELECT statement */
-  shared::ManagedPointer<SelectStatement> GetSelect() { return shared::ManagedPointer(select_); }
+  ManagedPointer<SelectStatement> GetSelect() { return ManagedPointer(select_); }
 
   /** @return `true` if this table reference has an associated SELECT, `false`
    * otherwise */
   bool HasSelect() const { return static_cast<bool>(select_); }
 
   /** @return list of table references */
-  std::vector<shared::ManagedPointer<TableRef>> GetList() {
-    std::vector<shared::ManagedPointer<TableRef>> list;
+  std::vector<ManagedPointer<TableRef>> GetList() {
+    std::vector<ManagedPointer<TableRef>> list;
     list.reserve(list_.size());
-    for (const auto &item : list_) { list.emplace_back(shared::ManagedPointer(item)); }
+    for (const auto &item : list_) { list.emplace_back(ManagedPointer(item)); }
     return list;
   }
 
   /** @return The join */
-  shared::ManagedPointer<JoinDefinition> GetJoin() { return shared::ManagedPointer(join_); }
+  ManagedPointer<JoinDefinition> GetJoin() { return ManagedPointer(join_); }
 
   /** @return The hashed value of this table ref object */
   hash_t Hash() const;

@@ -5,9 +5,9 @@
 namespace db7::parser {
 
 std::unique_ptr<AbstractExpression> SubqueryExpression::Copy() const {
-  std::vector<shared::ManagedPointer<AbstractExpression>> select_columns;
+  std::vector<ManagedPointer<AbstractExpression>> select_columns;
   for (const auto &col : subselect_->GetSelectColumns()) {
-    select_columns.emplace_back(shared::ManagedPointer(col));
+    select_columns.emplace_back(ManagedPointer(col));
   }
 
   auto group_by =

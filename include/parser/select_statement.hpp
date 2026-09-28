@@ -21,7 +21,7 @@ class OrderByDescription {
 
 private:
   std::vector<OrderType> types_;
-  std::vector<shared::ManagedPointer<AbstractExpression>> exprs_;
+  std::vector<ManagedPointer<AbstractExpression>> exprs_;
 
 public:
   /**
@@ -29,7 +29,7 @@ public:
    * @param exprs order by expressions
    */
   OrderByDescription(std::vector<OrderType> types,
-                     std::vector<shared::ManagedPointer<AbstractExpression>> exprs)
+                     std::vector<ManagedPointer<AbstractExpression>> exprs)
       : types_(std::move(types)), exprs_(std::move(exprs)) {}
 
   /**
@@ -44,7 +44,7 @@ public:
     std::vector<OrderType> types;
     types.reserve(types_.size());
     for (const auto &type : types_) { types.emplace_back(type); }
-    std::vector<shared::ManagedPointer<AbstractExpression>> exprs;
+    std::vector<ManagedPointer<AbstractExpression>> exprs;
     exprs.reserve(exprs_.size());
     for (const auto &expr : exprs_) { exprs.emplace_back(expr); }
     return std::make_unique<OrderByDescription>(std::move(types), std::move(exprs));
@@ -54,8 +54,7 @@ public:
   /**
    * @param v Visitor pattern for the statement
    */
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) {
-  // v->Visit(shared::ManagedPointer(this)); }
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) { v->Visit(ManagedPointer(this)); }
 
   /**
    * @return order by types
@@ -70,9 +69,7 @@ public:
   /**
    * @return order by expression
    */
-  std::vector<shared::ManagedPointer<AbstractExpression>> &GetOrderByExpressions() {
-    return exprs_;
-  }
+  std::vector<ManagedPointer<AbstractExpression>> &GetOrderByExpressions() { return exprs_; }
 
   /**
    * @return the hashed value of this Order by description
@@ -162,8 +159,7 @@ public:
   /**
    * @param v Visitor pattern for the statement
    */
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) {
-  // v->Visit(shared::ManagedPointer(this)); }
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) { v->Visit(ManagedPointer(this)); }
 
   /**
    * @return limit
@@ -218,16 +214,16 @@ DEFINE_JSON_HEADER_DECLARATIONS(LimitDescription);
  */
 class GroupByDescription {
 private:
-  std::vector<shared::ManagedPointer<AbstractExpression>> columns_;
-  shared::ManagedPointer<AbstractExpression> having_;
+  std::vector<ManagedPointer<AbstractExpression>> columns_;
+  ManagedPointer<AbstractExpression> having_;
 
 public:
   /**
    * @param columns group by columns
    * @param having having clause
    */
-  GroupByDescription(std::vector<shared::ManagedPointer<AbstractExpression>> columns,
-                     shared::ManagedPointer<AbstractExpression> having)
+  GroupByDescription(std::vector<ManagedPointer<AbstractExpression>> columns,
+                     ManagedPointer<AbstractExpression> having)
       : columns_(std::move(columns)), having_(having) {}
 
   /**
@@ -239,7 +235,7 @@ public:
    * @return a copy of the group by description
    */
   std::unique_ptr<GroupByDescription> Copy() {
-    std::vector<shared::ManagedPointer<AbstractExpression>> columns;
+    std::vector<ManagedPointer<AbstractExpression>> columns;
     columns.reserve(columns.size());
     for (const auto &col : columns_) { columns.emplace_back(col); }
     auto having = having_;
@@ -251,14 +247,13 @@ public:
    * Visitor pattern for GroupByDescription.
    * @param v Visitor pattern for the statement
    */
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) {
-  // v->Visit(shared::ManagedPointer(this)); }
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) { v->Visit(ManagedPointer(this)); }
 
   /** @return group by columns */
-  const std::vector<shared::ManagedPointer<AbstractExpression>> &GetColumns() { return columns_; }
+  const std::vector<ManagedPointer<AbstractExpression>> &GetColumns() { return columns_; }
 
   /** @return having clause */
-  shared::ManagedPointer<AbstractExpression> GetHaving() { return shared::ManagedPointer(having_); }
+  ManagedPointer<AbstractExpression> GetHaving() { return ManagedPointer(having_); }
 
   /**
    * @return the hashed value of this group by description
@@ -313,7 +308,7 @@ private:
   // friend class binder::BindNodeVisitor;
 
   // The columns targeted by the SELECT
-  std::vector<shared::ManagedPointer<AbstractExpression>> select_;
+  std::vector<ManagedPointer<AbstractExpression>> select_;
 
   // `true` if SELECT DISTINCT used, `false` otherwise
   bool select_distinct_;
@@ -322,7 +317,7 @@ private:
   std::unique_ptr<TableRef> from_;
 
   // The SELECT predicate, if present
-  shared::ManagedPointer<AbstractExpression> where_;
+  ManagedPointer<AbstractExpression> where_;
 
   // The associated GROUP BY, if present
   std::unique_ptr<GroupByDescription> group_by_;
@@ -343,7 +338,7 @@ private:
   std::vector<std::unique_ptr<TableRef>> with_table_;
 
   /** @param select List of SELECT columns */
-  void SetSelectColumns(std::vector<shared::ManagedPointer<AbstractExpression>> select) {
+  void SetSelectColumns(std::vector<ManagedPointer<AbstractExpression>> select) {
     select_ = std::move(select);
   }
 
@@ -363,9 +358,8 @@ public:
    * @param limit LIMIT condition
    * @param with accompanying CTE query
    */
-  SelectStatement(std::vector<shared::ManagedPointer<AbstractExpression>> select,
-                  bool select_distinct, std::unique_ptr<TableRef> from,
-                  shared::ManagedPointer<AbstractExpression> where,
+  SelectStatement(std::vector<ManagedPointer<AbstractExpression>> select, bool select_distinct,
+                  std::unique_ptr<TableRef> from, ManagedPointer<AbstractExpression> where,
                   std::unique_ptr<GroupByDescription> group_by,
                   std::unique_ptr<OrderByDescription> order_by,
                   std::unique_ptr<LimitDescription> limit,
@@ -378,51 +372,42 @@ public:
   /** Default constructor for deserialization. */
   SelectStatement() = default;
 
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override {
-  // v->Visit(shared::ManagedPointer(this)); }
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) override { v->Visit(ManagedPointer(this)); }
 
   /** @return A copy of the SELECT statement */
   std::unique_ptr<SelectStatement> Copy();
 
   /** @return The columns targeted by SELECT */
-  const std::vector<shared::ManagedPointer<AbstractExpression>> &GetSelectColumns() {
-    return select_;
-  }
+  const std::vector<ManagedPointer<AbstractExpression>> &GetSelectColumns() { return select_; }
 
   /** @return `true` if "SELECT DISTINCT", `false` otherwise */
   bool IsSelectDistinct() const { return select_distinct_; }
 
   /** @return The table over which SELECT is performed */
-  shared::ManagedPointer<TableRef> GetSelectTable() { return shared::ManagedPointer(from_); }
+  ManagedPointer<TableRef> GetSelectTable() { return ManagedPointer(from_); }
 
   /** @return `true` if the SELECT statement has a target table, `false`
    * otherwise */
   bool HasSelectTable() const { return static_cast<bool>(from_); }
 
   /** @return The predicate associated with SELECT */
-  shared::ManagedPointer<AbstractExpression> GetSelectCondition() { return where_; }
+  ManagedPointer<AbstractExpression> GetSelectCondition() { return where_; }
 
   /** @return The GROUP BY associated with SELECT */
-  shared::ManagedPointer<GroupByDescription> GetSelectGroupBy() {
-    return shared::ManagedPointer(group_by_);
-  }
+  ManagedPointer<GroupByDescription> GetSelectGroupBy() { return ManagedPointer(group_by_); }
 
   /** @return The ORDER BY associated with SELECT */
-  shared::ManagedPointer<OrderByDescription> GetSelectOrderBy() {
-    return shared::ManagedPointer(order_by_);
-  }
+  ManagedPointer<OrderByDescription> GetSelectOrderBy() { return ManagedPointer(order_by_); }
 
   /** @return The LIMIT associated with SELECT */
-  shared::ManagedPointer<LimitDescription> GetSelectLimit() {
-    return shared::ManagedPointer(limit_);
-  }
+  ManagedPointer<LimitDescription> GetSelectLimit() { return ManagedPointer(limit_); }
 
   /** @return The WITH clause(s) associated with SELECT */
-  std::vector<shared::ManagedPointer<TableRef>> GetSelectWith() {
-    std::vector<shared::ManagedPointer<TableRef>> table_refs{};
+  std::vector<ManagedPointer<TableRef>> GetSelectWith() {
+    std::vector<ManagedPointer<TableRef>> table_refs{};
     table_refs.reserve(with_table_.size());
     std::transform(with_table_.cbegin(), with_table_.cend(), std::back_inserter(table_refs),
-                   [](const auto &ref) { return shared::ManagedPointer<TableRef>(ref); });
+                   [](const auto &ref) { return ManagedPointer<TableRef>(ref); });
     return table_refs;
   }
 
@@ -442,8 +427,8 @@ public:
    * @return The select statement this is unioned with if that exists else
    * nullptr
    */
-  shared::ManagedPointer<SelectStatement> GetUnionSelect() {
-    return shared::ManagedPointer<SelectStatement>(union_select_);
+  ManagedPointer<SelectStatement> GetUnionSelect() {
+    return ManagedPointer<SelectStatement>(union_select_);
   }
 
   /** @return `true` if this SELECT statement has an associated SELECT with

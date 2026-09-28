@@ -41,16 +41,13 @@ public:
 
   ~CopyStatement() override = default;
 
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override {
-  // v->Visit(shared::ManagedPointer(this)); }
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) override { v->Visit(ManagedPointer(this)); }
 
   /** @return copy table */
-  shared::ManagedPointer<TableRef> GetCopyTable() { return shared::ManagedPointer(table_); }
+  ManagedPointer<TableRef> GetCopyTable() { return ManagedPointer(table_); }
 
   /** @return select statement */
-  shared::ManagedPointer<SelectStatement> GetSelectStatement() {
-    return shared::ManagedPointer(select_stmt_);
-  }
+  ManagedPointer<SelectStatement> GetSelectStatement() { return ManagedPointer(select_stmt_); }
 
   /** @return file path */
   std::string GetFilePath() { return file_path_; }

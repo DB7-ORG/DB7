@@ -15,12 +15,9 @@ std::unique_ptr<AbstractExpression> ComparisonExpression::CopyWithChildren(
   return expr;
 }
 
-// void
-// ComparisonExpression::Accept(shared::ManagedPointer<binder::SqlNodeVisitor>
-// v)
-// {
-//     v->Visit(shared::ManagedPointer(this));
-// }
+void ComparisonExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) {
+  v->Visit(ManagedPointer(this));
+}
 
 DEFINE_JSON_BODY_DECLARATIONS(ComparisonExpression);
 

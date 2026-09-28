@@ -79,7 +79,7 @@ public:
 
   void DeriveExpressionName() override { SetExpressionName(GetFuncName()); }
 
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override;
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) override;
 
   /** @return expression serialized to json */
   nlohmann::json ToJson() const override;

@@ -7,12 +7,9 @@ std::unique_ptr<AbstractExpression> DefaultValueExpression::Copy() const {
   return expr;
 }
 
-// void
-// DefaultValueExpression::Accept(shared::ManagedPointer<binder::SqlNodeVisitor>
-// v)
-// {
-//     v->Visit(shared::ManagedPointer(this));
-// }
+void DefaultValueExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) {
+  v->Visit(ManagedPointer(this));
+}
 
 DEFINE_JSON_BODY_DECLARATIONS(DefaultValueExpression);
 

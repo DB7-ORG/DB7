@@ -24,12 +24,9 @@ ParameterValueExpression::FromJson(const nlohmann::json &j) {
   return exprs;
 }
 
-// void
-// ParameterValueExpression::Accept(shared::ManagedPointer<binder::SqlNodeVisitor>
-// v)
-// {
-//     v->Visit(shared::ManagedPointer(this));
-// }
+void ParameterValueExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) {
+  v->Visit(ManagedPointer(this));
+}
 
 hash_t ParameterValueExpression::Hash() const {
   hash_t hash = AbstractExpression::Hash();

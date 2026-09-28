@@ -160,8 +160,8 @@ private:
   static std::unique_ptr<SelectStatement> SelectTransform(ParseResult *parse_result,
                                                           SelectStmt *root);
   // SELECT helpers
-  static std::vector<shared::ManagedPointer<AbstractExpression>>
-  TargetTransform(ParseResult *parse_result, List *root);
+  static std::vector<ManagedPointer<AbstractExpression>> TargetTransform(ParseResult *parse_result,
+                                                                         List *root);
   static std::unique_ptr<TableRef> FromItemTransform(ParseResult *parse_result, Node *node);
   static std::unique_ptr<TableRef> FromTransform(ParseResult *parse_result,
                                                  SelectStmt *select_root);
@@ -169,8 +169,7 @@ private:
                                                               List *group, Node *having_node);
   static std::unique_ptr<OrderByDescription> OrderByTransform(ParseResult *parse_result,
                                                               List *order);
-  static shared::ManagedPointer<AbstractExpression> WhereTransform(ParseResult *parse_result,
-                                                                   Node *root);
+  static ManagedPointer<AbstractExpression> WhereTransform(ParseResult *parse_result, Node *root);
   static std::vector<std::unique_ptr<TableRef>> WithTransform(ParseResult *parse_result,
                                                               WithClause *root);
 
@@ -236,7 +235,7 @@ private:
   // *parse_result, ExecuteStmt *root);
 
   // EXECUTE helpers
-  static std::vector<shared::ManagedPointer<AbstractExpression>>
+  static std::vector<ManagedPointer<AbstractExpression>>
   ParamListTransform(ParseResult *parse_result, List *root);
 
   // // EXPLAIN statements
@@ -249,7 +248,7 @@ private:
 
   // INSERT helpers
   static std::unique_ptr<std::vector<std::string>> ColumnNameTransform(List *root);
-  static std::unique_ptr<std::vector<std::vector<shared::ManagedPointer<AbstractExpression>>>>
+  static std::unique_ptr<std::vector<std::vector<ManagedPointer<AbstractExpression>>>>
   ValueListsTransform(ParseResult *parse_result, List *root);
 
   // // PREPARE statements

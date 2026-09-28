@@ -52,11 +52,9 @@ AggregateExpression::FromJson(const nlohmann::json &j) {
   return exprs;
 }
 
-// void
-// AggregateExpression::Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v)
-// {
-//     v->Visit(shared::ManagedPointer(this));
-// }
+void AggregateExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) {
+  v->Visit(ManagedPointer(this));
+}
 
 hash_t AggregateExpression::Hash() const {
   hash_t hash = AbstractExpression::Hash();

@@ -2,7 +2,7 @@
 
 #include <memory>
 
-namespace db7::shared {
+namespace db7 {
 /**
  * A ManagedPointer points to an object whose life cycle is managed by some
  * external entity. (e.g. Catalog, SqlTable, GC) This class serves as a wrapper
@@ -147,7 +147,7 @@ public:
     return ManagedPointer<NewType>(reinterpret_cast<NewType *>(underlying_));
   }
 };
-} // namespace db7::shared
+} // namespace db7
 
 namespace std {
 /**
@@ -155,12 +155,12 @@ namespace std {
  * @tparam Underlying the type of the object ManagedPointer points to.
  */
 template <class Underlying>
-struct hash<db7::shared::ManagedPointer<Underlying>> {
+struct hash<db7::ManagedPointer<Underlying>> {
   /**
    * @param ptr the ManagedPointer to be hashed.
    * @return the hash of the ManagedPointer.
    */
-  size_t operator()(const db7::shared::ManagedPointer<Underlying> &ptr) const {
+  size_t operator()(const db7::ManagedPointer<Underlying> &ptr) const {
     return hash<Underlying *>()(ptr.operator->());
   }
 };

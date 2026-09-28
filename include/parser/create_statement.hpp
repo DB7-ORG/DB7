@@ -80,8 +80,8 @@ struct ColumnDefinition {
    * (atttypmod)
    */
   ColumnDefinition(std::string name, DataType type, bool is_primary, bool is_not_null,
-                   bool is_unique, shared::ManagedPointer<AbstractExpression> default_expr,
-                   shared::ManagedPointer<AbstractExpression> check_expr, int32_t type_modifier)
+                   bool is_unique, ManagedPointer<AbstractExpression> default_expr,
+                   ManagedPointer<AbstractExpression> check_expr, int32_t type_modifier)
       : name_(std::move(name)), type_(type), is_primary_(is_primary), is_not_null_(is_not_null),
         is_unique_(is_unique), default_expr_(default_expr), check_expr_(check_expr),
         type_modifier_(type_modifier) {}
@@ -211,7 +211,7 @@ struct ColumnDefinition {
   std::string GetColumnName() { return name_; }
 
   /** @return table information */
-  shared::ManagedPointer<TableInfo> GetTableInfo() { return shared::ManagedPointer(table_info_); }
+  ManagedPointer<TableInfo> GetTableInfo() { return ManagedPointer(table_info_); }
 
   /** @return column data type */
   DataType GetColumnType() { return type_; }
@@ -226,10 +226,10 @@ struct ColumnDefinition {
   bool IsUnique() { return is_unique_; }
 
   /** @return default expression */
-  shared::ManagedPointer<AbstractExpression> GetDefaultExpression() { return default_expr_; }
+  ManagedPointer<AbstractExpression> GetDefaultExpression() { return default_expr_; }
 
   /** @return check expression */
-  shared::ManagedPointer<AbstractExpression> GetCheckExpression() { return check_expr_; }
+  ManagedPointer<AbstractExpression> GetCheckExpression() { return check_expr_; }
 
   /** @return type modifier, max varlen size or precision for DECIMAL */
   int32_t GetTypeModifier() { return type_modifier_; }
@@ -327,8 +327,8 @@ private:
                             // columns and primary key info separately
   const bool is_not_null_ = false;
   const bool is_unique_ = false;
-  shared::ManagedPointer<AbstractExpression> default_expr_ = nullptr;
-  shared::ManagedPointer<AbstractExpression> check_expr_ = nullptr;
+  ManagedPointer<AbstractExpression> default_expr_ = nullptr;
+  ManagedPointer<AbstractExpression> check_expr_ = nullptr;
   const int32_t type_modifier_ = -1;
 
   const std::vector<std::string> fk_sources_;
@@ -349,7 +349,7 @@ public:
   explicit IndexAttr(std::string name) : has_expr_(false), name_(std::move(name)), expr_(nullptr) {}
 
   /** Create an index attribute on an expression. */
-  explicit IndexAttr(shared::ManagedPointer<AbstractExpression> expr)
+  explicit IndexAttr(ManagedPointer<AbstractExpression> expr)
       : has_expr_(true), name_(""), expr_(expr) {}
 
   /** @return if the index attribute contains expression */
@@ -362,12 +362,12 @@ public:
   }
 
   /** @return the expression that we're indexed on */
-  shared::ManagedPointer<AbstractExpression> GetExpression() const { return expr_; }
+  ManagedPointer<AbstractExpression> GetExpression() const { return expr_; }
 
 private:
   bool has_expr_;
   std::string name_;
-  shared::ManagedPointer<AbstractExpression> expr_;
+  ManagedPointer<AbstractExpression> expr_;
 };
 
 /**
@@ -431,7 +431,7 @@ public:
   CreateStatement(std::unique_ptr<TableInfo> table_info, std::string trigger_name,
                   std::vector<std::string> trigger_funcnames, std::vector<std::string> trigger_args,
                   std::vector<std::string> trigger_columns,
-                  shared::ManagedPointer<AbstractExpression> trigger_when, int16_t trigger_type)
+                  ManagedPointer<AbstractExpression> trigger_when, int16_t trigger_type)
       : TableRefStatement(StatementType::CREATE, std::move(table_info)), create_type_(kTrigger),
         trigger_name_(std::move(trigger_name)), trigger_funcnames_(std::move(trigger_funcnames)),
         trigger_args_(std::move(trigger_args)), trigger_columns_(std::move(trigger_columns)),
@@ -448,25 +448,24 @@ public:
 
   ~CreateStatement() override = default;
 
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override {
-  // v->Visit(shared::ManagedPointer(this)); }
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) override { v->Visit(ManagedPointer(this)); }
 
   /** @return the type of create statement */
   CreateType GetCreateType() { return create_type_; }
 
   /** @return columns for [CREATE TABLE, CREATE DATABASE] */
-  std::vector<shared::ManagedPointer<ColumnDefinition>> GetColumns() {
-    std::vector<shared::ManagedPointer<ColumnDefinition>> cols;
+  std::vector<ManagedPointer<ColumnDefinition>> GetColumns() {
+    std::vector<ManagedPointer<ColumnDefinition>> cols;
     cols.reserve(columns_.size());
-    for (const auto &col : columns_) { cols.emplace_back(shared::ManagedPointer(col)); }
+    for (const auto &col : columns_) { cols.emplace_back(ManagedPointer(col)); }
     return cols;
   }
 
   /** @return foreign keys for [CREATE TABLE, CREATE DATABASE] */
-  std::vector<shared::ManagedPointer<ColumnDefinition>> GetForeignKeys() {
-    std::vector<shared::ManagedPointer<ColumnDefinition>> foreign_keys;
+  std::vector<ManagedPointer<ColumnDefinition>> GetForeignKeys() {
+    std::vector<ManagedPointer<ColumnDefinition>> foreign_keys;
     foreign_keys.reserve(foreign_keys_.size());
-    for (const auto &fk : foreign_keys_) { foreign_keys.emplace_back(shared::ManagedPointer(fk)); }
+    for (const auto &fk : foreign_keys_) { foreign_keys.emplace_back(ManagedPointer(fk)); }
     return foreign_keys;
   }
 
@@ -498,9 +497,7 @@ public:
   std::vector<std::string> GetTriggerColumns() { return trigger_columns_; }
 
   /** @return trigger when clause for [CREATE TRIGGER] */
-  shared::ManagedPointer<AbstractExpression> GetTriggerWhen() {
-    return shared::ManagedPointer(trigger_when_);
-  }
+  ManagedPointer<AbstractExpression> GetTriggerWhen() { return ManagedPointer(trigger_when_); }
 
   /** @return trigger type, i.e. information about row, timing, events, access
    * by pg_trigger */
@@ -510,9 +507,7 @@ public:
   std::string GetViewName() { return view_name_; }
 
   /** @return view query for [CREATE VIEW] */
-  shared::ManagedPointer<SelectStatement> GetViewQuery() {
-    return shared::ManagedPointer(view_query_);
-  }
+  ManagedPointer<SelectStatement> GetViewQuery() { return ManagedPointer(view_query_); }
 
 private:
   // ALL
@@ -536,8 +531,8 @@ private:
   const std::vector<std::string> trigger_funcnames_;
   const std::vector<std::string> trigger_args_;
   const std::vector<std::string> trigger_columns_;
-  const shared::ManagedPointer<AbstractExpression> trigger_when_ =
-      shared::ManagedPointer<AbstractExpression>(nullptr);
+  const ManagedPointer<AbstractExpression> trigger_when_ =
+      ManagedPointer<AbstractExpression>(nullptr);
   const int16_t trigger_type_ = 0;
 
   // CREATE VIEW

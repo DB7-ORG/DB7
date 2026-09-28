@@ -740,16 +740,16 @@ std::unique_ptr<SelectStatement> PostgresParser::SelectTransform(ParseResult *pa
 }
 
 // Postgres.SelectStmt.targetList -> noisepage.SelectStatement.select_
-std::vector<shared::ManagedPointer<AbstractExpression>>
+std::vector<ManagedPointer<AbstractExpression>>
 PostgresParser::TargetTransform(ParseResult *parse_result, List *root) {
   // Postgres parses 'SELECT;' to nullptr
   if (root == nullptr) { throw PARSER_EXCEPTION("TargetTransform: root==null."); }
 
-  std::vector<shared::ManagedPointer<AbstractExpression>> result{};
+  std::vector<ManagedPointer<AbstractExpression>> result{};
   for (int i = 0; i < list_length(root); i++) {
     auto *target = static_cast<ResTarget *>(list_nth(root, i));
     auto expr = ExprTransform(parse_result, target->val, target->name);
-    auto expr_managed = shared::ManagedPointer(expr);
+    auto expr_managed = ManagedPointer(expr);
     parse_result->AddExpression(std::move(expr));
     result.emplace_back(expr_managed);
   }
@@ -794,19 +794,19 @@ std::unique_ptr<GroupByDescription>
 PostgresParser::GroupByTransform(ParseResult *parse_result, List *group, Node *having_node) {
   if (group == nullptr && having_node == nullptr) { return nullptr; }
 
-  std::vector<shared::ManagedPointer<AbstractExpression>> columns;
+  std::vector<ManagedPointer<AbstractExpression>> columns;
   for (int i = 0; i < list_length(group); i++) {
     auto *temp = static_cast<Node *>(list_nth(group, i));
     auto expr = ExprTransform(parse_result, temp, nullptr);
-    auto expr_ptr = shared::ManagedPointer(expr);
+    auto expr_ptr = ManagedPointer(expr);
     parse_result->AddExpression(std::move(expr));
     columns.emplace_back(expr_ptr);
   }
 
-  auto having = shared::ManagedPointer<AbstractExpression>(nullptr);
+  auto having = ManagedPointer<AbstractExpression>(nullptr);
   if (having_node != nullptr) {
     auto expr = ExprTransform(parse_result, having_node, nullptr);
-    having = shared::ManagedPointer(expr);
+    having = ManagedPointer(expr);
     parse_result->AddExpression(std::move(expr));
   }
 
@@ -817,7 +817,7 @@ std::unique_ptr<OrderByDescription> PostgresParser::OrderByTransform(ParseResult
   if (order == nullptr) { return nullptr; }
 
   std::vector<OrderType> types;
-  std::vector<shared::ManagedPointer<AbstractExpression>> exprs;
+  std::vector<ManagedPointer<AbstractExpression>> exprs;
 
   for (int i = 0; i < list_length(order); i++) {
     auto *temp = static_cast<Node *>(list_nth(order, i));
@@ -835,7 +835,7 @@ std::unique_ptr<OrderByDescription> PostgresParser::OrderByTransform(ParseResult
     }
 
     auto expr = ExprTransform(parse_result, sort->node, nullptr);
-    auto expr_ptr = shared::ManagedPointer(expr);
+    auto expr_ptr = ManagedPointer(expr);
     parse_result->AddExpression(std::move(expr));
     exprs.emplace_back(expr_ptr);
   }
@@ -844,11 +844,11 @@ std::unique_ptr<OrderByDescription> PostgresParser::OrderByTransform(ParseResult
 }
 
 // Postgres.SelectStmt.whereClause -> noisepage.AbstractExpression
-shared::ManagedPointer<AbstractExpression> PostgresParser::WhereTransform(ParseResult *parse_result,
-                                                                          Node *root) {
+ManagedPointer<AbstractExpression> PostgresParser::WhereTransform(ParseResult *parse_result,
+                                                                  Node *root) {
   if (root == nullptr) { return nullptr; }
   auto expr = ExprTransform(parse_result, root, nullptr);
-  auto result = shared::ManagedPointer(expr);
+  auto result = ManagedPointer(expr);
   parse_result->AddExpression(std::move(expr));
   return result;
 }
@@ -877,7 +877,7 @@ std::unique_ptr<JoinDefinition> PostgresParser::JoinTransform(ParseResult *parse
   }
 
   auto expr = ExprTransform(parse_result, root->quals, nullptr);
-  auto condition = shared::ManagedPointer(expr);
+  auto condition = ManagedPointer(expr);
   parse_result->AddExpression(std::move(expr));
 
   return std::make_unique<JoinDefinition>(type, std::move(left), std::move(right), condition);
@@ -1236,7 +1236,7 @@ std::unique_ptr<SQLStatement> PostgresParser::CreateIndexTransform(ParseResult *
       if (no_name) { index_name += "_" + std::string(index_elem->name); }
     } else {
       auto expr = ExprTransform(parse_result, index_elem->expr, nullptr);
-      auto expr_ptr = shared::ManagedPointer(expr);
+      auto expr_ptr = ManagedPointer(expr);
       parse_result->AddExpression(std::move(expr));
       index_attrs.emplace_back(expr_ptr);
     }
@@ -1300,7 +1300,7 @@ std::unique_ptr<SQLStatement> PostgresParser::CreateTriggerTransform(ParseResult
   std::vector<std::string> trigger_columns = StringList(root->columns);
 
   auto trigger_when = WhenTransform(parse_result, root->whenClause);
-  auto trigger_when_ptr = shared::ManagedPointer(trigger_when);
+  auto trigger_when_ptr = ManagedPointer(trigger_when);
   if (trigger_when != nullptr) { parse_result->AddExpression(std::move(trigger_when)); }
 
   // Same bit layout as Postgres's catalog/pg_trigger.h: TRIGGER_TYPE_ROW is
@@ -1357,8 +1357,8 @@ PostgresParser::ColumnDefTransResult PostgresParser::ColumnDefTransform(ParseRes
   bool is_primary = false;
   bool is_not_null = false;
   bool is_unique = false;
-  auto default_expr = shared::ManagedPointer<AbstractExpression>(nullptr);
-  auto check_expr = shared::ManagedPointer<AbstractExpression>(nullptr);
+  auto default_expr = ManagedPointer<AbstractExpression>(nullptr);
+  auto check_expr = ManagedPointer<AbstractExpression>(nullptr);
 
   for (int i = 0; i < list_length(root->constraints); i++) {
     auto *node = static_cast<Node *>(list_nth(root->constraints, i));
@@ -1390,13 +1390,13 @@ PostgresParser::ColumnDefTransResult PostgresParser::ColumnDefTransform(ParseRes
     }
     case CONSTR_DEFAULT: {
       auto expr = ExprTransform(parse_result, constraint->raw_expr, nullptr);
-      default_expr = shared::ManagedPointer(expr);
+      default_expr = ManagedPointer(expr);
       parse_result->AddExpression(std::move(expr));
       break;
     }
     case CONSTR_CHECK: {
       auto expr = ExprTransform(parse_result, constraint->raw_expr, nullptr);
-      check_expr = shared::ManagedPointer(expr);
+      check_expr = ManagedPointer(expr);
       parse_result->AddExpression(std::move(expr));
       break;
     }
@@ -1578,14 +1578,14 @@ std::unique_ptr<AbstractExpression> PostgresParser::WhenTransform(ParseResult *p
 // }
 
 // // List of expressions (EXECUTE parameters, SET values) -> managed
-// expressions std::vector<shared::ManagedPointer<AbstractExpression>>
+// expressions std::vector<ManagedPointer<AbstractExpression>>
 // PostgresParser::ParamListTransform(ParseResult *parse_result, List *root) {
-//   std::vector<shared::ManagedPointer<AbstractExpression>> result;
+//   std::vector<ManagedPointer<AbstractExpression>> result;
 //   for (int i = 0; i < list_length(root); i++) {
 //     auto expr = ExprTransform(parse_result,
 //                               static_cast<Node *>(list_nth(root, i)),
 //                               nullptr);
-//     result.emplace_back(shared::ManagedPointer(expr));
+//     result.emplace_back(ManagedPointer(expr));
 //     parse_result->AddExpression(std::move(expr));
 //   }
 //   return result;
@@ -1631,7 +1631,7 @@ std::unique_ptr<AbstractExpression> PostgresParser::WhenTransform(ParseResult *p
 //   auto query = NodeTransform(parse_result, root->query);
 
 //   // TODO(WAN): This should probably be populated?
-//   std::vector<shared::ManagedPointer<ParameterValueExpression>> placeholders;
+//   std::vector<ManagedPointer<ParameterValueExpression>> placeholders;
 
 //   return std::make_unique<PrepareStatement>(root->name, std::move(query),
 //                                             std::move(placeholders));
@@ -1684,14 +1684,13 @@ std::unique_ptr<std::vector<std::string>> PostgresParser::ColumnNameTransform(Li
 }
 
 // VALUES lists -> one vector of expressions per row
-std::unique_ptr<std::vector<std::vector<shared::ManagedPointer<AbstractExpression>>>>
+std::unique_ptr<std::vector<std::vector<ManagedPointer<AbstractExpression>>>>
 PostgresParser::ValueListsTransform(ParseResult *parse_result, List *root) {
-  auto result =
-      std::make_unique<std::vector<std::vector<shared::ManagedPointer<AbstractExpression>>>>();
+  auto result = std::make_unique<std::vector<std::vector<ManagedPointer<AbstractExpression>>>>();
 
   for (int i = 0; i < list_length(root); i++) {
     auto *row = static_cast<List *>(list_nth(root, i));
-    std::vector<shared::ManagedPointer<AbstractExpression>> cur_result;
+    std::vector<ManagedPointer<AbstractExpression>> cur_result;
 
     for (int j = 0; j < list_length(row); j++) {
       auto *node = static_cast<Node *>(list_nth(row, j));
@@ -1701,7 +1700,7 @@ PostgresParser::ValueListsTransform(ParseResult *parse_result, List *root) {
       } else {
         expr = ExprTransform(parse_result, node, nullptr);
       }
-      cur_result.emplace_back(shared::ManagedPointer(expr));
+      cur_result.emplace_back(ManagedPointer(expr));
       parse_result->AddExpression(std::move(expr));
     }
     result->emplace_back(std::move(cur_result));
@@ -1745,7 +1744,7 @@ PostgresParser::ValueListsTransform(ParseResult *parse_result, List *root) {
 //   for (int i = 0; i < list_length(root); i++) {
 //     auto *target = static_cast<ResTarget *>(list_nth(root, i));
 //     auto expr = ExprTransform(parse_result, target->val, nullptr);
-//     auto expr_ptr = shared::ManagedPointer(expr);
+//     auto expr_ptr = ManagedPointer(expr);
 //     parse_result->AddExpression(std::move(expr));
 //     result.emplace_back(std::make_unique<UpdateClause>(target->name,
 //     expr_ptr));
@@ -1809,7 +1808,7 @@ PostgresParser::ValueListsTransform(ParseResult *parse_result, List *root) {
 //   }
 //   std::string name = root->name;
 
-//   std::vector<shared::ManagedPointer<AbstractExpression>> values;
+//   std::vector<ManagedPointer<AbstractExpression>> values;
 //   if (name == "SESSION CHARACTERISTICS") {
 //     // SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL ...
 //     // args is a list of DefElem, each with an A_Const value
@@ -1825,7 +1824,7 @@ PostgresParser::ValueListsTransform(ParseResult *parse_result, List *root) {
 //     name = def_elem->defname;
 //     auto expr = ConstTransform(parse_result,
 //                                reinterpret_cast<A_Const *>(def_elem->arg));
-//     values.emplace_back(shared::ManagedPointer(expr));
+//     values.emplace_back(ManagedPointer(expr));
 //     parse_result->AddExpression(std::move(expr));
 //   } else {
 //     values = ParamListTransform(parse_result, root->args);

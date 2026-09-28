@@ -15,11 +15,9 @@ std::unique_ptr<AbstractExpression> TypeCastExpression::CopyWithChildren(
   return expr;
 }
 
-// void
-// TypeCastExpression::Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v)
-// {
-//     v->Visit(shared::ManagedPointer(this));
-// }
+void TypeCastExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) {
+  v->Visit(ManagedPointer(this));
+}
 
 DEFINE_JSON_BODY_DECLARATIONS(TypeCastExpression);
 

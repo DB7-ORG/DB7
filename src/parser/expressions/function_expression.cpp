@@ -35,11 +35,9 @@ FunctionExpression::FromJson(const nlohmann::json &j) {
   return exprs;
 }
 
-// void
-// FunctionExpression::Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v)
-// {
-//   v->Visit(shared::ManagedPointer(this));
-// }
+void FunctionExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) {
+  v->Visit(ManagedPointer(this));
+}
 
 hash_t FunctionExpression::Hash() const {
   hash_t hash = AbstractExpression::Hash();

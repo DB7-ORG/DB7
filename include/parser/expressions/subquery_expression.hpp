@@ -51,12 +51,9 @@ public:
   }
 
   /** @return managed pointer to the sub-select */
-  shared::ManagedPointer<parser::SelectStatement> GetSubselect() {
-    return shared::ManagedPointer(subselect_);
-  }
+  ManagedPointer<parser::SelectStatement> GetSubselect() { return ManagedPointer(subselect_); }
 
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override {
-  // v->Visit(shared::ManagedPointer(this)); }
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) override { v->Visit(ManagedPointer(this)); }
 
   /**
    * TODO(WAN): document the depths, ask Ling

@@ -94,9 +94,8 @@ std::vector<std::unique_ptr<AbstractExpression>> CaseExpression::FromJson(const 
 DEFINE_JSON_BODY_DECLARATIONS(CaseExpression::WhenClause);
 DEFINE_JSON_BODY_DECLARATIONS(CaseExpression);
 
-// void CaseExpression::Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v)
-// {
-//     v->Visit(shared::ManagedPointer(this));
-// }
+void CaseExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) {
+  v->Visit(ManagedPointer(this));
+}
 
 } // namespace db7::parser

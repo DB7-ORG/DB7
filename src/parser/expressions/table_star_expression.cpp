@@ -10,11 +10,9 @@ std::unique_ptr<AbstractExpression> TableStarExpression::Copy() const {
   return expr;
 }
 
-// void
-// TableStarExpression::Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v)
-// {
-//   v->Visit(shared::ManagedPointer(this));
-// }
+void TableStarExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) {
+  v->Visit(ManagedPointer(this));
+}
 
 DEFINE_JSON_BODY_DECLARATIONS(TableStarExpression);
 

@@ -49,11 +49,11 @@ public:
    * @return non-owning list of all the statements contained in this parse
    * result
    */
-  std::vector<shared::ManagedPointer<SQLStatement>> GetStatements() {
-    std::vector<shared::ManagedPointer<SQLStatement>> statements;
+  std::vector<ManagedPointer<SQLStatement>> GetStatements() {
+    std::vector<ManagedPointer<SQLStatement>> statements;
     statements.reserve(statements_.size());
     for (const auto &statement : statements_) {
-      statements.emplace_back(shared::ManagedPointer(statement));
+      statements.emplace_back(ManagedPointer(statement));
     }
     return statements;
   }
@@ -66,19 +66,17 @@ public:
   /**
    * @return the statement at a particular index
    */
-  shared::ManagedPointer<SQLStatement> GetStatement(size_t idx) {
-    return shared::ManagedPointer(statements_[idx]);
-  }
+  ManagedPointer<SQLStatement> GetStatement(size_t idx) { return ManagedPointer(statements_[idx]); }
 
   /**
    * @return non-owning list of all the expressions contained in this parse
    * result
    */
-  std::vector<shared::ManagedPointer<AbstractExpression>> GetExpressions() {
-    std::vector<shared::ManagedPointer<AbstractExpression>> expressions;
+  std::vector<ManagedPointer<AbstractExpression>> GetExpressions() {
+    std::vector<ManagedPointer<AbstractExpression>> expressions;
     expressions.reserve(expressions_.size());
     for (const auto &statement : expressions_) {
-      expressions.emplace_back(shared::ManagedPointer(statement));
+      expressions.emplace_back(ManagedPointer(statement));
     }
     return expressions;
   }
@@ -86,8 +84,8 @@ public:
   /**
    * @return the expression at a particular index
    */
-  shared::ManagedPointer<AbstractExpression> GetExpression(size_t idx) {
-    return shared::ManagedPointer(expressions_[idx]);
+  ManagedPointer<AbstractExpression> GetExpression(size_t idx) {
+    return ManagedPointer(expressions_[idx]);
   }
 
   /**

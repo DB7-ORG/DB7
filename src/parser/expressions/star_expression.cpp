@@ -8,10 +8,9 @@ std::unique_ptr<AbstractExpression> StarExpression::Copy() const {
   return expr;
 }
 
-// void StarExpression::Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v)
-// {
-//     v->Visit(shared::ManagedPointer(this));
-// }
+void StarExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) {
+  v->Visit(ManagedPointer(this));
+}
 
 DEFINE_JSON_BODY_DECLARATIONS(StarExpression);
 

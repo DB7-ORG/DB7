@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include "binder/sql_node_visitor.hpp"
 #include "expressions/abstract_expression.hpp"
 #include "parser_defs.hpp"
 #include "shared/hash_util.hpp"
@@ -136,7 +137,7 @@ public:
    * Visitor pattern used to access and create optimizer objects.
    * @param v Visitor pattern for the statement
    */
-  // virtual void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) = 0;
+  virtual void Accept(ManagedPointer<binder::SqlNodeVisitor> v) = 0;
 
   /**
    * @return statement serialized to json

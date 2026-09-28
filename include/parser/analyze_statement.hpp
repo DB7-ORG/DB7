@@ -35,18 +35,13 @@ public:
 
   ~AnalyzeStatement() override = default;
 
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override {
-  // v->Visit(shared::ManagedPointer(this)); }
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) override { v->Visit(ManagedPointer(this)); }
 
   /** @return analyze table */
-  shared::ManagedPointer<TableRef> GetAnalyzeTable() {
-    return shared::ManagedPointer(analyze_table_);
-  }
+  ManagedPointer<TableRef> GetAnalyzeTable() { return ManagedPointer(analyze_table_); }
 
   /** @return analyze columns */
-  shared::ManagedPointer<std::vector<std::string>> GetColumns() {
-    return shared::ManagedPointer(analyze_columns_);
-  }
+  ManagedPointer<std::vector<std::string>> GetColumns() { return ManagedPointer(analyze_columns_); }
 
   /** @return database oid */
   catalog::db_oid_t GetDatabaseOid() { return database_oid_; }

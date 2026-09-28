@@ -38,7 +38,7 @@ public:
     return Copy();
   }
 
-  // void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) override;
+  void Accept(ManagedPointer<binder::SqlNodeVisitor> v) override;
 };
 
 DEFINE_JSON_HEADER_DECLARATIONS(StarExpression);

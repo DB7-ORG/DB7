@@ -1,5 +1,6 @@
 #pragma once
 
+#include "binder/sql_node_visitor.hpp"
 #include "common.hpp"
 #include "parser/expression_defs.hpp"
 #include "shared/json/json_util.hpp"
@@ -188,7 +189,7 @@ protected:
    * @param index Index of the child to be changed
    * @param expr The abstract expression which we set the child to
    */
-  void SetChild(int index, shared::ManagedPointer<AbstractExpression> expr);
+  void SetChild(int index, ManagedPointer<AbstractExpression> expr);
 
   AbstractExpression(const ExpressionType expression_type, const type_id return_value_type,
                      std::vector<std::unique_ptr<AbstractExpression>> &&children)
@@ -311,15 +312,15 @@ public:
   /**
    * @return children of this abstract expression
    */
-  std::vector<shared::ManagedPointer<AbstractExpression>> GetChildren() const;
+  std::vector<ManagedPointer<AbstractExpression>> GetChildren() const;
 
   /**
    * @param index index of child
    * @return child of abstract expression at that index
    */
-  shared::ManagedPointer<AbstractExpression> GetChild(uint64_t index) const {
+  ManagedPointer<AbstractExpression> GetChild(uint64_t index) const {
     assert(index < children_.size() && "Index must be in bounds.");
-    return shared::ManagedPointer(children_[index]);
+    return ManagedPointer(children_[index]);
   }
 
   /** @return Name of the expression. */
@@ -349,17 +350,7 @@ public:
   /**
    * @param v Visitor pattern for the expression
    */
-  // virtual void Accept(shared::ManagedPointer<binder::SqlNodeVisitor> v) = 0;
-
-  /**
-   * @param v Visitor pattern for the expression
-   */
-  // virtual void AcceptChildren(shared::ManagedPointer<binder::SqlNodeVisitor>
-  // v)
-  // {
-  //     for (auto &child : children_)
-  //         child->Accept(v);
-  // }
+  virtual void Accept(ManagedPointer<binder::SqlNodeVisitor> v) = 0;
 
   /** @return the sub-query depth level (SEE COMMENT in depth_) */
   int GetDepth() const { return depth_; }
