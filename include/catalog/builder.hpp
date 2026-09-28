@@ -2,6 +2,7 @@
 
 #include "access/schema.hpp"
 #include "catalog_common.hpp"
+#include <memory>
 
 namespace db7::storage {
 class BufferPool; // forward declare, no #include needed
@@ -14,8 +15,9 @@ class DatabaseCatalog;
 
 class Builder {
 public:
-  static DatabaseCatalog *CreateDatabaseCatalog(storage::BufferPool *buffer_pool,
-                                                storage::DiskManagerAsync *disk_mng, db_oid_t oid);
+  static std::unique_ptr<DatabaseCatalog> CreateDatabaseCatalog(storage::BufferPool *buffer_pool,
+                                                                storage::DiskManagerAsync *disk_mng,
+                                                                db_oid_t oid);
 
   static access::Schema CreateDatabaseSchema();
   static access::Schema CreateNamespaceSchema();

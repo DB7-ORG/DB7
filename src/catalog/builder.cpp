@@ -210,116 +210,124 @@ access::Schema Builder::CreateProcSchema() {
   return access::Schema(std::move(columns));
 }
 
-DatabaseCatalog *Builder::CreateDatabaseCatalog(storage::BufferPool *buffer_pool,
-                                                storage::DiskManagerAsync *disk_mng, db_oid_t oid) {
+std::unique_ptr<DatabaseCatalog> Builder::CreateDatabaseCatalog(storage::BufferPool *buffer_pool,
+                                                                storage::DiskManagerAsync *disk_mng,
+                                                                db_oid_t oid) {
   DB7_ASSERT(buffer_pool != nullptr, "BufferPool must be provided");
 
-  DatabaseCatalog *dbc = new DatabaseCatalog(oid);
+  std::unique_ptr<DatabaseCatalog> dbc = std::make_unique<DatabaseCatalog>(oid);
 
   using enum CatalogTableOid;
 
   // Tables
-  dbc->namespaces_ =
-      new access::Table(buffer_pool, disk_mng, CreateNamespaceSchema(), PG_NAMESPACE, PG_VARLEN);
-  dbc->classes_ =
-      new access::Table(buffer_pool, disk_mng, CreateClassSchema(), PG_CLASS, PG_VARLEN);
-  dbc->attributes_ =
-      new access::Table(buffer_pool, disk_mng, CreateAttributeSchema(), PG_ATTRIBUTE, PG_VARLEN);
-  dbc->indexes_ =
-      new access::Table(buffer_pool, disk_mng, CreateIndexSchema(), PG_INDEX, PG_VARLEN);
-  dbc->types_ = new access::Table(buffer_pool, disk_mng, CreateTypeSchema(), PG_TYPE, PG_VARLEN);
-  dbc->constraints_ =
-      new access::Table(buffer_pool, disk_mng, CreateConstraintSchema(), PG_CONSTRAINT, PG_VARLEN);
-  dbc->languages_ =
-      new access::Table(buffer_pool, disk_mng, CreateLanguageSchema(), PG_LANGUAGE, PG_VARLEN);
-  dbc->procs_ = new access::Table(buffer_pool, disk_mng, CreateProcSchema(), PG_PROC, PG_VARLEN);
+  dbc->namespaces_ = std::make_unique<access::Table>(buffer_pool, disk_mng, CreateNamespaceSchema(),
+                                                     PG_NAMESPACE, PG_VARLEN);
+  dbc->classes_ = std::make_unique<access::Table>(buffer_pool, disk_mng, CreateClassSchema(),
+                                                  PG_CLASS, PG_VARLEN);
+  dbc->attributes_ = std::make_unique<access::Table>(buffer_pool, disk_mng, CreateAttributeSchema(),
+                                                     PG_ATTRIBUTE, PG_VARLEN);
+  dbc->indexes_ = std::make_unique<access::Table>(buffer_pool, disk_mng, CreateIndexSchema(),
+                                                  PG_INDEX, PG_VARLEN);
+  dbc->types_ = std::make_unique<access::Table>(buffer_pool, disk_mng, CreateTypeSchema(), PG_TYPE,
+                                                PG_VARLEN);
+  dbc->constraints_ = std::make_unique<access::Table>(
+      buffer_pool, disk_mng, CreateConstraintSchema(), PG_CONSTRAINT, PG_VARLEN);
+  dbc->languages_ = std::make_unique<access::Table>(buffer_pool, disk_mng, CreateLanguageSchema(),
+                                                    PG_LANGUAGE, PG_VARLEN);
+  dbc->procs_ = std::make_unique<access::Table>(buffer_pool, disk_mng, CreateProcSchema(), PG_PROC,
+                                                PG_VARLEN);
 
   // Indexes on pg_namespace
-  dbc->namespaces_index_nspoid_ =
-      new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_NAMESPACE_NSPOID,
-                                      PG_NAMESPACE, access::AttrsFor(PG_INDEX_NAMESPACE_NSPOID));
-  dbc->namespaces_index_nspname_ =
-      new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_NAMESPACE_NSPNAME,
-                                      PG_NAMESPACE, access::AttrsFor(PG_INDEX_NAMESPACE_NSPNAME));
+  dbc->namespaces_index_nspoid_ = std::make_unique<access::BTreeIndex<TupleId>>(
+      buffer_pool, disk_mng, PG_INDEX_NAMESPACE_NSPOID, PG_NAMESPACE,
+      access::AttrsFor(PG_INDEX_NAMESPACE_NSPOID));
+  dbc->namespaces_index_nspname_ = std::make_unique<access::BTreeIndex<TupleId>>(
+      buffer_pool, disk_mng, PG_INDEX_NAMESPACE_NSPNAME, PG_NAMESPACE,
+      access::AttrsFor(PG_INDEX_NAMESPACE_NSPNAME));
 
   // Indexes on pg_class
-  dbc->classes_index_reloid_ =
-      new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_CLASS_RELOID, PG_CLASS,
-                                      access::AttrsFor(PG_INDEX_CLASS_RELOID));
-  dbc->classes_index_relname_ =
-      new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_CLASS_RELNAME, PG_CLASS,
-                                      access::AttrsFor(PG_INDEX_CLASS_RELNAME));
-  dbc->classes_index_relnamespace_ =
-      new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_CLASS_RELNAMESPACE, PG_CLASS,
-                                      access::AttrsFor(PG_INDEX_CLASS_RELNAMESPACE));
+  dbc->classes_index_reloid_ = std::make_unique<access::BTreeIndex<TupleId>>(
+      buffer_pool, disk_mng, PG_INDEX_CLASS_RELOID, PG_CLASS,
+      access::AttrsFor(PG_INDEX_CLASS_RELOID));
+  dbc->classes_index_relname_ = std::make_unique<access::BTreeIndex<TupleId>>(
+      buffer_pool, disk_mng, PG_INDEX_CLASS_RELNAME, PG_CLASS,
+      access::AttrsFor(PG_INDEX_CLASS_RELNAME));
+  dbc->classes_index_relnamespace_ = std::make_unique<access::BTreeIndex<TupleId>>(
+      buffer_pool, disk_mng, PG_INDEX_CLASS_RELNAMESPACE, PG_CLASS,
+      access::AttrsFor(PG_INDEX_CLASS_RELNAMESPACE));
 
   // Indexes on pg_attribute
-  dbc->attributes_index_attnum_ =
-      new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_ATTRIBUTE_ATTNUM,
-                                      PG_ATTRIBUTE, access::AttrsFor(PG_INDEX_ATTRIBUTE_ATTNUM));
-  dbc->attributes_index_attrelid_attname_ = new access::BTreeIndex<TupleId>(
+  dbc->attributes_index_attnum_ = std::make_unique<access::BTreeIndex<TupleId>>(
+      buffer_pool, disk_mng, PG_INDEX_ATTRIBUTE_ATTNUM, PG_ATTRIBUTE,
+      access::AttrsFor(PG_INDEX_ATTRIBUTE_ATTNUM));
+  dbc->attributes_index_attrelid_attname_ = std::make_unique<access::BTreeIndex<TupleId>>(
       buffer_pool, disk_mng, PG_INDEX_ATTRIBUTE_ATTRELID_ATTNAME, PG_ATTRIBUTE,
       access::AttrsFor(PG_INDEX_ATTRIBUTE_ATTRELID_ATTNAME));
 
   // Indexes on pg_index
-  dbc->indexes_index_indoid_ =
-      new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_INDEX_INDOID, PG_INDEX,
-                                      access::AttrsFor(PG_INDEX_INDEX_INDOID));
-  dbc->indexes_index_indrelid_ =
-      new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_INDEX_INDRELID, PG_INDEX,
-                                      access::AttrsFor(PG_INDEX_INDEX_INDRELID));
+  dbc->indexes_index_indoid_ = std::make_unique<access::BTreeIndex<TupleId>>(
+      buffer_pool, disk_mng, PG_INDEX_INDEX_INDOID, PG_INDEX,
+      access::AttrsFor(PG_INDEX_INDEX_INDOID));
+  dbc->indexes_index_indrelid_ = std::make_unique<access::BTreeIndex<TupleId>>(
+      buffer_pool, disk_mng, PG_INDEX_INDEX_INDRELID, PG_INDEX,
+      access::AttrsFor(PG_INDEX_INDEX_INDRELID));
 
   // Indexes on pg_type
-  dbc->types_index_typoid_ = new access::BTreeIndex<TupleId>(
+  dbc->types_index_typoid_ = std::make_unique<access::BTreeIndex<TupleId>>(
       buffer_pool, disk_mng, PG_INDEX_TYPE_TYPOID, PG_TYPE, access::AttrsFor(PG_INDEX_TYPE_TYPOID));
-  dbc->types_index_typname_ =
-      new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_TYPE_TYPNAME, PG_TYPE,
-                                      access::AttrsFor(PG_INDEX_TYPE_TYPNAME));
-  dbc->types_index_typnamespace_ =
-      new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_TYPE_TYPNAMESPACE, PG_TYPE,
-                                      access::AttrsFor(PG_INDEX_TYPE_TYPNAMESPACE));
+  dbc->types_index_typname_ = std::make_unique<access::BTreeIndex<TupleId>>(
+      buffer_pool, disk_mng, PG_INDEX_TYPE_TYPNAME, PG_TYPE,
+      access::AttrsFor(PG_INDEX_TYPE_TYPNAME));
+  dbc->types_index_typnamespace_ = std::make_unique<access::BTreeIndex<TupleId>>(
+      buffer_pool, disk_mng, PG_INDEX_TYPE_TYPNAMESPACE, PG_TYPE,
+      access::AttrsFor(PG_INDEX_TYPE_TYPNAMESPACE));
 
   // Indexes on pg_constraint
-  dbc->constraints_index_conoid_ =
-      new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_CONSTRAINT_CONOID,
-                                      PG_CONSTRAINT, access::AttrsFor(PG_INDEX_CONSTRAINT_CONOID));
-  dbc->constraints_index_conname_ =
-      new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_CONSTRAINT_CONNAME,
-                                      PG_CONSTRAINT, access::AttrsFor(PG_INDEX_CONSTRAINT_CONNAME));
-  dbc->constraints_index_connamespace_ = new access::BTreeIndex<TupleId>(
+  dbc->constraints_index_conoid_ = std::make_unique<access::BTreeIndex<TupleId>>(
+      buffer_pool, disk_mng, PG_INDEX_CONSTRAINT_CONOID, PG_CONSTRAINT,
+      access::AttrsFor(PG_INDEX_CONSTRAINT_CONOID));
+  dbc->constraints_index_conname_ = std::make_unique<access::BTreeIndex<TupleId>>(
+      buffer_pool, disk_mng, PG_INDEX_CONSTRAINT_CONNAME, PG_CONSTRAINT,
+      access::AttrsFor(PG_INDEX_CONSTRAINT_CONNAME));
+  dbc->constraints_index_connamespace_ = std::make_unique<access::BTreeIndex<TupleId>>(
       buffer_pool, disk_mng, PG_INDEX_CONSTRAINT_CONNAMESPACE, PG_CONSTRAINT,
       access::AttrsFor(PG_INDEX_CONSTRAINT_CONNAMESPACE));
-  dbc->constraints_index_conrelid_ = new access::BTreeIndex<TupleId>(
+  dbc->constraints_index_conrelid_ = std::make_unique<access::BTreeIndex<TupleId>>(
       buffer_pool, disk_mng, PG_INDEX_CONSTRAINT_CONRELID, PG_CONSTRAINT,
       access::AttrsFor(PG_INDEX_CONSTRAINT_CONRELID));
-  dbc->constraints_index_conindid_ = new access::BTreeIndex<TupleId>(
+  dbc->constraints_index_conindid_ = std::make_unique<access::BTreeIndex<TupleId>>(
       buffer_pool, disk_mng, PG_INDEX_CONSTRAINT_CONINDID, PG_CONSTRAINT,
       access::AttrsFor(PG_INDEX_CONSTRAINT_CONINDID));
-  dbc->constraints_index_confrelid_ = new access::BTreeIndex<TupleId>(
+  dbc->constraints_index_confrelid_ = std::make_unique<access::BTreeIndex<TupleId>>(
       buffer_pool, disk_mng, PG_INDEX_CONSTRAINT_CONFRELID, PG_CONSTRAINT,
       access::AttrsFor(PG_INDEX_CONSTRAINT_CONFRELID));
 
   // Indexes on pg_language
-  dbc->languages_index_lanoid_ =
-      new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_LANGUAGE_LANOID, PG_LANGUAGE,
-                                      access::AttrsFor(PG_INDEX_LANGUAGE_LANOID));
-  dbc->languages_index_lanname_ =
-      new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_LANGUAGE_LANNAME, PG_LANGUAGE,
-                                      access::AttrsFor(PG_INDEX_LANGUAGE_LANNAME));
+  dbc->languages_index_lanoid_ = std::make_unique<access::BTreeIndex<TupleId>>(
+      buffer_pool, disk_mng, PG_INDEX_LANGUAGE_LANOID, PG_LANGUAGE,
+      access::AttrsFor(PG_INDEX_LANGUAGE_LANOID));
+  dbc->languages_index_lanname_ = std::make_unique<access::BTreeIndex<TupleId>>(
+      buffer_pool, disk_mng, PG_INDEX_LANGUAGE_LANNAME, PG_LANGUAGE,
+      access::AttrsFor(PG_INDEX_LANGUAGE_LANNAME));
 
   // Indexes on pg_proc
-  dbc->procs_index_prooid_ = new access::BTreeIndex<TupleId>(
+  dbc->procs_index_prooid_ = std::make_unique<access::BTreeIndex<TupleId>>(
       buffer_pool, disk_mng, PG_INDEX_PROC_PROOID, PG_PROC, access::AttrsFor(PG_INDEX_PROC_PROOID));
-  dbc->procs_index_proname_ =
-      new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_PROC_PRONAME, PG_PROC,
-                                      access::AttrsFor(PG_INDEX_PROC_PRONAME));
+  dbc->procs_index_proname_ = std::make_unique<access::BTreeIndex<TupleId>>(
+      buffer_pool, disk_mng, PG_INDEX_PROC_PRONAME, PG_PROC,
+      access::AttrsFor(PG_INDEX_PROC_PRONAME));
 
   // Layouts
-  dbc->namespace_data_chunk_layout_ = new access::DataChunkLayout(*dbc->namespaces_->GetSchema());
-  dbc->classes_data_chunk_layout_ = new access::DataChunkLayout(*dbc->classes_->GetSchema());
-  dbc->attribute_data_chunk_layout_ = new access::DataChunkLayout(*dbc->attributes_->GetSchema());
-  dbc->indexes_data_chunk_layout_ = new access::DataChunkLayout(*dbc->indexes_->GetSchema());
-  dbc->constraint_data_chunk_layout_ = new access::DataChunkLayout(*dbc->constraints_->GetSchema());
+  dbc->namespace_data_chunk_layout_ =
+      std::make_unique<access::DataChunkLayout>(*dbc->namespaces_->GetSchema());
+  dbc->classes_data_chunk_layout_ =
+      std::make_unique<access::DataChunkLayout>(*dbc->classes_->GetSchema());
+  dbc->attribute_data_chunk_layout_ =
+      std::make_unique<access::DataChunkLayout>(*dbc->attributes_->GetSchema());
+  dbc->indexes_data_chunk_layout_ =
+      std::make_unique<access::DataChunkLayout>(*dbc->indexes_->GetSchema());
+  dbc->constraint_data_chunk_layout_ =
+      std::make_unique<access::DataChunkLayout>(*dbc->constraints_->GetSchema());
 
   return dbc;
 }

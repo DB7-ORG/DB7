@@ -183,6 +183,12 @@ public:
     chunk->Write(catalog::CatalogColumnOid::NSPOID, oid);
   }
 
+  static void BuildNamespaceChunk(DataChunk *chunk, const std::span<char> name) {
+    storage::VarlenEntry entry;
+    entry.Set(name);
+    chunk->Write(catalog::CatalogColumnOid::NSPNAME, entry);
+  }
+
   static void BuildClassChunk(DataChunk *chunk, catalog::class_oid_t oid) {
     chunk->Write(catalog::CatalogColumnOid::RELOID, oid);
   }

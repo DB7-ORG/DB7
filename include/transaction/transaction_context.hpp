@@ -144,6 +144,28 @@ public:
     return ResultObj<TupleId>(result);
   }
 
+  ResultObj<TupleId> GetTid(const std::vector<TupleId> &tids, table_id tbl_id) const {
+    u32 result = INVALID_TID;
+    for (auto tid : tids) {
+      auto *undo = version_manager_->GetDelta(tid, tbl_id);
+      if (undo == nullptr) {
+        result = tid.GetValue();
+        break;
+      }
+
+      if (transaction::TransactionUtil::HasConflict(undo->GetTimestamp(), FinishTime(),
+                                                    StartTime())) {
+        return ResultObj<TupleId>::Fail("Conflicting version");
+      }
+
+      if (!undo->IsDeleted()) {
+        result = tid;
+        break;
+      }
+    }
+    return ResultObj<TupleId>(result);
+  }
+
   bool GetTidExists(std::vector<TupleId> &tids, table_id tbl_id) {
     for (auto tid : tids) {
       auto *undo = version_manager_->GetDelta(tid, tbl_id);

@@ -32,6 +32,50 @@ private:
 
   std::atomic<transaction::timestamp_t> write_lock_;
 
+  // cached data
+  std::unique_ptr<access::Table> namespaces_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> namespaces_index_nspoid_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> namespaces_index_nspname_;
+  std::unique_ptr<access::DataChunkLayout> namespace_data_chunk_layout_;
+
+  std::unique_ptr<access::Table> classes_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> classes_index_reloid_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> classes_index_relname_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> classes_index_relnamespace_;
+  std::unique_ptr<access::DataChunkLayout> classes_data_chunk_layout_;
+
+  std::unique_ptr<access::Table> attributes_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> attributes_index_attnum_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> attributes_index_attrelid_attname_;
+  std::unique_ptr<access::DataChunkLayout> attribute_data_chunk_layout_;
+
+  std::unique_ptr<access::Table> indexes_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> indexes_index_indoid_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> indexes_index_indrelid_;
+  std::unique_ptr<access::DataChunkLayout> indexes_data_chunk_layout_;
+
+  std::unique_ptr<access::Table> types_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> types_index_typoid_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> types_index_typname_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> types_index_typnamespace_;
+
+  std::unique_ptr<access::Table> constraints_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> constraints_index_conoid_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> constraints_index_conname_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> constraints_index_connamespace_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> constraints_index_conrelid_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> constraints_index_conindid_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> constraints_index_confrelid_;
+  std::unique_ptr<access::DataChunkLayout> constraint_data_chunk_layout_;
+
+  std::unique_ptr<access::Table> languages_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> languages_index_lanoid_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> languages_index_lanname_;
+
+  std::unique_ptr<access::Table> procs_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> procs_index_prooid_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> procs_index_proname_;
+
   bool TryLock(transaction::TransactionContext *txn);
 
   ResultObj<namespace_oid_t> CreateNamespaceEntry(transaction::TransactionContext *txn,
@@ -56,90 +100,10 @@ private:
   ResultObj<class_oid_t> CreateConstraintEntry(transaction::TransactionContext *txn,
                                                constraint_oid_t oid, ConstraintProps props);
 
-  // cached data
-  access::Table *namespaces_;
-  access::BTreeIndex<TupleId> *namespaces_index_nspoid_;
-  access::BTreeIndex<TupleId> *namespaces_index_nspname_;
-  access::DataChunkLayout *namespace_data_chunk_layout_;
-
-  access::Table *classes_;
-  access::BTreeIndex<TupleId> *classes_index_reloid_;
-  access::BTreeIndex<TupleId> *classes_index_relname_;
-  access::BTreeIndex<TupleId> *classes_index_relnamespace_;
-  access::DataChunkLayout *classes_data_chunk_layout_;
-
-  access::Table *attributes_;
-  access::BTreeIndex<TupleId> *attributes_index_attnum_;
-  access::BTreeIndex<TupleId> *attributes_index_attrelid_attname_;
-  access::DataChunkLayout *attribute_data_chunk_layout_;
-
-  access::Table *indexes_;
-  access::BTreeIndex<TupleId> *indexes_index_indoid_;
-  access::BTreeIndex<TupleId> *indexes_index_indrelid_;
-  access::DataChunkLayout *indexes_data_chunk_layout_;
-
-  access::Table *types_;
-  access::BTreeIndex<TupleId> *types_index_typoid_;
-  access::BTreeIndex<TupleId> *types_index_typname_;
-  access::BTreeIndex<TupleId> *types_index_typnamespace_;
-
-  access::Table *constraints_;
-  access::BTreeIndex<TupleId> *constraints_index_conoid_;
-  access::BTreeIndex<TupleId> *constraints_index_conname_;
-  access::BTreeIndex<TupleId> *constraints_index_connamespace_;
-  access::BTreeIndex<TupleId> *constraints_index_conrelid_;
-  access::BTreeIndex<TupleId> *constraints_index_conindid_;
-  access::BTreeIndex<TupleId> *constraints_index_confrelid_;
-  access::DataChunkLayout *constraint_data_chunk_layout_;
-
-  access::Table *languages_;
-  access::BTreeIndex<TupleId> *languages_index_lanoid_;
-  access::BTreeIndex<TupleId> *languages_index_lanname_;
-
-  access::Table *procs_;
-  access::BTreeIndex<TupleId> *procs_index_prooid_;
-  access::BTreeIndex<TupleId> *procs_index_proname_;
-
 public:
   DatabaseCatalog(catalog::db_oid_t db_id)
       : db_id_(db_id), next_namespace_oid_(1), next_class_oid_(1), next_attribute_oid_(1),
         next_constraint_oid_(1) {}
-
-  ~DatabaseCatalog() {
-    delete namespaces_;
-    delete namespaces_index_nspoid_;
-    delete namespaces_index_nspname_;
-
-    delete classes_;
-    delete classes_index_reloid_;
-    delete classes_index_relname_;
-    delete classes_index_relnamespace_;
-
-    delete attributes_;
-    delete attributes_index_attnum_;
-    delete attributes_index_attrelid_attname_;
-
-    delete types_;
-    delete types_index_typoid_;
-    delete types_index_typname_;
-    delete types_index_typnamespace_;
-
-    delete constraints_;
-    delete constraints_index_conoid_;
-    delete constraints_index_conname_;
-    delete constraints_index_connamespace_;
-    delete constraints_index_conrelid_;
-    delete constraints_index_conindid_;
-    delete constraints_index_confrelid_;
-
-    delete languages_;
-    delete languages_index_lanoid_;
-    delete languages_index_lanname_;
-
-    delete procs_;
-    delete procs_index_prooid_;
-    delete procs_index_proname_;
-  }
 
   catalog::db_oid_t GetDbOid() const { return db_id_; }
 
@@ -174,5 +138,11 @@ public:
                                           ConstraintProps props);
 
   void Select(transaction::TransactionContext *txn, int type);
+
+  ResultObj<namespace_oid_t> GetNamespaceOid(transaction::TransactionContext *txn,
+                                             const std::span<char> name) const;
+
+  ResultObj<rel_oid_t> GetTableOid(transaction::TransactionContext *txn, const std::span<char> name,
+                                   const namespace_oid_t ns_oid) const;
 };
 } // namespace db7::catalog

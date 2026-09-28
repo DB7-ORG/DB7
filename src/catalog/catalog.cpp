@@ -9,7 +9,6 @@ namespace db7::catalog {
 bool Catalog::RemoveMapping(db_oid_t oid) {
   auto it = databases_map_.find(oid);
   if (it == databases_map_.end()) { return false; }
-  delete it->second;
   databases_map_.erase(it);
   return true;
 }
@@ -20,10 +19,9 @@ ResultObj<db_oid_t> Catalog::CreateDatabase(transaction::TransactionContext *txn
 
   // TODO register redo event
 
-  DatabaseCatalog *dbc = Builder::CreateDatabaseCatalog(buffer_pool_, disk_mng_, oid);
-  databases_map_[oid] = dbc;
+  databases_map_[oid] = Builder::CreateDatabaseCatalog(buffer_pool_, disk_mng_, oid);
 
-  if (!CreateDatabaseEntry(txn, name, dbc->GetDbOid())) {
+  if (!CreateDatabaseEntry(txn, name, oid)) {
     throw;
     return ResultObj<db_oid_t>::Fail("Failed to insert entry");
   }

@@ -377,26 +377,52 @@ void DatabaseCatalog::Select(transaction::TransactionContext *txn, int type) {
   switch (type) {
   case 0:
     std::cout << "Namespace: " << std::endl;
-    Display(txn, namespace_data_chunk_layout_, namespaces_);
+    Display(txn, namespace_data_chunk_layout_.get(), namespaces_.get());
     break;
   case 1:
     std::cout << "Classes: " << std::endl;
-    Display(txn, classes_data_chunk_layout_, classes_);
+    Display(txn, classes_data_chunk_layout_.get(), classes_.get());
     break;
   case 2:
     std::cout << "Attributes: " << std::endl;
-    Display(txn, attribute_data_chunk_layout_, attributes_, 20);
+    Display(txn, attribute_data_chunk_layout_.get(), attributes_.get(), 20);
     break;
   case 3:
     std::cout << "Indexes: " << std::endl;
-    Display(txn, indexes_data_chunk_layout_, indexes_);
+    Display(txn, indexes_data_chunk_layout_.get(), indexes_.get());
     break;
   case 4:
     std::cout << "Constraint: " << std::endl;
-    Display(txn, constraint_data_chunk_layout_, constraints_);
+    Display(txn, constraint_data_chunk_layout_.get(), constraints_.get());
     break;
   default: break;
   }
+}
+
+ResultObj<namespace_oid_t> DatabaseCatalog::GetNamespaceOid(transaction::TransactionContext *txn,
+                                                            const std::span<char> name) const {
+  auto *ns_chunk = namespace_data_chunk_layout_->CreateDataChunk();
+
+  access::DataChunkBuilder::BuildNamespaceChunk(ns_chunk, name);
+
+  shared::VectorValues<TupleId> tids;
+  auto ns_res = namespaces_index_nspoid_->Get(ns_chunk, tids);
+  if (!ns_res.success) { return ResultObj<namespace_oid_t>::Fail("Namespace does not exist"); }
+
+  ResultObj<TupleId> res = txn->GetTid(tids.vec, namespaces_->GetTableOid());
+  if (!res.success) { return ResultObj<namespace_oid_t>::Fail("Namespace does not exist"); }
+
+  auto position = res.value;
+  namespaces_->Select(txn, position.GetIndex(), position.GetPageId(), ns_chunk);
+
+  namespace_oid_t oid = namespace_oid_t(*ns_chunk->Get(CatalogColumnOid::NSPOID));
+  return ResultObj<namespace_oid_t>(oid);
+}
+
+ResultObj<rel_oid_t> DatabaseCatalog::GetTableOid(transaction::TransactionContext *txn,
+                                                  const std::span<char> name,
+                                                  const namespace_oid_t ns_oid) const {
+  DB7_UNIMPLEMENTED();
 }
 
 } // namespace db7::catalog

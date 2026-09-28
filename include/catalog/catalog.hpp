@@ -28,10 +28,10 @@ class DatabaseCatalog;
  */
 class Catalog {
 private:
-  access::Table *databases_;
-  access::BTreeIndex<TupleId> *databases_index_datoid;
-  access::BTreeIndex<TupleId> *databases_index_datname;
-  std::unordered_map<db_oid_t, DatabaseCatalog *> databases_map_;
+  std::unique_ptr<access::Table> databases_;
+  std::unique_ptr<access::BTreeIndex<TupleId>> databases_index_datoid;
+  std::unique_ptr<access::BTreeIndex<TupleId>> databases_index_datname;
+  std::unordered_map<db_oid_t, std::unique_ptr<DatabaseCatalog>> databases_map_;
   std::atomic<db_oid_t> next_db_oid_;
   storage::BufferPool *buffer_pool_;
   storage::DiskManagerAsync *disk_mng_;
@@ -70,26 +70,18 @@ public:
    * This should newer be called in regular code other than at startup..
    */
   Catalog(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng)
-      : databases_map_({}), next_db_oid_(catalog::db_oid_t(1)), buffer_pool_(buffer_pool),
-        disk_mng_(disk_mng),
+      : next_db_oid_(catalog::db_oid_t(1)), buffer_pool_(buffer_pool), disk_mng_(disk_mng),
         data_chunk_layout_({CatalogColumnOid::DATOID, CatalogColumnOid::DATNAME},
                            {SizeOf(type_id::INTEGER), SizeOf(type_id::VARCHAR)}) {
     using enum CatalogTableOid;
-    databases_ = new access::Table(buffer_pool, disk_mng, Builder::CreateDatabaseSchema(),
-                                   PG_DATABASES, PG_VARLEN);
-    databases_index_datoid =
-        new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_DATABASE_DATOID,
-                                        PG_DATABASES, access::AttrsFor(PG_INDEX_DATABASE_DATOID));
-    databases_index_datname =
-        new access::BTreeIndex<TupleId>(buffer_pool, disk_mng, PG_INDEX_DATABASE_DATNAME,
-                                        PG_DATABASES, access::AttrsFor(PG_INDEX_DATABASE_DATNAME));
-  }
-
-  ~Catalog() {
-    for (auto &[oid, dbc] : databases_map_) delete dbc;
-    delete databases_;
-    delete databases_index_datoid;
-    delete databases_index_datname;
+    databases_ = std::make_unique<access::Table>(
+        buffer_pool, disk_mng, Builder::CreateDatabaseSchema(), PG_DATABASES, PG_VARLEN);
+    databases_index_datoid = std::make_unique<access::BTreeIndex<TupleId>>(
+        buffer_pool, disk_mng, PG_INDEX_DATABASE_DATOID, PG_DATABASES,
+        access::AttrsFor(PG_INDEX_DATABASE_DATOID));
+    databases_index_datname = std::make_unique<access::BTreeIndex<TupleId>>(
+        buffer_pool, disk_mng, PG_INDEX_DATABASE_DATNAME, PG_DATABASES,
+        access::AttrsFor(PG_INDEX_DATABASE_DATNAME));
   }
 
   /**
@@ -117,7 +109,14 @@ public:
   void Select(transaction::TransactionContext *txn);
 
   // TODO this is temporary so i can test stuff
-  DatabaseCatalog *GetDatabaseCatalog(db_oid_t oid) { return databases_map_[oid]; }
+  DatabaseCatalog *GetDatabaseCatalog(db_oid_t oid) { return databases_map_[oid].get(); }
+
+  /**
+   * BINDER API
+   */
+  db_oid_t GetDatabaseOid() const;
+
+  void GetSearchPath() const;
 };
 
 } // namespace db7::catalog
