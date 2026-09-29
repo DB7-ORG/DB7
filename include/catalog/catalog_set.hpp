@@ -27,14 +27,14 @@ public:
 class CatalogSet {
 private:
   // mutex
-  Catalog &catalog;
+  DatabaseCatalog &catalog;
   CatalogEntryMap map;
 
   //! The generator used to generate default internal entries
   // unique_ptr<DefaultGenerator> defaults;
 
 public:
-  explicit CatalogSet(Catalog &catalog);
+  explicit CatalogSet(DatabaseCatalog &catalog);
   ~CatalogSet();
 };
 

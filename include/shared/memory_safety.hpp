@@ -4,7 +4,7 @@ namespace db7 {
 
 template <bool IS_ENABLED>
 struct MemorySafety { // TODO check this flas works
-#ifdef DEBUG
+#ifdef DB7DEBUG
   // In DEBUG mode safety is always on
   static constexpr bool ENABLED = true;
 #else

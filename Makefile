@@ -28,11 +28,11 @@ LDFLAGS = -lxxhash -lfmt -luring -ljemalloc -lutf8proc
 BUILD ?= release
 
 ifeq ($(BUILD),debug)
-    CXXFLAGS = $(BASE_CXXFLAGS) -g -O0 -DDB7_DEBUG_FLAG -fno-inline
-    CCO3FLAGS = -g -O0 -DDB7_DEBUG_FLAG -fno-inline
+    CXXFLAGS = $(BASE_CXXFLAGS) -g -O0 -DDB7DEBUG -fno-inline
+    CCO3FLAGS = -g -O0 -DDB7DEBUG -fno-inline
 else
-    CXXFLAGS = $(BASE_CXXFLAGS) -O2 -DNDB7_DEBUG_FLAG
-    CCO3FLAGS = -O3 -DNDB7_DEBUG_FLAG
+    CXXFLAGS = $(BASE_CXXFLAGS) -O2 -DNDB7DEBUG
+    CCO3FLAGS = -O3 -DNDB7DEBUG
 endif
 
 # Separate output directories per build type, so debug and release never mix

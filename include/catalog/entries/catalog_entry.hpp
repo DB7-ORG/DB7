@@ -7,7 +7,6 @@
 #include "transaction/transaction_common.hpp"
 
 #include <atomic>
-#include <string>
 
 namespace db7::catalog {
 

@@ -1,8 +1,15 @@
 #include "catalog/database_catalog.hpp"
+#include "catalog/dependency/dependency_manager.hpp"
 #include "shared/models/tuple_id.hpp"
 #include "transaction/transaction_util.hpp"
 
 namespace db7::catalog {
+
+DatabaseCatalog::DatabaseCatalog(catalog::db_oid_t db_id)
+    : db_id_(db_id), next_namespace_oid_(1), next_class_oid_(1), next_attribute_oid_(1),
+      next_constraint_oid_(1) {}
+
+DatabaseCatalog::~DatabaseCatalog() = default;
 
 bool DatabaseCatalog::TryLock(transaction::TransactionContext *txn) {
   auto current_val = write_lock_.load();
