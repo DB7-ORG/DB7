@@ -75,9 +75,9 @@ public:
    * @return the hashed value of this Order by description
    */
   hash_t Hash() const {
-    hash_t hash = shared::HashUtil::Hash(types_.size());
-    hash = shared::HashUtil::CombineHashInRange(hash, types_.begin(), types_.end());
-    for (const auto &expr : exprs_) { hash = shared::HashUtil::CombineHashes(hash, expr->Hash()); }
+    hash_t hash = HashUtil::Hash(types_.size());
+    hash = HashUtil::CombineHashInRange(hash, types_.begin(), types_.end());
+    for (const auto &expr : exprs_) { hash = HashUtil::CombineHashes(hash, expr->Hash()); }
     return hash;
   }
 
@@ -175,8 +175,8 @@ public:
    * @return the hashed value of this Limit description
    */
   hash_t Hash() const {
-    hash_t hash = shared::HashUtil::Hash(limit_);
-    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(offset_));
+    hash_t hash = HashUtil::Hash(limit_);
+    hash = HashUtil::CombineHashes(hash, HashUtil::Hash(offset_));
     return hash;
   }
   /**
@@ -259,9 +259,9 @@ public:
    * @return the hashed value of this group by description
    */
   hash_t Hash() const {
-    hash_t hash = shared::HashUtil::Hash(columns_.size());
-    for (const auto &col : columns_) { hash = shared::HashUtil::CombineHashes(hash, col->Hash()); }
-    if (having_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, having_->Hash());
+    hash_t hash = HashUtil::Hash(columns_.size());
+    for (const auto &col : columns_) { hash = HashUtil::CombineHashes(hash, col->Hash()); }
+    if (having_ != nullptr) hash = HashUtil::CombineHashes(hash, having_->Hash());
     return hash;
   }
 

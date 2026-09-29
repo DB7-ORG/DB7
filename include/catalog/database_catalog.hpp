@@ -4,6 +4,7 @@
 #include "access/index_schema.hpp"
 #include "access/table.hpp"
 #include "catalog/builder.hpp"
+#include "shared/identifier.hpp"
 #include "shared/models/result_object.hpp"
 #include "shared/models/tuple_id.hpp"
 
@@ -22,7 +23,11 @@ class Builder;
 class DatabaseCatalog {
 private:
   friend class Builder;
+  // NEW:
+  std::atomic<idx_t> gen_oid_;
+  Identifier name;
 
+  // OLD:
   catalog::db_oid_t db_id_;
 
   std::atomic<namespace_oid_t> next_namespace_oid_;
@@ -108,6 +113,10 @@ public:
   DatabaseCatalog(catalog::db_oid_t db_id)
       : db_id_(db_id), next_namespace_oid_(1), next_class_oid_(1), next_attribute_oid_(1),
         next_constraint_oid_(1) {}
+
+  idx_t NextOid() { return gen_oid_++; }
+
+  const Identifier &GetName() const { return name; }
 
   catalog::db_oid_t GetDbOid() const { return db_id_; }
 

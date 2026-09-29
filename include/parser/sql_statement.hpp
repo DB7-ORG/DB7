@@ -66,9 +66,9 @@ public:
    * @return the hashed value of this table info object
    */
   hash_t Hash() const {
-    hash_t hash = shared::HashUtil::Hash(table_name_);
-    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(namespace_name_));
-    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(database_name_));
+    hash_t hash = HashUtil::Hash(table_name_);
+    hash = HashUtil::CombineHashes(hash, HashUtil::Hash(namespace_name_));
+    hash = HashUtil::CombineHashes(hash, HashUtil::Hash(database_name_));
     return hash;
   }
 

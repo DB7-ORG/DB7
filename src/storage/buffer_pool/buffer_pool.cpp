@@ -85,7 +85,7 @@ bool BufferPool::PageVisit(Page *page,
 }
 
 u32 BufferPool::GetPartitionIdx(PageIdentifier id) {
-  return shared::HashUtil::murmurhash64(id.packed) % BUFFER_POOL_PARTITION_NUM;
+  return HashUtil::murmurhash64(id.packed) % BUFFER_POOL_PARTITION_NUM;
 }
 
 Page *BufferPool::Pin(PageIdentifier id) {

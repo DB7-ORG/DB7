@@ -147,26 +147,25 @@ ConstantValueExpression::ConstantValueExpression(ConstantValueExpression &&other
 }
 
 hash_t ConstantValueExpression::Hash() const {
-  const auto hash =
-      shared::HashUtil::CombineHashes(AbstractExpression::Hash(), shared::HashUtil::Hash(IsNull()));
+  const auto hash = HashUtil::CombineHashes(AbstractExpression::Hash(), HashUtil::Hash(IsNull()));
   if (IsNull()) return hash;
 
   switch (GetReturnValueType()) {
   case type_id::BOOLEAN: {
-    return shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(Peek<bool>()));
+    return HashUtil::CombineHashes(hash, HashUtil::Hash(Peek<bool>()));
   }
   case type_id::TINYINT:
   case type_id::SMALLINT:
   case type_id::INTEGER:
   case type_id::BIGINT: {
-    return shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(Peek<i64>()));
+    return HashUtil::CombineHashes(hash, HashUtil::Hash(Peek<i64>()));
   }
   case type_id::DOUBLE: {
-    return shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(Peek<double>()));
+    return HashUtil::CombineHashes(hash, HashUtil::Hash(Peek<double>()));
   }
   case type_id::VARCHAR:
   case type_id::VARBINARY: {
-    return shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(Peek<std::string_view>()));
+    return HashUtil::CombineHashes(hash, HashUtil::Hash(Peek<std::string_view>()));
   }
   default: __builtin_unreachable();
   }

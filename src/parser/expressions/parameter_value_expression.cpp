@@ -30,7 +30,7 @@ void ParameterValueExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) 
 
 hash_t ParameterValueExpression::Hash() const {
   hash_t hash = AbstractExpression::Hash();
-  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(value_idx_));
+  hash = HashUtil::CombineHashes(hash, HashUtil::Hash(value_idx_));
   return hash;
 }
 

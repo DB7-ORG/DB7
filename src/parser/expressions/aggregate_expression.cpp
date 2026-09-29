@@ -58,7 +58,7 @@ void AggregateExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) {
 
 hash_t AggregateExpression::Hash() const {
   hash_t hash = AbstractExpression::Hash();
-  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(distinct_));
+  hash = HashUtil::CombineHashes(hash, HashUtil::Hash(distinct_));
   return hash;
 }
 

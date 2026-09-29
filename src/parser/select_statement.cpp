@@ -202,15 +202,15 @@ std::unique_ptr<SelectStatement> SelectStatement::Copy() {
 }
 
 hash_t SelectStatement::Hash() const {
-  hash_t hash = shared::HashUtil::Hash(GetType());
-  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(select_distinct_));
-  if (union_select_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, union_select_->Hash());
-  if (limit_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, limit_->Hash());
-  if (order_by_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, order_by_->Hash());
-  if (group_by_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, group_by_->Hash());
-  if (where_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, where_->Hash());
-  if (from_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, from_->Hash());
-  for (const auto &expr : select_) { hash = shared::HashUtil::CombineHashes(hash, expr->Hash()); }
+  hash_t hash = HashUtil::Hash(GetType());
+  hash = HashUtil::CombineHashes(hash, HashUtil::Hash(select_distinct_));
+  if (union_select_ != nullptr) hash = HashUtil::CombineHashes(hash, union_select_->Hash());
+  if (limit_ != nullptr) hash = HashUtil::CombineHashes(hash, limit_->Hash());
+  if (order_by_ != nullptr) hash = HashUtil::CombineHashes(hash, order_by_->Hash());
+  if (group_by_ != nullptr) hash = HashUtil::CombineHashes(hash, group_by_->Hash());
+  if (where_ != nullptr) hash = HashUtil::CombineHashes(hash, where_->Hash());
+  if (from_ != nullptr) hash = HashUtil::CombineHashes(hash, from_->Hash());
+  for (const auto &expr : select_) { hash = HashUtil::CombineHashes(hash, expr->Hash()); }
   return hash;
 }
 

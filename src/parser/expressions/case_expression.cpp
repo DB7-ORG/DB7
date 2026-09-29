@@ -25,19 +25,15 @@ CaseExpression::WhenClause::FromJson(const nlohmann::json &j) {
 
 hash_t CaseExpression::WhenClause::Hash() const {
   hash_t hash = condition_->Hash();
-  hash = shared::HashUtil::CombineHashes(hash, condition_->Hash());
-  hash = shared::HashUtil::CombineHashes(hash, then_->Hash());
+  hash = HashUtil::CombineHashes(hash, condition_->Hash());
+  hash = HashUtil::CombineHashes(hash, then_->Hash());
   return hash;
 }
 
 hash_t CaseExpression::Hash() const {
   hash_t hash = AbstractExpression::Hash();
-  for (auto &clause : when_clauses_) {
-    hash = shared::HashUtil::CombineHashes(hash, clause.Hash());
-  }
-  if (default_expr_ != nullptr) {
-    hash = shared::HashUtil::CombineHashes(hash, default_expr_->Hash());
-  }
+  for (auto &clause : when_clauses_) { hash = HashUtil::CombineHashes(hash, clause.Hash()); }
+  if (default_expr_ != nullptr) { hash = HashUtil::CombineHashes(hash, default_expr_->Hash()); }
   return hash;
 }
 

@@ -24,10 +24,10 @@ nlohmann::json JoinDefinition::ToJson() const {
 }
 
 hash_t JoinDefinition::Hash() const {
-  hash_t hash = shared::HashUtil::Hash(type_);
-  if (left_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, left_->Hash());
-  if (right_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, right_->Hash());
-  if (condition_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, condition_->Hash());
+  hash_t hash = HashUtil::Hash(type_);
+  if (left_ != nullptr) hash = HashUtil::CombineHashes(hash, left_->Hash());
+  if (right_ != nullptr) hash = HashUtil::CombineHashes(hash, right_->Hash());
+  if (condition_ != nullptr) hash = HashUtil::CombineHashes(hash, condition_->Hash());
   return hash;
 }
 
@@ -152,12 +152,12 @@ std::vector<std::unique_ptr<AbstractExpression>> TableRef::FromJson(const nlohma
 DEFINE_JSON_BODY_DECLARATIONS(TableRef);
 
 hash_t TableRef::Hash() const {
-  hash_t hash = shared::HashUtil::Hash(type_);
-  hash = shared::HashUtil::CombineHashes(hash, std::hash<AliasType>{}(alias_));
-  if (table_info_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, table_info_->Hash());
-  if (select_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, select_->Hash());
-  if (join_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, join_->Hash());
-  for (const auto &tb : list_) { hash = shared::HashUtil::CombineHashes(hash, tb->Hash()); }
+  hash_t hash = HashUtil::Hash(type_);
+  hash = HashUtil::CombineHashes(hash, std::hash<AliasType>{}(alias_));
+  if (table_info_ != nullptr) hash = HashUtil::CombineHashes(hash, table_info_->Hash());
+  if (select_ != nullptr) hash = HashUtil::CombineHashes(hash, select_->Hash());
+  if (join_ != nullptr) hash = HashUtil::CombineHashes(hash, join_->Hash());
+  for (const auto &tb : list_) { hash = HashUtil::CombineHashes(hash, tb->Hash()); }
   return hash;
 }
 

@@ -41,16 +41,13 @@ void AbstractExpression::SetMutableStateForCopy(const AbstractExpression &copy_e
 }
 
 hash_t AbstractExpression::Hash() const {
-  hash_t hash = shared::HashUtil::Hash(expression_type_);
-  for (const auto &child : children_) {
-    hash = shared::HashUtil::CombineHashes(hash, child->Hash());
-  }
-  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(return_value_type_));
-  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(expression_name_));
-  hash = shared::HashUtil::CombineHashes(hash, std::hash<AliasType>{}(alias_));
-  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(depth_));
-  hash = shared::HashUtil::CombineHashes(hash,
-                                         shared::HashUtil::Hash(static_cast<char>(has_subquery_)));
+  hash_t hash = HashUtil::Hash(expression_type_);
+  for (const auto &child : children_) { hash = HashUtil::CombineHashes(hash, child->Hash()); }
+  hash = HashUtil::CombineHashes(hash, HashUtil::Hash(return_value_type_));
+  hash = HashUtil::CombineHashes(hash, HashUtil::Hash(expression_name_));
+  hash = HashUtil::CombineHashes(hash, std::hash<AliasType>{}(alias_));
+  hash = HashUtil::CombineHashes(hash, HashUtil::Hash(depth_));
+  hash = HashUtil::CombineHashes(hash, HashUtil::Hash(static_cast<char>(has_subquery_)));
 
   return hash;
 }

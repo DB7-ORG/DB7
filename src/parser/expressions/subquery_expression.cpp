@@ -53,13 +53,12 @@ int SubqueryExpression::DeriveDepth() {
 hash_t SubqueryExpression::Hash() const {
   hash_t hash = AbstractExpression::Hash();
   for (auto select_elem : subselect_->GetSelectColumns()) {
-    hash = shared::HashUtil::CombineHashes(hash, select_elem->Hash());
+    hash = HashUtil::CombineHashes(hash, select_elem->Hash());
   }
 
-  hash =
-      shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(subselect_->IsSelectDistinct()));
+  hash = HashUtil::CombineHashes(hash, HashUtil::Hash(subselect_->IsSelectDistinct()));
   if (subselect_->GetSelectCondition() != nullptr)
-    hash = shared::HashUtil::CombineHashes(hash, subselect_->GetSelectCondition()->Hash());
+    hash = HashUtil::CombineHashes(hash, subselect_->GetSelectCondition()->Hash());
   return hash;
 }
 

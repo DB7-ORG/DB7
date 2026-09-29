@@ -1,17 +1,19 @@
 #pragma once
 
-#include "catalog/catalog.hpp"
-#include "catalog/catalog_entry.hpp"
+#include "catalog/entries/catalog_entry.hpp"
+#include "shared/identifier.hpp"
 
 #include <unordered_map>
 
 namespace db7::catalog {
 
+class Catalog;
+
 class CatalogEntryMap {
 
 private:
   //! Mapping of identifier to catalog entry
-  std::unordered_map<std::string, std::unique_ptr<CatalogEntry>> entries;
+  std::unordered_map<Identifier, std::unique_ptr<CatalogEntry>> entries;
 
 public:
   CatalogEntryMap() {}
@@ -19,7 +21,7 @@ public:
   void AddEntry(std::unique_ptr<CatalogEntry> entry);
   void UpdateEntry(std::unique_ptr<CatalogEntry> entry);
   void DropEntry(CatalogEntry &entry);
-  optional_ptr<CatalogEntry> GetEntry(const std::string &name);
+  optional_ptr<CatalogEntry> GetEntry(const Identifier &name);
 };
 
 class CatalogSet {
@@ -30,6 +32,10 @@ private:
 
   //! The generator used to generate default internal entries
   // unique_ptr<DefaultGenerator> defaults;
+
+public:
+  explicit CatalogSet(Catalog &catalog);
+  ~CatalogSet();
 };
 
 } // namespace db7::catalog

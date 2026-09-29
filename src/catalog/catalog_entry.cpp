@@ -1,4 +1,4 @@
-#include "catalog/catalog_entry.hpp"
+#include "catalog/entries/catalog_entry.hpp"
 
 namespace db7::catalog {
 void CatalogEntry::SetChild(std::unique_ptr<CatalogEntry> child_p) {

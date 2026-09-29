@@ -6,10 +6,10 @@
 
 #define INVALID_REL_OID 0
 
-namespace db7::catalog {
-constexpr u32 INVALID_OID = 0;
+namespace db7 {
 
-using idx_t = u64;
+namespace catalog {
+constexpr u32 INVALID_OID = 0;
 
 // TODO catalog do i need all of these seems stupid
 using db_oid_t = u32;
@@ -251,4 +251,13 @@ struct ConstraintProps {
   class_oid_t ind_oid;
   class_oid_t for_oid; // foreign table id
 };
-} // namespace db7::catalog
+
+#define DEFAULT_SCHEMA "main"
+#define INVALID_SCHEMA ""
+#define INVALID_CATALOG ""
+#define SYSTEM_CATALOG "system"
+#define TEMP_CATALOG "temp"
+#define IN_MEMORY_PATH ":memory:"
+
+} // namespace catalog
+} // namespace db7

@@ -13,8 +13,8 @@ std::unique_ptr<AbstractExpression> DerivedValueExpression::Copy() const {
 
 hash_t DerivedValueExpression::Hash() const {
   hash_t hash = AbstractExpression::Hash();
-  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(tuple_idx_));
-  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(value_idx_));
+  hash = HashUtil::CombineHashes(hash, HashUtil::Hash(tuple_idx_));
+  hash = HashUtil::CombineHashes(hash, HashUtil::Hash(value_idx_));
   return hash;
 }
 

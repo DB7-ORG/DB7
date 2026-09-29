@@ -15,14 +15,14 @@ std::unique_ptr<AbstractExpression> ColumnValueExpression::Copy() const {
 }
 
 hash_t ColumnValueExpression::Hash() const {
-  hash_t hash = shared::HashUtil::Hash(GetExpressionType());
-  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(GetReturnValueType()));
-  hash = shared::HashUtil::CombineHashes(hash, std::hash<parser::AliasType>{}(table_alias_));
-  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(column_name_));
-  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(database_oid_));
-  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(table_oid_));
-  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(column_oid_));
-  hash = shared::HashUtil::CombineHashes(hash, std::hash<AliasType>{}(alias_));
+  hash_t hash = HashUtil::Hash(GetExpressionType());
+  hash = HashUtil::CombineHashes(hash, HashUtil::Hash(GetReturnValueType()));
+  hash = HashUtil::CombineHashes(hash, std::hash<parser::AliasType>{}(table_alias_));
+  hash = HashUtil::CombineHashes(hash, HashUtil::Hash(column_name_));
+  hash = HashUtil::CombineHashes(hash, HashUtil::Hash(database_oid_));
+  hash = HashUtil::CombineHashes(hash, HashUtil::Hash(table_oid_));
+  hash = HashUtil::CombineHashes(hash, HashUtil::Hash(column_oid_));
+  hash = HashUtil::CombineHashes(hash, std::hash<AliasType>{}(alias_));
   return hash;
 }
 

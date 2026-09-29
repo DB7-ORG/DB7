@@ -41,7 +41,7 @@ void FunctionExpression::Accept(ManagedPointer<binder::SqlNodeVisitor> v) {
 
 hash_t FunctionExpression::Hash() const {
   hash_t hash = AbstractExpression::Hash();
-  hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(func_name_));
+  hash = HashUtil::CombineHashes(hash, HashUtil::Hash(func_name_));
   return hash;
 }
 

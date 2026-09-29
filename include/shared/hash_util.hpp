@@ -7,7 +7,7 @@
 #define XXH_STATIC_LINKING_ONLY
 #include <xxhash.h>
 
-namespace db7::shared {
+namespace db7 {
 struct HashUtil {
   static inline u32 murmurhash32(u32 data) {
     u32 h = data;
@@ -181,6 +181,8 @@ struct HashUtil {
     return b;
   }
 
+  static hash_t CombineHash(hash_t left, hash_t right) { return left ^ right; }
+
   /**
    * Compute a new hash value that scrambles the bits in the input hash value.
    * This function guarantees that if h1 and h2 are two hash values, then
@@ -297,4 +299,4 @@ struct HashUtil {
     return XXH3_64bits(&val, sizeof(T));
   }
 };
-} // namespace db7::shared
+} // namespace db7

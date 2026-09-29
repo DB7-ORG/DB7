@@ -148,7 +148,7 @@ public:
    * @param seed The value to seed the hash with.
    * @return The hash value for this decimal instance.
    */
-  hash_t Hash(const hash_t seed) const { return shared::HashUtil::HashCrc(value_); }
+  hash_t Hash(const hash_t seed) const { return HashUtil::HashCrc(value_); }
 
   /**
    * @return The hash value of this decimal instance.

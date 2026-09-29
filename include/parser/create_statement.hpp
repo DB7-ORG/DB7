@@ -259,25 +259,21 @@ struct ColumnDefinition {
    * Hashes the current column Definition
    */
   hash_t Hash() const {
-    hash_t hash = shared::HashUtil::Hash(name_);
-    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(table_info_));
-    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(type_));
-    hash = shared::HashUtil::CombineHashes(hash,
-                                           shared::HashUtil::Hash(static_cast<char>(is_primary_)));
-    hash = shared::HashUtil::CombineHashes(hash,
-                                           shared::HashUtil::Hash(static_cast<char>(is_not_null_)));
-    hash = shared::HashUtil::CombineHashes(hash,
-                                           shared::HashUtil::Hash(static_cast<char>(is_unique_)));
-    if (default_expr_ != nullptr)
-      hash = shared::HashUtil::CombineHashes(hash, default_expr_->Hash());
-    if (check_expr_ != nullptr) hash = shared::HashUtil::CombineHashes(hash, check_expr_->Hash());
-    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(type_modifier_));
-    hash = shared::HashUtil::CombineHashInRange(hash, fk_sources_.begin(), fk_sources_.end());
-    hash = shared::HashUtil::CombineHashInRange(hash, fk_sinks_.begin(), fk_sinks_.end());
-    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(fk_sink_table_name_));
-    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(fk_delete_action_));
-    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(fk_update_action_));
-    hash = shared::HashUtil::CombineHashes(hash, shared::HashUtil::Hash(fk_match_type_));
+    hash_t hash = HashUtil::Hash(name_);
+    hash = HashUtil::CombineHashes(hash, HashUtil::Hash(table_info_));
+    hash = HashUtil::CombineHashes(hash, HashUtil::Hash(type_));
+    hash = HashUtil::CombineHashes(hash, HashUtil::Hash(static_cast<char>(is_primary_)));
+    hash = HashUtil::CombineHashes(hash, HashUtil::Hash(static_cast<char>(is_not_null_)));
+    hash = HashUtil::CombineHashes(hash, HashUtil::Hash(static_cast<char>(is_unique_)));
+    if (default_expr_ != nullptr) hash = HashUtil::CombineHashes(hash, default_expr_->Hash());
+    if (check_expr_ != nullptr) hash = HashUtil::CombineHashes(hash, check_expr_->Hash());
+    hash = HashUtil::CombineHashes(hash, HashUtil::Hash(type_modifier_));
+    hash = HashUtil::CombineHashInRange(hash, fk_sources_.begin(), fk_sources_.end());
+    hash = HashUtil::CombineHashInRange(hash, fk_sinks_.begin(), fk_sinks_.end());
+    hash = HashUtil::CombineHashes(hash, HashUtil::Hash(fk_sink_table_name_));
+    hash = HashUtil::CombineHashes(hash, HashUtil::Hash(fk_delete_action_));
+    hash = HashUtil::CombineHashes(hash, HashUtil::Hash(fk_update_action_));
+    hash = HashUtil::CombineHashes(hash, HashUtil::Hash(fk_match_type_));
     return hash;
   }
 
