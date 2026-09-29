@@ -13,5 +13,6 @@
         "editor.formatOnType": false,
         "editor.formatOnPaste": false
     },
-    "C_Cpp.intelliSenseEngine": "disabled"
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "editor.tabSize": 2
 }

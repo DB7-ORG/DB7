@@ -16,16 +16,16 @@ class UndoRecord {
 private:
   DeltaRecordType type_;
   std::atomic<UndoRecord *> next_;
-  std::atomic<transaction::timestamp_t> timestamp_;
+  std::atomic<timestamp_t> timestamp_;
   table_id t_id_;
   page_id p_id_;
   u32 idx_;
   u64 varlen_contents_[0];
 
 public:
-  transaction::timestamp_t GetTimestamp() { return timestamp_.load(); }
+  timestamp_t GetTimestamp() { return timestamp_.load(); }
 
-  void SetTimestamp(const transaction::timestamp_t time) { timestamp_.store(time); }
+  void SetTimestamp(const timestamp_t time) { timestamp_.store(time); }
 
   DeltaRecordType GetType() { return type_; }
 
@@ -41,8 +41,8 @@ public:
 
   void *GetDelta() { return varlen_contents_; }
 
-  static UndoRecord *InitializeInsert(byte *head, const transaction::timestamp_t timestamp,
-                                      table_id tbl_id, page_id pid, u32 idx) {
+  static UndoRecord *InitializeInsert(byte *head, const timestamp_t timestamp, table_id tbl_id,
+                                      page_id pid, u32 idx) {
     auto *result = reinterpret_cast<UndoRecord *>(head);
     result->type_ = DeltaRecordType::INSERT;
     result->next_ = nullptr;
@@ -53,8 +53,8 @@ public:
     return result;
   }
 
-  static UndoRecord *InitializeDelete(byte *head, const transaction::timestamp_t timestamp,
-                                      table_id tbl_id, page_id pid, u32 idx) {
+  static UndoRecord *InitializeDelete(byte *head, const timestamp_t timestamp, table_id tbl_id,
+                                      page_id pid, u32 idx) {
     auto *result = reinterpret_cast<UndoRecord *>(head);
     result->type_ = DeltaRecordType::DELETE;
     result->next_ = nullptr;
@@ -65,9 +65,8 @@ public:
     return result;
   }
 
-  static UndoRecord *InitializeUpdate(byte *head, const transaction::timestamp_t timestamp,
-                                      table_id tbl_id, page_id pid, u32 idx,
-                                      std::span<byte> chunk_header) {
+  static UndoRecord *InitializeUpdate(byte *head, const timestamp_t timestamp, table_id tbl_id,
+                                      page_id pid, u32 idx, std::span<byte> chunk_header) {
     auto *result = reinterpret_cast<UndoRecord *>(head);
     result->type_ = DeltaRecordType::UPDATE;
     result->next_ = nullptr;

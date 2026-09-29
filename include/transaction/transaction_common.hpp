@@ -1,9 +1,10 @@
 #pragma once
 
 #include "common.hpp"
-
-namespace db7::transaction {
+namespace db7 {
 using timestamp_t = u64;
+namespace transaction {
 
 enum DurabilityPolicy { DISABLED = 0, SYNC };
-} // namespace db7::transaction
+} // namespace transaction
+} // namespace db7

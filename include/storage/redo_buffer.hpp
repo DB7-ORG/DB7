@@ -27,7 +27,7 @@ public:
 
   u32 GetRowIndex() { return idx_; }
 
-  static LogRecord *Initialize(byte *const head, const transaction::timestamp_t txn_begin,
+  static LogRecord *Initialize(byte *const head, const timestamp_t txn_begin,
                                access::DataChunkLayout *initializer, table_id t_id, page_id p_id,
                                u32 idx) {
     LogRecord *result = LogRecord::InitializeHeader(head, LogRecordType::REDO,

@@ -30,7 +30,7 @@ private:
   std::atomic<attribute_oid_t> next_attribute_oid_;
   std::atomic<constraint_oid_t> next_constraint_oid_;
 
-  std::atomic<transaction::timestamp_t> write_lock_;
+  std::atomic<timestamp_t> write_lock_;
 
   // cached data
   std::unique_ptr<access::Table> namespaces_;
@@ -75,6 +75,10 @@ private:
   std::unique_ptr<access::Table> procs_;
   std::unique_ptr<access::BTreeIndex<TupleId>> procs_index_prooid_;
   std::unique_ptr<access::BTreeIndex<TupleId>> procs_index_proname_;
+
+  // Relation -> map of indexes, table (basically acts as a main class that manages heap)
+  // graph where we store namespace.table.col_oid(1) <-> namespace.table.col_oid(2) basically maps
+  // column deps. every time certa
 
   bool TryLock(transaction::TransactionContext *txn);
 

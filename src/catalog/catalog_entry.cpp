@@ -1,0 +1,22 @@
+#include "catalog/catalog_entry.hpp"
+
+namespace db7::catalog {
+void CatalogEntry::SetChild(std::unique_ptr<CatalogEntry> child_p) {
+  child = std::move(child_p);
+  if (child) { child->parent.store(this); }
+}
+
+std::unique_ptr<CatalogEntry> CatalogEntry::TakeChild() {
+  if (child) { child->parent.store(nullptr); }
+  return std::move(child);
+}
+
+bool CatalogEntry::HasChild() const { return child != nullptr; }
+bool CatalogEntry::HasParent() const { return parent.load() != nullptr; }
+
+CatalogEntry &CatalogEntry::Child() { return *child; }
+
+CatalogEntry &CatalogEntry::Parent() { return *parent.load(); }
+
+const CatalogEntry &CatalogEntry::Parent() const { return *parent.load(); }
+} // namespace db7::catalog
