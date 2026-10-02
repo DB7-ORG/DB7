@@ -4,6 +4,8 @@
 #include "access/index_schema.hpp"
 #include "access/table.hpp"
 #include "catalog/builder.hpp"
+#include "catalog/entries/catalog_entry.hpp"
+#include "catalog/entry_lookup_info.hpp"
 #include "shared/identifier.hpp"
 #include "shared/models/result_object.hpp"
 #include "shared/models/tuple_id.hpp"
@@ -27,6 +29,8 @@ class DatabaseCatalog {
 private:
   friend class Builder;
   // NEW:
+  std::mutex mu;
+  std::unique_ptr<CatalogSet> schemas;
   std::atomic<idx_t> gen_oid_;
   Identifier name_;
   std::unique_ptr<DependencyManager> dependancy_manager_;
@@ -91,27 +95,21 @@ private:
 
   bool TryLock(transaction::TransactionContext *txn);
 
-  ResultObj<namespace_oid_t> CreateNamespaceEntry(transaction::TransactionContext *txn,
-                                                  const std::span<byte> name, namespace_oid_t oid);
+  ResultObj<namespace_oid_t> CreateNamespaceEntry(transaction::TransactionContext *txn, const std::span<byte> name, namespace_oid_t oid);
 
   bool DeleteNamespaceEntry(transaction::TransactionContext *txn, namespace_oid_t oid);
 
-  ResultObj<class_oid_t> CreateTableEntry(transaction::TransactionContext *txn,
-                                          const std::span<byte> name, class_oid_t oid,
+  ResultObj<class_oid_t> CreateTableEntry(transaction::TransactionContext *txn, const std::span<byte> name, class_oid_t oid,
                                           namespace_oid_t namespace_oid, RelKind kind);
 
-  ResultObj<attribute_oid_t> CreateColumnEntry(transaction::TransactionContext *txn,
-                                               class_oid_t rel_oid, access::SchemaColumn &schema);
+  ResultObj<attribute_oid_t> CreateColumnEntry(transaction::TransactionContext *txn, class_oid_t rel_oid, access::SchemaColumn &schema);
 
   bool DeleteTableEntry(transaction::TransactionContext *txn, class_oid_t oid);
 
-  ResultObj<class_oid_t> CreateIndexEntry(transaction::TransactionContext *txn,
-                                          const std::span<byte> name, class_oid_t class_oid,
-                                          class_oid_t rel_oid, namespace_oid_t namespace_oid,
-                                          access::IndexSchema &schema);
+  ResultObj<class_oid_t> CreateIndexEntry(transaction::TransactionContext *txn, const std::span<byte> name, class_oid_t class_oid,
+                                          class_oid_t rel_oid, namespace_oid_t namespace_oid, access::IndexSchema &schema);
 
-  ResultObj<class_oid_t> CreateConstraintEntry(transaction::TransactionContext *txn,
-                                               constraint_oid_t oid, ConstraintProps props);
+  ResultObj<class_oid_t> CreateConstraintEntry(transaction::TransactionContext *txn, constraint_oid_t oid, ConstraintProps props);
 
 public:
   explicit DatabaseCatalog(catalog::db_oid_t db_id);
@@ -123,42 +121,46 @@ public:
 
   catalog::db_oid_t GetDbOid() const { return db_id_; }
 
-  ResultObj<namespace_oid_t> CreateNamespace(transaction::TransactionContext *txn,
-                                             const std::span<byte> name);
+  ResultObj<namespace_oid_t> CreateNamespace(transaction::TransactionContext *txn, const std::span<byte> name);
 
   bool DeleteNamespace(transaction::TransactionContext *txn, namespace_oid_t oid);
 
   ResultObj<void> ExistsNamespace(transaction::TransactionContext *txn, namespace_oid_t oid);
 
-  bool UpdateNamespaceName(transaction::TransactionContext *txn, namespace_oid_t oid,
-                           std::span<byte> name);
+  bool UpdateNamespaceName(transaction::TransactionContext *txn, namespace_oid_t oid, std::span<byte> name);
 
-  ResultObj<class_oid_t> CreateTable(transaction::TransactionContext *txn,
-                                     const std::span<byte> name, namespace_oid_t namespace_oid,
+  ResultObj<class_oid_t> CreateTable(transaction::TransactionContext *txn, const std::span<byte> name, namespace_oid_t namespace_oid,
                                      access::Schema &schema);
 
-  ResultObj<class_oid_t> CreateIndexClass(transaction::TransactionContext *txn,
-                                          const std::span<byte> name, namespace_oid_t namespace_oid,
+  ResultObj<class_oid_t> CreateIndexClass(transaction::TransactionContext *txn, const std::span<byte> name, namespace_oid_t namespace_oid,
                                           access::Schema &schema);
 
   ResultObj<void> ExistsTable(transaction::TransactionContext *txn, class_oid_t oid);
 
-  bool UpdateTableName(transaction::TransactionContext *txn, class_oid_t oid, std::span<byte> name,
-                       namespace_oid_t namespace_oid);
+  bool UpdateTableName(transaction::TransactionContext *txn, class_oid_t oid, std::span<byte> name, namespace_oid_t namespace_oid);
 
-  ResultObj<class_oid_t> CreateIndex(transaction::TransactionContext *txn,
-                                     const std::span<byte> name, class_oid_t rel_oid,
+  ResultObj<class_oid_t> CreateIndex(transaction::TransactionContext *txn, const std::span<byte> name, class_oid_t rel_oid,
                                      namespace_oid_t namespace_oid, access::IndexSchema &schema);
 
-  ResultObj<class_oid_t> CreateConstraint(transaction::TransactionContext *txn,
-                                          ConstraintProps props);
+  ResultObj<class_oid_t> CreateConstraint(transaction::TransactionContext *txn, ConstraintProps props);
 
   void Select(transaction::TransactionContext *txn, int type);
 
-  ResultObj<namespace_oid_t> GetNamespaceOid(transaction::TransactionContext *txn,
-                                             const std::span<char> name) const;
+  ResultObj<namespace_oid_t> GetNamespaceOid(transaction::TransactionContext *txn, const std::span<char> name) const;
 
-  ResultObj<rel_oid_t> GetTableOid(transaction::TransactionContext *txn, const std::span<char> name,
-                                   const namespace_oid_t ns_oid) const;
+  ResultObj<rel_oid_t> GetTableOid(transaction::TransactionContext *txn, const std::span<char> name, const namespace_oid_t ns_oid) const;
+
+  // NEW:
+  std::mutex &GetLock() { return mu; }
+
+  optional_ptr<SchemaCatalogEntry> LookupSchema(transaction::TransactionContext &context, const EntryLookupInfo &schema_lookup,
+                                                OnEntryNotFound if_not_found);
+
+  optional_ptr<SchemaCatalogEntry> GetSchema(transaction::TransactionContext &context, const Identifier &schema, OnEntryNotFound if_not_found) {
+    EntryLookupInfo schema_lookup(CatalogType::SCHEMA_ENTRY, schema);
+    return LookupSchema(context, schema_lookup, if_not_found);
+  }
+
+  optional_ptr<CatalogEntry> GetEntry(transaction::TransactionContext &context, const Identifier &name);
 };
 } // namespace db7::catalog

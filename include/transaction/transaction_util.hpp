@@ -15,19 +15,46 @@ public:
    */
   static bool IsNewerThan(const timestamp_t a, const timestamp_t b) { return a > b; }
 
+  // /**
+  //  * Determine if the first timestamp is considered newer than the second.
+  //  * @param version_timestamp   timestamp of some random entry
+  //  * @param txn_id              current transaction uncommited txn id
+  //  * @param start_time          current transaction start time
+  //  * @return true if a is newer than b, false otherwise
+  //  */
+  // static bool HasConflict(const timestamp_t version_timestamp, const timestamp_t txn_id,
+  //                         const timestamp_t start_time) {
+  //   /* Check if there is write-write conflict with another transaction */
+  //   const bool owned_by_other_txn =
+  //       (!transaction::TransactionUtil::IsCommitted(version_timestamp) &&
+  //        version_timestamp != txn_id);
+
+  //   /* Check if someone commited after we started */
+  //   const bool newer_committed_version =
+  //       transaction::TransactionUtil::IsCommitted(version_timestamp) &&
+  //       transaction::TransactionUtil::IsNewerThan(version_timestamp, start_time);
+
+  //   return owned_by_other_txn || newer_committed_version;
+  // }
+
+  /**
+   * Determine if the first timestamp is considered newer than the second.
+   * @param version_timestamp   timestamp of some random entry
+   * @param txn_id              current transaction uncommited txn id
+   * @param start_time          current transaction start time
+   * @return true if a is newer than b, false otherwise
+   */
   static bool HasConflict(const timestamp_t version_timestamp, const timestamp_t txn_id,
                           const timestamp_t start_time) {
-    /* Check if there is write-write conflict with another transaction */
-    const bool owned_by_other_txn =
-        (!transaction::TransactionUtil::IsCommitted(version_timestamp) &&
-         version_timestamp != txn_id);
-
-    /* Check if someone commited after we started */
-    const bool newer_committed_version =
-        transaction::TransactionUtil::IsCommitted(version_timestamp) &&
-        transaction::TransactionUtil::IsNewerThan(version_timestamp, start_time);
-
-    return owned_by_other_txn || newer_committed_version;
+    if (version_timestamp == txn_id) {
+      // we created this version
+      return true;
+    }
+    if (version_timestamp < start_time) {
+      // this version was committed before we started the transaction
+      return true;
+    }
+    return false;
   }
 };
 } // namespace db7::transaction

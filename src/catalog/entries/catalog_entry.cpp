@@ -1,9 +1,9 @@
 #include "catalog/entries/catalog_entry.hpp"
+#include "catalog/database_catalog.hpp"
 
 namespace db7::catalog {
 CatalogEntry::CatalogEntry(CatalogType type, Identifier name_p, idx_t oid)
-    : oid(oid), type(type), set(nullptr), name(std::move(name_p)), deleted(false), temporary(false),
-      internal(false), parent(nullptr) {}
+    : oid(oid), type(type), set(nullptr), name(std::move(name_p)), deleted(false), temporary(false), internal(false), parent(nullptr) {}
 
 CatalogEntry::CatalogEntry(CatalogType type, DatabaseCatalog &catalog, Identifier name_p)
     : CatalogEntry(type, std::move(name_p), catalog.NextOid()) {}

@@ -6,5 +6,5 @@ AllowShortBlocksOnASingleLine: Always
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortLambdasOnASingleLine: All
 AllowShortEnumsOnASingleLine: true
-ColumnLimit: 100
+ColumnLimit: 150
 BreakTemplateDeclarations: Yes

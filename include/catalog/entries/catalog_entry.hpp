@@ -1,7 +1,6 @@
 #pragma once
 
 #include "catalog/catalog_common.hpp"
-#include "catalog/database_catalog.hpp"
 #include "shared/identifier.hpp"
 #include "shared/pointers/optional_ptr.hpp"
 #include "transaction/transaction_common.hpp"

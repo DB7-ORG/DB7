@@ -47,3 +47,5 @@ install clangd extension and disable intelisense in vsc
 sudo apt install bear
 make clean
 bear -- make
+
+solve // TODO catalog

@@ -6,8 +6,7 @@
 namespace db7::catalog {
 
 DatabaseCatalog::DatabaseCatalog(catalog::db_oid_t db_id)
-    : db_id_(db_id), next_namespace_oid_(1), next_class_oid_(1), next_attribute_oid_(1),
-      next_constraint_oid_(1) {}
+    : db_id_(db_id), next_namespace_oid_(1), next_class_oid_(1), next_attribute_oid_(1), next_constraint_oid_(1) {}
 
 DatabaseCatalog::~DatabaseCatalog() = default;
 
@@ -29,9 +28,8 @@ bool DatabaseCatalog::TryLock(transaction::TransactionContext *txn) {
   return true;
 }
 
-ResultObj<namespace_oid_t>
-DatabaseCatalog::CreateNamespaceEntry(transaction::TransactionContext *txn,
-                                      const std::span<byte> name, namespace_oid_t oid) {
+ResultObj<namespace_oid_t> DatabaseCatalog::CreateNamespaceEntry(transaction::TransactionContext *txn, const std::span<byte> name,
+                                                                 namespace_oid_t oid) {
   access::DataChunk *chunk = namespace_data_chunk_layout_->CreateDataChunk();
 
   access::DataChunkBuilder::BuildNamespaceChunk(chunk, oid, name);
@@ -39,27 +37,21 @@ DatabaseCatalog::CreateNamespaceEntry(transaction::TransactionContext *txn,
   TupleId tup = namespaces_->Insert(txn, chunk);
 
   auto res_name = namespaces_index_nspname_->InsertUnique(txn, chunk, tup.GetValue());
-  if (!res_name.success) {
-    return ResultObj<namespace_oid_t>::Fail("Failed to insert to nspname index");
-  }
+  if (!res_name.success) { return ResultObj<namespace_oid_t>::Fail("Failed to insert to nspname index"); }
 
   auto res_oid = namespaces_index_nspoid_->InsertUnique(txn, chunk, tup.GetValue());
-  if (!res_oid.success) {
-    return ResultObj<namespace_oid_t>::Fail("Failed to insert to nspoid index");
-  }
+  if (!res_oid.success) { return ResultObj<namespace_oid_t>::Fail("Failed to insert to nspoid index"); }
 
   return ResultObj<namespace_oid_t>(oid);
 }
 
-ResultObj<namespace_oid_t> DatabaseCatalog::CreateNamespace(transaction::TransactionContext *txn,
-                                                            const std::span<byte> name) {
+ResultObj<namespace_oid_t> DatabaseCatalog::CreateNamespace(transaction::TransactionContext *txn, const std::span<byte> name) {
   if (!TryLock(txn)) return ResultObj<namespace_oid_t>::Fail("Couldnt aquire a lock");
   auto oid = next_namespace_oid_++;
   return CreateNamespaceEntry(txn, name, oid);
 }
 
-bool DatabaseCatalog::DeleteNamespaceEntry(transaction::TransactionContext *txn,
-                                           namespace_oid_t oid) {
+bool DatabaseCatalog::DeleteNamespaceEntry(transaction::TransactionContext *txn, namespace_oid_t oid) {
   auto chunk = namespace_data_chunk_layout_->CreateDataChunk();
 
   access::DataChunkBuilder::BuildNamespaceChunk(chunk, oid, {});
@@ -87,8 +79,7 @@ bool DatabaseCatalog::DeleteNamespace(transaction::TransactionContext *txn, name
   return true;
 }
 
-ResultObj<void> DatabaseCatalog::ExistsNamespace(transaction::TransactionContext *txn,
-                                                 namespace_oid_t oid) {
+ResultObj<void> DatabaseCatalog::ExistsNamespace(transaction::TransactionContext *txn, namespace_oid_t oid) {
   auto *ns_chunk = namespace_data_chunk_layout_->CreateDataChunk();
 
   access::DataChunkBuilder::BuildNamespaceChunk(ns_chunk, oid);
@@ -97,15 +88,12 @@ ResultObj<void> DatabaseCatalog::ExistsNamespace(transaction::TransactionContext
   auto ns_res = namespaces_index_nspoid_->Get(ns_chunk, results);
   if (!ns_res.success) { return ResultObj<void>::Fail("Namespace does not exist"); }
 
-  if (!txn->GetTidExists(results.vec, namespaces_->GetTableOid())) {
-    return ResultObj<void>::Fail("Namespace does not exist");
-  }
+  if (!txn->GetTidExists(results.vec, namespaces_->GetTableOid())) { return ResultObj<void>::Fail("Namespace does not exist"); }
 
   return ResultObj<void>::Ok();
 }
 
-bool DatabaseCatalog::UpdateNamespaceName(transaction::TransactionContext *txn, namespace_oid_t oid,
-                                          std::span<byte> name) {
+bool DatabaseCatalog::UpdateNamespaceName(transaction::TransactionContext *txn, namespace_oid_t oid, std::span<byte> name) {
   if (!DeleteNamespaceEntry(txn, oid)) { return false; }
 
   auto res = CreateNamespaceEntry(txn, name, oid);
@@ -114,35 +102,28 @@ bool DatabaseCatalog::UpdateNamespaceName(transaction::TransactionContext *txn, 
   return true;
 }
 
-ResultObj<attribute_oid_t> DatabaseCatalog::CreateColumnEntry(transaction::TransactionContext *txn,
-                                                              class_oid_t rel_oid,
+ResultObj<attribute_oid_t> DatabaseCatalog::CreateColumnEntry(transaction::TransactionContext *txn, class_oid_t rel_oid,
                                                               access::SchemaColumn &column) {
   access::DataChunk *chunk = attribute_data_chunk_layout_->CreateDataChunk();
 
   attribute_oid_t oid = next_attribute_oid_++;
 
-  access::DataChunkBuilder::BuildAttributeChunk(chunk, oid, rel_oid, column.GetNameSpan(),
-                                                column.GetType(), column.GetTypeSize(),
+  access::DataChunkBuilder::BuildAttributeChunk(chunk, oid, rel_oid, column.GetNameSpan(), column.GetType(), column.GetTypeSize(),
                                                 column.IsNullable());
 
   TupleId tup = attributes_->Insert(txn, chunk);
 
   auto res_name = attributes_index_attrelid_attname_->InsertUnique(txn, chunk, tup.GetValue());
-  if (!res_name.success) {
-    return ResultObj<attribute_oid_t>::Fail("Failed to insert to attrelid_attname index");
-  }
+  if (!res_name.success) { return ResultObj<attribute_oid_t>::Fail("Failed to insert to attrelid_attname index"); }
 
   auto res_oid = attributes_index_attnum_->InsertUnique(txn, chunk, tup.GetValue());
-  if (!res_oid.success) {
-    return ResultObj<attribute_oid_t>::Fail("Failed to insert to attnum index");
-  }
+  if (!res_oid.success) { return ResultObj<attribute_oid_t>::Fail("Failed to insert to attnum index"); }
 
   return ResultObj<attribute_oid_t>(oid);
 }
 
-ResultObj<class_oid_t>
-DatabaseCatalog::CreateTableEntry(transaction::TransactionContext *txn, const std::span<byte> name,
-                                  class_oid_t oid, namespace_oid_t namespace_oid, RelKind kind) {
+ResultObj<class_oid_t> DatabaseCatalog::CreateTableEntry(transaction::TransactionContext *txn, const std::span<byte> name, class_oid_t oid,
+                                                         namespace_oid_t namespace_oid, RelKind kind) {
   access::DataChunk *chunk = classes_data_chunk_layout_->CreateDataChunk();
 
   // TODO reloptions needs to be null. need to add that to chunk
@@ -151,14 +132,10 @@ DatabaseCatalog::CreateTableEntry(transaction::TransactionContext *txn, const st
   TupleId tup = classes_->Insert(txn, chunk);
 
   auto res_relname = classes_index_relname_->InsertUnique(txn, chunk, tup.GetValue());
-  if (!res_relname.success) {
-    return ResultObj<class_oid_t>::Fail("Failed to insert to relname index");
-  }
+  if (!res_relname.success) { return ResultObj<class_oid_t>::Fail("Failed to insert to relname index"); }
 
   auto res_name = classes_index_relnamespace_->Insert(chunk, tup.GetValue());
-  if (!res_name.success) {
-    return ResultObj<class_oid_t>::Fail("Failed to insert to relnamespace index");
-  }
+  if (!res_name.success) { return ResultObj<class_oid_t>::Fail("Failed to insert to relnamespace index"); }
 
   auto res_oid = classes_index_reloid_->InsertUnique(txn, chunk, tup.GetValue());
   if (!res_oid.success) { return ResultObj<class_oid_t>::Fail("Failed to insert to reloid index"); }
@@ -166,9 +143,7 @@ DatabaseCatalog::CreateTableEntry(transaction::TransactionContext *txn, const st
   return ResultObj<class_oid_t>(oid);
 }
 
-ResultObj<class_oid_t> DatabaseCatalog::CreateTable(transaction::TransactionContext *txn,
-                                                    const std::span<byte> name,
-                                                    namespace_oid_t namespace_oid,
+ResultObj<class_oid_t> DatabaseCatalog::CreateTable(transaction::TransactionContext *txn, const std::span<byte> name, namespace_oid_t namespace_oid,
                                                     access::Schema &schema) {
   if (!TryLock(txn)) return INVALID_OID;
 
@@ -195,10 +170,8 @@ ResultObj<class_oid_t> DatabaseCatalog::CreateTable(transaction::TransactionCont
  * rename index then the classic delete + insert needst to check the class type
  * since we dont want to add
  */
-ResultObj<class_oid_t> DatabaseCatalog::CreateIndexClass(transaction::TransactionContext *txn,
-                                                         const std::span<byte> name,
-                                                         namespace_oid_t namespace_oid,
-                                                         access::Schema &schema) {
+ResultObj<class_oid_t> DatabaseCatalog::CreateIndexClass(transaction::TransactionContext *txn, const std::span<byte> name,
+                                                         namespace_oid_t namespace_oid, access::Schema &schema) {
   if (!TryLock(txn)) return INVALID_OID;
 
   auto ns_res = ExistsNamespace(txn, namespace_oid);
@@ -239,8 +212,7 @@ bool DatabaseCatalog::DeleteTableEntry(transaction::TransactionContext *txn, cla
   return true;
 }
 
-ResultObj<void> DatabaseCatalog::ExistsTable(transaction::TransactionContext *txn,
-                                             class_oid_t oid) {
+ResultObj<void> DatabaseCatalog::ExistsTable(transaction::TransactionContext *txn, class_oid_t oid) {
   auto *chunk = classes_data_chunk_layout_->CreateDataChunk();
 
   access::DataChunkBuilder::BuildClassChunk(chunk, oid);
@@ -249,15 +221,12 @@ ResultObj<void> DatabaseCatalog::ExistsTable(transaction::TransactionContext *tx
   auto ns_res = classes_index_reloid_->Get(chunk, results);
   if (!ns_res.success) { return ResultObj<void>::Fail("Namespace does not exist"); }
 
-  if (!txn->GetTidExists(results.vec, classes_->GetTableOid())) {
-    return ResultObj<void>::Fail("Namespace does not exist");
-  }
+  if (!txn->GetTidExists(results.vec, classes_->GetTableOid())) { return ResultObj<void>::Fail("Namespace does not exist"); }
 
   return ResultObj<void>::Ok();
 }
 
-bool DatabaseCatalog::UpdateTableName(transaction::TransactionContext *txn, class_oid_t oid,
-                                      std::span<byte> name, namespace_oid_t namespace_oid) {
+bool DatabaseCatalog::UpdateTableName(transaction::TransactionContext *txn, class_oid_t oid, std::span<byte> name, namespace_oid_t namespace_oid) {
   if (!DeleteTableEntry(txn, oid)) { return false; }
 
   auto res = CreateTableEntry(txn, name, oid, namespace_oid, RelKind::REGULAR_TABLE);
@@ -266,36 +235,28 @@ bool DatabaseCatalog::UpdateTableName(transaction::TransactionContext *txn, clas
   return true;
 }
 
-ResultObj<class_oid_t>
-DatabaseCatalog::CreateIndexEntry(transaction::TransactionContext *txn, const std::span<byte> name,
-                                  class_oid_t class_oid, // index entry in class table
-                                  class_oid_t rel_oid,   // relation that index is for
-                                  namespace_oid_t namespace_oid, access::IndexSchema &schema) {
+ResultObj<class_oid_t> DatabaseCatalog::CreateIndexEntry(transaction::TransactionContext *txn, const std::span<byte> name,
+                                                         class_oid_t class_oid, // index entry in class table
+                                                         class_oid_t rel_oid,   // relation that index is for
+                                                         namespace_oid_t namespace_oid, access::IndexSchema &schema) {
   access::DataChunk *chunk = indexes_data_chunk_layout_->CreateDataChunk();
 
-  access::DataChunkBuilder::BuildIndexChunk(
-      chunk, class_oid, rel_oid, schema.IsUnique(), schema.IsPrimary(), schema.IsExclusion(),
-      schema.IsImmediate(), true, true, true, u8(IndexKind::BTREE));
+  access::DataChunkBuilder::BuildIndexChunk(chunk, class_oid, rel_oid, schema.IsUnique(), schema.IsPrimary(), schema.IsExclusion(),
+                                            schema.IsImmediate(), true, true, true, u8(IndexKind::BTREE));
 
   TupleId tup = indexes_->Insert(txn, chunk);
 
   auto res_relname = indexes_index_indoid_->InsertUnique(txn, chunk, tup.GetValue());
-  if (!res_relname.success) {
-    return ResultObj<class_oid_t>::Fail("Failed to insert to indoid index");
-  }
+  if (!res_relname.success) { return ResultObj<class_oid_t>::Fail("Failed to insert to indoid index"); }
 
   auto res_name = indexes_index_indrelid_->Insert(chunk, tup.GetValue());
-  if (!res_name.success) {
-    return ResultObj<class_oid_t>::Fail("Failed to insert to indrelid index");
-  }
+  if (!res_name.success) { return ResultObj<class_oid_t>::Fail("Failed to insert to indrelid index"); }
 
   return ResultObj<class_oid_t>(class_oid);
 }
 
-ResultObj<class_oid_t> DatabaseCatalog::CreateIndex(transaction::TransactionContext *txn,
-                                                    const std::span<byte> name, class_oid_t rel_oid,
-                                                    namespace_oid_t namespace_oid,
-                                                    access::IndexSchema &schema) {
+ResultObj<class_oid_t> DatabaseCatalog::CreateIndex(transaction::TransactionContext *txn, const std::span<byte> name, class_oid_t rel_oid,
+                                                    namespace_oid_t namespace_oid, access::IndexSchema &schema) {
   if (!TryLock(txn)) return INVALID_OID;
 
   auto cl_res = ExistsTable(txn, rel_oid);
@@ -311,9 +272,7 @@ ResultObj<class_oid_t> DatabaseCatalog::CreateIndex(transaction::TransactionCont
   return ResultObj<class_oid_t>(table_res.value);
 }
 
-ResultObj<class_oid_t> DatabaseCatalog::CreateConstraintEntry(transaction::TransactionContext *txn,
-                                                              constraint_oid_t oid,
-                                                              ConstraintProps props) {
+ResultObj<class_oid_t> DatabaseCatalog::CreateConstraintEntry(transaction::TransactionContext *txn, constraint_oid_t oid, ConstraintProps props) {
   access::DataChunk *chunk = constraint_data_chunk_layout_->CreateDataChunk();
 
   access::DataChunkBuilder::BuildConstraintChunk(chunk, oid, props);
@@ -324,47 +283,36 @@ ResultObj<class_oid_t> DatabaseCatalog::CreateConstraintEntry(transaction::Trans
   if (!res_oid.success) { return ResultObj<class_oid_t>::Fail("Failed to insert to conoid index"); }
 
   auto res_name = constraints_index_conname_->InsertUnique(txn, chunk, tup.GetValue());
-  if (!res_name.success) {
-    return ResultObj<class_oid_t>::Fail("Failed to insert to conname index");
-  }
+  if (!res_name.success) { return ResultObj<class_oid_t>::Fail("Failed to insert to conname index"); }
 
   auto ns_exists = ExistsNamespace(txn, props.ns_oid);
   if (!ns_exists.success) { return ResultObj<class_oid_t>::Fail(ns_exists.message); }
 
   auto res_ns = constraints_index_connamespace_->Insert(chunk, tup.GetValue());
-  if (!res_ns.success) {
-    return ResultObj<class_oid_t>::Fail("Failed to insert to connamespace index");
-  }
+  if (!res_ns.success) { return ResultObj<class_oid_t>::Fail("Failed to insert to connamespace index"); }
 
   auto rel_exists = ExistsTable(txn, props.rel_oid);
   if (!rel_exists.success) { return ResultObj<class_oid_t>::Fail(rel_exists.message); }
 
   auto res_rel = constraints_index_conrelid_->Insert(chunk, tup.GetValue());
-  if (!res_rel.success) {
-    return ResultObj<class_oid_t>::Fail("Failed to insert to conrelid index");
-  }
+  if (!res_rel.success) { return ResultObj<class_oid_t>::Fail("Failed to insert to conrelid index"); }
 
   auto idx_exists = ExistsTable(txn, props.ind_oid);
   if (!idx_exists.success) { return ResultObj<class_oid_t>::Fail(idx_exists.message); }
 
   auto res_idx = constraints_index_conindid_->Insert(chunk, tup.GetValue());
-  if (!res_idx.success) {
-    return ResultObj<class_oid_t>::Fail("Failed to insert to conindid index");
-  }
+  if (!res_idx.success) { return ResultObj<class_oid_t>::Fail("Failed to insert to conindid index"); }
 
   auto for_exists = ExistsTable(txn, props.for_oid);
   if (!for_exists.success) { return ResultObj<class_oid_t>::Fail(for_exists.message); }
 
   auto res_for = constraints_index_confrelid_->Insert(chunk, tup.GetValue());
-  if (!res_for.success) {
-    return ResultObj<class_oid_t>::Fail("Failed to insert to res_for index");
-  }
+  if (!res_for.success) { return ResultObj<class_oid_t>::Fail("Failed to insert to res_for index"); }
 
   return ResultObj<class_oid_t>(oid);
 }
 
-ResultObj<class_oid_t> DatabaseCatalog::CreateConstraint(transaction::TransactionContext *txn,
-                                                         ConstraintProps props) {
+ResultObj<class_oid_t> DatabaseCatalog::CreateConstraint(transaction::TransactionContext *txn, ConstraintProps props) {
   if (!TryLock(txn)) return INVALID_OID;
 
   constraint_oid_t oid = next_constraint_oid_++;
@@ -372,8 +320,7 @@ ResultObj<class_oid_t> DatabaseCatalog::CreateConstraint(transaction::Transactio
   return CreateConstraintEntry(txn, oid, props);
 }
 
-void Display(transaction::TransactionContext *txn, access::DataChunkLayout *data_chunk_layout,
-             access::Table *table, int n = 4) {
+void Display(transaction::TransactionContext *txn, access::DataChunkLayout *data_chunk_layout, access::Table *table, int n = 4) {
   u32 pid = 1;
   auto chunk = data_chunk_layout->CreateDataChunk();
   for (int i = 0; i < n; i++) { table->Select(txn, i, pid, chunk); }
@@ -406,8 +353,7 @@ void DatabaseCatalog::Select(transaction::TransactionContext *txn, int type) {
   }
 }
 
-ResultObj<namespace_oid_t> DatabaseCatalog::GetNamespaceOid(transaction::TransactionContext *txn,
-                                                            const std::span<char> name) const {
+ResultObj<namespace_oid_t> DatabaseCatalog::GetNamespaceOid(transaction::TransactionContext *txn, const std::span<char> name) const {
   auto *ns_chunk = namespace_data_chunk_layout_->CreateDataChunk();
 
   access::DataChunkBuilder::BuildNamespaceChunk(ns_chunk, name);
@@ -426,10 +372,23 @@ ResultObj<namespace_oid_t> DatabaseCatalog::GetNamespaceOid(transaction::Transac
   return ResultObj<namespace_oid_t>(oid);
 }
 
-ResultObj<rel_oid_t> DatabaseCatalog::GetTableOid(transaction::TransactionContext *txn,
-                                                  const std::span<char> name,
+ResultObj<rel_oid_t> DatabaseCatalog::GetTableOid(transaction::TransactionContext *txn, const std::span<char> name,
                                                   const namespace_oid_t ns_oid) const {
   DB7_UNIMPLEMENTED();
+}
+
+optional_ptr<SchemaCatalogEntry> DatabaseCatalog::LookupSchema(transaction::TransactionContext &context, const EntryLookupInfo &schema_lookup,
+                                                               OnEntryNotFound if_not_found) {
+  auto &schema_name = schema_lookup.GetEntryName();
+  DB7_ASSERT(!schema_name.empty(), "should be empty??");
+  auto entry = schemas->GetEntry(context, Identifier(schema_name));
+  if (!entry) {
+    if (if_not_found == OnEntryNotFound::THROW_EXCEPTION) {
+      throw CATALOG_EXCEPTION(fmt::format("Schema with name {} does not exist!", schema_name));
+    }
+    return nullptr;
+  }
+  return &entry->Cast<SchemaCatalogEntry>();
 }
 
 } // namespace db7::catalog

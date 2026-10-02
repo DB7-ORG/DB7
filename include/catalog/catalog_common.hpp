@@ -24,11 +24,10 @@ using constraint_oid_t = u32;
 using proc_oid_t = u32;
 
 struct CatalogTableColCount {
-  static constexpr u32 DATABASE = 2;  // DATOID, DATNAME
-  static constexpr u32 NAMESPACE = 2; // NSPOID, NSPNAME
-  static constexpr u32 CLASS = 5;     // RELOID, RELNAME, RELNAMESPACE, RELKIND, RELOPTIONS
-  static constexpr u32 ATTRIBUTE =
-      7; // ATTNUM, ATTRELID, ATTNAME, ATTTYPID, ATTLEN, ATTTYPMOD, ATTNOTNULL
+  static constexpr u32 DATABASE = 2;    // DATOID, DATNAME
+  static constexpr u32 NAMESPACE = 2;   // NSPOID, NSPNAME
+  static constexpr u32 CLASS = 5;       // RELOID, RELNAME, RELNAMESPACE, RELKIND, RELOPTIONS
+  static constexpr u32 ATTRIBUTE = 7;   // ATTNUM, ATTRELID, ATTNAME, ATTTYPID, ATTLEN, ATTTYPMOD, ATTNOTNULL
   static constexpr u32 TYPE = 6;        // TYPOID, TYPNAME, TYPNAMESPACE, TYPLEN, TYPBYVAL, TYPTYPE
   static constexpr u32 CONSTRAINT = 12; // CONOID..CONBIN
   static constexpr u32 LANGUAGE = 7;    // LANOID..LANVALIDATOR
@@ -258,6 +257,8 @@ struct ConstraintProps {
 #define SYSTEM_CATALOG "system"
 #define TEMP_CATALOG "temp"
 #define IN_MEMORY_PATH ":memory:"
+
+enum class OnEntryNotFound : uint8_t { THROW_EXCEPTION = 0, RETURN_NULL = 1 };
 
 } // namespace catalog
 } // namespace db7
