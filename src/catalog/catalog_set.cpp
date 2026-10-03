@@ -1,21 +1,27 @@
 #include "catalog/catalog_set.hpp"
+#include "catalog/dependency/dependency_manager.hpp"
 #include "shared/error/exception.hpp"
 #include "shared/macro_helper.hpp"
 
 #include <fmt/format.h>
+#include <memory>
 
 namespace db7::catalog {
 
 CatalogSet::CatalogSet(DatabaseCatalog &catalog_p) : catalog(catalog_p) {}
 CatalogSet::~CatalogSet() {}
 
-DatabaseCatalog &CatalogEntry::ParentCatalog() { throw CATALOG_EXCEPTION("CatalogEntry::ParentCatalog called on catalog entry without catalog"); }
+DatabaseCatalog &CatalogEntry::ParentCatalog() {
+  throw CATALOG_EXCEPTION("CatalogEntry::ParentCatalog called on catalog entry without catalog");
+}
 
 const DatabaseCatalog &CatalogEntry::ParentCatalog() const {
   throw CATALOG_EXCEPTION("CatalogEntry::ParentCatalog called on catalog entry without catalog");
 }
 
-SchemaCatalogEntry &CatalogEntry::ParentSchema() { throw CATALOG_EXCEPTION("CatalogEntry::ParentSchema called on catalog entry without schema"); }
+SchemaCatalogEntry &CatalogEntry::ParentSchema() {
+  throw CATALOG_EXCEPTION("CatalogEntry::ParentSchema called on catalog entry without schema");
+}
 
 const SchemaCatalogEntry &CatalogEntry::ParentSchema() const {
   throw CATALOG_EXCEPTION("CatalogEntry::ParentSchema called on catalog entry without schema");
@@ -24,7 +30,10 @@ const SchemaCatalogEntry &CatalogEntry::ParentSchema() const {
 void CatalogEntryMap::AddEntry(std::unique_ptr<CatalogEntry> entry) {
   auto name = entry->name;
 
-  if (entries.find(name) != entries.end()) { throw CATALOG_EXCEPTION(fmt::format("Entry with name {} already exists", name.GetIdentifierName())); }
+  if (entries.find(name) != entries.end()) {
+    throw CATALOG_EXCEPTION(
+        fmt::format("Entry with name {} already exists", name.GetIdentifierName()));
+  }
   entries.insert(make_pair(name, std::move(entry)));
 }
 
@@ -32,7 +41,10 @@ void CatalogEntryMap::UpdateEntry(std::unique_ptr<CatalogEntry> catalog_entry) {
   auto name = catalog_entry->name;
 
   auto entry = entries.find(name);
-  if (entry == entries.end()) { throw CATALOG_EXCEPTION(fmt::format("Entry with name {} does not exist", name.GetIdentifierName())); }
+  if (entry == entries.end()) {
+    throw CATALOG_EXCEPTION(
+        fmt::format("Entry with name {} does not exist", name.GetIdentifierName()));
+  }
 
   auto existing = std::move(entry->second);
   entry->second = std::move(catalog_entry);
@@ -43,7 +55,9 @@ void CatalogEntryMap::DropEntry(CatalogEntry &entry) {
   auto &name = entry.name;
   auto chain = GetEntry(name);
   if (!chain) {
-    throw CATALOG_EXCEPTION(fmt::format("Attempting to drop entry with name {} but no chain with that name exists", name.GetIdentifierName()));
+    throw CATALOG_EXCEPTION(
+        fmt::format("Attempting to drop entry with name {} but no chain with that name exists",
+                    name.GetIdentifierName()));
   }
   auto child = entry.TakeChild();
   if (!entry.HasParent()) {
@@ -67,7 +81,7 @@ void CatalogEntryMap::DropEntry(CatalogEntry &entry) {
   }
 }
 
-std::unordered_map<Identifier, std::unique_ptr<CatalogEntry>> &CatalogEntryMap::Entries() { return entries; }
+std::map<Identifier, std::unique_ptr<CatalogEntry>> &CatalogEntryMap::Entries() { return entries; }
 
 optional_ptr<CatalogEntry> CatalogEntryMap::GetEntry(const Identifier &name) {
   auto entry = entries.find(name);
@@ -84,15 +98,18 @@ CatalogEntry &CatalogSet::GetCommittedEntry(CatalogEntry &current) {
   return entry.get();
 }
 
-CatalogEntry &CatalogSet::GetEntryForTransaction(transaction::TransactionContext &context, CatalogEntry &current) {
+CatalogEntry &CatalogSet::GetEntryForTransaction(transaction::TransactionContext &context,
+                                                 CatalogEntry &current) {
   bool visible;
   return GetEntryForTransaction(context, current, visible);
 }
 
-CatalogEntry &CatalogSet::GetEntryForTransaction(transaction::TransactionContext &context, CatalogEntry &current, bool &visible) {
+CatalogEntry &CatalogSet::GetEntryForTransaction(transaction::TransactionContext &context,
+                                                 CatalogEntry &current, bool &visible) {
   std::reference_wrapper<CatalogEntry> entry(current);
   while (entry.get().HasChild()) {
-    if (transaction::TransactionUtil::HasConflict(entry.get().timestamp, context.FinishTime(), context.StartTime())) {
+    if (transaction::TransactionUtil::HasConflict(entry.get().timestamp, context.FinishTime(),
+                                                  context.StartTime())) {
       visible = true;
       return entry.get();
     }
@@ -112,7 +129,8 @@ void CatalogSet::Scan(const std::function<void(CatalogEntry &)> &callback) {
   }
 }
 
-void CatalogSet::Scan(transaction::TransactionContext &context, const std::function<void(CatalogEntry &)> &callback) {
+void CatalogSet::Scan(transaction::TransactionContext &context,
+                      const std::function<void(CatalogEntry &)> &callback) {
   // Lock the catalog set.
   std::unique_lock<std::mutex> lock(catalog_lock);
   // TODO catalog CreateDefaultEntries(context, lock);
@@ -124,7 +142,25 @@ void CatalogSet::Scan(transaction::TransactionContext &context, const std::funct
   }
 }
 
-CatalogSet::EntryLookup CatalogSet::GetEntryDetailed(transaction::TransactionContext &context, const Identifier &name) {
+void CatalogSet::ScanWithPrefix(transaction::TransactionContext &context,
+                                const std::function<void(CatalogEntry &)> &callback,
+                                const Identifier &prefix) {
+  // lock the catalog set
+  std::unique_lock<std::mutex> lock(catalog_lock);
+  // TODO catalog CreateDefaultEntries(context, lock);
+
+  auto &entries = map.Entries();
+  auto it = entries.lower_bound(prefix);
+  auto end = entries.upper_bound(Identifier(prefix.GetIdentifierName() + char(255)));
+  for (; it != end; it++) {
+    auto &entry = *it->second;
+    auto &entry_for_transaction = GetEntryForTransaction(context, entry);
+    if (!entry_for_transaction.deleted) { callback(entry_for_transaction); }
+  }
+}
+
+CatalogSet::EntryLookup CatalogSet::GetEntryDetailed(transaction::TransactionContext &context,
+                                                     const Identifier &name) {
   std::unique_lock<std::mutex> read_lock(catalog_lock);
   auto entry_value = map.GetEntry(name);
   if (entry_value) {
@@ -147,9 +183,201 @@ CatalogSet::EntryLookup CatalogSet::GetEntryDetailed(transaction::TransactionCon
   return EntryLookup{nullptr, EntryLookup::FailureReason::NOT_PRESENT};
 }
 
-optional_ptr<CatalogEntry> CatalogSet::GetEntry(transaction::TransactionContext &context, const Identifier &name) {
+static bool IsDependencyEntry(CatalogEntry &entry) {
+  return entry.type == CatalogType::DEPENDENCY_ENTRY;
+}
+
+// TODO catalog here i should make it valid for my design where i dont have catalog per
+// database instance
+void CatalogSet::CheckCatalogEntryInvariants(CatalogEntry &value, const Identifier &name) {
+  // if (value.internal && !catalog.IsSystemCatalog() && name != DEFAULT_SCHEMA) {
+  //   throw CATALOG_EXCEPTION(
+  //       fmt::format("Attempting to create internal entry {} in non-system catalog - internal "
+  //                   "entries can only be created in the system catalog",
+  //                   name.GetIdentifierName()));
+  // }
+  // if (!value.internal) {
+  //   if (!value.temporary && catalog.IsSystemCatalog() && !IsDependencyEntry(value)) {
+  //     throw CATALOG_EXCEPTION(
+  //         fmt::format("Attempting to create non-internal entry {} in system catalog - the system
+  //         "
+  //                     "catalog can only contain internal entries",
+  //                     name.GetIdentifierName()));
+  //   }
+  //   if (value.temporary && !catalog.IsTemporaryCatalog()) {
+  //     throw CATALOG_EXCEPTION(
+  //         fmt::format("Attempting to create temporary entry {} in non-temporary catalog",
+  //                     name.GetIdentifierName()));
+  //   }
+  //   if (!value.temporary && catalog.IsTemporaryCatalog() && name != DEFAULT_SCHEMA) {
+  //     throw CATALOG_EXCEPTION(fmt::format(
+  //         "Cannot create non-temporary entry {} in temporary catalog",
+  //         name.GetIdentifierName()));
+  //   }
+  // }
+}
+
+bool CatalogSet::StartChain(transaction::TransactionContext &context, const Identifier &name,
+                            std::unique_lock<std::mutex> &read_lock) {
+  DB7_ASSERT(!map.GetEntry(name), "");
+
+  // TODO catalog do i need this
+  // check if there is a default entry
+  // auto entry = CreateDefaultEntry(context, name, read_lock);
+  // if (entry) { return false; }
+
+  // first create a dummy deleted entry
+  // so other transactions will see that instead of the entry that is to be added.
+  auto dummy_node = std::make_unique<InCatalogEntry>(CatalogType::INVALID, catalog, name);
+  dummy_node->timestamp = 0;
+  dummy_node->deleted = true;
+  dummy_node->set = this;
+
+  map.AddEntry(std::move(dummy_node));
+  return true;
+}
+
+bool CatalogSet::VerifyVacancy(transaction::TransactionContext &context, CatalogEntry &entry) {
+  if (transaction::TransactionUtil::HasConflict(entry.timestamp, context.FinishTime(),
+                                                context.StartTime())) {
+    // A transaction that is not visible to our snapshot has already made a change to this entry.
+    // Because of Catalog limitations we can't push our change on this, even if the change was made
+    // by another active transaction that might end up being aborted. So we have to cancel this
+    // transaction.
+    throw CATALOG_EXCEPTION("Catalog write-write conflict on create with " + entry.name);
+  }
+  // The entry is visible to our snapshot
+  if (!entry.deleted) { return false; }
+  return true;
+}
+
+bool CatalogSet::CreateEntryInternal(transaction::TransactionContext &context,
+                                     const Identifier &name, std::unique_ptr<CatalogEntry> value,
+                                     std::unique_lock<std::mutex> &read_lock,
+                                     bool should_be_empty) {
+  auto entry_value = map.GetEntry(name);
+  if (!entry_value) {
+    // Add a dummy node to start the chain
+    if (!StartChain(context, name, read_lock)) { return false; }
+  } else if (should_be_empty) {
+    // Verify that the entry is deleted, not altered by another transaction
+    if (!VerifyVacancy(context, *entry_value)) { return false; }
+  }
+
+  // Finally add the new entry to the chain
+  auto value_ptr = value.get();
+  map.UpdateEntry(std::move(value));
+  // Push the old entry in the undo buffer for this transaction, so it can be restored in the event
+  // of failure
+  // TODO catalog duck db has to do this because its in memory so u need seperate txn system to
+  // track this i could reuse disk mvcc so this should be done differerntly if
+  // (transaction.transaction) {
+  //   DuckTransactionManager::Get(GetCatalog().GetAttached())
+  //       .PushCatalogEntry(*transaction.transaction, value_ptr->Child());
+  // }
+  return true;
+}
+
+optional_ptr<CatalogEntry> CatalogSet::GetEntry(transaction::TransactionContext &context,
+                                                const Identifier &name) {
   auto lookup = GetEntryDetailed(context, name);
   return lookup.result;
+}
+
+bool CatalogSet::CreateEntry(transaction::TransactionContext &context, const Identifier &name,
+                             std::unique_ptr<CatalogEntry> value,
+                             const LogicalDependencyList &dependencies) {
+  CheckCatalogEntryInvariants(*value, name);
+
+  // Mark this entry as being created by the current active transaction
+  value->timestamp = context.FinishTime();
+  value->set = this;
+  catalog.GetDependencyManager()->AddObject(context, *value, dependencies);
+
+  // lock the catalog for writing
+  std::lock_guard<std::mutex> write_lock(catalog.GetLock());
+  // lock this catalog set to disallow reading
+  std::unique_lock<std::mutex> read_lock(catalog_lock);
+
+  return CreateEntryInternal(context, name, std::move(value), read_lock);
+}
+
+bool CatalogSet::DropDependencies(transaction::TransactionContext &context, const Identifier &name,
+                                  bool cascade, bool allow_drop_internal) {
+  auto entry = GetEntry(context, name);
+  if (!entry) { return false; }
+  if (entry->internal && !allow_drop_internal) {
+    throw CATALOG_EXCEPTION(
+        fmt::format("Cannot drop entry {} because it is an internal system entry",
+                    entry->name.GetIdentifierName()));
+  }
+  // check any dependencies of this object
+  catalog.GetDependencyManager()->DropObject(context, *entry, cascade);
+  return true;
+}
+
+//! This method is used to retrieve an entry for the purpose of making a new version, through an
+//! alter/drop/create
+optional_ptr<CatalogEntry> CatalogSet::GetEntryInternal(transaction::TransactionContext &context,
+                                                        const Identifier &name) {
+  auto entry_value = map.GetEntry(name);
+  if (!entry_value) { return nullptr; }
+  auto &catalog_entry = *entry_value;
+
+  // Check if this entry is visible to our snapshot
+  if (transaction::TransactionUtil::HasConflict(catalog_entry.timestamp, context.FinishTime(),
+                                                context.StartTime())) {
+    // We intend to create a new version of the entry.
+    // Another transaction has already made an edit to this catalog entry, because of limitations in
+    // the Catalog we can't create an edit alongside this even if the other transaction might end up
+    // getting aborted. So we have to abort the transaction.
+    throw CATALOG_EXCEPTION(fmt::format("Catalog write-write conflict on alter with {}",
+                                        catalog_entry.name.GetIdentifierName()));
+  }
+  // The entry is visible to our snapshot, check if it's deleted
+  if (catalog_entry.deleted) { return nullptr; }
+  return &catalog_entry;
+}
+
+bool CatalogSet::DropEntryInternal(transaction::TransactionContext &context, const Identifier &name,
+                                   bool allow_drop_internal) {
+  // lock the catalog for writing
+  // we can only delete an entry that exists
+  auto entry = GetEntryInternal(context, name);
+  if (!entry) { return false; }
+  if (entry->internal && !allow_drop_internal) {
+    throw CATALOG_EXCEPTION(
+        fmt::format("Cannot drop entry {} because it is an internal system entry",
+                    entry->name.GetIdentifierName()));
+  }
+
+  // create a new tombstone entry and replace the currently stored one
+  // set the timestamp to the timestamp of the current transaction
+  // and point it at the tombstone node
+  auto value = std::make_unique<InCatalogEntry>(CatalogType::DELETED_ENTRY, entry->ParentCatalog(),
+                                                entry->name);
+  value->timestamp = context.FinishTime();
+  value->set = this;
+  value->deleted = true;
+  auto value_ptr = value.get();
+  map.UpdateEntry(std::move(value));
+
+  // push the old entry in the undo buffer for this transaction
+  // TODO catalog duck db has to do this because its in memory so u need seperate txn system to
+  // track this i could reuse disk mvcc so this should be done differerntly if
+  // if (transaction.transaction) {
+  //   DuckTransactionManager::Get(GetCatalog().GetAttached())
+  //       .PushCatalogEntry(*transaction.transaction, value_ptr->Child());
+  // }
+  return true;
+}
+
+bool CatalogSet::DropEntry(transaction::TransactionContext &context, const Identifier &name,
+                           bool cascade, bool allow_drop_internal) {
+  if (!DropDependencies(context, name, cascade, allow_drop_internal)) { return false; }
+  std::lock_guard<std::mutex> write_lock(catalog.GetLock());
+  std::lock_guard<std::mutex> read_lock(catalog_lock);
+  return DropEntryInternal(context, name, allow_drop_internal);
 }
 
 } // namespace db7::catalog

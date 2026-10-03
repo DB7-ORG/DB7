@@ -3,6 +3,7 @@
 #include "common.hpp"
 
 #include <span>
+#include <string>
 
 #define INVALID_REL_OID 0
 
@@ -24,10 +25,11 @@ using constraint_oid_t = u32;
 using proc_oid_t = u32;
 
 struct CatalogTableColCount {
-  static constexpr u32 DATABASE = 2;    // DATOID, DATNAME
-  static constexpr u32 NAMESPACE = 2;   // NSPOID, NSPNAME
-  static constexpr u32 CLASS = 5;       // RELOID, RELNAME, RELNAMESPACE, RELKIND, RELOPTIONS
-  static constexpr u32 ATTRIBUTE = 7;   // ATTNUM, ATTRELID, ATTNAME, ATTTYPID, ATTLEN, ATTTYPMOD, ATTNOTNULL
+  static constexpr u32 DATABASE = 2;  // DATOID, DATNAME
+  static constexpr u32 NAMESPACE = 2; // NSPOID, NSPNAME
+  static constexpr u32 CLASS = 5;     // RELOID, RELNAME, RELNAMESPACE, RELKIND, RELOPTIONS
+  static constexpr u32 ATTRIBUTE =
+      7; // ATTNUM, ATTRELID, ATTNAME, ATTTYPID, ATTLEN, ATTTYPMOD, ATTNOTNULL
   static constexpr u32 TYPE = 6;        // TYPOID, TYPNAME, TYPNAMESPACE, TYPLEN, TYPBYVAL, TYPTYPE
   static constexpr u32 CONSTRAINT = 12; // CONOID..CONBIN
   static constexpr u32 LANGUAGE = 7;    // LANOID..LANVALIDATOR
@@ -71,6 +73,9 @@ enum class CatalogType : u8 {
   DEPENDENCY_ENTRY = 100
 
 };
+
+CatalogType CatalogTypeFromString(const std::string &type);
+std::string CatalogTypeToString(CatalogType type);
 
 enum CatalogTableOid : rel_oid_t {
   PG_DATABASES = 1,

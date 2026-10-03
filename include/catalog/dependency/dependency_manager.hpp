@@ -1,5 +1,6 @@
 #pragma once
 
+#include "catalog/catalog_entry_helper.hpp"
 #include "catalog/catalog_set.hpp"
 #include "catalog/dependency/dependency.hpp"
 
@@ -66,7 +67,21 @@ private:
   using dependency_callback_t = const std::function<void(DependencyEntry &)>;
 
 private:
-  void ScanSetInternal(transaction::TransactionContext &context, const CatalogEntryInfo &info, bool scan_subjects, dependency_callback_t &callback);
+  void ScanSetInternal(transaction::TransactionContext &context, const CatalogEntryInfo &info,
+                       bool scan_subjects, dependency_callback_t &callback);
+  bool IsSystemEntry(CatalogEntry &entry) const;
+
+  void CreateDependent(transaction::TransactionContext &context, const DependencyInfo &info);
+  void CreateSubject(transaction::TransactionContext &context, const DependencyInfo &info);
+  void CreateDependency(transaction::TransactionContext &context, DependencyInfo &info);
+  void CreateDependencies(transaction::TransactionContext &context, const CatalogEntry &object,
+                          const LogicalDependencyList &dependencies);
+  std::string CollectDependents(transaction::TransactionContext &context,
+                                catalog_entry_set_t &entries, CatalogEntryInfo &info);
+  catalog_entry_set_t CheckDropDependencies(transaction::TransactionContext &context,
+                                            CatalogEntry &object, bool cascade);
+  void RemoveDependency(transaction::TransactionContext &context, const DependencyInfo &info);
+  void CleanupDependencies(transaction::TransactionContext &context, CatalogEntry &object);
 
 public:
   explicit DependencyManager(DatabaseCatalog &catalog);
@@ -77,11 +92,21 @@ public:
 
   Identifier GetSchema(const CatalogEntry &entry);
   CatalogEntryInfo GetLookupProperties(const CatalogEntry &entry);
-  optional_ptr<CatalogEntry> LookupEntry(transaction::TransactionContext &context, CatalogEntry &dependency);
+  optional_ptr<CatalogEntry> LookupEntry(transaction::TransactionContext &context,
+                                         CatalogEntry &dependency);
 
-  void ScanDependents(transaction::TransactionContext &context, const CatalogEntryInfo &info, dependency_callback_t &callback);
+  void ScanDependents(transaction::TransactionContext &context, const CatalogEntryInfo &info,
+                      dependency_callback_t &callback);
+  void ScanSubjects(transaction::TransactionContext &context, const CatalogEntryInfo &info,
+                    dependency_callback_t &callback);
   void Scan(transaction::TransactionContext &context,
-            const std::function<void(CatalogEntry &, CatalogEntry &, const DependencyDependentFlags &)> &callback);
+            const std::function<void(CatalogEntry &, CatalogEntry &,
+                                     const DependencyDependentFlags &)> &callback);
+
+  void AddObject(transaction::TransactionContext &context, CatalogEntry &object,
+                 const LogicalDependencyList &dependencies);
+  void DropObject(transaction::TransactionContext &context, CatalogEntry &object, bool cascade);
+  ;
 };
 
 } // namespace db7::catalog

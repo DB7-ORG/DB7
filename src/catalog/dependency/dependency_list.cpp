@@ -69,4 +69,6 @@ bool LogicalDependencyList::Contains(CatalogEntry &entry_p) {
   LogicalDependency logical_entry(entry_p);
   return set.count(logical_entry);
 }
+
+const LogicalDependencyList::create_info_set_t &LogicalDependencyList::Set() const { return set; };
 } // namespace db7::catalog

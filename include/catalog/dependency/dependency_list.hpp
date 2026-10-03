@@ -32,12 +32,14 @@ struct LogicalDependencyEquality {
 
 class LogicalDependencyList {
 private:
-  std::unordered_set<LogicalDependency, LogicalDependencyHashFunction, LogicalDependencyEquality>
-      set;
+  using create_info_set_t = std::unordered_set<LogicalDependency, LogicalDependencyHashFunction,
+                                               LogicalDependencyEquality>;
+  create_info_set_t set;
 
 public:
   void AddDependency(CatalogEntry &entry);
   void AddDependency(const LogicalDependency &entry);
   bool Contains(CatalogEntry &entry);
+  const create_info_set_t &Set() const;
 };
 } // namespace db7::catalog
