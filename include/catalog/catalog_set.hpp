@@ -51,9 +51,15 @@ private:
                                        CatalogEntry &current, bool &visible);
 
   void CheckCatalogEntryInvariants(CatalogEntry &value, const Identifier &name);
+
+  // Creates a dummy node and places it in the set
   bool StartChain(transaction::TransactionContext &context, const Identifier &name,
                   std::unique_lock<std::mutex> &read_lock);
+
+  // Validates mvcc correctness (there is no conflict with another txn)
   bool VerifyVacancy(transaction::TransactionContext &context, CatalogEntry &entry);
+
+  // Inserts entry to CatalogSet unsafe
   bool CreateEntryInternal(transaction::TransactionContext &context, const Identifier &name,
                            std::unique_ptr<CatalogEntry> value,
                            std::unique_lock<std::mutex> &read_lock, bool should_be_empty = true);
@@ -68,10 +74,24 @@ public:
   explicit CatalogSet(DatabaseCatalog &catalog);
   ~CatalogSet();
 
+  /**
+   * Inserts entry to CatalogSet while holding lock
+   * @param name          entry identifier
+   * @param value         entry that is inserted
+   * @param dependencies  objects this entry depends on
+   */
   bool CreateEntry(transaction::TransactionContext &context, const Identifier &name,
                    std::unique_ptr<CatalogEntry> value, const LogicalDependencyList &dependencies);
+
+  /**
+   * Used for dropping an entry from CatalogSet while holding lock
+   * @param name    entry identifier
+   * @param cascade should it cascade drop entries that depend on it
+   * @param allow_drop_internal  allow dropping internal (system) entries
+   */
   bool DropEntry(transaction::TransactionContext &context, const Identifier &name, bool cascade,
                  bool allow_drop_internal = false);
+
   CatalogSet::EntryLookup GetEntryDetailed(transaction::TransactionContext &context,
                                            const Identifier &name);
 

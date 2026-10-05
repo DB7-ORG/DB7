@@ -88,10 +88,19 @@ public:
 
   CatalogSet &Dependents();
   CatalogSet &Subjects();
+
+  // Converts CatalogEntryInfo to string format
   static MangledEntryName MangleName(const CatalogEntryInfo &info);
 
+  // Propagates upwards looking for schema entry and returning its name
+  // since every entry is either schema or child node of schema entry
   Identifier GetSchema(const CatalogEntry &entry);
+
+  // Retrieves CatalogEntryInfo for any entry type
+  // if its a dependency contains all thge data to build CatalogEntryInfo
+  // if its something else it propagates to schema to get the name
   CatalogEntryInfo GetLookupProperties(const CatalogEntry &entry);
+
   optional_ptr<CatalogEntry> LookupEntry(transaction::TransactionContext &context,
                                          CatalogEntry &dependency);
 

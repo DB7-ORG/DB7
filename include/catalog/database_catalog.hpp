@@ -168,19 +168,18 @@ public:
   // NEW:
   std::mutex &GetLock() { return mu; }
 
+  // Finds schema by Identifier from CatalogSet
   optional_ptr<SchemaCatalogEntry> LookupSchema(transaction::TransactionContext &context,
                                                 const EntryLookupInfo &schema_lookup,
                                                 OnEntryNotFound if_not_found);
 
+  // Finds schema by Identifier from CatalogSet
   optional_ptr<SchemaCatalogEntry> GetSchema(transaction::TransactionContext &context,
                                              const Identifier &schema,
                                              OnEntryNotFound if_not_found) {
     EntryLookupInfo schema_lookup(CatalogType::SCHEMA_ENTRY, schema);
     return LookupSchema(context, schema_lookup, if_not_found);
   }
-
-  optional_ptr<CatalogEntry> GetEntry(transaction::TransactionContext &context,
-                                      const Identifier &name);
 
   optional_ptr<DependencyManager> GetDependencyManager();
 };

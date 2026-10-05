@@ -436,7 +436,7 @@ optional_ptr<SchemaCatalogEntry>
 DatabaseCatalog::LookupSchema(transaction::TransactionContext &context,
                               const EntryLookupInfo &schema_lookup, OnEntryNotFound if_not_found) {
   auto &schema_name = schema_lookup.GetEntryName();
-  DB7_ASSERT(!schema_name.empty(), "should be empty??");
+  DB7_ASSERT(!schema_name.empty(), "name should be valid");
   auto entry = schemas->GetEntry(context, Identifier(schema_name));
   if (!entry) {
     if (if_not_found == OnEntryNotFound::THROW_EXCEPTION) {
