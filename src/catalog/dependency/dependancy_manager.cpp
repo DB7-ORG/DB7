@@ -54,9 +54,16 @@ CatalogEntryInfo DependencyManager::GetLookupProperties(const CatalogEntry &entr
 
 optional_ptr<CatalogEntry> DependencyManager::LookupEntry(transaction::TransactionContext &context,
                                                           CatalogEntry &dependency) {
+  // ignore if its not a dependency
   if (dependency.type != CatalogType::DEPENDENCY_ENTRY) { return &dependency; }
 
   auto info = GetLookupProperties(dependency);
+
+  return LookupEntry(context, info);
+}
+
+optional_ptr<CatalogEntry> DependencyManager::LookupEntry(transaction::TransactionContext &context,
+                                                          const CatalogEntryInfo &info) {
 
   auto &type = info.type;
   auto &schema = info.schema;
@@ -88,12 +95,12 @@ void DependencyManager::ScanSetInternal(transaction::TransactionContext &context
   auto cb = [&](CatalogEntry &other) {
     DB7_ASSERT(other.type == CatalogType::DEPENDENCY_ENTRY, "");
     auto &other_entry = other.Cast<DependencyEntry>();
-#ifdef DEBUG
+#ifdef DB7DEBUG
     auto side = other_entry.Side();
     if (scan_subjects) {
-      D_ASSERT(side == DependencyEntryType::SUBJECT);
+      DB7_ASSERT(side == DependencyEntryType::SUBJECT);
     } else {
-      D_ASSERT(side == DependencyEntryType::DEPENDENT);
+      DB7_ASSERT(side == DependencyEntryType::DEPENDENT);
     }
 
 #endif
@@ -110,7 +117,7 @@ void DependencyManager::ScanSetInternal(transaction::TransactionContext &context
     dependents.Scan(context, cb);
   }
 
-#ifdef DEBUG
+#ifdef DB7DEBUG
   // Verify some invariants
   // Every dependency should have a matching dependent in the other set
   // And vice versa
@@ -122,8 +129,8 @@ void DependencyManager::ScanSetInternal(transaction::TransactionContext &context
       DependencyCatalogSet other_dependents(Dependents(), other_info);
 
       // Verify that the other half of the dependency also exists
-      auto dependent = other_dependents.GetEntryDetailed(transaction, mangled_name);
-      D_ASSERT(dependent.reason != CatalogSet::EntryLookup::FailureReason::NOT_PRESENT);
+      auto dependent = other_dependents.GetEntryDetailed(context, mangled_name);
+      DB7_ASSERT(dependent.reason != CatalogSet::EntryLookup::FailureReason::NOT_PRESENT);
     }
   } else {
     for (auto &entry : other_entries) {
@@ -131,8 +138,8 @@ void DependencyManager::ScanSetInternal(transaction::TransactionContext &context
       DependencyCatalogSet other_subjects(Subjects(), other_info);
 
       // Verify that the other half of the dependent also exists
-      auto subject = other_subjects.GetEntryDetailed(transaction, mangled_name);
-      D_ASSERT(subject.reason != CatalogSet::EntryLookup::FailureReason::NOT_PRESENT);
+      auto subject = other_subjects.GetEntryDetailed(context, mangled_name);
+      DB7_ASSERT(subject.reason != CatalogSet::EntryLookup::FailureReason::NOT_PRESENT);
     }
   }
 #endif
@@ -150,30 +157,48 @@ void DependencyManager::ScanSubjects(transaction::TransactionContext &context,
   ScanSetInternal(context, info, true, callback);
 }
 
+// void DependencyManager::Scan(
+//     transaction::TransactionContext &context,
+//     const std::function<void(CatalogEntry &, CatalogEntry &, const DependencyDependentFlags &)>
+//         &callback) {
+//   std::lock_guard<std::mutex> write_lock(catalog.GetLock());
+
+//   // // All the objects registered in the dependency manager
+//   catalog_entry_set_t entries;
+//   dependents.Scan(context, [&](CatalogEntry &set) {
+//     auto entry = LookupEntry(context, set);
+//     entries.insert(*entry);
+//   });
+
+//   // // For every registered entry, get the dependents
+//   for (auto &entry : entries) {
+//     auto entry_info = GetLookupProperties(entry);
+//     // Scan all the dependents of the entry
+//     ScanDependents(context, entry_info, [&](DependencyEntry &dependent) {
+//       auto dep = LookupEntry(context, dependent);
+//       if (!dep) { return; }
+//       auto &dependent_entry = *dep;
+//       callback(entry, dependent_entry, dependent.Dependent().flags);
+//     });
+//   }
+// }
+
+// NOTE: this was modified compared to duck db original code
 void DependencyManager::Scan(
     transaction::TransactionContext &context,
     const std::function<void(CatalogEntry &, CatalogEntry &, const DependencyDependentFlags &)>
         &callback) {
   std::lock_guard<std::mutex> write_lock(catalog.GetLock());
 
-  // // All the objects registered in the dependency manager
-  catalog_entry_set_t entries;
-  dependents.Scan(context, [&](CatalogEntry &set) {
-    auto entry = LookupEntry(context, set);
-    entries.insert(*entry);
+  // Every entry in the dependents set is one edge: subject <- dependent
+  dependents.Scan(context, [&](CatalogEntry &e) {
+    auto &edge = e.Cast<DependencyEntry>();
+    auto subject = LookupEntry(context, edge.Subject().entry);
+    auto dependent = LookupEntry(context, edge.Dependent().entry);
+    if (!subject || !dependent) { return; }
+    if (subject->type == CatalogType::SCHEMA_ENTRY) { return; }
+    callback(*subject, *dependent, edge.Dependent().flags);
   });
-
-  // // For every registered entry, get the dependents
-  for (auto &entry : entries) {
-    auto entry_info = GetLookupProperties(entry);
-    // Scan all the dependents of the entry
-    ScanDependents(context, entry_info, [&](DependencyEntry &dependent) {
-      auto dep = LookupEntry(context, dependent);
-      if (!dep) { return; }
-      auto &dependent_entry = *dep;
-      callback(entry, dependent_entry, dependent.Dependent().flags);
-    });
-  }
 }
 
 bool DependencyManager::IsSystemEntry(CatalogEntry &entry) const {
@@ -366,7 +391,7 @@ std::string DependencyManager::CollectDependents(transaction::TransactionContext
   for (auto &entry : entries) {
     DB7_ASSERT(!IsSystemEntry(entry.get()), "");
     auto other_info = GetLookupProperties(entry);
-    result += fmt::format("%s depends on %s.\n", EntryToString(other_info), EntryToString(info));
+    result += fmt::format("{} depends on {}.\n", EntryToString(other_info), EntryToString(info));
     catalog_entry_set_t entry_dependents;
     ScanDependents(context, other_info, [&](DependencyEntry &dep) {
       auto child = LookupEntry(context, dep);

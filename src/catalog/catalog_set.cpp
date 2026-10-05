@@ -108,8 +108,8 @@ CatalogEntry &CatalogSet::GetEntryForTransaction(transaction::TransactionContext
                                                  CatalogEntry &current, bool &visible) {
   std::reference_wrapper<CatalogEntry> entry(current);
   while (entry.get().HasChild()) {
-    if (transaction::TransactionUtil::HasConflict(entry.get().timestamp, context.FinishTime(),
-                                                  context.StartTime())) {
+    if (!transaction::TransactionUtil::HasConflict(entry.get().timestamp, context.FinishTime(),
+                                                   context.StartTime())) {
       visible = true;
       return entry.get();
     }

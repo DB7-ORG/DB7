@@ -54,6 +54,10 @@ protected:
 
 struct DependencySubjectFlags : public DependencyFlags {
 private:
+  /**
+   * Flag showcasing ownership. Good example is the sequence that is owned by the table
+   * but is still positioned in subjects.
+   */
   static constexpr uint8_t OWNERSHIP = 0;
 
 public:

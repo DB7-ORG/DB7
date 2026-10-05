@@ -176,11 +176,9 @@ public:
   // Finds schema by Identifier from CatalogSet
   optional_ptr<SchemaCatalogEntry> GetSchema(transaction::TransactionContext &context,
                                              const Identifier &schema,
-                                             OnEntryNotFound if_not_found) {
-    EntryLookupInfo schema_lookup(CatalogType::SCHEMA_ENTRY, schema);
-    return LookupSchema(context, schema_lookup, if_not_found);
-  }
+                                             OnEntryNotFound if_not_found);
 
+  // Get dependency manager
   optional_ptr<DependencyManager> GetDependencyManager();
 };
 } // namespace db7::catalog

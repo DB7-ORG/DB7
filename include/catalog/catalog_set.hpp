@@ -44,12 +44,16 @@ public:
   };
 
 private:
+  // Get commited version of the entry
   CatalogEntry &GetCommittedEntry(CatalogEntry &current);
+
+  // Get entry for this transaction context
   CatalogEntry &GetEntryForTransaction(transaction::TransactionContext &context,
                                        CatalogEntry &current);
   CatalogEntry &GetEntryForTransaction(transaction::TransactionContext &context,
                                        CatalogEntry &current, bool &visible);
 
+  // TODO catalog do i need this
   void CheckCatalogEntryInvariants(CatalogEntry &value, const Identifier &name);
 
   // Creates a dummy node and places it in the set
@@ -59,16 +63,43 @@ private:
   // Validates mvcc correctness (there is no conflict with another txn)
   bool VerifyVacancy(transaction::TransactionContext &context, CatalogEntry &entry);
 
-  // Inserts entry to CatalogSet unsafe
+  /**
+   * This method is used to retrieve an entry for the purpose of making a new version, through an
+   * alter/drop/create
+   * @param name entry identifier
+   */
+  optional_ptr<CatalogEntry> GetEntryInternal(transaction::TransactionContext &context,
+                                              const Identifier &name);
+
+  /**
+   * Creates entry in the set
+   * @param name                entry identifier
+   * @param value               entry ptr
+   * @param read_lock,should_be_empty not sure if i need this // TODO catalog
+   */
   bool CreateEntryInternal(transaction::TransactionContext &context, const Identifier &name,
                            std::unique_ptr<CatalogEntry> value,
                            std::unique_lock<std::mutex> &read_lock, bool should_be_empty = true);
+
+  /**
+   * Used to drop all dependencies for a given entry. It scans dependents to check none of them are
+   * blocking and if cascade it drops them also. Also scans subjects for stuff like sequences where
+   * ownership flag is set.
+   * @param name                entry identifier
+   * @param cascade             drop dependencies that are associated with the entry
+   * @param allow_drop_internal is dropping internal tables allowed
+   */
   bool DropDependencies(transaction::TransactionContext &context, const Identifier &name,
                         bool cascade, bool allow_drop_internal);
+
+  /**
+   * Using GetEntryEnternal getches the entry and places deleted tombstone in front marking it
+   * invisible for other transactions
+   * @param name                entry identifier
+   * @param allow_drop_internal is dropping internal tables allowed
+   */
   bool DropEntryInternal(transaction::TransactionContext &context, const Identifier &name,
                          bool allow_drop_internal);
-  optional_ptr<CatalogEntry> GetEntryInternal(transaction::TransactionContext &context,
-                                              const Identifier &name);
 
 public:
   explicit CatalogSet(DatabaseCatalog &catalog);
@@ -85,23 +116,46 @@ public:
 
   /**
    * Used for dropping an entry from CatalogSet while holding lock
-   * @param name    entry identifier
-   * @param cascade should it cascade drop entries that depend on it
-   * @param allow_drop_internal  allow dropping internal (system) entries
+   * @param name                  entry identifier
+   * @param cascade               should it cascade drop entries that depend on it
+   * @param allow_drop_internal   allow dropping internal (system) entries
    */
   bool DropEntry(transaction::TransactionContext &context, const Identifier &name, bool cascade,
                  bool allow_drop_internal = false);
 
+  /**
+   * Get entry for a current transaction, and return apropriate error if not found
+   * @param name entry identifier
+   */
   CatalogSet::EntryLookup GetEntryDetailed(transaction::TransactionContext &context,
                                            const Identifier &name);
 
+  /**
+   * Scan over commited versions of entries
+   * @param callback function invoked for every entry
+   */
   void Scan(const std::function<void(CatalogEntry &)> &callback);
+
+  /**
+   * Scan over valid versions of entries for a current transaction
+   * @param callback function invoked for every entry
+   */
   void Scan(transaction::TransactionContext &context,
             const std::function<void(CatalogEntry &)> &callback);
+
+  /**
+   * Scan over valid versions of entries that start with prefix for a current transaction
+   * @param callback function invoked for every entry
+   * @param prefix   prefix for entries
+   */
   void ScanWithPrefix(transaction::TransactionContext &context,
                       const std::function<void(CatalogEntry &)> &callback,
                       const Identifier &prefix);
 
+  /**
+   * Get entry for a current transaction
+   * @param name entry identifier
+   */
   optional_ptr<CatalogEntry> GetEntry(transaction::TransactionContext &context,
                                       const Identifier &name);
 };

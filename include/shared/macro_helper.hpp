@@ -14,7 +14,7 @@
   ClassName(ClassName &&) = default;                                                               \
   ClassName &operator=(ClassName &&) = default;
 
-#define DB7_ASSERT(expr, message) assert((expr) && (message))
+#define DB7_ASSERT(expr, ...) assert((expr) && "" __VA_ARGS__)
 
 #define DB7_ASSERT_FMT(cond, fmt_str, ...)                                                         \
   do {                                                                                             \

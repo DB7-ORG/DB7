@@ -49,3 +49,22 @@ make clean
 bear -- make
 
 solve // TODO catalog
+
+
+
+IDEAS FOR WAYS TO MAKE CATALOG WORK ON DISK (NOT LIKE DUCKDB PERSISTING CHANGES ON COMMIT):
+1. When bootstrapping the database read from disk and create all catalog objects making the 
+   catalog be completely in memory. Catalog entry will have its oid and pageId and idx in the page.
+   Every drop will mark entry as deleted in memory and then go and make changes to disk. We need
+   to make sure when undo runs that we remove deleted flag in memory in case of abort. We can do
+   that by adding the raw pointer to entry so we can mark it as invalid.
+   Create will work in a similar way.
+2. More complex design involves not fetching anything into memory untill the entry is needed by
+   some transaction. For now its just extra complexity and we can ignore this.
+3. Make the catalog in memory only where changes in it will be logged to WAL and later by some
+   background thread will be persisted to disk. So there isnt any overhead for the user thread,
+   but there is more preassure on the background workers. This would require seperate enty in
+   undo log so when we rollback we know the entry is used for catalog in memory and we need to 
+   do different logic compared to page approach.
+
+

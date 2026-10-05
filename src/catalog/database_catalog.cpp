@@ -447,6 +447,13 @@ DatabaseCatalog::LookupSchema(transaction::TransactionContext &context,
   return &entry->Cast<SchemaCatalogEntry>();
 }
 
+optional_ptr<SchemaCatalogEntry>
+DatabaseCatalog::GetSchema(transaction::TransactionContext &context, const Identifier &schema,
+                           OnEntryNotFound if_not_found) {
+  EntryLookupInfo schema_lookup(CatalogType::SCHEMA_ENTRY, schema);
+  return LookupSchema(context, schema_lookup, if_not_found);
+}
+
 optional_ptr<DependencyManager> DatabaseCatalog::GetDependencyManager() {
   return dependency_manager_.get();
 }

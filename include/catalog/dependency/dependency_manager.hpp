@@ -67,6 +67,15 @@ private:
   using dependency_callback_t = const std::function<void(DependencyEntry &)>;
 
 private:
+  /**
+   * Scans subjects/dependants based on scan_subjects, invoking a callback for all of them w
+   * the matching prefix.
+   * example: {info mangled}\0{other dep}
+   * in this example callback is invoked on {other dep} if {info mangled} matches info
+   * @param info          the entry whose edges are scanned (the key prefix)
+   * @param scan_subjects true to scan subjects, false to scan dependents
+   * @param callback      invoked once per matching edge
+   */
   void ScanSetInternal(transaction::TransactionContext &context, const CatalogEntryInfo &info,
                        bool scan_subjects, dependency_callback_t &callback);
   bool IsSystemEntry(CatalogEntry &entry) const;
@@ -97,17 +106,39 @@ public:
   Identifier GetSchema(const CatalogEntry &entry);
 
   // Retrieves CatalogEntryInfo for any entry type
-  // if its a dependency contains all thge data to build CatalogEntryInfo
+  // if its a dependency contains all the data to build CatalogEntryInfo
   // if its something else it propagates to schema to get the name
   CatalogEntryInfo GetLookupProperties(const CatalogEntry &entry);
 
+  /**
+   * Resolves a dependency edge to the catalog entry on its other end.
+   *
+   * A dependency entry stores only the identity ({type, schema, name}) of the
+   * object it points to, not a pointer. Its key is
+   * '{scanned object}\0{other object}', and this function looks up the
+   * {other object} part, i.e. the one returned by EntryInfo():
+   *   - for an entry from the dependents set: the dependent
+   *     (key 'table\0main\0orders\0view\0main\0big_orders' -> view big_orders)
+   *   - for an entry from the subjects set: the subject
+   *     (key 'view\0main\0big_orders\0table\0main\0orders' -> table orders)
+   *
+   * If `dependency` is not a DEPENDENCY_ENTRY, it is already a real catalog
+   * entry and is returned unchanged. If the referenced object is a schema,
+   * the schema entry itself is returned.
+   * @param dependency dependency entry (can be subject or dependant)
+   */
   optional_ptr<CatalogEntry> LookupEntry(transaction::TransactionContext &context,
                                          CatalogEntry &dependency);
+  optional_ptr<CatalogEntry> LookupEntry(transaction::TransactionContext &context,
+                                         const CatalogEntryInfo &info);
 
+  // Wrapper around scan internal
   void ScanDependents(transaction::TransactionContext &context, const CatalogEntryInfo &info,
                       dependency_callback_t &callback);
+  // Wrapper around scan internal
   void ScanSubjects(transaction::TransactionContext &context, const CatalogEntryInfo &info,
                     dependency_callback_t &callback);
+  // Walks every edge in the graph
   void Scan(transaction::TransactionContext &context,
             const std::function<void(CatalogEntry &, CatalogEntry &,
                                      const DependencyDependentFlags &)> &callback);
