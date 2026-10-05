@@ -19,11 +19,11 @@ const DatabaseCatalog &CatalogEntry::ParentCatalog() const {
   throw CATALOG_EXCEPTION("CatalogEntry::ParentCatalog called on catalog entry without catalog");
 }
 
-SchemaCatalogEntry &CatalogEntry::ParentSchema() {
+SchemaCatalogEntryBase &CatalogEntry::ParentSchema() {
   throw CATALOG_EXCEPTION("CatalogEntry::ParentSchema called on catalog entry without schema");
 }
 
-const SchemaCatalogEntry &CatalogEntry::ParentSchema() const {
+const SchemaCatalogEntryBase &CatalogEntry::ParentSchema() const {
   throw CATALOG_EXCEPTION("CatalogEntry::ParentSchema called on catalog entry without schema");
 }
 

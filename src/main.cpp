@@ -342,7 +342,7 @@ int main2() {
   return 0;
 }
 
-int main() {
+int main3() {
   const std::string query = "SELECT id, name FROM users WHERE id > 10 ORDER BY name LIMIT 5";
 
   try {
@@ -371,4 +371,44 @@ int main() {
     std::cerr << e << "\n";
     return 1;
   }
+}
+
+int main() {
+  using namespace db7::catalog;
+
+  db7::storage::DiskManagerAsync disk_mng_async(".data");
+
+  db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
+  disk_scheduler.Start();
+
+  db7::storage::PageVersionManager version_manager;
+
+  db7::storage::BufferPool buffer_pool(&disk_scheduler, &version_manager);
+  g_buffer_pool = &buffer_pool;
+
+  db7::transaction::TimestampManager timestamp_manager;
+
+  db7::shared::ObjectPool<shared::FixedBumpArena> pool(10'000, 2000);
+
+  db7::transaction::TransactionManager txn_manager(&timestamp_manager, &buffer_pool,
+                                                   &version_manager, &pool);
+
+  auto context = txn_manager.BeginTransaction();
+
+  auto catalogName = Identifier("katalog");
+  auto catalog = DatabaseCatalog(catalogName);
+
+  auto name = Identifier("jovan");
+  catalog.CreateSchema(*context, name);
+
+  auto name1 = Identifier("jovan1");
+  catalog.CreateSchema(*context, name1);
+
+  auto name2 = Identifier("jovan2");
+  catalog.CreateSchema(*context, name2);
+
+  auto name3 = Identifier("jovan");
+  catalog.CreateSchema(*context, name3);
+
+  std::cout << "works" << std::endl;
 }

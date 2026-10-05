@@ -30,10 +30,10 @@ private:
   friend class Builder;
   // NEW:
   std::mutex mu;
-  std::unique_ptr<CatalogSet> schemas;
-  std::atomic<idx_t> gen_oid_;
   Identifier name_;
   std::unique_ptr<DependencyManager> dependency_manager_;
+  std::unique_ptr<CatalogSet> schemas_;
+  std::atomic<idx_t> gen_oid_;
 
   // OLD:
   catalog::db_oid_t db_id_;
@@ -166,17 +166,27 @@ public:
                                    const namespace_oid_t ns_oid) const;
 
   // NEW:
+private:
+  optional_ptr<CatalogEntry> CreateSchemaInternal(transaction::TransactionContext &context,
+                                                  Identifier &name);
+
+public:
+  DatabaseCatalog(Identifier name_);
+
   std::mutex &GetLock() { return mu; }
 
   // Finds schema by Identifier from CatalogSet
-  optional_ptr<SchemaCatalogEntry> LookupSchema(transaction::TransactionContext &context,
-                                                const EntryLookupInfo &schema_lookup,
-                                                OnEntryNotFound if_not_found);
+  optional_ptr<SchemaCatalogEntryBase> LookupSchema(transaction::TransactionContext &context,
+                                                    const EntryLookupInfo &schema_lookup,
+                                                    OnEntryNotFound if_not_found);
 
   // Finds schema by Identifier from CatalogSet
-  optional_ptr<SchemaCatalogEntry> GetSchema(transaction::TransactionContext &context,
-                                             const Identifier &schema,
-                                             OnEntryNotFound if_not_found);
+  optional_ptr<SchemaCatalogEntryBase> GetSchema(transaction::TransactionContext &context,
+                                                 const Identifier &schema,
+                                                 OnEntryNotFound if_not_found);
+
+  optional_ptr<CatalogEntry> CreateSchema(transaction::TransactionContext &context,
+                                          Identifier &name);
 
   // Get dependency manager
   optional_ptr<DependencyManager> GetDependencyManager();

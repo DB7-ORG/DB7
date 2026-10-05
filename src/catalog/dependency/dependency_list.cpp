@@ -1,6 +1,6 @@
 #include "catalog/dependency/dependency_list.hpp"
 #include "catalog/entries/dependency_entry.hpp"
-#include "catalog/entries/schema_catalog_entry.hpp"
+#include "catalog/entries/schema_catalog_entry_base.hpp"
 #include "shared/hash_util.hpp"
 #include "shared/identifier.hpp"
 

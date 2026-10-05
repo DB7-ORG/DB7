@@ -6,7 +6,7 @@
 #include "catalog/entries/dependency_dependent_entry.hpp"
 #include "catalog/entries/dependency_entry.hpp"
 #include "catalog/entries/dependency_subject_entry.hpp"
-#include "catalog/entries/schema_catalog_entry.hpp"
+#include "catalog/entries/schema_catalog_entry_base.hpp"
 
 namespace db7::catalog {
 DependencyManager::DependencyManager(DatabaseCatalog &catalog)

@@ -11,7 +11,7 @@ namespace db7::catalog {
 
 class DatabaseCatalog;
 class CatalogSet;
-class SchemaCatalogEntry;
+class SchemaCatalogEntryBase;
 
 class CatalogEntry {
 public:
@@ -47,8 +47,8 @@ public:
 
   virtual DatabaseCatalog &ParentCatalog();
   virtual const DatabaseCatalog &ParentCatalog() const;
-  virtual SchemaCatalogEntry &ParentSchema();
-  virtual const SchemaCatalogEntry &ParentSchema() const;
+  virtual SchemaCatalogEntryBase &ParentSchema();
+  virtual const SchemaCatalogEntryBase &ParentSchema() const;
 
 public:
   void SetChild(std::unique_ptr<CatalogEntry> child);
