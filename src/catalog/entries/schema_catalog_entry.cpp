@@ -1,4 +1,5 @@
 #include "catalog/entries/schema_catalog_entry.hpp"
+#include "catalog/entries/table_catalog_entry.hpp"
 #include "shared/error/exception.hpp"
 namespace db7::catalog {
 
@@ -34,4 +35,10 @@ optional_ptr<CatalogEntry> SchemaCatalogEntry::LookupEntry(transaction::Transact
   return GetCatalogSet(lookup_info.GetCatalogType())
       .GetEntry(context, lookup_info.GetEntryIdentifier());
 }
+
+optional_ptr<CatalogEntry> CreateTable(transaction::TransactionContext &context,
+                                       BoundCreateTableInfo &info) {
+  // auto table = std::make_unique<TableCatalogEntry>(catalog, *this, info);
+}
+
 } // namespace db7::catalog

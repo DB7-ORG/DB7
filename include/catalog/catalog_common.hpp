@@ -8,8 +8,13 @@
 #define INVALID_REL_OID 0
 
 namespace db7 {
-
+namespace access {
+class Table;
+}
 namespace catalog {
+
+using StorageTable = access::Table;
+
 constexpr u32 INVALID_OID = 0;
 
 // TODO catalog do i need all of these seems stupid
@@ -263,7 +268,22 @@ struct ConstraintProps {
 #define TEMP_CATALOG "temp"
 #define IN_MEMORY_PATH ":memory:"
 
-enum class OnEntryNotFound : uint8_t { THROW_EXCEPTION = 0, RETURN_NULL = 1 };
+enum class OnEntryNotFound : u8 { THROW_EXCEPTION = 0, RETURN_NULL = 1 };
+
+enum class ConstraintType : u8 {
+  INVALID = 0,     // invalid constraint type
+  NOT_NULL = 1,    // NOT NULL constraint
+  CHECK = 2,       // CHECK constraint
+  UNIQUE = 3,      // UNIQUE constraint
+  FOREIGN_KEY = 4, // FOREIGN KEY constraint
+};
+
+class Constraint {
+public:
+  ConstraintType type;
+
+  explicit Constraint(ConstraintType type) : type(type) {}
+};
 
 } // namespace catalog
 } // namespace db7

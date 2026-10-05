@@ -2,6 +2,7 @@
 
 #include "catalog/entries/catalog_entry.hpp"
 #include "catalog/entry_lookup_info.hpp"
+#include "catalog/objects/create_table_info.hpp"
 #include "transaction/transaction_context.hpp"
 
 namespace db7::catalog {
@@ -14,5 +15,7 @@ public:
                                                  const EntryLookupInfo &lookup_info) = 0;
   optional_ptr<CatalogEntry> GetEntry(transaction::TransactionContext &context, CatalogType type,
                                       const Identifier &name);
+  virtual optional_ptr<CatalogEntry> CreateTable(transaction::TransactionContext &context,
+                                                 BoundCreateTableInfo &info) = 0;
 };
 } // namespace db7::catalog

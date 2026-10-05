@@ -2,6 +2,7 @@
 
 #include "catalog/catalog_set.hpp"
 #include "catalog/entries/schema_catalog_entry_base.hpp"
+#include "catalog/objects/create_table_info.hpp"
 
 namespace db7::catalog {
 class SchemaCatalogEntry : public SchemaCatalogEntryBase {
@@ -35,5 +36,8 @@ public:
 
   optional_ptr<CatalogEntry> LookupEntry(transaction::TransactionContext &context,
                                          const EntryLookupInfo &lookup_info) override;
+
+  optional_ptr<CatalogEntry> CreateTable(transaction::TransactionContext &context,
+                                         BoundCreateTableInfo &info) override {}; // TODO
 };
 } // namespace db7::catalog
