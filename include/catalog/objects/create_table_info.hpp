@@ -10,7 +10,7 @@ class SchemaCatalogEntry;
 class CreateTableInfo {
 public:
   //! The schema to create the table in
-  SchemaCatalogEntry &schema;
+  SchemaCatalogEntryBase &schema;
   //! Table name to insert to
   Identifier table;
   //! List of columns of the table
@@ -19,6 +19,12 @@ public:
   std::vector<std::unique_ptr<Constraint>> constraints;
   //! Dependents of the table (in e.g. default values)
   LogicalDependencyList dependencies;
+
+  CreateTableInfo(SchemaCatalogEntryBase &schema, Identifier table, ColumnList columns = {},
+                  std::vector<std::unique_ptr<Constraint>> constraints = {},
+                  LogicalDependencyList dependencies = {})
+      : schema(schema), table(std::move(table)), columns(std::move(columns)),
+        constraints(std::move(constraints)), dependencies(std::move(dependencies)) {}
 
   // //! The existing table data on disk (if any)
   // unique_ptr<PersistentTableData> data;

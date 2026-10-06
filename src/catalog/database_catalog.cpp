@@ -485,4 +485,9 @@ optional_ptr<DependencyManager> DatabaseCatalog::GetDependencyManager() {
   return dependency_manager_.get();
 }
 
+optional_ptr<CatalogEntry> DatabaseCatalog::CreateTable(transaction::TransactionContext &context,
+                                                        CreateTableInfo &info) {
+  return info.schema.CreateTable(context, info);
+}
+
 } // namespace db7::catalog

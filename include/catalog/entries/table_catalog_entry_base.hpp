@@ -18,7 +18,7 @@ public:
   static constexpr const CatalogType Type = CatalogType::TABLE_ENTRY;
   static constexpr const char *Name = "table";
 
-  TableCatalogEntryBase(DatabaseCatalog &catalog, SchemaCatalogEntry &schema,
+  TableCatalogEntryBase(DatabaseCatalog &catalog, SchemaCatalogEntryBase &schema,
                         CreateTableInfo &info);
 };
 

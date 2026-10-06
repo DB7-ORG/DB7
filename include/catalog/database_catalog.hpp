@@ -6,6 +6,7 @@
 #include "catalog/builder.hpp"
 #include "catalog/entries/catalog_entry.hpp"
 #include "catalog/entry_lookup_info.hpp"
+// #include "catalog/objects/create_table_info.hpp"
 #include "shared/identifier.hpp"
 #include "shared/models/result_object.hpp"
 #include "shared/models/tuple_id.hpp"
@@ -17,6 +18,7 @@ namespace db7::catalog {
 
 class Builder;
 class DependencyManager;
+class CreateTableInfo;
 
 /**
  * Database catalog is a component managed by db7::catalog::Catalog.
@@ -190,5 +192,8 @@ public:
 
   // Get dependency manager
   optional_ptr<DependencyManager> GetDependencyManager();
+
+  optional_ptr<CatalogEntry> CreateTable(transaction::TransactionContext &context,
+                                         CreateTableInfo &info);
 };
 } // namespace db7::catalog

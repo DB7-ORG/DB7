@@ -11,7 +11,7 @@ public:
   // //! Manages dependencies of the individual columns of the table
   // ColumnDependencyManager column_dependency_manager;
 
-  TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntry &schema, CreateTableInfo &info,
+  TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntryBase &schema, CreateTableInfo &info,
                     std::shared_ptr<StorageTable> inherited_storage = nullptr);
 
   const std::vector<std::unique_ptr<Constraint>> &GetConstraints() const;

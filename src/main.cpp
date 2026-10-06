@@ -3,6 +3,11 @@
 #include "access/index_schema.hpp"
 #include "catalog/builder.hpp"
 #include "catalog/catalog.hpp"
+#include "catalog/constraints/constraint.hpp"
+#include "catalog/constraints/foreign_key_constraint.hpp"
+#include "catalog/dependency/dependency_list.hpp"
+#include "catalog/entries/schema_catalog_entry.hpp"
+#include "catalog/objects/column_list.hpp"
 #include "common.hpp"
 #include "debug/printer.hpp"
 #include "shared/arena/fixed_bump_arena.hpp"
@@ -399,16 +404,26 @@ int main() {
   auto catalog = DatabaseCatalog(catalogName);
 
   auto name = Identifier("jovan");
-  catalog.CreateSchema(*context, name);
+  auto schema = catalog.CreateSchema(*context, name);
+  auto &schema_entry = schema->Cast<SchemaCatalogEntry>();
 
-  auto name1 = Identifier("jovan1");
-  catalog.CreateSchema(*context, name1);
+  ColumnList columns;
+  columns.AddColumn({"order_id", type_id::BIGINT});
+  columns.AddColumn({"product_name", type_id::VARCHAR});
+  columns.AddColumn({"customer_id", type_id::BIGINT});
 
-  auto name2 = Identifier("jovan2");
-  catalog.CreateSchema(*context, name2);
+  ForeignKeyInfo key_info;
+  auto costraint =
+      std::make_unique<ForeignKeyConstraint>(std::vector<Identifier>{Identifier("order_id")},
+                                             std::vector<Identifier>{}, std::move(key_info));
+  std::vector<std::unique_ptr<Constraint>> constraints;
+  constraints.push_back(std::move(costraint));
 
-  auto name3 = Identifier("jovan");
-  catalog.CreateSchema(*context, name3);
+  LogicalDependencyList deps;
 
-  std::cout << "works" << std::endl;
+  CreateTableInfo info(schema_entry, Identifier("orders"), std::move(columns),
+                       std::move(constraints));
+  auto table = catalog.CreateTable(*context, info);
+
+  std::cout << "OK" << std::endl;
 }

@@ -27,6 +27,8 @@ private:
   std::unordered_map<Identifier, idx_t> map;
 
 public:
+  ColumnList() {}
+
   void AddToNameMap(ColumnDefinition &col, idx_t idx);
   void AddColumn(ColumnDefinition column);
   ColumnList Copy() const;

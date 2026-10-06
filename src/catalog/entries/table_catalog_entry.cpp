@@ -2,7 +2,7 @@
 #include "catalog/constraints/foreign_key_constraint.hpp"
 
 namespace db7::catalog {
-TableCatalogEntry::TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntry &schema,
+TableCatalogEntry::TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntryBase &schema,
                                      CreateTableInfo &info,
                                      std::shared_ptr<StorageTable> inherited_storage)
     : TableCatalogEntryBase(catalog, schema, info), storage(std::move(inherited_storage)) {};
