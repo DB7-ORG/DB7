@@ -16,6 +16,6 @@ public:
   optional_ptr<CatalogEntry> GetEntry(transaction::TransactionContext &context, CatalogType type,
                                       const Identifier &name);
   virtual optional_ptr<CatalogEntry> CreateTable(transaction::TransactionContext &context,
-                                                 BoundCreateTableInfo &info) = 0;
+                                                 CreateTableInfo &info) = 0;
 };
 } // namespace db7::catalog

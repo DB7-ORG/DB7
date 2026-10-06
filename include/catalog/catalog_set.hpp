@@ -1,6 +1,7 @@
 #pragma once
 
 #include "catalog/entries/catalog_entry.hpp"
+#include "catalog/objects/alter_table_info.hpp"
 #include "dependency/dependency_list.hpp"
 #include "shared/identifier.hpp"
 #include "transaction/transaction_context.hpp"
@@ -123,6 +124,8 @@ public:
   bool DropEntry(transaction::TransactionContext &context, const Identifier &name, bool cascade,
                  bool allow_drop_internal = false);
 
+  bool AlterEntry(transaction::TransactionContext &context, const Identifier &name,
+                  AlterInfo &alter_info);
   /**
    * Get entry for a current transaction, and return apropriate error if not found
    * @param name entry identifier
@@ -158,6 +161,10 @@ public:
    */
   optional_ptr<CatalogEntry> GetEntry(transaction::TransactionContext &context,
                                       const Identifier &name);
+
+  bool RenameEntryInternal(transaction::TransactionContext &context, CatalogEntry &old,
+                           const Identifier &new_name, AlterInfo &alter_info,
+                           std::unique_lock<std::mutex> &read_lock);
 };
 
 } // namespace db7::catalog

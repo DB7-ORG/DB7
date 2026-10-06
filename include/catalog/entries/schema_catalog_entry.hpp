@@ -5,6 +5,10 @@
 #include "catalog/objects/create_table_info.hpp"
 
 namespace db7::catalog {
+
+class StandardEntry;
+class AlterInfo;
+
 class SchemaCatalogEntry : public SchemaCatalogEntryBase {
 private:
   //! The catalog set holding the tables
@@ -31,13 +35,19 @@ private:
 private:
   CatalogSet &GetCatalogSet(CatalogType type);
 
+  optional_ptr<CatalogEntry> AddEntryInternal(transaction::TransactionContext &context,
+                                              std::unique_ptr<StandardEntry> entry,
+                                              LogicalDependencyList dependencies);
+
 public:
   SchemaCatalogEntry(DatabaseCatalog &catalog, Identifier &schema);
 
   optional_ptr<CatalogEntry> LookupEntry(transaction::TransactionContext &context,
                                          const EntryLookupInfo &lookup_info) override;
 
+  void Alter(transaction::TransactionContext &context, AlterInfo &info);
+
   optional_ptr<CatalogEntry> CreateTable(transaction::TransactionContext &context,
-                                         BoundCreateTableInfo &info) override {}; // TODO
+                                         CreateTableInfo &info) override;
 };
 } // namespace db7::catalog

@@ -1,28 +1,32 @@
 #pragma once
 
-#include "catalog/catalog_common.hpp"
-#include "catalog/objects/create_info.hpp"
+#include "catalog/constraints/constraint.hpp"
+#include "catalog/dependency/dependency_list.hpp"
+#include "catalog/objects/column_list.hpp"
 
 namespace db7::catalog {
 class SchemaCatalogEntry;
 
-class BoundCreateTableInfo {
+class CreateTableInfo {
 public:
   //! The schema to create the table in
   SchemaCatalogEntry &schema;
-  //! The base CreateInfo object
-  std::unique_ptr<CreateInfo> base;
-  //! Column dependency manager of the table
-  // ColumnDependencyManager column_dependency_manager;
+  //! Table name to insert to
+  Identifier table;
+  //! List of columns of the table
+  ColumnList columns;
   //! List of constraints on the table
   std::vector<std::unique_ptr<Constraint>> constraints;
   //! Dependents of the table (in e.g. default values)
   LogicalDependencyList dependencies;
+
   // //! The existing table data on disk (if any)
   // unique_ptr<PersistentTableData> data;
   // //! CREATE TABLE from QUERY
   // unique_ptr<LogicalOperator> query;
   // //! Indexes created by this table
   // vector<IndexStorageInfo> indexes;
+  //! Column dependency manager of the table
+  // ColumnDependencyManager column_dependency_manager;
 };
 } // namespace db7::catalog

@@ -1,5 +1,6 @@
 #include "catalog/catalog_set.hpp"
 #include "catalog/dependency/dependency_manager.hpp"
+#include "catalog/objects/alter_table_info.hpp"
 #include "shared/error/exception.hpp"
 #include "shared/macro_helper.hpp"
 
@@ -25,6 +26,11 @@ SchemaCatalogEntryBase &CatalogEntry::ParentSchema() {
 
 const SchemaCatalogEntryBase &CatalogEntry::ParentSchema() const {
   throw CATALOG_EXCEPTION("CatalogEntry::ParentSchema called on catalog entry without schema");
+}
+
+std::unique_ptr<CatalogEntry> CatalogEntry::AlterEntry(transaction::TransactionContext &context,
+                                                       AlterInfo &info) {
+  throw CATALOG_EXCEPTION("AlterEntry is a virtual method");
 }
 
 void CatalogEntryMap::AddEntry(std::unique_ptr<CatalogEntry> entry) {
@@ -183,9 +189,9 @@ CatalogSet::EntryLookup CatalogSet::GetEntryDetailed(transaction::TransactionCon
   return EntryLookup{nullptr, EntryLookup::FailureReason::NOT_PRESENT};
 }
 
-static bool IsDependencyEntry(CatalogEntry &entry) {
-  return entry.type == CatalogType::DEPENDENCY_ENTRY;
-}
+// static bool IsDependencyEntry(CatalogEntry &entry) {
+//   return entry.type == CatalogType::DEPENDENCY_ENTRY;
+// }
 
 // TODO catalog here i should make it valid for my design where i dont have catalog per
 // database instance
@@ -265,7 +271,7 @@ bool CatalogSet::CreateEntryInternal(transaction::TransactionContext &context,
   }
 
   // Finally add the new entry to the chain
-  auto value_ptr = value.get();
+  // auto value_ptr = value.get();
   map.UpdateEntry(std::move(value));
   // Push the old entry in the undo buffer for this transaction, so it can be restored in the event
   // of failure
@@ -359,7 +365,7 @@ bool CatalogSet::DropEntryInternal(transaction::TransactionContext &context, con
   value->timestamp = context.FinishTime();
   value->set = this;
   value->deleted = true;
-  auto value_ptr = value.get();
+  // auto value_ptr = value.get();
   map.UpdateEntry(std::move(value));
 
   // push the old entry in the undo buffer for this transaction
@@ -378,6 +384,113 @@ bool CatalogSet::DropEntry(transaction::TransactionContext &context, const Ident
   std::lock_guard<std::mutex> write_lock(catalog.GetLock());
   std::lock_guard<std::mutex> read_lock(catalog_lock);
   return DropEntryInternal(context, name, allow_drop_internal);
+}
+
+bool CatalogSet::RenameEntryInternal(transaction::TransactionContext &context, CatalogEntry &old,
+                                     const Identifier &new_name, AlterInfo &alter_info,
+                                     std::unique_lock<std::mutex> &read_lock) {
+  auto &original_name = old.name;
+
+  auto entry_value = map.GetEntry(new_name);
+  if (entry_value) {
+    auto &existing_entry = GetEntryForTransaction(context, *entry_value);
+    if (!existing_entry.deleted) {
+      // There exists an entry by this name that is not deleted
+      throw CATALOG_EXCEPTION(
+          fmt::format("Could not rename {} to {}: another entry with this name already exists!",
+                      original_name.GetIdentifierName(), new_name.GetIdentifierName()));
+    }
+  }
+
+  // Add a RENAMED_ENTRY before adding a DELETED_ENTRY, this makes it so that when this is committed
+  // we know that this was not a DROP statement.
+  auto renamed_tombstone = std::make_unique<InCatalogEntry>(CatalogType::RENAMED_ENTRY,
+                                                            old.ParentCatalog(), original_name);
+  renamed_tombstone->timestamp = context.FinishTime();
+  renamed_tombstone->deleted = false;
+  renamed_tombstone->set = this;
+  if (!CreateEntryInternal(context, original_name, std::move(renamed_tombstone), read_lock,
+                           /*should_be_empty = */ false)) {
+    return false;
+  }
+  if (!DropEntryInternal(context, original_name, false)) { return false; }
+
+  // Add the renamed entry
+  // Start this off with a RENAMED_ENTRY node, for commit/cleanup/rollback purposes
+  auto renamed_node =
+      std::make_unique<InCatalogEntry>(CatalogType::RENAMED_ENTRY, catalog, new_name);
+  renamed_node->timestamp = context.FinishTime();
+  renamed_node->deleted = false;
+  renamed_node->set = this;
+  return CreateEntryInternal(context, new_name, std::move(renamed_node), read_lock);
+}
+
+bool CatalogSet::AlterEntry(transaction::TransactionContext &context, const Identifier &name,
+                            AlterInfo &alter_info) {
+  // If the entry does not exist, we error
+  auto entry = GetEntry(context, name);
+  if (!entry) { return false; }
+  if (!alter_info.allow_internal && entry->internal) {
+    throw CATALOG_EXCEPTION(
+        fmt::format("Cannot alter entry {} because it is an internal system entry",
+                    entry->name.GetIdentifierName()));
+  }
+
+  std::unique_ptr<CatalogEntry> value;
+  // Use the existing entry to create the altered entry
+  value = entry->AlterEntry(context, alter_info);
+  if (!value) {
+    // alter failed, but did not result in an error
+    return true;
+  }
+
+  // lock the catalog for writing
+  std::unique_lock<std::mutex> write_lock(catalog.GetLock());
+  // lock this catalog set to disallow reading
+  std::unique_lock<std::mutex> read_lock(catalog_lock);
+
+  // fetch the entry again before doing the modification
+  // this will catch any write-write conflicts between transactions
+  entry = GetEntryInternal(context, name);
+
+  // Mark this entry as being created by this transaction
+  value->timestamp = context.FinishTime();
+  value->set = this;
+
+  if (!(value->name == entry->name)) {
+    if (!RenameEntryInternal(context, *entry, value->name, alter_info, read_lock)) { return false; }
+  }
+  auto new_entry = value.get();
+  map.UpdateEntry(std::move(value));
+
+  // TODO catalog
+  //  push the old entry in the undo buffer for this transaction
+  //  std::unique_ptr<CatalogEntry> entry_to_destroy;
+  //  if (transaction.transaction) {
+  //    // serialize the AlterInfo into a temporary buffer
+  //    MemoryStream stream(Allocator::Get(*transaction.db));
+  //    BinarySerializer serializer(stream);
+  //    serializer.Begin();
+  //    serializer.WriteProperty(100, "column_name", alter_info.GetColumnName());
+  //    serializer.WriteProperty(101, "alter_info", &alter_info);
+  //    serializer.End();
+
+  //   DuckTransactionManager::Get(GetCatalog().GetAttached())
+  //       .PushCatalogEntry(*transaction.transaction, new_entry->Child(), stream.GetData(),
+  //                         stream.GetPosition());
+  // } else {
+  //   // if we don't have a transaction this alter is non-transactional
+  //   // in that case we are able to just directly destroy the child (if there is any)
+  //   entry_to_destroy = new_entry->TakeChild();
+  // }
+
+  read_lock.unlock();
+  write_lock.unlock();
+
+  // Check the dependency manager to verify that there are no conflicting dependencies with this
+  // alter
+  catalog.GetDependencyManager()->AlterObject(context, *entry, *new_entry, alter_info);
+  return true;
 }
 
 } // namespace db7::catalog

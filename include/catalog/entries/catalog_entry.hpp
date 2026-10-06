@@ -4,6 +4,7 @@
 #include "shared/identifier.hpp"
 #include "shared/pointers/optional_ptr.hpp"
 #include "transaction/transaction_common.hpp"
+#include "transaction/transaction_context.hpp"
 
 #include <atomic>
 
@@ -12,6 +13,7 @@ namespace db7::catalog {
 class DatabaseCatalog;
 class CatalogSet;
 class SchemaCatalogEntryBase;
+class AlterInfo;
 
 class CatalogEntry {
 public:
@@ -49,6 +51,8 @@ public:
   virtual const DatabaseCatalog &ParentCatalog() const;
   virtual SchemaCatalogEntryBase &ParentSchema();
   virtual const SchemaCatalogEntryBase &ParentSchema() const;
+  virtual std::unique_ptr<CatalogEntry> AlterEntry(transaction::TransactionContext &context,
+                                                   AlterInfo &info);
 
 public:
   void SetChild(std::unique_ptr<CatalogEntry> child);

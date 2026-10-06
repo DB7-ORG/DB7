@@ -12,14 +12,23 @@ private:
   type_id type;
 
 public:
-  Identifier GetName() const;
+  ColumnDefinition(Identifier name_p, type_id type_p);
 
-  type_id GetType() const;
+  ColumnDefinition Copy() const;
+
+  Identifier GetName() const { return name; };
+
+  type_id GetType() const { return type; };
 };
 
 class ColumnList {
 private:
   std::vector<ColumnDefinition> columns;
   std::unordered_map<Identifier, idx_t> map;
+
+public:
+  void AddToNameMap(ColumnDefinition &col, idx_t idx);
+  void AddColumn(ColumnDefinition column);
+  ColumnList Copy() const;
 };
 } // namespace db7::catalog

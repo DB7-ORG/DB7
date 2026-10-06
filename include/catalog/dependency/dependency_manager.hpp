@@ -146,6 +146,8 @@ public:
   void AddObject(transaction::TransactionContext &context, CatalogEntry &object,
                  const LogicalDependencyList &dependencies);
   void DropObject(transaction::TransactionContext &context, CatalogEntry &object, bool cascade);
+  void AlterObject(transaction::TransactionContext &context, CatalogEntry &old_obj,
+                   CatalogEntry &new_obj, AlterInfo &info);
   ;
 };
 

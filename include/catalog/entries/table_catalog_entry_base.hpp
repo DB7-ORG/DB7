@@ -3,6 +3,7 @@
 #include "catalog/catalog_common.hpp"
 #include "catalog/entries/standard_entry.hpp"
 #include "catalog/objects/column_list.hpp"
+#include "catalog/objects/create_table_info.hpp"
 
 namespace db7::catalog {
 
@@ -16,6 +17,9 @@ protected:
 public:
   static constexpr const CatalogType Type = CatalogType::TABLE_ENTRY;
   static constexpr const char *Name = "table";
+
+  TableCatalogEntryBase(DatabaseCatalog &catalog, SchemaCatalogEntry &schema,
+                        CreateTableInfo &info);
 };
 
 } // namespace db7::catalog

@@ -522,4 +522,85 @@ DependencyInfo DependencyInfo::FromDependent(DependencyEntry &dep) {
                         /*subject = */ dep.Subject()};
 }
 
+void DependencyManager::AlterObject(transaction::TransactionContext &context, CatalogEntry &old_obj,
+                                    CatalogEntry &new_obj, AlterInfo &info) {
+  if (IsSystemEntry(new_obj)) {
+    DB7_ASSERT(IsSystemEntry(old_obj));
+    // Don't do anything for this
+    return;
+  }
+
+  const auto old_info = GetLookupProperties(old_obj);
+  const auto new_info = GetLookupProperties(new_obj);
+
+  std::vector<DependencyInfo> dependencies;
+  // Other entries that depend on us
+  ScanDependents(context, old_info, [&](DependencyEntry &dep) {
+    // It makes no sense to have a schema depend on anything
+    DB7_ASSERT(dep.EntryInfo().type != CatalogType::SCHEMA_ENTRY);
+
+    bool disallow_alter = true;
+    switch (info.type) {
+    case AlterType::ALTER_TABLE: {
+      auto &alter_table = info.Cast<AlterTableInfo>();
+      switch (alter_table.alter_table_type) {
+      case AlterTableType::FOREIGN_KEY_CONSTRAINT:
+      case AlterTableType::ADD_COLUMN:
+      case AlterTableType::SET_DEFAULT: {
+        disallow_alter = false;
+        break;
+      }
+      default: break;
+      }
+      break;
+    }
+    case AlterType::SET_COLUMN_COMMENT:
+    case AlterType::SET_COMMENT: {
+      disallow_alter = false;
+      break;
+    }
+    default: break;
+    }
+    if (disallow_alter) {
+      throw CATALOG_EXCEPTION(fmt::format("Cannot alter entry {} because there are entries that "
+                                          "depend on it.",
+                                          old_obj.name.GetIdentifierName()));
+    }
+
+    auto dep_info = DependencyInfo::FromDependent(dep);
+    dep_info.subject.entry = new_info;
+    dependencies.emplace_back(dep_info);
+  });
+
+  // Keep old dependencies
+  bool has_new_dependencies = info.new_dependencies.get();
+  ScanSubjects(context, old_info, [&](DependencyEntry &dep) {
+    if (has_new_dependencies && !dep.Subject().flags.IsOwnership()) {
+      // The alter provided updated dependencies - skip old non-ownership subject dependencies
+      // as they will be replaced by the new dependencies
+      return;
+    }
+    auto entry = LookupEntry(context, dep);
+    if (!entry) { return; }
+
+    auto dep_info = DependencyInfo::FromSubject(dep);
+    dep_info.dependent.entry = new_info;
+    dependencies.emplace_back(dep_info);
+  });
+
+  if (has_new_dependencies || !(old_obj.name == new_obj.name)) {
+    // The dependencies have changed (e.g. SET DEFAULT) or the name has changed
+    // We need to recreate the dependency links
+    CleanupDependencies(context, old_obj);
+  }
+
+  if (has_new_dependencies) {
+    // Add the new dependencies
+    CreateDependencies(context, new_obj, *info.new_dependencies);
+  }
+
+  // Reinstate any old dependencies
+  for (auto &dep : dependencies) { CreateDependency(context, dep); }
+}
+
 } // namespace db7::catalog

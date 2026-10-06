@@ -270,19 +270,17 @@ struct ConstraintProps {
 
 enum class OnEntryNotFound : u8 { THROW_EXCEPTION = 0, RETURN_NULL = 1 };
 
-enum class ConstraintType : u8 {
-  INVALID = 0,     // invalid constraint type
-  NOT_NULL = 1,    // NOT NULL constraint
-  CHECK = 2,       // CHECK constraint
-  UNIQUE = 3,      // UNIQUE constraint
-  FOREIGN_KEY = 4, // FOREIGN KEY constraint
-};
+struct PhysicalIndex {
+  static constexpr const idx_t INVALID_INDEX = idx_t(-1);
 
-class Constraint {
-public:
-  ConstraintType type;
+  explicit PhysicalIndex(idx_t index) : index(index) {}
 
-  explicit Constraint(ConstraintType type) : type(type) {}
+  idx_t index;
+
+  inline bool operator==(const PhysicalIndex &rhs) const { return index == rhs.index; };
+  inline bool operator!=(const PhysicalIndex &rhs) const { return index != rhs.index; };
+  inline bool operator<(const PhysicalIndex &rhs) const { return index < rhs.index; };
+  bool IsValid() const { return index != INVALID_INDEX; }
 };
 
 } // namespace catalog
