@@ -484,7 +484,10 @@ optional_ptr<CatalogEntry> DatabaseCatalog::CreateSchema(transaction::Transactio
 optional_ptr<DependencyManager> DatabaseCatalog::GetDependencyManager() {
   return dependency_manager_.get();
 }
-
+/**
+ * Objects that creates a new table in the schema
+ * @param info object to pass main data for crate
+ */
 optional_ptr<CatalogEntry> DatabaseCatalog::CreateTable(transaction::TransactionContext &context,
                                                         CreateTableInfo &info) {
   return info.schema.CreateTable(context, info);

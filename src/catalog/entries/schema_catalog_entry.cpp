@@ -63,6 +63,9 @@ FindForeignKeyInformation(TableCatalogEntry &table, AlterForeignKeyType alter_fk
   }
 }
 
+// Method for appending to the head of linked list new version of the entry
+// or in other words altering the enetry for future/current transactions
+// but retaining the old version for currently running
 void SchemaCatalogEntry::Alter(transaction::TransactionContext &context, AlterInfo &info) {
   CatalogType type = info.GetCatalogType();
 
@@ -100,10 +103,14 @@ SchemaCatalogEntry::AddEntryInternal(transaction::TransactionContext &context,
 
 optional_ptr<CatalogEntry> SchemaCatalogEntry::CreateTable(transaction::TransactionContext &context,
                                                            CreateTableInfo &info) {
+  // Builds entry that should be added to the list
   auto table = std::make_unique<TableCatalogEntry>(catalog, *this, info);
 
+  // Mapping info to another form more suitable for the catalog alter api
   std::vector<std::unique_ptr<AlterForeignKeyInfo>> fk_arrays;
   FindForeignKeyInformation(*table, AlterForeignKeyType::AFT_ADD, fk_arrays);
+
+  // Passes over all foreign keys and adds them to info.dependencies
   for (idx_t i = 0; i < fk_arrays.size(); i++) {
     // alter primary key table
     auto &fk_info = *fk_arrays[i];
@@ -119,6 +126,18 @@ optional_ptr<CatalogEntry> SchemaCatalogEntry::CreateTable(transaction::Transact
   if (!entry) { return nullptr; }
 
   return entry;
+}
+
+void SchemaCatalogEntry::Scan(transaction::TransactionContext &context, CatalogType type,
+                              const std::function<void(CatalogEntry &)> &callback) {
+  auto &set = GetCatalogSet(type);
+  set.Scan(context, callback);
+}
+
+void SchemaCatalogEntry::Scan(CatalogType type,
+                              const std::function<void(CatalogEntry &)> &callback) {
+  auto &set = GetCatalogSet(type);
+  set.Scan(callback);
 }
 
 } // namespace db7::catalog

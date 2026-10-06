@@ -407,15 +407,34 @@ int main() {
   auto schema = catalog.CreateSchema(*context, name);
   auto &schema_entry = schema->Cast<SchemaCatalogEntry>();
 
+  /////
+
+  ColumnList columns_cust;
+  columns_cust.AddColumn({"id", type_id::BIGINT});
+  columns_cust.AddColumn({"name", type_id::VARCHAR});
+
+  CreateTableInfo customer_info(schema_entry, Identifier("customers"), std::move(columns_cust));
+  auto table_customer = catalog.CreateTable(*context, customer_info);
+  (void)table_customer;
+  ////
+
   ColumnList columns;
   columns.AddColumn({"order_id", type_id::BIGINT});
   columns.AddColumn({"product_name", type_id::VARCHAR});
   columns.AddColumn({"customer_id", type_id::BIGINT});
 
   ForeignKeyInfo key_info;
-  auto costraint =
-      std::make_unique<ForeignKeyConstraint>(std::vector<Identifier>{Identifier("order_id")},
-                                             std::vector<Identifier>{}, std::move(key_info));
+  key_info.type = ForeignKeyType::FK_TYPE_FOREIGN_KEY_TABLE;
+  key_info.schema = "jovan";
+  key_info.table = "customers";
+  auto costraint = std::make_unique<ForeignKeyConstraint>(
+      std::vector<Identifier>{
+          std::vector<Identifier>{"id"},
+      },
+      std::vector<Identifier>{
+          std::vector<Identifier>{"customer_id"},
+      },
+      std::move(key_info));
   std::vector<std::unique_ptr<Constraint>> constraints;
   constraints.push_back(std::move(costraint));
 
@@ -424,6 +443,6 @@ int main() {
   CreateTableInfo info(schema_entry, Identifier("orders"), std::move(columns),
                        std::move(constraints));
   auto table = catalog.CreateTable(*context, info);
-
+  (void)table;
   std::cout << "OK" << std::endl;
 }

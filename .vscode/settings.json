@@ -1,18 +1,21 @@
 {
-    "editor.formatOnSave": true,
-    "[python]": {
-        "editor.defaultFormatter": "ms-python.black-formatter",
-        "editor.formatOnSave": true
-    },
-    "[cpp]": {
-        "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
-    },
-    "tlaplus.tlc.modelChecker.options": "-workers auto -coverage 1",
-    "[tlaplus]": {
-        "editor.formatOnSave": false,
-        "editor.formatOnType": false,
-        "editor.formatOnPaste": false
-    },
-    "C_Cpp.intelliSenseEngine": "disabled",
-    "editor.tabSize": 2
+  "editor.formatOnSave": true,
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true
+  },
+  "[cpp]": {
+    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+    "editor.autoIndent": "keep"
+  },
+  "tlaplus.tlc.modelChecker.options": "-workers auto -coverage 1",
+  "[tlaplus]": {
+    "editor.formatOnSave": false,
+    "editor.formatOnType": false,
+    "editor.formatOnPaste": false
+  },
+  "C_Cpp.intelliSenseEngine": "disabled",
+  "editor.detectIndentation": false,
+  "editor.insertSpaces": true,
+  "editor.tabSize": 2
 }

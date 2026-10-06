@@ -430,6 +430,7 @@ bool CatalogSet::AlterEntry(transaction::TransactionContext &context, const Iden
   // If the entry does not exist, we error
   auto entry = GetEntry(context, name);
   if (!entry) { return false; }
+  // internal modifications are not allowed
   if (!alter_info.allow_internal && entry->internal) {
     throw CATALOG_EXCEPTION(
         fmt::format("Cannot alter entry {} because it is an internal system entry",
@@ -437,7 +438,7 @@ bool CatalogSet::AlterEntry(transaction::TransactionContext &context, const Iden
   }
 
   std::unique_ptr<CatalogEntry> value;
-  // Use the existing entry to create the altered entry
+  // Here we created Copy of the original entry with modifications
   value = entry->AlterEntry(context, alter_info);
   if (!value) {
     // alter failed, but did not result in an error

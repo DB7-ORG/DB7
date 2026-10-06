@@ -68,3 +68,8 @@ IDEAS FOR WAYS TO MAKE CATALOG WORK ON DISK (NOT LIKE DUCKDB PERSISTING CHANGES 
    do different logic compared to page approach.
 
 
+
+TODO understand better
+
+void DependencyManager::AlterObject(transaction::TransactionContext &context, CatalogEntry &old_obj,
+                                    CatalogEntry &new_obj, AlterInfo &info) {

@@ -524,6 +524,7 @@ DependencyInfo DependencyInfo::FromDependent(DependencyEntry &dep) {
 
 void DependencyManager::AlterObject(transaction::TransactionContext &context, CatalogEntry &old_obj,
                                     CatalogEntry &new_obj, AlterInfo &info) {
+  // Dont change anything for system entries
   if (IsSystemEntry(new_obj)) {
     DB7_ASSERT(IsSystemEntry(old_obj));
     // Don't do anything for this

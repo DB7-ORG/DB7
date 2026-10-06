@@ -10,12 +10,17 @@ TableCatalogEntry::TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntr
 const std::vector<std::unique_ptr<Constraint>> &TableCatalogEntry::GetConstraints() const {
   return constraints;
 }
+
 std::unique_ptr<CatalogEntry>
 TableCatalogEntry::AlterEntry(transaction::TransactionContext &context, AlterInfo &info) {
+  // Always expects AlterTableInfo since this is a table
   auto &table_info = info.Cast<AlterTableInfo>();
+
   switch (table_info.alter_table_type) {
   case AlterTableType::FOREIGN_KEY_CONSTRAINT: {
+    // In case of foreign key expects AlterForeignKeyInfo
     auto &foreign_key_constraint_info = table_info.Cast<AlterForeignKeyInfo>();
+    // Branch to check to either remove or add new dependencies
     if (foreign_key_constraint_info.type == AlterForeignKeyType::AFT_ADD) {
       return AddForeignKeyConstraint(foreign_key_constraint_info);
     } else {
@@ -26,6 +31,9 @@ TableCatalogEntry::AlterEntry(transaction::TransactionContext &context, AlterInf
   }
 }
 
+// TODO catalog
+// this is a litle strange since when creating a table we map to some object then
+// map that object to original form
 std::unique_ptr<CatalogEntry>
 TableCatalogEntry::AddForeignKeyConstraint(AlterForeignKeyInfo &info) {
   DB7_ASSERT(info.type == AlterForeignKeyType::AFT_ADD);

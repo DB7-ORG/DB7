@@ -49,5 +49,10 @@ public:
 
   optional_ptr<CatalogEntry> CreateTable(transaction::TransactionContext &context,
                                          CreateTableInfo &info) override;
+
+  void Scan(transaction::TransactionContext &context, CatalogType type,
+            const std::function<void(CatalogEntry &)> &callback) override;
+
+  void Scan(CatalogType type, const std::function<void(CatalogEntry &)> &callback) override;
 };
 } // namespace db7::catalog
