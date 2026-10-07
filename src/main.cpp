@@ -413,9 +413,21 @@ int main() {
   columns_cust.AddColumn({"id", type_id::BIGINT});
   columns_cust.AddColumn({"name", type_id::VARCHAR});
 
-  CreateTableInfo customer_info(schema_entry, Identifier("customers"), std::move(columns_cust));
-  auto table_customer = catalog.CreateTable(*context, customer_info);
-  (void)table_customer;
+  auto tbl_name = Identifier("customers");
+  CreateTableInfo customer_info(schema_entry, tbl_name);
+  customer_info.columns = std::move(columns_cust);
+  auto table_customer = catalog.CreateTable(*context, customer_info, schema_entry);
+  auto &ss = table_customer->Cast<TableCatalogEntry>();
+
+  CreateIndexInfo customer_index_info;
+  customer_index_info.table = tbl_name;
+  customer_index_info.index_name = "customer index";
+  customer_index_info.constraint_type = IndexConstraintType::PRIMARY;
+  customer_index_info.column_ids = {0};
+
+  auto index_customer = catalog.CreateIndex(*context, customer_index_info, ss);
+
+  (void)index_customer;
   ////
 
   ColumnList columns;
@@ -440,9 +452,12 @@ int main() {
 
   LogicalDependencyList deps;
 
-  CreateTableInfo info(schema_entry, Identifier("orders"), std::move(columns),
-                       std::move(constraints));
-  auto table = catalog.CreateTable(*context, info);
+  CreateTableInfo info(schema_entry, Identifier("orders"));
+  info.columns = std::move(columns);
+  info.constraints = std::move(constraints);
+  info.dependencies = std::move(deps);
+
+  auto table = catalog.CreateTable(*context, info, schema_entry);
   (void)table;
   std::cout << "OK" << std::endl;
 }

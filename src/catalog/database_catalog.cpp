@@ -1,6 +1,7 @@
 #include "catalog/database_catalog.hpp"
 #include "catalog/dependency/dependency_manager.hpp"
-#include "catalog/entries/schema_catalog_entry.hpp"
+#include "catalog/entries/table_catalog_entry.hpp"
+#include "catalog/objects/create_index_info.hpp"
 #include "shared/models/tuple_id.hpp"
 #include "transaction/transaction_util.hpp"
 
@@ -484,13 +485,17 @@ optional_ptr<CatalogEntry> DatabaseCatalog::CreateSchema(transaction::Transactio
 optional_ptr<DependencyManager> DatabaseCatalog::GetDependencyManager() {
   return dependency_manager_.get();
 }
-/**
- * Objects that creates a new table in the schema
- * @param info object to pass main data for crate
- */
+
 optional_ptr<CatalogEntry> DatabaseCatalog::CreateTable(transaction::TransactionContext &context,
-                                                        CreateTableInfo &info) {
-  return info.schema.CreateTable(context, info);
+                                                        CreateTableInfo &info,
+                                                        SchemaCatalogEntry &schema) {
+  return schema.CreateTable(context, info);
+}
+
+optional_ptr<CatalogEntry> DatabaseCatalog::CreateIndex(transaction::TransactionContext &context,
+                                                        CreateIndexInfo &info,
+                                                        TableCatalogEntry &table) {
+  return table.schema.CreateIndex(context, info, table);
 }
 
 } // namespace db7::catalog

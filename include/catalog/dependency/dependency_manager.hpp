@@ -80,16 +80,59 @@ private:
                        bool scan_subjects, dependency_callback_t &callback);
   bool IsSystemEntry(CatalogEntry &entry) const;
 
+  /**
+   * Creates dependant with an assumption it doesnt exist anymore (drop was called before or it
+   * never existed)
+   * @param info complete data for subject and dependant including
+   *             their base entities and flags
+   */
   void CreateDependent(transaction::TransactionContext &context, const DependencyInfo &info);
+
+  /**
+   * Creates subject with an assumption it doesnt exist anymore (drop was called before or it never
+   * existed)
+   * @param info complete data for subject and dependant including
+   *             their base entities and flags
+   */
   void CreateSubject(transaction::TransactionContext &context, const DependencyInfo &info);
+
+  /**
+   * Upserts the dependency applying extra flags to it
+   * @param info complete data for subject and dependant including
+   * their base entities and flags
+   */
   void CreateDependency(transaction::TransactionContext &context, DependencyInfo &info);
+
+  /**
+   * Upserts a list of dependencies
+   * @param object        object for which we are adding dependencies
+   * @param dependencies  listo of dependencies
+   */
   void CreateDependencies(transaction::TransactionContext &context, const CatalogEntry &object,
                           const LogicalDependencyList &dependencies);
+
   std::string CollectDependents(transaction::TransactionContext &context,
                                 catalog_entry_set_t &entries, CatalogEntryInfo &info);
+
+  /**
+   * CASE cascade == false checks if there is any blocking dependencies that prevent u from doing
+   * the drop if there is no conflict returns all dependecies we need to drop
+   *
+   * CASE cascade == true populates a set of all dependencies blocking or not
+   *
+   * notice that this method only checks one level deep so in case of cascade = true there is way
+   * to detect cycles in query
+   * @param object  object for which we check dependencies
+   * @param cascade wheather we are doing recursive cascade drop or regular one
+   */
   catalog_entry_set_t CheckDropDependencies(transaction::TransactionContext &context,
                                             CatalogEntry &object, bool cascade);
   void RemoveDependency(transaction::TransactionContext &context, const DependencyInfo &info);
+
+  /**
+   * Removes all dependencies tied to object
+   * @param object objects whose dependencies we are removing
+   */
   void CleanupDependencies(transaction::TransactionContext &context, CatalogEntry &object);
 
 public:
@@ -143,9 +186,29 @@ public:
             const std::function<void(CatalogEntry &, CatalogEntry &,
                                      const DependencyDependentFlags &)> &callback);
 
+  /**
+   * Upserts a list of dependencies
+   * @param object        object for which we are adding dependencies
+   * @param dependencies  listo of dependencies
+   */
   void AddObject(transaction::TransactionContext &context, CatalogEntry &object,
                  const LogicalDependencyList &dependencies);
+  /**
+   * Removes all dependencies and in case of cascade == true it
+   * recursively calls itself removing all tables tied to it
+   * @param object  objects whose dependencies we are removing
+   * @param cascade wheather we are doing recursive cascade drop or regular one
+   */
   void DropObject(transaction::TransactionContext &context, CatalogEntry &object, bool cascade);
+
+  /**
+   * Main function used when altering table
+   * Prevents some alters if someone depends on that object
+   * Clears all dependencies and stamps new versions to them
+   * @param old_obj object that is being changed
+   * @param new_obj newly created object
+   * @param info    metadata for altering
+   */
   void AlterObject(transaction::TransactionContext &context, CatalogEntry &old_obj,
                    CatalogEntry &new_obj, AlterInfo &info);
   ;

@@ -69,7 +69,12 @@ IDEAS FOR WAYS TO MAKE CATALOG WORK ON DISK (NOT LIKE DUCKDB PERSISTING CHANGES 
 
 
 
-TODO understand better
+Need a new Table abstraction
+- should be a chain of DataTables for versioning
+- shoudl have a way to easily access its schema (should contain vector of column description like in catalog)
+- should contain indexes and manage their state along with the heap tuples along with checking foreign keys
+- should be compatible with DataChunk so its easy to generate and modify it
 
-void DependencyManager::AlterObject(transaction::TransactionContext &context, CatalogEntry &old_obj,
-                                    CatalogEntry &new_obj, AlterInfo &info) {
+- need to add number of columns to pax layout so add column/remove works
+- fix catalog mvcc to save in undo buffer
+- add table abstraction

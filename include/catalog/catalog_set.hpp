@@ -6,8 +6,6 @@
 #include "shared/identifier.hpp"
 #include "transaction/transaction_context.hpp"
 
-#include <unordered_map>
-
 namespace db7::catalog {
 
 class DatabaseCatalog;

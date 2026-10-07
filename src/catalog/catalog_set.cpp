@@ -1,4 +1,5 @@
 #include "catalog/catalog_set.hpp"
+#include "catalog/database_catalog.hpp"
 #include "catalog/dependency/dependency_manager.hpp"
 #include "catalog/objects/alter_table_info.hpp"
 #include "shared/error/exception.hpp"

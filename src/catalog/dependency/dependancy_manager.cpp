@@ -281,7 +281,7 @@ void DependencyManager::CreateDependencies(transaction::TransactionContext &cont
   }
 
   const auto object_info = GetLookupProperties(object);
-  // check for each object in the sources if they were not deleted yet
+  // check for each object in the sources if they are part of this catalog
   for (auto &dependency : dependencies.Set()) {
     if (dependency.catalog != object.ParentCatalog().GetName()) {
       throw CATALOG_EXCEPTION(fmt::format(
@@ -501,7 +501,6 @@ void DependencyManager::DropObject(transaction::TransactionContext &context, Cat
     return;
   }
 
-  // Check if there are any entries that block the DROP because they still depend on the object
   auto to_drop = CheckDropDependencies(context, object, cascade);
   CleanupDependencies(context, object);
 
@@ -540,6 +539,8 @@ void DependencyManager::AlterObject(transaction::TransactionContext &context, Ca
     // It makes no sense to have a schema depend on anything
     DB7_ASSERT(dep.EntryInfo().type != CatalogType::SCHEMA_ENTRY);
 
+    // if there is any dependecy on this table u cant use alter
+    // exceptions are above given operations
     bool disallow_alter = true;
     switch (info.type) {
     case AlterType::ALTER_TABLE: {

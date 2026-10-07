@@ -12,7 +12,7 @@
 #include <mutex>
 
 namespace db7::access {
-template <typename ValTyp>
+template <typename ValTyp = TupleId>
 class BTreeIndex {
   // TODO assert ValTyp is correct type
 

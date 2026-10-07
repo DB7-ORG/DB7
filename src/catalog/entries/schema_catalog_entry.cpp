@@ -1,8 +1,11 @@
 #include "catalog/entries/schema_catalog_entry.hpp"
 #include "catalog/constraints/foreign_key_constraint.hpp"
+#include "catalog/database_catalog.hpp"
+#include "catalog/entries/index_catalog_entry.hpp"
 #include "catalog/entries/table_catalog_entry.hpp"
 #include "catalog/objects/alter_table_info.hpp"
 #include "shared/error/exception.hpp"
+
 namespace db7::catalog {
 
 SchemaCatalogEntry::SchemaCatalogEntry(DatabaseCatalog &catalog, Identifier &schema)
@@ -126,6 +129,18 @@ optional_ptr<CatalogEntry> SchemaCatalogEntry::CreateTable(transaction::Transact
   if (!entry) { return nullptr; }
 
   return entry;
+}
+
+optional_ptr<CatalogEntry> SchemaCatalogEntry::CreateIndex(transaction::TransactionContext &context,
+                                                           CreateIndexInfo &info,
+                                                           TableCatalogEntry &table) {
+  info.dependencies.AddDependency(table);
+
+  // TODO catalog it feels like i need something that adds index to data table
+
+  auto index = std::make_unique<IndexCatalogEntry>(catalog, *this, info, table);
+  auto dependencies = index->dependencies;
+  return AddEntryInternal(context, std::move(index), dependencies);
 }
 
 void SchemaCatalogEntry::Scan(transaction::TransactionContext &context, CatalogType type,

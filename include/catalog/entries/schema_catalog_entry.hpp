@@ -50,6 +50,9 @@ public:
   optional_ptr<CatalogEntry> CreateTable(transaction::TransactionContext &context,
                                          CreateTableInfo &info) override;
 
+  optional_ptr<CatalogEntry> CreateIndex(transaction::TransactionContext &context,
+                                         CreateIndexInfo &info, TableCatalogEntry &table) override;
+
   void Scan(transaction::TransactionContext &context, CatalogType type,
             const std::function<void(CatalogEntry &)> &callback) override;
 

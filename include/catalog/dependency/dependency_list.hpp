@@ -1,6 +1,5 @@
 #pragma once
 
-#include "catalog/database_catalog.hpp"
 #include "catalog/dependency/dependency.hpp"
 #include "catalog/entries/catalog_entry.hpp"
 #include "shared/identifier.hpp"
@@ -8,6 +7,8 @@
 #include <unordered_set>
 
 namespace db7::catalog {
+
+class DatabaseCatalog;
 
 class LogicalDependency {
 public:

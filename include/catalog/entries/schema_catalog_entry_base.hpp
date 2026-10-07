@@ -2,10 +2,13 @@
 
 #include "catalog/entries/catalog_entry.hpp"
 #include "catalog/entry_lookup_info.hpp"
+#include "catalog/objects/create_index_info.hpp"
 #include "catalog/objects/create_table_info.hpp"
 #include "transaction/transaction_context.hpp"
 
 namespace db7::catalog {
+
+class TableCatalogEntry;
 
 class SchemaCatalogEntryBase : public InCatalogEntry {
 public:
@@ -17,6 +20,9 @@ public:
                                       const Identifier &name);
   virtual optional_ptr<CatalogEntry> CreateTable(transaction::TransactionContext &context,
                                                  CreateTableInfo &info) = 0;
+  virtual optional_ptr<CatalogEntry> CreateIndex(transaction::TransactionContext &context,
+                                                 CreateIndexInfo &info,
+                                                 TableCatalogEntry &table) = 0;
   //! Scan the specified catalog set, invoking the callback method for every entry
   virtual void Scan(transaction::TransactionContext &context, CatalogType type,
                     const std::function<void(CatalogEntry &)> &callback) = 0;

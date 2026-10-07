@@ -1,27 +1,23 @@
 #pragma once
 
 #include "catalog/constraints/constraint.hpp"
-#include "catalog/dependency/dependency_list.hpp"
 #include "catalog/objects/column_list.hpp"
+#include "catalog/objects/create_info.hpp"
 
 namespace db7::catalog {
-class SchemaCatalogEntry;
+class SchemaCatalogEntryBase;
 
-class CreateTableInfo {
+class CreateTableInfo : public CreateInfo {
 public:
-  //! The schema to create the table in
-  SchemaCatalogEntryBase &schema;
   //! Table name to insert
   Identifier table;
   //! List of columns of the table
   ColumnList columns;
   //! List of constraints on the table
   std::vector<std::unique_ptr<Constraint>> constraints;
-  //! Dependents of the table (in e.g. default values)
-  LogicalDependencyList dependencies;
 
-  CreateTableInfo(SchemaCatalogEntryBase &schema, Identifier table, ColumnList columns = {},
-                  std::vector<std::unique_ptr<Constraint>> constraints = {},
-                  LogicalDependencyList dependencies = {});
+  CreateTableInfo();
+  CreateTableInfo(SchemaCatalogEntryBase &schema, Identifier table);
+  CreateTableInfo(Identifier catalog, Identifier schema, Identifier table);
 };
 } // namespace db7::catalog
