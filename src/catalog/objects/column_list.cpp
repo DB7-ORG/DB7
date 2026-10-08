@@ -14,12 +14,12 @@ ColumnDefinition ColumnDefinition::Copy() const {
 
 void ColumnList::AddToNameMap(ColumnDefinition &col, idx_t idx) {
 
-  if (map.find(col.GetName()) != map.end()) {
+  if (name_map.find(col.GetName()) != name_map.end()) {
     throw CATALOG_EXCEPTION(
         fmt::format("Column with name {} already exists!", col.GetName().GetIdentifierName()));
   }
 
-  map[col.GetName()] = idx;
+  name_map[col.GetName()] = idx;
 }
 
 void ColumnList::AddColumn(ColumnDefinition column) {

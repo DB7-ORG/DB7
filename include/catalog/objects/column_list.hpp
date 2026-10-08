@@ -24,7 +24,10 @@ public:
 class ColumnList {
 private:
   std::vector<ColumnDefinition> columns;
-  std::unordered_map<Identifier, idx_t> map;
+  //! A map of column name to column index
+  std::unordered_map<Identifier, idx_t> name_map;
+  //! The set of physical columns
+  std::vector<idx_t> physical_columns;
 
 public:
   ColumnList() {}

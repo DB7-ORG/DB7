@@ -1,6 +1,7 @@
 #pragma once
 
 #include "access/index/header.hpp"
+#include "access/index/index.hpp"
 #include "access/index/layouts/varlen/varlen_layout_intermediate.hpp"
 #include "access/index/layouts/varlen/varlen_layout_leaf.hpp"
 #include "access/key_encoder.hpp"
@@ -13,7 +14,7 @@
 
 namespace db7::access {
 template <typename ValTyp = TupleId>
-class BTreeIndex {
+class BTreeIndex : public Index {
   // TODO assert ValTyp is correct type
 
 private:
@@ -30,6 +31,7 @@ private:
 
   static constexpr size_t ALLOC_CONST = 3;
 
+private:
   template <shared::LockMode Mode>
   storage::Page *GetNode(page_id id) {
     storage::Page *page = buffer_pool_->Pin({tbl_id_, id});

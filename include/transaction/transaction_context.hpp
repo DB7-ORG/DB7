@@ -1,8 +1,8 @@
 #pragma once
 
-#include "access/data_chunk.hpp"
 #include "shared/models/result_object.hpp"
 #include "shared/models/tuple_id.hpp"
+#include "storage/data_chunk.hpp"
 #include "storage/mvcc/page_version_manager.hpp"
 #include "storage/page.hpp"
 #include "storage/redo_buffer.hpp"
@@ -12,6 +12,7 @@
 #include "transaction/transaction_util.hpp"
 
 namespace db7::transaction {
+
 struct TidResult {
   TupleId tid;
   bool is_valid;
@@ -89,17 +90,16 @@ public:
   }
 
   storage::UndoRecord *UndoRecordForUpdate(table_id tbl_id, page_id pid, u32 idx,
-                                           access::DataChunk *chunk) {
+                                           DataChunk *chunk) {
     byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord) + chunk->GetSize());
     return storage::UndoRecord::InitializeUpdate(result, finish_time_, tbl_id, pid, idx,
                                                  chunk->GetHeaderPtr());
   }
 
-  storage::RedoRecord *StageWrite(table_id t_id, page_id p_id, u32 idx,
-                                  access::DataChunkLayout *initializer) {
+  storage::RedoRecord *StageWrite(table_id t_id, page_id p_id, u32 idx) {
     const u32 size = storage::RedoRecord::GetHeadersSize();
     auto *const log_record = storage::RedoRecord::Initialize(
-        redo_buffer_.NewEntry(size, durability_policy_), start_time_, initializer, t_id, p_id, idx);
+        redo_buffer_.NewEntry(size, durability_policy_), start_time_, t_id, p_id, idx);
     return reinterpret_cast<storage::RedoRecord *>(log_record->GetDelta());
   }
 

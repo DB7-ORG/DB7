@@ -1,14 +1,16 @@
 #pragma once
 
-#include "access/data_chunk.hpp"
 #include "shared/arena/fixed_bump_arena.hpp"
 #include "shared/arena/object_pool.hpp"
+#include "storage/data_chunk.hpp"
+#include "storage/storage_common.hpp"
 #include "storage/wal/log_record.hpp"
 #include "transaction/transaction_common.hpp"
 
 #include <vector>
 
 namespace db7::storage {
+
 class RedoRecord {
 private:
   table_id t_id_;
@@ -27,16 +29,15 @@ public:
 
   u32 GetRowIndex() { return idx_; }
 
-  static LogRecord *Initialize(byte *const head, const timestamp_t txn_begin,
-                               access::DataChunkLayout *initializer, table_id t_id, page_id p_id,
-                               u32 idx) {
-    LogRecord *result = LogRecord::InitializeHeader(head, LogRecordType::REDO,
-                                                    initializer->GetTotalSize(), txn_begin);
+  static LogRecord *Initialize(byte *const head, const timestamp_t txn_begin, table_id t_id,
+                               page_id p_id, u32 idx) {
+    LogRecord *result = LogRecord::InitializeHeader(head, LogRecordType::REDO, 4,
+                                                    txn_begin); // initializer->GetTotalSize()
     auto *body = reinterpret_cast<RedoRecord *>(result->GetDelta());
     body->t_id_ = t_id;
     body->p_id_ = p_id;
     body->idx_ = idx;
-    initializer->CreateDataChunk(body->GetDelta());
+    // initializer->CreateDataChunk(body->GetDelta());
     return result;
   }
 };

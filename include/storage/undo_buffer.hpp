@@ -1,10 +1,11 @@
 #pragma once
 
-#include "access/data_chunk.hpp"
 #include "shared/arena/fixed_bump_arena.hpp"
 #include "shared/arena/object_pool.hpp"
+#include "storage/data_chunk.hpp"
 #include "storage/storage_common.hpp"
 #include "transaction/transaction_common.hpp"
+
 
 #include <span>
 #include <vector>
@@ -141,7 +142,7 @@ public:
     Iterator &operator++() {
       UndoRecord &me = this->operator*();
       segment_offset_ +=
-          sizeof(UndoRecord) + reinterpret_cast<access::DataChunk *>(me.GetDelta())->GetSize();
+          sizeof(UndoRecord) + reinterpret_cast<DataChunk *>(me.GetDelta())->GetSize();
       if (segment_offset_ == (*curr_segment_)->size_) {
         // need to advance into the next segment
         ++curr_segment_;

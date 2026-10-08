@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.hpp"
+#include <compare>
 
 namespace db7 {
 struct TupleId {

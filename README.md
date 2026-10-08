@@ -78,3 +78,11 @@ Need a new Table abstraction
 - need to add number of columns to pax layout so add column/remove works
 - fix catalog mvcc to save in undo buffer
 - add table abstraction
+
+
+//TODO fsm assumes u have only one idx_t in header
+
+ <!-- static LogRecord *Initialize(byte *const head, const timestamp_t txn_begin, table_id t_id,
+                               page_id p_id, u32 idx) -->
+
+create new data chunk abstraction
