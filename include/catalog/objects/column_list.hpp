@@ -2,6 +2,7 @@
 
 #include "shared/identifier.hpp"
 #include "shared/types/type_defs.hpp"
+
 namespace db7::catalog {
 
 class ColumnDefinition {
@@ -26,8 +27,6 @@ private:
   std::vector<ColumnDefinition> columns;
   //! A map of column name to column index
   std::unordered_map<Identifier, idx_t> name_map;
-  //! The set of physical columns
-  std::vector<idx_t> physical_columns;
 
 public:
   ColumnList() {}

@@ -7,7 +7,6 @@
 #include "storage/data_chunk.hpp"
 #include "storage/varlen_entry.hpp"
 
-
 #include <cmath>
 #include <cstring>
 #include <span>
@@ -172,7 +171,8 @@ public:
     byte *cur = out;
 
     for (size_t i = 0; i < types.size(); i++) {
-      cur += SwitchType(cur, chunk->Get(types[i].col_id), false, types[i].type, {false, false});
+      cur +=
+          SwitchType(cur, chunk->GetByOid(types[i].col_id), false, types[i].type, {false, false});
     }
 
     cur += EncodeUnsigned(cur, key_value);

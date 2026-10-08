@@ -93,7 +93,7 @@ public:
                                            DataChunk *chunk) {
     byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord) + chunk->GetSize());
     return storage::UndoRecord::InitializeUpdate(result, finish_time_, tbl_id, pid, idx,
-                                                 chunk->GetHeaderPtr());
+                                                 chunk->GetHeaderSpan());
   }
 
   storage::RedoRecord *StageWrite(table_id t_id, page_id p_id, u32 idx) {

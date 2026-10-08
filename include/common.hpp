@@ -23,6 +23,7 @@ using hash_t = uint64_t;
 using byte = u8;
 
 using idx_t = u64;
+using column_t = u16;
 
 #define DB7_FALLTHROUGH [[fallthrough]]
 } // namespace db7
