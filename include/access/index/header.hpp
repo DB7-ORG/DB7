@@ -30,11 +30,11 @@ struct Key {
 };
 
 struct TypeSize {
-  catalog::col_oid_t col_id;
+  column_t col_id;
   type_id type;
   u16 size;
 
-  TypeSize(catalog::col_oid_t id, type_id t) : col_id(id), type(t), size(SizeOf(t)) {}
+  TypeSize(column_t id, type_id t) : col_id(id), type(t), size(SizeOf(t)) {}
 };
 
 inline std::vector<TypeSize> AttrsFor(catalog::CatalogTableOid t) {

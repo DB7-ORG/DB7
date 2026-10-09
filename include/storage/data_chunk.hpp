@@ -15,6 +15,8 @@ namespace db7 {
 struct ChunkColumn {
   column_t oid;
   u16 size;
+
+  ChunkColumn(column_t o, u16 s) : oid(o), size(s) {}
 };
 
 /**

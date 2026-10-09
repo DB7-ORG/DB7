@@ -10,7 +10,7 @@ private:
 
 public:
   Index(IndexType type) : type_(type) {}
-  virtual ~Index();
+  virtual ~Index() = default;
 
   IndexType GetType() const { return type_; }
 

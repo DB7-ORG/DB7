@@ -449,8 +449,8 @@ private:
 public:
   BTreeIndex(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, table_id tbl_id,
              table_id heap_tbl_id, std::vector<TypeSize> attr)
-      : buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id), heap_tbl_id_(heap_tbl_id),
-        layout_inter_(), layout_leaf_(), attrs_(std::move(attr)) {
+      : Index(IndexType::BTREE), buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id),
+        heap_tbl_id_(heap_tbl_id), layout_inter_(), layout_leaf_(), attrs_(std::move(attr)) {
 
     if (!disk_mng_->CreateOpenFile(tbl_id_, 1)) {
       throw IO_EXCEPTION("IO exception could not open file");
@@ -466,7 +466,7 @@ public:
     ReleaseNode<shared::LockMode::Write>(page);
   }
 
-  ~BTreeIndex() = default;
+  ~BTreeIndex() override = default;
 
   ResultObj<void> Insert(DataChunk *chunk, ValTyp value) {
     auto ptr =

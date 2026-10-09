@@ -134,7 +134,7 @@ protected:
   std::unique_ptr<storage::DiskScheduler> sched_;
   std::unique_ptr<storage::PageVersionManager> vm_;
   std::unique_ptr<storage::BufferPool> bp_;
-  std::unique_ptr<DataChunkLayout> layout_;
+  ChunkPtr layout_;
   std::unique_ptr<Tree> tree_;
 
   /// Concurrent tests override this. A 256-page pool under 12 threads is
@@ -167,11 +167,10 @@ protected:
 
     const std::vector<TypeSize> attr = Schema();
 
-    const auto col_ids = Project(attr, [](const TypeSize &t) { return t.col_id; });
-    const auto sizes = Project(attr, [](const TypeSize &t) { return t.size; });
+    std::vector<ChunkColumn> cols =
+        Project(attr, [](const TypeSize &t) { return ChunkColumn{t.col_id, t.size}; });
 
-    layout_ = std::make_unique<DataChunkLayout>(std::span<const catalog::col_oid_t>(col_ids),
-                                                std::span<const u16>(sizes));
+    layout_ = ChunkPtr(DataChunk::BuildDataChunk(cols));
 
     tree_ = std::make_unique<Tree>(bp_.get(), dm_.get(), next_tbl_++, 0, attr);
   }
@@ -186,7 +185,7 @@ protected:
   // ---- Chunk construction (thread-safe) --------------------------------
 
   static void FillChunk(DataChunk &chunk, const Row &row) {
-    DB7_ASSERT(row.size() == chunk.GetColumnCount(), "Invalid row size");
+    DB7_ASSERT(row.size() == chunk.GetColCount(), "Invalid row size");
 
     for (size_t i = 0; i < row.size(); ++i) {
       std::visit(
@@ -196,10 +195,10 @@ protected:
             if constexpr (std::is_same_v<T, std::string>) {
               storage::VarlenEntry entry;
               entry.Set(std::span<const char>(value.data(), value.size()));
-              std::memcpy(chunk.Access(i), &entry, sizeof(entry));
+              std::memcpy(chunk.GetByIdx(i), &entry, sizeof(entry));
             } else {
               static_assert(std::is_trivially_copyable_v<T>);
-              std::memcpy(chunk.Access(i), &value, sizeof(T));
+              std::memcpy(chunk.GetByIdx(i), &value, sizeof(T));
             }
           },
           row[i]);
@@ -209,7 +208,7 @@ protected:
   /// Safe from worker threads: CreateDataChunk only reads the layout
   /// header and allocates fresh memory.
   ChunkPtr MakeKey(const Row &row) {
-    ChunkPtr chunk(layout_->CreateDataChunk());
+    ChunkPtr chunk(layout_->Copy());
     FillChunk(*chunk, row);
     return chunk;
   }
