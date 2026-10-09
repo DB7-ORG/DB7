@@ -209,6 +209,10 @@ public:
     return chunk;
   }
 
+  static DataChunk *BuildDataChunk(byte *raw, std::vector<ChunkColumn> &columns) {
+    // TODO storage
+  }
+
   static void Destroy(DataChunk *chunk) { delete[] reinterpret_cast<byte *>(chunk); }
 
   DataChunk *Copy() {
