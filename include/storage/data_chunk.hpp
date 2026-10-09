@@ -18,7 +18,8 @@ struct ChunkColumn {
 
   ChunkColumn(column_t o, u16 s) : oid(o), size(s) {}
 };
-
+// TODO storage shouldnt fill the chunk by copying
+// instead copy header and the rest should be filled using an iterator or something like that
 /**
  * [total size ib bytes] (4 bytes)
  * [column count]        (2 bytes)
@@ -121,7 +122,7 @@ public:
   }
 
   template <typename T>
-  T Get(u16 idx, bool &isNull) const {
+  T Get(u16 idx, bool &isNull) const { // TODO storage doesnt work for varlen
     static_assert(std::is_trivially_copyable_v<T>);
     DB7_ASSERT(idx < col_count_, "column index out of range");
     DB7_ASSERT(sizeof(T) <= SlotSize(idx), "type larger than column slot");
@@ -160,7 +161,7 @@ public:
     WriteByIdx(idx, data);
   }
 
-  template <typename T>
+  template <typename T> // TODO storage doesnt work for varlen
   void Set(u16 idx, const T &value, bool isNull) {
     static_assert(std::is_trivially_copyable_v<T>);
     DB7_ASSERT(idx < col_count_, "column index out of range");

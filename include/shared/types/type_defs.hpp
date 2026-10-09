@@ -45,4 +45,9 @@ constexpr u8 SizeOf(type_id t) {
   default: DB7_UNREACHABLE();
   }
 }
+
+constexpr bool IsVarlen(type_id type) {
+  return type == type_id::VARBINARY || type == type_id::VARCHAR;
+}
+
 } // namespace db7
