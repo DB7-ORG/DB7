@@ -61,15 +61,6 @@ private:
     throw std::out_of_range("column not in chunk");
   }
 
-public:
-  u32 GetSize() const { return size_; }
-
-  u16 GetColCount() const { return col_count_; }
-
-  const column_t *ColumnIds() const { return reinterpret_cast<const column_t *>(varlen_contents_); }
-
-  column_t *ColumnIds() { return reinterpret_cast<column_t *>(varlen_contents_); }
-
   const u16 *Offsets() const { return reinterpret_cast<const u16 *>(ColumnIds() + col_count_); }
 
   u16 *Offsets() { return reinterpret_cast<u16 *>(ColumnIds() + col_count_); }
@@ -80,7 +71,16 @@ public:
 
   const byte *Data() const { return Bitmap() + BitmapSize(col_count_); }
 
-  /** Returns the size of {columns ids} + {offsets} + {column count} + {chunk size} */
+public:
+  u32 GetSize() const { return size_; }
+
+  u16 GetColCount() const { return col_count_; }
+
+  const column_t *ColumnIds() const { return reinterpret_cast<const column_t *>(varlen_contents_); }
+
+  column_t *ColumnIds() { return reinterpret_cast<column_t *>(varlen_contents_); }
+
+  /** Returns the header size of {columns ids} + {offsets} + {column count} + {chunk size} */
   std::span<byte> GetHeaderSpan() { return std::span<byte>(Bytes(), Data() - Bytes()); }
 
   bool IsNull(u16 idx) const { return ((Bitmap()[idx / 8] >> (idx % 8)) & 1); }
@@ -146,6 +146,8 @@ public:
     if (data.data() == nullptr) {
       SetNull(idx, true);
       return;
+    } else {
+      SetNull(idx, false);
     }
     std::memcpy(GetByIdx(idx), data.data(), data.size_bytes());
   }
@@ -157,6 +159,8 @@ public:
     if (data.data() == nullptr) {
       SetNull(idx, true);
       return;
+    } else {
+      SetNull(idx, false);
     }
     WriteByIdx(idx, data);
   }
