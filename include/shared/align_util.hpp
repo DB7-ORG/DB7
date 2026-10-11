@@ -9,15 +9,18 @@
 namespace db7::shared {
 
 constexpr uintptr_t AlignUp(uintptr_t addr, u32 alignment) {
+  DB7_ASSERT(std::has_single_bit(alignment), "alignment must be a power of two");
   return (addr + alignment - 1) & ~(static_cast<uintptr_t>(alignment) - 1);
 }
 
 inline byte *AlignUp(byte *value, u32 alignment) {
+  DB7_ASSERT(std::has_single_bit(alignment), "alignment must be a power of two");
   return reinterpret_cast<byte *>(AlignUp(reinterpret_cast<uintptr_t>(value), alignment));
 }
 
 template <typename T>
 constexpr T AlignDown(T value, size_t alignment) {
+  DB7_ASSERT(std::has_single_bit(alignment), "alignment must be a power of two");
   return value & ~(alignment - 1);
 }
 
