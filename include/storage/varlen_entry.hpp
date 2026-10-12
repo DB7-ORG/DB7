@@ -31,4 +31,6 @@ public:
 
 static_assert(sizeof(VarlenEntry) == SizeOf(type_id::VARCHAR), "Entry size mismatch");
 
+class VarlenEntryView {};
+
 } // namespace db7::storage
