@@ -10,10 +10,24 @@
 
 namespace db7::storage {
 
+class VarlenEntryView {
+private:
+  u16 size_;
+  std::span<byte> prefix_;
+  std::span<byte> rest_;
+
+public:
+  VarlenEntryView(u16 size, std::span<byte> prefix, std::span<byte> rest)
+      : size_(size), prefix_(prefix), rest_(rest) {}
+
+  std::span<byte> Prefix();
+  std::span<byte> Rest();
+};
+
 class VarlenEntry {
 private:
   u16 size_;
-  const char data_[12];
+  const byte data_[12];
   const u16 offset_;
 
 private:
@@ -27,10 +41,12 @@ public:
 
   u16 Size() const { return size_; }
   bool IsInlined() const { return size_ <= SizeOf(type_id::VARCHAR); }
+
+  VarlenEntryView View(byte *page) {
+    return VarlenEntryView(size_, {&data_, 14}, {page + offset_, 17});
+  }
 };
 
 static_assert(sizeof(VarlenEntry) == SizeOf(type_id::VARCHAR), "Entry size mismatch");
-
-class VarlenEntryView {};
 
 } // namespace db7::storage
