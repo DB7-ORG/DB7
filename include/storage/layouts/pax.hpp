@@ -4,6 +4,7 @@
 #include "shared/types/type_defs.hpp"
 #include "storage/data_chunk.hpp"
 #include "storage/storage_common.hpp"
+#include "storage/varlen_entry.hpp"
 
 // TODO storage should add response enum so i know whats the problem in layers above
 
@@ -58,24 +59,6 @@
  */
 
 namespace db7::storage {
-
-class VarlenEntry {
-private:
-  u16 size_;
-  char data_[14];
-
-public:
-  u16 Size() const { return size_; }
-  u16 Offset() const {
-    u16 off;
-    std::memcpy(&off, &data_[12],
-                sizeof(off)); // avoids casting away const and any alignment/aliasing issue
-    return off;
-  }
-  bool IsInlined() const { return size_ <= SizeOf(type_id::VARCHAR); }
-};
-
-static_assert(sizeof(VarlenEntry) == SizeOf(type_id::VARCHAR), "Entry size mismatch");
 
 enum PaxInsertResponse {
   OK,

@@ -3,6 +3,7 @@
 #include "common.hpp"
 #include "shared/align_util.hpp"
 #include "shared/error/exception.hpp"
+#include "shared/types/type_defs.hpp"
 
 #include <cstring>
 #include <span>
@@ -13,11 +14,13 @@
 namespace db7 {
 
 struct ChunkColumn {
+  // column id
   column_t oid;
+  // size of fixed part (pow of 2).
+  // NOTE: for warlen is 16 bytes not size of payload
   u16 size;
-  bool isVarlen;
 
-  ChunkColumn(column_t o, u16 s, bool isVarlen) : oid(o), size(s), isVarlen(isVarlen) {}
+  ChunkColumn(column_t o, u16 s) : oid(o), size(s) {}
 };
 // TODO storage shouldnt fill the chunk by copying
 // instead copy header and the rest should be filled using an iterator or something like that
@@ -27,7 +30,8 @@ struct ChunkColumn {
  * [column ids]          (count* 2 bytes)
  * [offsets]             (count* 2 bytes)
  * [null bitmap]         (coulumn count/8 + 1 bytes)
- * [data]                (varlen)
+ * [data slots]          (fixed len)
+ * [growing heap]        (varlen data, heap is growing down)
  *
  * 1 in bitmap means value is NULL
  */
@@ -35,6 +39,7 @@ class __attribute__((packed)) DataChunk {
 private:
   u32 size_;
   u16 col_count_;
+  u16 fixed_size_;
   byte varlen_contents_[0];
 
   // Allowed creation only using casting on raw memory
@@ -70,7 +75,9 @@ private:
 
   u8 *Bitmap() { return const_cast<u8 *>(std::as_const(*this).Bitmap()); }
 
-  const byte *Data() const { return Bitmap() + BitmapSize(col_count_); }
+  const byte *DataSlots() const { return Bitmap() + BitmapSize(col_count_); }
+
+  const byte *Heap() const { return Bitmap() + BitmapSize(col_count_); }
 
 public:
   u32 GetSize() const { return size_; }
@@ -82,7 +89,7 @@ public:
   column_t *ColumnIds() { return reinterpret_cast<column_t *>(varlen_contents_); }
 
   /** Returns the header size of {columns ids} + {offsets} + {column count} + {chunk size} */
-  std::span<byte> GetHeaderSpan() { return std::span<byte>(Bytes(), Data() - Bytes()); }
+  std::span<byte> GetHeaderSpan() { return std::span<byte>(Bytes(), DataSlots() - Bytes()); }
 
   bool IsNull(u16 idx) const { return ((Bitmap()[idx / 8] >> (idx % 8)) & 1); }
 
@@ -171,6 +178,7 @@ public:
     static_assert(std::is_trivially_copyable_v<T>);
     DB7_ASSERT(idx < col_count_, "column index out of range");
     DB7_ASSERT(sizeof(T) <= SlotSize(idx), "type larger than column slot");
+
     if (isNull) {
       SetNull(idx, true);
     } else {
@@ -179,31 +187,45 @@ public:
     }
   }
 
+  u16 AppendTail(byte *data, u16 len) {
+    DB7_ASSERT(size_ + len <= UINT16_MAX, "varlen offsets are u16");
+    const u16 off = static_cast<u16>(size_);
+    size_ += len;
+    std::memcpy(Bytes() + off, data, len);
+    return off;
+  }
+
+  void WriteVarlen(u16 idx, std::span<byte> inlined, std::span<byte> heap) {
+    byte *dest = GetByIdx(idx);
+    std::memcpy(dest, inlined.data(), inlined.size());
+    if (inlined.size() > SizeOf(type_id::VARCHAR)) { AppendTail(heap.data(), heap.size()); }
+  }
+
 private:
-  static size_t CalcTotalSizeAndOffsets(std::vector<ChunkColumn> &columns,
+  static size_t CalcFixedSizeAndOffsets(std::vector<ChunkColumn> &columns,
                                         std::vector<u16> &offsets) {
     auto column_count = columns.size();
     size_t size = sizeof(DataChunk) + sizeof(column_t) * column_count + sizeof(u16) * column_count +
                   BitmapSize(column_count);
     for (const auto &col : columns) {
-      if (!col.isVarlen) { size = shared::AlignUp(size, col.size); }
+      size = shared::AlignUp(size, col.size);
       DB7_ASSERT(size <= UINT16_MAX, "offset does not fit in u16");
       offsets.emplace_back(size);
       size += col.size;
     }
-    return shared::AlignUp(size, sizeof(u32));
+    return size;
   }
 
 public:
-  static DataChunk *BuildDataChunk(std::vector<ChunkColumn> &columns) {
+  static DataChunk *BuildDataChunkInitializer(std::vector<ChunkColumn> &columns) {
     std::vector<u16> offsets;
     offsets.reserve(columns.size());
-    const size_t size = CalcTotalSizeAndOffsets(columns, offsets);
-    DB7_ASSERT(size <= UINT32_MAX, "chunk too large");
+    const size_t size = CalcFixedSizeAndOffsets(columns, offsets);
 
     byte *raw = new byte[size](); // zeroed: bitmap
     auto *chunk = reinterpret_cast<DataChunk *>(raw);
-    chunk->size_ = size;
+    chunk->size_ = size; // only for initializer
+    chunk->fixed_size_ = size;
     chunk->col_count_ = columns.size();
 
     column_t *ids = chunk->ColumnIds();
@@ -214,19 +236,19 @@ public:
     return chunk;
   }
 
-  static DataChunk *BuildDataChunk(byte *raw, std::vector<ChunkColumn> &columns) {
-    // TODO storage
+  static DataChunk *BuildDataChunk(DataChunk *initializer, u32 size) {
+    return initializer->Copy(size);
   }
 
   static void Destroy(DataChunk *chunk) { delete[] reinterpret_cast<byte *>(chunk); }
 
-  DataChunk *Copy() {
-    byte *raw = new byte[size_];
-    std::memcpy(raw, this, size_);
+  DataChunk *Copy(u32 block_size) {
+    byte *raw = new byte[block_size];
+    std::memcpy(raw, this, fixed_size_);
     return reinterpret_cast<DataChunk *>(raw);
   }
 };
 
 static_assert(sizeof(column_t) == 2);
-static_assert(sizeof(DataChunk) == 6, "Sizes must match");
+static_assert(sizeof(DataChunk) == 8, "Sizes must match");
 } // namespace db7

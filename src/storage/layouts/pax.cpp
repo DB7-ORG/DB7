@@ -74,18 +74,18 @@ size_t Pax::CalcHeapBytes(std::vector<PaxInsertInfo> &columns) {
   return total;
 }
 
-void Pax::AppendVarlenUnsafe(byte *page, byte *dest, std::span<byte> payload) {
-  /* Appends first part of the slot [len] [inline data] [heap offset(empty)] */
-  std::memcpy(dest, payload.data(), inline_ptr_len);
+// void Pax::AppendVarlenUnsafe(byte *page, byte *dest, VarlenEntry *entry) {
+//   /* Appends first part of the slot [len] [inline data] [heap offset(empty)] */
+//   std::memcpy(dest, payload.data(), inline_ptr_len);
 
-  /* Appends to the heap area */
-  u16 heap_ptr_len = payload.size() - inline_ptr_len;
-  byte *heap_ptr = payload.data() + inline_ptr_len;
-  u16 off = AppendHeapUnsafe(page, {heap_ptr, heap_ptr_len});
+//   /* Appends to the heap area */
+//   u16 heap_ptr_len = payload.size() - inline_ptr_len;
+//   byte *heap_ptr = payload.data() + inline_ptr_len;
+//   u16 off = AppendHeapUnsafe(page, {heap_ptr, heap_ptr_len});
 
-  /* Appends the offset [len] [inline data] [heap offset] */
-  std::memcpy(dest + inline_ptr_len, &off, sizeof(u16));
-}
+//   /* Appends the offset [len] [inline data] [heap offset] */
+//   std::memcpy(dest + inline_ptr_len, &off, sizeof(u16));
+// }
 
 void Pax::ReadVarlenUnsafe(const byte *page, const byte *slot, byte *dest) {
   auto *entry = reinterpret_cast<const VarlenEntry *>(slot);
@@ -234,7 +234,8 @@ PaxInsertResponse Pax::Insert(byte *page, DataChunk *chunk, std::vector<PaxInser
                  "fixed-width value size mismatch");
       std::memcpy(dest, ptr, column.size);
     } else {
-      AppendVarlenUnsafe(page, dest, {ptr, column.size});
+      const auto *varlen = VarlenEntry::Cast(ptr);
+      // AppendVarlenUnsafe(page, dest, varlen);
     }
   }
 
