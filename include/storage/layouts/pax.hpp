@@ -4,7 +4,6 @@
 #include "shared/types/type_defs.hpp"
 #include "storage/data_chunk.hpp"
 #include "storage/storage_common.hpp"
-#include "storage/varlen_entry.hpp"
 
 // TODO storage should add response enum so i know whats the problem in layers above
 
@@ -148,7 +147,7 @@ struct PaxGetInfo {
   column_t column_id;
   u16 slot_size;
   type_id type;
-  // if its varlen should include the u16 at the start that marks how long the str is
+  // size of default ptr payload
   u16 size;
   byte *default_ptr;
   bool isVarlen;
@@ -176,7 +175,7 @@ private:
    *            size == 16 then we would have a str ".16.17.18..."
    *            (dots are for splitting the string)
    */
-  static u16 AppendHeapUnsafe(byte *page, std::span<byte> ptr);
+  static u16 AppendHeapUnsafe(byte *page, std::span<const byte> ptr);
 
   /**
    * Append varlen data to the heap area and also to the slot (inlined part)
@@ -238,6 +237,6 @@ public:
                             column_t catalog_col_count);
 
   static DataChunk *Get(byte *page, u16 row_idx, std::vector<PaxGetInfo> &columns,
-                        u16 catalog_col_count);
+                        u16 catalog_col_count, DataChunk *initializer);
 };
 } // namespace db7::storage

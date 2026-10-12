@@ -27,7 +27,7 @@ size_t Pax::CalculateNumTuples(size_t row_heap_size, size_t row_size, size_t pad
   // return N;
 }
 
-u16 Pax::AppendHeapUnsafe(byte *page, std::span<byte> ptr) {
+u16 Pax::AppendHeapUnsafe(byte *page, std::span<const byte> ptr) {
   u16 curr_heap_offset = PaxHeader::CurrHeapOffset(page);
   const u16 new_heap = curr_heap_offset - ptr.size_bytes();
   std::memcpy(page + new_heap, ptr.data(), ptr.size_bytes());
@@ -87,15 +87,16 @@ size_t Pax::CalcHeapBytes(std::vector<PaxInsertInfo> &columns) {
 //   std::memcpy(dest + inline_ptr_len, &off, sizeof(u16));
 // }
 
-void Pax::ReadVarlenUnsafe(const byte *page, const byte *slot, byte *dest) {
-  auto *entry = reinterpret_cast<const VarlenEntry *>(slot);
-  if (entry->IsInlined()) {
-    std::memcpy(dest, slot, entry->Size());
-  } else {
-    std::memcpy(dest, slot, inline_ptr_len);
-    std::memcpy(dest + inline_ptr_len, page + entry->Offset(), entry->Size() - inline_ptr_len);
-  }
-}
+// void Pax::ReadVarlenUnsafe(const byte *page, const byte *slot, byte *dest) {
+//   // TODO storage should be fixed for new varlen
+//   auto *entry = reinterpret_cast<const VarlenEntry *>(slot);
+//   if (entry->IsInlined()) {
+//     std::memcpy(dest, slot, entry->Size());
+//   } else {
+//     std::memcpy(dest, slot, inline_ptr_len);
+//     std::memcpy(dest + inline_ptr_len, page + entry->Offset(), entry->Size() - inline_ptr_len);
+//   }
+// }
 
 void Pax::Init(byte *page, std::vector<ColumnStatistics> &stats) {
   DB7_ASSERT(stats.size() >= 1, "number of columns in the page must be atleast 1");
@@ -183,7 +184,7 @@ PaxInsertResponse Pax::Insert(byte *page, DataChunk *chunk, std::vector<PaxInser
     DB7_ASSERT(col_id < ncols, "Column tried to write outside of range");
 
     const u16 offset = offsets[col_id];
-    if (offset != Pax::invalid_offset) { return PaxInsertResponse::WRITER_SCHEMA_STALE; }
+    // if (offset == Pax::invalid_offset) { return PaxInsertResponse::WRITER_SCHEMA_STALE; }
     DB7_ASSERT(offset != Pax::invalid_offset, "trying to insert to dropped column");
     // if (offset == Pax::invalid_offset) continue;
     if (chunk->IsNull(i) && !(offset & PaxHeader::offset_nullable_mask_))
@@ -229,13 +230,16 @@ PaxInsertResponse Pax::Insert(byte *page, DataChunk *chunk, std::vector<PaxInser
     // }
 
     byte *dest = CalcCellPos(page, stripped_offset, ntup, column.slot_size);
-    if (!IsVarlen(column.type) || column.size <= Pax::varlen_size) { // should be based on type
-      DB7_ASSERT(IsVarlen(column.type) || column.size == column.slot_size,
-                 "fixed-width value size mismatch");
+    if (!IsVarlen(column.type)) { // should be based on type
+      DB7_ASSERT(column.size == column.slot_size, "fixed-width value size mismatch");
       std::memcpy(dest, ptr, column.size);
     } else {
-      const auto *varlen = VarlenEntry::Cast(ptr);
-      // AppendVarlenUnsafe(page, dest, varlen);
+      const auto *entry = VarlenEntry::Cast(ptr);
+      std::memcpy(dest, entry, sizeof(VarlenEntry));
+      if (!entry->IsInlined()) {
+        u16 off = AppendHeapUnsafe(page, entry->Heap(chunk->Bytes()));
+        VarlenEntry::Cast(dest)->SetOffset(off);
+      }
     }
   }
 
@@ -259,7 +263,7 @@ bool Pax::IsPageVisible(byte *page, const std::vector<PaxGetInfo> &cols,
 }
 
 DataChunk *Pax::Get(byte *page, u16 row_idx, std::vector<PaxGetInfo> &columns,
-                    u16 catalog_col_count) {
+                    u16 catalog_col_count, DataChunk *initializer) {
 
   DB7_ASSERT(row_idx < PaxHeader::TupleCount(page), "Row outside the inserted tuples");
   DB7_ASSERT(IsPageVisible(page, columns, catalog_col_count),
@@ -269,67 +273,81 @@ DataChunk *Pax::Get(byte *page, u16 row_idx, std::vector<PaxGetInfo> &columns,
   const u16 *offsets = PaxHeader::Offsets(page);
   const column_t ncols = PaxHeader::ColumnCount(page);
 
-  // Initialize array for chunk header
-  struct Src {
-    const byte *slot = nullptr;
-    u16 size = 0;
-  }; // slot == nullptr -> NULL or default
-  std::vector<Src> src(columns.size());
-  std::vector<ChunkColumn> chunk_columns;
-  chunk_columns.reserve(columns.size());
-
+  u16 alloc_size = 0;
   for (size_t i = 0; i < columns.size(); i++) {
 
     const auto &col = columns[i];
     DB7_ASSERT(col.isVarlen || col.size == col.slot_size,
                "Slot size and size must be equal for fixed types");
 
-    if (col.column_id >= ncols) {
-      // Default value should be inserted. Column was added after this page was formatted.
-      chunk_columns.push_back({col.column_id, col.default_ptr ? col.size : u16{0}, col.isVarlen});
-      continue;
-    }
-
-    const u16 page_offset = offsets[col.column_id];
-    const u16 stripped_offset = StripOff(page_offset);
-    // Check if column contains a bitmap
-    if (page_offset & PaxHeader::offset_nullable_mask_) {
-      byte *bitmap = ColBitmap(page, stripped_offset, col.slot_size, capacity);
-      if (IsNull(bitmap, row_idx)) {
-        // Value is null no need to allocate space for it in chunk
-        chunk_columns.push_back({col.column_id, 0, true});
+    if (col.isVarlen) {
+      if (col.column_id >= ncols) {
+        if (col.size > varlen_size && col.default_ptr != nullptr) {
+          alloc_size += col.size - inline_ptr_len;
+        }
         continue;
       }
-    }
 
-    const byte *slot = CalcCellPos(page, stripped_offset, row_idx, col.slot_size);
-    if (col.isVarlen) {
-      const auto size = reinterpret_cast<const VarlenEntry *>(slot)->Size();
-      chunk_columns.push_back({col.column_id, size, true});
-      src[i] = {slot, size};
-    } else {
-      chunk_columns.push_back({col.column_id, col.slot_size, false});
-      src[i] = {slot, col.slot_size};
+      const auto offset = offsets[col.column_id];
+      const auto stripped = StripOff(offset);
+
+      if (offset & PaxHeader::offset_nullable_mask_) {
+        byte *bitmap = ColBitmap(page, stripped, col.slot_size, capacity);
+        if (IsNull(bitmap, row_idx)) { continue; }
+      }
+
+      byte *pos = CalcCellPos(page, stripped, row_idx, col.slot_size);
+      auto *varlen = VarlenEntry::Cast(pos);
+      if (!varlen->IsInlined()) { alloc_size += varlen->HeapSize(); }
     }
   }
 
   // Builds data chunk
-  auto *chunk = DataChunk::BuildDataChunk(chunk_columns);
+  auto *chunk = DataChunk::BuildDataChunk(initializer, alloc_size);
 
   for (size_t i = 0; i < columns.size(); i++) {
     const auto &col = columns[i];
+
     byte *dest = chunk->GetByIdx(i);
 
-    if (src[i].slot == nullptr) {
-      if (col.column_id >= ncols && col.default_ptr != nullptr) {
-        std::memcpy(dest, col.default_ptr, col.size);
-      } else {
+    if (col.column_id >= ncols) {
+      if (col.default_ptr == nullptr) {
         chunk->SetNull(i, true);
+      } else if (col.isVarlen) {
+        const bool spills = col.size > varlen_size;
+        const size_t s = spills ? varlen_size : col.size;
+        std::span<const byte> slot{col.default_ptr, s};
+        std::span<const byte> heap = spills
+                                         ? std::span<const byte>{col.default_ptr + inline_ptr_len,
+                                                                 size_t(col.size - inline_ptr_len)}
+                                         : std::span<const byte>{};
+        chunk->WriteVarlen(i, slot, heap); // overwrites bytes 14..15 with the chunk offset
+      } else {
+        std::memcpy(dest, col.default_ptr, col.size);
       }
-    } else if (IsVarlen(col.type)) {
-      ReadVarlenUnsafe(page, src[i].slot, dest); // copies exactly the reserved size
+      continue;
+    }
+
+    const auto offset = offsets[col.column_id];
+
+    const auto stripped = StripOff(offset);
+
+    if (offset & PaxHeader::offset_nullable_mask_) {
+      byte *bitmap = ColBitmap(page, stripped, col.slot_size, capacity);
+      if (IsNull(bitmap, row_idx)) {
+        chunk->SetNull(i, true);
+        continue;
+      }
+    }
+
+    byte *pos = CalcCellPos(page, stripped, row_idx, col.slot_size);
+    if (col.isVarlen) {
+      // ReadVarlenUnsafe(page, pos, dest);
+      auto *entry = VarlenEntry::Cast(pos);
+      const auto heap = entry->IsInlined() ? std::span<byte>() : entry->Heap(page);
+      chunk->WriteVarlen(i, entry->Slot(), heap);
     } else {
-      std::memcpy(dest, src[i].slot, col.slot_size);
+      std::memcpy(dest, pos, col.slot_size);
     }
   }
   return chunk;

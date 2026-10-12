@@ -4,6 +4,7 @@
 #include "shared/align_util.hpp"
 #include "shared/error/exception.hpp"
 #include "shared/types/type_defs.hpp"
+#include "storage/varlen_entry.hpp"
 
 #include <cstring>
 #include <span>
@@ -49,10 +50,6 @@ private:
   ~DataChunk() = delete;
 
 private:
-  const byte *Bytes() const { return reinterpret_cast<const byte *>(this); }
-
-  byte *Bytes() { return reinterpret_cast<byte *>(this); }
-
   static constexpr u32 BitmapSize(u32 n) { return (n + 7) / 8; }
 
   u32 SlotSize(u16 idx) const {
@@ -77,9 +74,13 @@ private:
 
   const byte *DataSlots() const { return Bitmap() + BitmapSize(col_count_); }
 
-  const byte *Heap() const { return Bitmap() + BitmapSize(col_count_); }
+  const byte *Heap() const { return Bytes() + size_; } // TODO storage check
 
 public:
+  byte *Bytes() { return reinterpret_cast<byte *>(this); }
+
+  const byte *Bytes() const { return reinterpret_cast<const byte *>(this); }
+
   u32 GetSize() const { return size_; }
 
   u16 GetColCount() const { return col_count_; }
@@ -187,7 +188,7 @@ public:
     }
   }
 
-  u16 AppendTail(byte *data, u16 len) {
+  u16 AppendTail(const byte *data, u16 len) {
     DB7_ASSERT(size_ + len <= UINT16_MAX, "varlen offsets are u16");
     const u16 off = static_cast<u16>(size_);
     size_ += len;
@@ -195,10 +196,13 @@ public:
     return off;
   }
 
-  void WriteVarlen(u16 idx, std::span<byte> inlined, std::span<byte> heap) {
+  void WriteVarlen(u16 idx, std::span<const byte> slot, std::span<const byte> heap) {
     byte *dest = GetByIdx(idx);
-    std::memcpy(dest, inlined.data(), inlined.size());
-    if (inlined.size() > SizeOf(type_id::VARCHAR)) { AppendTail(heap.data(), heap.size()); }
+    std::memcpy(dest, slot.data(), slot.size());
+    if (!storage::VarlenEntry::Cast(dest)->IsInlined()) {
+      u16 off = AppendTail(heap.data(), heap.size());
+      storage::VarlenEntry::Cast(dest)->SetOffset(off);
+    }
   }
 
 private:
@@ -242,8 +246,8 @@ public:
 
   static void Destroy(DataChunk *chunk) { delete[] reinterpret_cast<byte *>(chunk); }
 
-  DataChunk *Copy(u32 block_size) {
-    byte *raw = new byte[block_size];
+  DataChunk *Copy(u32 heap_size) {
+    byte *raw = new byte[fixed_size_ + heap_size];
     std::memcpy(raw, this, fixed_size_);
     return reinterpret_cast<DataChunk *>(raw);
   }
