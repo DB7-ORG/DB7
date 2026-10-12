@@ -39,7 +39,7 @@
   |   values          capacity * SizeOf(type) bytes               |
   |   null bitmap     ceil(capacity / 8) bytes, nullable only     |
   |                   bit i == 1 -> tuple i is NULL               |
-  |                   zeroed at Init (all values not NULL)        |
+  |                                                               |
   +---------------------------------------------------------------+ max heap offset
   | free space                                                    |
   +---------------------------------------------------------------+ current heap offset
@@ -58,6 +58,34 @@
  */
 
 namespace db7::storage {
+
+class VarlenEntry {
+private:
+  u16 size_;
+  char data_[14];
+
+public:
+  u16 Size() const { return size_; }
+  u16 Offset() const {
+    u16 off;
+    std::memcpy(&off, &data_[12],
+                sizeof(off)); // avoids casting away const and any alignment/aliasing issue
+    return off;
+  }
+  bool IsInlined() const { return size_ <= SizeOf(type_id::VARCHAR); }
+};
+
+static_assert(sizeof(VarlenEntry) == SizeOf(type_id::VARCHAR), "Entry size mismatch");
+
+enum PaxInsertResponse {
+  OK,
+  NO_SPACE_HEAP,       // no more space in heap of the page
+  NO_SPACE_CAPACITY,   // limit of max number of tuples for this layout reached
+  PAGE_SCHEMA_OLDER,   // some columns are missing in page cant insert
+  WRITER_SCHEMA_STALE, // column changed from NOT NULL to NULLABLE
+  COLUMN_DROPPED,      // someone else dropped the column that we want to insert
+};
+
 class PaxHeader {
 public:
   /** ColumnCount + TupleCount + Capacity + CurrHeapOffset + MaxHeapOffsetRef */
@@ -133,6 +161,15 @@ struct PaxInsertInfo {
   u16 slot_size;
   type_id type;
 };
+struct PaxGetInfo {
+  column_t column_id;
+  u16 slot_size;
+  type_id type;
+  // if its varlen should include the u16 at the start that marks how long the str is
+  u16 size;
+  byte *default_ptr;
+  bool isVarlen;
+};
 
 class Pax {
 private:
@@ -167,6 +204,8 @@ private:
    */
   static void AppendVarlenUnsafe(byte *page, byte *dest, std::span<byte> payload);
 
+  static void ReadVarlenUnsafe(const byte *page, const byte *slot, byte *dest);
+
   static u16 CalcHeapBytes(u16 size);
 
   static u16 CalcHeapBytes(type_id type, u16 size);
@@ -187,7 +226,7 @@ public:
    *
    * @param columns column metadata
    */
-  static u16 CalcHeapBytes(std::vector<PaxInsertInfo> &columns);
+  static size_t CalcHeapBytes(std::vector<PaxInsertInfo> &columns);
 
   /**
    * Method used for initializing an empty page when its first available
@@ -205,12 +244,17 @@ public:
    *
    * @param page          page bytes
    * @param chunk         data we want to insert to the page
-   * @param columns       metadata for columns like size and type of the column
+   * @param columns       metadata for columns in chunk like column item size and type.
+   *                      NOTE: doesnt include dropped columns
    * @param required_heap heap required in bytes for data to fit into this page
    */
-  static bool Insert(byte *page, DataChunk *chunk, std::vector<PaxInsertInfo> &columns,
-                     size_t required_heap, u16 catalog_col_count);
+  static PaxInsertResponse Insert(byte *page, DataChunk *chunk, std::vector<PaxInsertInfo> &columns,
+                                  size_t required_heap, column_t catalog_col_count);
 
-  // static void Get(byte* page, DataChunk *chunk, std::vector<PaxInsertInfo> &columns)
+  static bool IsPageVisible(byte *page, const std::vector<PaxGetInfo> &cols,
+                            column_t catalog_col_count);
+
+  static DataChunk *Get(byte *page, u16 row_idx, std::vector<PaxGetInfo> &columns,
+                        u16 catalog_col_count);
 };
 } // namespace db7::storage

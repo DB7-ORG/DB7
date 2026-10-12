@@ -15,8 +15,9 @@ namespace db7 {
 struct ChunkColumn {
   column_t oid;
   u16 size;
+  bool isVarlen;
 
-  ChunkColumn(column_t o, u16 s) : oid(o), size(s) {}
+  ChunkColumn(column_t o, u16 s, bool isVarlen) : oid(o), size(s), isVarlen(isVarlen) {}
 };
 // TODO storage shouldnt fill the chunk by copying
 // instead copy header and the rest should be filled using an iterator or something like that
@@ -185,7 +186,7 @@ private:
     size_t size = sizeof(DataChunk) + sizeof(column_t) * column_count + sizeof(u16) * column_count +
                   BitmapSize(column_count);
     for (const auto &col : columns) {
-      size = shared::AlignUp(size, col.size);
+      if (!col.isVarlen) { size = shared::AlignUp(size, col.size); }
       DB7_ASSERT(size <= UINT16_MAX, "offset does not fit in u16");
       offsets.emplace_back(size);
       size += col.size;
