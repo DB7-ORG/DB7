@@ -41,6 +41,10 @@ size_t Pax::CalcHeapBytes(const std::vector<storage::StorageColumnDesc> &columns
   return required_heap;
 }
 
+u16 MaxRowCount(byte *page) { return PaxHeader::Capacity(page); }
+
+u16 CurrentRowCount(byte *page) { return PaxHeader::TupleCount(page); }
+
 byte *Pax::CalcCellPos(byte *page, u16 stripped_col_offset, u16 row_idx, u16 slot_size) {
   return page + stripped_col_offset + row_idx * slot_size;
 }
@@ -193,6 +197,7 @@ PaxInsertResponse Pax::Insert(byte *page, DataChunk *chunk, std::vector<StorageC
     const u16 offset = offsets[col_id];
 
     const auto column = columns[i];
+    DB7_ASSERT(!column.isDropped, "Dropped columns shouldnt be included");
     /** Get data from the chunk that will be copied to the page */
     byte *ptr = chunk->GetByIdxNullCheck(i);
 

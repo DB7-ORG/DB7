@@ -205,6 +205,19 @@ public:
    */
   static size_t CalcHeapBytes(const std::vector<storage::StorageColumnDesc> &columns,
                               const DataChunk *chunk);
+  /**
+   * Method used for fetching maximum number of rows u can insert.
+   *
+   * @param page page bytes
+   */
+  static u16 MaxRowCount(byte *page);
+
+  /**
+   * Method used for fetching current number of rows.
+   *
+   * @param page page bytes
+   */
+  static u16 CurrentRowCount(const byte *page);
 
   /**
    * Method used for initializing an empty page when its first available

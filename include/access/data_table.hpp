@@ -30,10 +30,11 @@ private:
   column_t ncols_;
   DataChunkPtr initializer_;
   std::vector<std::unique_ptr<AddTableIndexInfo>> indexes_;
-  idx_t oid_; // table id
+  table_id oid_; // table id
 
 private:
   storage::Page *GetPageForInsert(DataChunk *chunk);
+  void InsertUndo(transaction::TransactionContext &context, u16 index, storage::Page *page);
 
 public:
   DataTable(storage::BufferPool *buffer, storage::DiskManagerAsync *disk_mng,
