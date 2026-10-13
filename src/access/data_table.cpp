@@ -51,6 +51,7 @@ void DataTable::InsertUndo(transaction::TransactionContext &context, u16 index,
 bool DataTable::Insert(transaction::TransactionContext &context, DataChunk *chunk) {
   u16 required_heap = storage::Pax::CalcHeapBytes(columns_, chunk);
   auto *page = GetPageForInsert(chunk); // TODO storage should pass required_heap here
+
   page->WDataLock();
 
   u16 tuple_count = storage::Pax::CurrentRowCount(page->GetData());

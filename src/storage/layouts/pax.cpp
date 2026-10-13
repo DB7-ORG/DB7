@@ -41,9 +41,9 @@ size_t Pax::CalcHeapBytes(const std::vector<storage::StorageColumnDesc> &columns
   return required_heap;
 }
 
-u16 MaxRowCount(byte *page) { return PaxHeader::Capacity(page); }
+u16 Pax::MaxRowCount(byte *page) { return PaxHeader::Capacity(page); }
 
-u16 CurrentRowCount(byte *page) { return PaxHeader::TupleCount(page); }
+u16 Pax::CurrentRowCount(byte *page) { return PaxHeader::TupleCount(page); }
 
 byte *Pax::CalcCellPos(byte *page, u16 stripped_col_offset, u16 row_idx, u16 slot_size) {
   return page + stripped_col_offset + row_idx * slot_size;

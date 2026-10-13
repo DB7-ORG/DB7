@@ -217,7 +217,7 @@ public:
    *
    * @param page page bytes
    */
-  static u16 CurrentRowCount(const byte *page);
+  static u16 CurrentRowCount(byte *page);
 
   /**
    * Method used for initializing an empty page when its first available
