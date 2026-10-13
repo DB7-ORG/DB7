@@ -155,9 +155,9 @@ struct PaxGetInfo {
 
 class Pax {
 private:
-  static constexpr u8 varlen_size = SizeOf(type_id::VARCHAR);
+  static constexpr u8 varlen_size = VarlenEntry::slot_size;
+  static constexpr u16 inline_ptr_len = VarlenEntry::inline_bytes;
   static constexpr u16 invalid_offset = 0;
-  static constexpr u16 inline_ptr_len = Pax::varlen_size - sizeof(u16);
 
   /**
    * Largest N such that the whole layout fits in a page. Computed in bits because
@@ -192,6 +192,8 @@ private:
 
   static u16 CalcHeapBytes(type_id type, u16 size);
 
+  static byte *CalcCellPos(byte *page, u16 stripped_col_offset, u16 row_idx, u16 slot_size);
+
   static byte *ColBitmap(byte *page, u16 offset, u8 type_size, u16 capacity);
 
   /* {0 -> not null , 1 -> null} */
@@ -201,6 +203,16 @@ private:
   static void SetBit(byte *bitmap, u16 idx);
 
   static u16 StripOff(u16 offset);
+
+  static void WriteSlot(byte *page, byte *dest, byte *source, const PaxInsertInfo &column,
+                        const DataChunk *chunk);
+
+  static u32 CalculateChunkHeapSize(byte *page, const column_t ncols, const u16 capacity,
+                                    const u16 *offsets, const u16 row_idx,
+                                    std::vector<PaxGetInfo> &columns);
+
+  static void WriteDefaultValueToChunk(byte *dest, const PaxGetInfo &col, DataChunk *chunk,
+                                       const size_t i);
 
 public:
   /**

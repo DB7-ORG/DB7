@@ -193,7 +193,7 @@ protected:
             using T = std::decay_t<decltype(value)>;
 
             if constexpr (std::is_same_v<T, std::string>) {
-              storage::VarlenEntry entry;
+              storage::VarlenEntry entry; // TODO storage
               entry.Set(std::span<const char>(value.data(), value.size()));
               std::memcpy(chunk.GetByIdx(i), &entry, sizeof(entry));
             } else {

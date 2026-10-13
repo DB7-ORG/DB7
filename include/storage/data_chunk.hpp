@@ -38,10 +38,10 @@ struct ChunkColumn {
  */
 class __attribute__((packed)) DataChunk {
 private:
-  u32 size_;
-  u16 col_count_;
-  u16 fixed_size_;
-  byte varlen_contents_[0];
+  u32 size_;                // size of the block also used for tracking growing heap position
+  u16 col_count_;           // number of columns
+  u16 fixed_size_;          // header size which is fixed and doesnt change
+  byte varlen_contents_[0]; // data slots and growing heap area
 
   // Allowed creation only using casting on raw memory
   DataChunk() = delete;
@@ -75,6 +75,14 @@ private:
   const byte *DataSlots() const { return Bitmap() + BitmapSize(col_count_); }
 
   const byte *Heap() const { return Bytes() + size_; } // TODO storage check
+
+  u16 AppendTail(const byte *data, u16 len) {
+    DB7_ASSERT(size_ + len <= UINT16_MAX, "varlen offsets are u16");
+    const u16 off = static_cast<u16>(size_);
+    size_ += len;
+    std::memcpy(Bytes() + off, data, len);
+    return off;
+  }
 
 public:
   byte *Bytes() { return reinterpret_cast<byte *>(this); }
@@ -130,20 +138,20 @@ public:
     throw MEMORY_EXCEPTION("column not in chunk");
   }
 
-  template <typename T>
-  T Get(u16 idx, bool &isNull) const { // TODO storage doesnt work for varlen
-    static_assert(std::is_trivially_copyable_v<T>);
-    DB7_ASSERT(idx < col_count_, "column index out of range");
-    DB7_ASSERT(sizeof(T) <= SlotSize(idx), "type larger than column slot");
-    T value{};
-    if (IsNull(idx)) {
-      isNull = true;
-    } else {
-      std::memcpy(&value, GetByIdx(idx), sizeof(T));
-      isNull = false;
-    }
-    return value;
-  }
+  // template <typename T>
+  // T Get(u16 idx, bool &isNull) const { // TODO storage doesnt work for varlen
+  //   static_assert(std::is_trivially_copyable_v<T>);
+  //   DB7_ASSERT(idx < col_count_, "column index out of range");
+  //   DB7_ASSERT(sizeof(T) <= SlotSize(idx), "type larger than column slot");
+  //   T value{};
+  //   if (IsNull(idx)) {
+  //     isNull = true;
+  //   } else {
+  //     std::memcpy(&value, GetByIdx(idx), sizeof(T));
+  //     isNull = false;
+  //   }
+  //   return value;
+  // }
 
   void WriteByIdx(u16 idx, std::span<const byte> data) {
     DB7_ASSERT(data.size_bytes() <= SlotSize(idx), "Write out of bounds");
@@ -174,35 +182,44 @@ public:
     WriteByIdx(idx, data);
   }
 
-  template <typename T> // TODO storage doesnt work for varlen
-  void Set(u16 idx, const T &value, bool isNull) {
-    static_assert(std::is_trivially_copyable_v<T>);
-    DB7_ASSERT(idx < col_count_, "column index out of range");
-    DB7_ASSERT(sizeof(T) <= SlotSize(idx), "type larger than column slot");
+  // template <typename T> // TODO storage doesnt work for varlen
+  // void Set(u16 idx, const T &value, bool isNull) {
+  //   static_assert(std::is_trivially_copyable_v<T>);
+  //   DB7_ASSERT(idx < col_count_, "column index out of range");
+  //   DB7_ASSERT(sizeof(T) <= SlotSize(idx), "type larger than column slot");
 
-    if (isNull) {
-      SetNull(idx, true);
-    } else {
-      std::memcpy(GetByIdx(idx), &value, sizeof(T));
-      SetNull(idx, false);
-    }
-  }
-
-  u16 AppendTail(const byte *data, u16 len) {
-    DB7_ASSERT(size_ + len <= UINT16_MAX, "varlen offsets are u16");
-    const u16 off = static_cast<u16>(size_);
-    size_ += len;
-    std::memcpy(Bytes() + off, data, len);
-    return off;
-  }
+  //   if (isNull) {
+  //     SetNull(idx, true);
+  //   } else {
+  //     std::memcpy(GetByIdx(idx), &value, sizeof(T));
+  //     SetNull(idx, false);
+  //   }
+  // }
 
   void WriteVarlen(u16 idx, std::span<const byte> slot, std::span<const byte> heap) {
+    using storage::VarlenEntry;
+    DB7_ASSERT(idx < col_count_, "column index out of range");
+    DB7_ASSERT(slot.size() <= VarlenEntry::slot_size, "slot larger than varlen slot");
+    DB7_ASSERT(Offsets()[idx] + VarlenEntry::slot_size <= fixed_size_, "slot outside fixed area");
+    DB7_ASSERT(slot.data() != nullptr, "slot value with null heap pointer");
+
     byte *dest = GetByIdx(idx);
     std::memcpy(dest, slot.data(), slot.size());
-    if (!storage::VarlenEntry::Cast(dest)->IsInlined()) {
-      u16 off = AppendTail(heap.data(), heap.size());
-      storage::VarlenEntry::Cast(dest)->SetOffset(off);
+    auto *entry = VarlenEntry::Cast(dest);
+
+    if (entry->IsInlined()) {
+      DB7_ASSERT(entry->Size() <= slot.size(), "inlined value truncated: slot shorter than size_");
+      DB7_ASSERT(heap.empty(), "inlined value must not carry heap bytes");
+      return;
     }
+
+    DB7_ASSERT(slot.size() == VarlenEntry::slot_size, "spilled value needs a full slot");
+    DB7_ASSERT(heap.size() == entry->HeapSize(), "heap span does not match size_");
+    DB7_ASSERT(heap.size() <= UINT16_MAX, "heap length does not fit in u16");
+    DB7_ASSERT(heap.data() != nullptr, "spilled value with null heap pointer");
+
+    const u16 off = AppendTail(heap.data(), static_cast<u16>(heap.size()));
+    entry->SetOffset(off);
   }
 
 private:

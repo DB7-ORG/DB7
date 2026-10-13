@@ -136,7 +136,8 @@ public:
     return n + sizeof(u64); // the tid suffix
   }
 
-  static u32 SwitchType(byte *buf, void *ptr, bool is_data_null, type_id type, KeySpecs specs) {
+  static u32 SwitchType(byte *buf, void *ptr, const DataChunk *chunk, bool is_data_null,
+                        type_id type, KeySpecs specs) {
     switch (type) {
     case type_id::BOOLEAN:
     case type_id::UTINYINT: return Encode(buf, *(u8 *)ptr, is_data_null, specs);
@@ -159,8 +160,8 @@ public:
 
     case type_id::VARCHAR:
     case type_id::VARBINARY: {
-      auto *entry = (storage::VarlenEntry *)ptr;
-      std::span<const byte> data = {(const byte *)entry->GetInline(), entry->GetSize()};
+      auto *entry = storage::VarlenEntry::Cast(reinterpret_cast<byte *>(ptr));
+      std::span<const byte> data = entry->Data(chunk->Bytes());
       return Encode(buf, data, is_data_null, specs);
     }
     default: DB7_UNREACHABLE();
@@ -171,8 +172,8 @@ public:
     byte *cur = out;
 
     for (size_t i = 0; i < types.size(); i++) {
-      cur +=
-          SwitchType(cur, chunk->GetByOid(types[i].col_id), false, types[i].type, {false, false});
+      void *ptr = chunk->GetByOid(types[i].col_id);
+      cur += SwitchType(cur, ptr, chunk, false, types[i].type, {false, false});
     }
 
     cur += EncodeUnsigned(cur, key_value);
