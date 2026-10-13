@@ -3,7 +3,7 @@
 #include "common.hpp"
 #include "shared/align_util.hpp"
 #include "shared/error/exception.hpp"
-#include "shared/types/type_defs.hpp"
+#include "storage/layouts/storage_column_desc.hpp"
 #include "storage/varlen_entry.hpp"
 
 #include <cstring>
@@ -115,6 +115,11 @@ public:
   const byte *GetByIdx(u16 idx) const { return Bytes() + Offsets()[idx]; }
 
   byte *GetByIdxNullCheck(u16 idx) {
+    if (IsNull(idx)) return nullptr;
+    return GetByIdx(idx);
+  }
+
+  const byte *GetByIdxNullCheck(u16 idx) const {
     if (IsNull(idx)) return nullptr;
     return GetByIdx(idx);
   }
@@ -236,6 +241,13 @@ private:
   }
 
 public:
+  static DataChunk *BuildDataChunkInitializer(std::vector<storage::StorageColumnDesc> &columns) {
+    std::vector<ChunkColumn> cols;
+    cols.reserve(columns.size());
+    for (const auto &c : columns) { cols.emplace_back(ChunkColumn{c.column_id, c.slot_size}); }
+    return BuildDataChunkInitializer(cols);
+  }
+
   static DataChunk *BuildDataChunkInitializer(std::vector<ChunkColumn> &columns) {
     std::vector<u16> offsets;
     offsets.reserve(columns.size());
@@ -270,4 +282,9 @@ public:
 
 static_assert(sizeof(column_t) == 2);
 static_assert(sizeof(DataChunk) == 8, "Sizes must match");
+
+struct DataChunkDeleter {
+  void operator()(DataChunk *chunk) const noexcept { DataChunk::Destroy(chunk); }
+};
+using DataChunkPtr = std::unique_ptr<DataChunk, DataChunkDeleter>;
 } // namespace db7

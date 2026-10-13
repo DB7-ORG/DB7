@@ -24,10 +24,21 @@ u16 Pax::CalcHeapBytes(type_id type, u16 size) {
   return CalcHeapBytes(size);
 }
 
-size_t Pax::CalcHeapBytes(std::vector<PaxInsertInfo> &columns) {
-  size_t total = 0;
-  for (const auto &col : columns) { total += CalcHeapBytes(col.type, col.size); }
-  return total;
+size_t Pax::CalcHeapBytes(const std::vector<storage::StorageColumnDesc> &columns,
+                          const DataChunk *chunk) {
+  u16 required_heap = 0;
+  const column_t *chunk_column_ids = chunk->ColumnIds();
+  for (u16 i = 0; i < chunk->GetColCount(); i++) {
+    const auto col = columns[chunk_column_ids[i]];
+    DB7_ASSERT(!col.isDropped, "Tried to index into dropped columns");
+    if (col.isVarlen) {
+      const auto *slot = chunk->GetByIdxNullCheck(i);
+      if (slot == nullptr) { continue; }
+      const storage::VarlenEntry *var_ptr = storage::VarlenEntry::Cast(slot);
+      required_heap += var_ptr->HeapSize();
+    }
+  }
+  return required_heap;
 }
 
 byte *Pax::CalcCellPos(byte *page, u16 stripped_col_offset, u16 row_idx, u16 slot_size) {
@@ -62,7 +73,8 @@ u16 Pax::StripOff(u16 offset) {
 // TODO storage could add min heap size if i need some specific layout
 // for a really large string for example so i dont get stuck creating
 // pages that dont have enough heap
-void Pax::Init(byte *page, std::vector<ColumnStatistics> &stats) {
+void Pax::Init(byte *page, std::vector<ColumnStatistics> &stats, size_t min_heap_size) {
+  DB7_ASSERT(min_heap_size <= UINT16_MAX, "Out of bounds");
   DB7_ASSERT(stats.size() >= 1, "number of columns in the page must be atleast 1");
   PaxHeader::SetColumnCount(page, stats.size());
   PaxHeader::SetTupleCount(page, 0);
@@ -80,6 +92,7 @@ void Pax::Init(byte *page, std::vector<ColumnStatistics> &stats) {
     valid_column_count++;
     nullable_count += size_t(s.nullable);
   }
+  row_heap_size = std::min(row_heap_size, min_heap_size);
   DB7_ASSERT(row_size > 0, "table has no live columns");
   DB7_ASSERT(valid_column_count >= 1, "number of valid columns in the page must be atleast 1");
 
@@ -121,10 +134,10 @@ u16 Pax::AppendHeapUnsafe(byte *page, std::span<const byte> ptr) {
   return new_heap;
 }
 
-void Pax::WriteSlot(byte *page, byte *dest, byte *source, const PaxInsertInfo &column,
+void Pax::WriteSlot(byte *page, byte *dest, byte *source, const StorageColumnDesc &column,
                     const DataChunk *chunk) {
   if (!IsVarlen(column.type)) {
-    DB7_ASSERT(column.size == column.slot_size, "fixed-width value size mismatch");
+    DB7_ASSERT(column.default_val.size() == column.slot_size, "fixed-width value size mismatch");
     std::memcpy(dest, source, column.slot_size);
   } else {
     const auto *entry = VarlenEntry::Cast(source);
@@ -136,7 +149,7 @@ void Pax::WriteSlot(byte *page, byte *dest, byte *source, const PaxInsertInfo &c
   }
 }
 
-PaxInsertResponse Pax::Insert(byte *page, DataChunk *chunk, std::vector<PaxInsertInfo> &columns,
+PaxInsertResponse Pax::Insert(byte *page, DataChunk *chunk, std::vector<StorageColumnDesc> &columns,
                               size_t required_heap, column_t catalog_col_count) {
   const column_t ncols = PaxHeader::ColumnCount(page);
   if (catalog_col_count < ncols) { return PaxInsertResponse::WRITER_SCHEMA_STALE; }
@@ -207,7 +220,7 @@ PaxInsertResponse Pax::Insert(byte *page, DataChunk *chunk, std::vector<PaxInser
   return PaxInsertResponse::OK;
 }
 
-bool Pax::IsPageVisible(byte *page, const std::vector<PaxGetInfo> &cols,
+bool Pax::IsPageVisible(byte *page, const std::vector<StorageColumnDesc> &cols,
                         column_t catalog_col_count) {
   const column_t ncols = PaxHeader::ColumnCount(page);
   if (ncols > catalog_col_count)
@@ -225,12 +238,12 @@ bool Pax::IsPageVisible(byte *page, const std::vector<PaxGetInfo> &cols,
 
 u32 Pax::CalculateChunkHeapSize(byte *page, const column_t ncols, const u16 capacity,
                                 const u16 *offsets, const u16 row_idx,
-                                std::vector<PaxGetInfo> &columns) {
+                                std::vector<StorageColumnDesc> &columns) {
   u32 alloc_size = 0;
   for (size_t i = 0; i < columns.size(); i++) {
 
     const auto &col = columns[i];
-    DB7_ASSERT(col.isVarlen || col.size == col.slot_size,
+    DB7_ASSERT(col.isVarlen || col.default_val.size() == col.slot_size,
                "Slot size and size must be equal for fixed types");
 
     if (col.isVarlen) {
@@ -238,7 +251,7 @@ u32 Pax::CalculateChunkHeapSize(byte *page, const column_t ncols, const u16 capa
         // checks if columns that dont exist in the page layout contibute
         // to allocating heap for the chunk. Columns that do are varlen,
         // have id bigger than ncols and are not null by default
-        alloc_size += CalcHeapBytes(col.size);
+        alloc_size += CalcHeapBytes(col.default_val.size());
         continue;
       }
 
@@ -260,19 +273,20 @@ u32 Pax::CalculateChunkHeapSize(byte *page, const column_t ncols, const u16 capa
   return alloc_size;
 }
 
-void Pax::WriteDefaultValueToChunk(byte *dest, const PaxGetInfo &col, DataChunk *chunk,
+void Pax::WriteDefaultValueToChunk(byte *dest, const StorageColumnDesc &col, DataChunk *chunk,
                                    const size_t i) {
-  if (col.default_ptr == nullptr) {
+  const auto default_ptr = col.default_val.data();
+  const auto size = col.default_val.size();
+  if (default_ptr == nullptr) {
     chunk->SetNull(i, true);
   } else if (col.isVarlen) {
-    std::span<const byte> slot{col.default_ptr, col.size};
-    chunk->WriteVarlen(i, slot);
+    chunk->WriteVarlen(i, col.default_val);
   } else {
-    std::memcpy(dest, col.default_ptr, col.size);
+    std::memcpy(dest, default_ptr, size);
   }
 }
 
-DataChunk *Pax::Get(byte *page, u16 row_idx, std::vector<PaxGetInfo> &columns,
+DataChunk *Pax::Get(byte *page, u16 row_idx, std::vector<StorageColumnDesc> &columns,
                     u16 catalog_col_count, DataChunk *initializer) {
 
   DB7_ASSERT(row_idx < PaxHeader::TupleCount(page), "Row outside the inserted tuples");

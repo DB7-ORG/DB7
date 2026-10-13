@@ -5,8 +5,6 @@
 #include "storage/data_chunk.hpp"
 #include "storage/storage_common.hpp"
 
-// TODO storage should add response enum so i know whats the problem in layers above
-
 // TODO storage should try to make one dto abstraction for column data so i dont have 20 different
 // mappings
 
@@ -137,21 +135,6 @@ struct ColumnStatistics { // TODO should be moved to layers above likely catalog
       : type(type), isDropped(isDropped), avg_size(avg_size), nullable(nullable) {}
 };
 
-struct PaxInsertInfo {
-  u16 size;
-  u16 slot_size;
-  type_id type;
-};
-struct PaxGetInfo {
-  column_t column_id;
-  u16 slot_size;
-  type_id type;
-  // size of default ptr payload
-  u16 size;
-  byte *default_ptr;
-  bool isVarlen;
-};
-
 class Pax {
 private:
   static constexpr u8 varlen_size = VarlenEntry::slot_size;
@@ -203,32 +186,35 @@ private:
 
   static u16 StripOff(u16 offset);
 
-  static void WriteSlot(byte *page, byte *dest, byte *source, const PaxInsertInfo &column,
+  static void WriteSlot(byte *page, byte *dest, byte *source, const StorageColumnDesc &column,
                         const DataChunk *chunk);
 
   static u32 CalculateChunkHeapSize(byte *page, const column_t ncols, const u16 capacity,
                                     const u16 *offsets, const u16 row_idx,
-                                    std::vector<PaxGetInfo> &columns);
+                                    std::vector<StorageColumnDesc> &columns);
 
-  static void WriteDefaultValueToChunk(byte *dest, const PaxGetInfo &col, DataChunk *chunk,
+  static void WriteDefaultValueToChunk(byte *dest, const StorageColumnDesc &col, DataChunk *chunk,
                                        const size_t i);
 
 public:
   /**
-   * Method used for calculating a required heap size for some DataChunk
+   * Method used for calculating a required heap size for some DataChunk.
+   * Usually called before FSM to request free page.
    *
    * @param columns column metadata
    */
-  static size_t CalcHeapBytes(std::vector<PaxInsertInfo> &columns);
+  static size_t CalcHeapBytes(const std::vector<storage::StorageColumnDesc> &columns,
+                              const DataChunk *chunk);
 
   /**
    * Method used for initializing an empty page when its first available
    *
-   * @param page   page bytes
-   * @param stats  column metadata including avg_columns size which is useful for calculating
-   *               a fixed layout
+   * @param page          page bytes
+   * @param stats         column metadata including avg_columns size which is useful for calculating
+   *                      a fixed layout
+   * @param min_heap_size minimum size of the heap
    */
-  static void Init(byte *page, std::vector<ColumnStatistics> &stats);
+  static void Init(byte *page, std::vector<ColumnStatistics> &stats, size_t min_heap_size);
 
   /**
    * Method for inserting data chunk into a page that uses pax layout.
@@ -241,13 +227,14 @@ public:
    *                      NOTE: doesnt include dropped columns
    * @param required_heap heap required in bytes for data to fit into this page
    */
-  static PaxInsertResponse Insert(byte *page, DataChunk *chunk, std::vector<PaxInsertInfo> &columns,
-                                  size_t required_heap, column_t catalog_col_count);
+  static PaxInsertResponse Insert(byte *page, DataChunk *chunk,
+                                  std::vector<StorageColumnDesc> &columns, size_t required_heap,
+                                  column_t catalog_col_count);
 
-  static bool IsPageVisible(byte *page, const std::vector<PaxGetInfo> &cols,
+  static bool IsPageVisible(byte *page, const std::vector<StorageColumnDesc> &cols,
                             column_t catalog_col_count);
 
-  static DataChunk *Get(byte *page, u16 row_idx, std::vector<PaxGetInfo> &columns,
+  static DataChunk *Get(byte *page, u16 row_idx, std::vector<StorageColumnDesc> &columns,
                         u16 catalog_col_count, DataChunk *initializer);
 };
 } // namespace db7::storage

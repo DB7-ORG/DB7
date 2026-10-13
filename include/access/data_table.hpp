@@ -1,7 +1,7 @@
 #pragma once
 
 #include "access/objects/add_table_index_info.hpp"
-#include "catalog/objects/column_list.hpp"
+#include "storage/layouts/storage_column_desc.hpp"
 #include "transaction/transaction_context.hpp"
 
 #include <memory>
@@ -25,16 +25,19 @@ class DataTable {
 private:
   storage::BufferPool *buffer_;
   storage::DiskManagerAsync *disk_mng_;
-  catalog::ColumnList columns_;
+  std::vector<storage::StorageColumnDesc> columns_;
+  std::vector<storage::StorageColumnDesc> valid_columns_;
+  column_t ncols_;
+  DataChunkPtr initializer_;
   std::vector<std::unique_ptr<AddTableIndexInfo>> indexes_;
   idx_t oid_; // table id
 
 private:
-  storage::Page *GetPageForInsert(DataChunk &chunk);
+  storage::Page *GetPageForInsert(DataChunk *chunk);
 
 public:
   DataTable(storage::BufferPool *buffer, storage::DiskManagerAsync *disk_mng,
-            catalog::ColumnList &columns, idx_t oid_);
+            std::vector<storage::StorageColumnDesc> &columns, column_t ncols, idx_t oid_);
 
   /**
    * Appends an index to the list
@@ -47,7 +50,7 @@ public:
    * while making sure no constraints are violated
    * @param chunk Abstraction used to pass data around
    */
-  bool Insert(transaction::TransactionContext &context, DataChunk &chunk);
+  bool Insert(transaction::TransactionContext &context, DataChunk *chunk);
 
   /**
    * Updates a record to table along with indexes on this table
@@ -56,7 +59,7 @@ public:
    * updated fields contain indexes
    * @param chunk Abstraction used to pass data around
    */
-  bool Update(transaction::TransactionContext &context, TupleId tuple, DataChunk &chunk);
+  bool Update(transaction::TransactionContext &context, TupleId tuple, DataChunk *chunk);
 
   /**
    * Deletes a record to table along with indexes on this table
