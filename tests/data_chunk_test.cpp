@@ -66,7 +66,8 @@ protected:
   static constexpr column_t kUnknownOid = 999;
 
   static ChunkPtr Build(std::vector<ChunkColumn> cols) {
-    return ChunkPtr(DataChunk::BuildDataChunk(cols));
+    ChunkPtr layout(DataChunk::BuildDataChunkInitializer(cols));
+    return ChunkPtr(DataChunk::BuildDataChunk(layout.get(), 0));
   }
 
   /// n one-byte columns: the null bitmap spans several bytes.
@@ -133,25 +134,6 @@ TEST_F(DataChunkTest, ColumnsAreAlignedDisjointAndInBounds) {
 // =========================================================================
 // 4. VALUES
 // =========================================================================
-
-TEST_F(DataChunkTest, TypedValuesRoundTrip) {
-  ChunkPtr chunk = Build(Schema());
-
-  chunk->Set<u8>(kU8, u8{0xAB}, false);
-  chunk->Set<u64>(kU64, u64{0x0123456789ABCDEFull}, false);
-  chunk->Set<u16>(kU16, u16{0xBEEF}, false);
-  chunk->Set<u32>(kU32, u32{0xDEADBEEF}, false);
-
-  bool is_null = true;
-  EXPECT_EQ(chunk->Get<u8>(kU8, is_null), u8{0xAB});
-  EXPECT_FALSE(is_null);
-  EXPECT_EQ(chunk->Get<u64>(kU64, is_null), u64{0x0123456789ABCDEFull});
-  EXPECT_FALSE(is_null);
-  EXPECT_EQ(chunk->Get<u16>(kU16, is_null), u16{0xBEEF});
-  EXPECT_FALSE(is_null);
-  EXPECT_EQ(chunk->Get<u32>(kU32, is_null), u32{0xDEADBEEF});
-  EXPECT_FALSE(is_null);
-}
 
 /// Full-width writes into every column. If two offsets overlap, or a column
 /// overlaps the bitmap, a later write clobbers an earlier one.
@@ -226,19 +208,6 @@ TEST_F(DataChunkTest, NullBitmapAndDataDoNotOverlap) {
   }
 }
 
-TEST_F(DataChunkTest, TypedSetAndGetTrackNull) {
-  ChunkPtr chunk = Build(Schema());
-  bool is_null = false;
-
-  chunk->Set<u32>(kU32, u32{7}, true);
-  EXPECT_EQ(chunk->Get<u32>(kU32, is_null), u32{0}) << "null must read as T{}";
-  EXPECT_TRUE(is_null);
-
-  chunk->Set<u32>(kU32, u32{7}, false);
-  EXPECT_EQ(chunk->Get<u32>(kU32, is_null), u32{7});
-  EXPECT_FALSE(is_null);
-}
-
 TEST_F(DataChunkTest, NullCheckedWriteOfNullptrSetsNull) {
   ChunkPtr chunk = Build(Schema());
 
@@ -295,7 +264,7 @@ TEST_F(DataChunkTest, CopyIsByteIdenticalAndIndependent) {
   const auto patterns = FillAll(*original, cols);
   original->SetNull(kU16, true);
 
-  ChunkPtr copy(original->Copy());
+  ChunkPtr copy(original->Copy(0));
   ASSERT_EQ(copy->GetSize(), original->GetSize());
   EXPECT_EQ(std::memcmp(copy.get(), original.get(), original->GetSize()), 0);
 

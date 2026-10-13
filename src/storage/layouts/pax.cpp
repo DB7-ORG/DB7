@@ -75,9 +75,7 @@ void Pax::Init(byte *page, std::vector<ColumnStatistics> &stats) {
   size_t nullable_count = 0;
   for (const auto &s : stats) {
     if (s.isDropped) continue;
-    if (IsVarlen(s.type) && s.avg_size > Pax::varlen_size) {
-      row_heap_size += CalcHeapBytes(s.avg_size);
-    }
+    if (IsVarlen(s.type)) { row_heap_size += CalcHeapBytes(s.avg_size); }
     row_size += SizeOf(s.type);
     valid_column_count++;
     nullable_count += size_t(s.nullable);
@@ -117,8 +115,8 @@ void Pax::Init(byte *page, std::vector<ColumnStatistics> &stats) {
 
 u16 Pax::AppendHeapUnsafe(byte *page, std::span<const byte> ptr) {
   u16 curr_heap_offset = PaxHeader::CurrHeapOffset(page);
-  const u16 new_heap = curr_heap_offset - ptr.size_bytes();
-  std::memcpy(page + new_heap, ptr.data(), ptr.size_bytes());
+  const u16 new_heap = curr_heap_offset - ptr.size();
+  std::memcpy(page + new_heap, ptr.data(), ptr.size());
   PaxHeader::SetCurrHeapOffset(page, new_heap);
   return new_heap;
 }
@@ -240,9 +238,7 @@ u32 Pax::CalculateChunkHeapSize(byte *page, const column_t ncols, const u16 capa
         // checks if columns that dont exist in the page layout contibute
         // to allocating heap for the chunk. Columns that do are varlen,
         // have id bigger than ncols and are not null by default
-        if (col.size > varlen_size && col.default_ptr != nullptr) {
-          alloc_size += col.size - inline_ptr_len;
-        }
+        alloc_size += CalcHeapBytes(col.size);
         continue;
       }
 
@@ -257,7 +253,7 @@ u32 Pax::CalculateChunkHeapSize(byte *page, const column_t ncols, const u16 capa
 
       byte *pos = CalcCellPos(page, stripped, row_idx, col.slot_size);
       auto *varlen = VarlenEntry::Cast(pos);
-      if (!varlen->IsInlined()) { alloc_size += varlen->HeapSize(); }
+      alloc_size += varlen->HeapSize();
     }
   }
 
@@ -269,16 +265,8 @@ void Pax::WriteDefaultValueToChunk(byte *dest, const PaxGetInfo &col, DataChunk 
   if (col.default_ptr == nullptr) {
     chunk->SetNull(i, true);
   } else if (col.isVarlen) {
-    if (col.size > varlen_size) { // spills to heap
-      std::span<const byte> slot{col.default_ptr, varlen_size};
-      std::span<const byte> heap = std::span<const byte>{col.default_ptr + inline_ptr_len,
-                                                         size_t(col.size - inline_ptr_len)};
-      chunk->WriteVarlen(i, slot, heap);
-    } else { // doesnt spill to heap
-      std::span<const byte> slot{col.default_ptr, col.size};
-      std::span<const byte> heap = std::span<const byte>{};
-      chunk->WriteVarlen(i, slot, heap);
-    }
+    std::span<const byte> slot{col.default_ptr, col.size};
+    chunk->WriteVarlen(i, slot);
   } else {
     std::memcpy(dest, col.default_ptr, col.size);
   }
@@ -328,8 +316,7 @@ DataChunk *Pax::Get(byte *page, u16 row_idx, std::vector<PaxGetInfo> &columns,
     byte *cell = CalcCellPos(page, stripped, row_idx, col.slot_size);
     if (col.isVarlen) {
       auto *entry = VarlenEntry::Cast(cell);
-      const auto heap = entry->IsInlined() ? std::span<byte>() : entry->Heap(page);
-      chunk->WriteVarlen(i, entry->Slot(), heap);
+      chunk->WriteVarlen(i, entry->Data(page));
     } else {
       std::memcpy(dest, cell, col.slot_size);
     }

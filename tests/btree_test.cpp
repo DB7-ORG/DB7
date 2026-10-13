@@ -52,7 +52,7 @@ inline bool Delete(Tree &tree, DataChunk *key, Rid rid) { return tree.Delete(key
 /// DataChunk*, so it must be released as a byte array — deleting
 /// through the DataChunk* is the wrong type and is undefined behaviour.
 struct ChunkDeleter {
-  void operator()(DataChunk *chunk) const noexcept { delete[] reinterpret_cast<byte *>(chunk); }
+  void operator()(DataChunk *chunk) const noexcept { DataChunk::Destroy(chunk); }
 };
 } // namespace api
 
@@ -170,7 +170,7 @@ protected:
     std::vector<ChunkColumn> cols =
         Project(attr, [](const TypeSize &t) { return ChunkColumn{t.col_id, t.size}; });
 
-    layout_ = ChunkPtr(DataChunk::BuildDataChunk(cols));
+    layout_ = ChunkPtr(DataChunk::BuildDataChunkInitializer(cols));
 
     tree_ = std::make_unique<Tree>(bp_.get(), dm_.get(), next_tbl_++, 0, attr);
   }
@@ -184,18 +184,26 @@ protected:
 
   // ---- Chunk construction (thread-safe) --------------------------------
 
+  static u32 HeapBytes(const Row &row) {
+    u32 total = 0;
+    for (const Value &v : row) {
+      if (const auto *s = std::get_if<std::string>(&v)) {
+        total += storage::VarlenEntry::HeapSizeFor(static_cast<u16>(s->size()));
+      }
+    }
+    return total;
+  }
+
   static void FillChunk(DataChunk &chunk, const Row &row) {
     DB7_ASSERT(row.size() == chunk.GetColCount(), "Invalid row size");
 
-    for (size_t i = 0; i < row.size(); ++i) {
+    for (u16 i = 0; i < row.size(); ++i) {
       std::visit(
           [&](const auto &value) {
             using T = std::decay_t<decltype(value)>;
-
             if constexpr (std::is_same_v<T, std::string>) {
-              storage::VarlenEntry entry; // TODO storage
-              entry.Set(std::span<const char>(value.data(), value.size()));
-              std::memcpy(chunk.GetByIdx(i), &entry, sizeof(entry));
+              const auto *p = reinterpret_cast<const byte *>(value.data());
+              chunk.WriteVarlen(i, std::span<const byte>(p, value.size()));
             } else {
               static_assert(std::is_trivially_copyable_v<T>);
               std::memcpy(chunk.GetByIdx(i), &value, sizeof(T));
@@ -205,10 +213,9 @@ protected:
     }
   }
 
-  /// Safe from worker threads: CreateDataChunk only reads the layout
-  /// header and allocates fresh memory.
+  /// Safe from worker threads: building from the initializer only reads it.
   ChunkPtr MakeKey(const Row &row) {
-    ChunkPtr chunk(layout_->Copy());
+    ChunkPtr chunk(DataChunk::BuildDataChunk(layout_.get(), HeapBytes(row)));
     FillChunk(*chunk, row);
     return chunk;
   }

@@ -1,50 +1,50 @@
 {
-    "version": "0.2.0",
-    "configurations": [
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug App",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/bin/debug/app",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "internalConsoleOptions": "openOnSessionStart",
+      "MIMode": "gdb",
+      "preLaunchTask": "build-debug",
+      "setupCommands": [
         {
-            "name": "Debug App",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/bin/debug/app",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
-            "externalConsole": false,
-            "internalConsoleOptions": "openOnSessionStart",
-            "MIMode": "gdb",
-            "preLaunchTask": "build-debug",
-            "setupCommands": [
-                {
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                },
-                {
-                    "text": "source ${workspaceFolder}/tools/gdb/db7_printer.py"
-                },
-                {
-                    "text": "set print object on"
-                }
-            ]
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
         },
         {
-            "name": "Debug Test",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/bin/tests/all_tests",
-            "args": [
-                // "--gtest_filter=BTreeTest.DeleteAllThenRefill"
-            ],
-            "cwd": "${workspaceFolder}",
-            "MIMode": "gdb",
-            "preLaunchTask": "build-test",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ]
+          "text": "source ${workspaceFolder}/tools/gdb/db7_printer.py"
+        },
+        {
+          "text": "set print object on"
         }
-    ]
+      ]
+    },
+    {
+      "name": "Debug Test",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/bin/tests/all_tests",
+      "args": [
+        // "--gtest_filter=BTreeTest.DeleteAllThenRefill"
+      ],
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "preLaunchTask": "build-test",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    }
+  ]
 }

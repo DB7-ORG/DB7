@@ -3,8 +3,10 @@
 #include "common.hpp"
 #include "shared/types/type_defs.hpp"
 
+#include <cstdint>
 #include <cstring>
 #include <span>
+
 
 // TODO fix includes
 
@@ -15,9 +17,7 @@ public:
   static constexpr u16 slot_size = SizeOf(type_id::VARCHAR);
   static constexpr u16 inline_bytes = slot_size - sizeof(u16);
 
-  static constexpr u16 HeapSizeFor(u16 size) {
-    return size <= slot_size ? 0 : u16(size - inline_bytes);
-  }
+  static constexpr u16 HeapSizeFor(u16 size) { return size <= inline_bytes ? 0 : u16(size); }
 
 private:
   static constexpr auto entry_data_size = slot_size - sizeof(u16) - sizeof(u16); // 12
@@ -40,7 +40,7 @@ public:
   }
 
   u16 Size() const { return size_; }
-  bool IsInlined() const { return size_ <= slot_size; }
+  bool IsInlined() const { return size_ <= inline_bytes; }
   u16 HeapSize() const { return HeapSizeFor(size_); }
   u16 Offset() const {
     DB7_ASSERT(!IsInlined(), "offset read on inlined entry");
@@ -53,12 +53,14 @@ public:
 
   std::span<const byte> Data(const byte *base) const { return IsInlined() ? Prefix() : Heap(base); }
 
-  std::span<const byte> Slot() const { return {reinterpret_cast<const byte *>(this), slot_size}; }
+  // std::span<const byte> Slot() const { return {reinterpret_cast<const byte *>(this), slot_size};
+  // }
 
   std::span<const byte> Heap(const byte *base) const { return {base + Offset(), HeapSize()}; }
 
   std::span<const byte> Prefix() const {
-    return {reinterpret_cast<const byte *>(&data_), slot_size - sizeof(u16)};
+    const byte *p = reinterpret_cast<const byte *>(this) + sizeof(u16);
+    return {p, IsInlined() ? size_ : u16(entry_data_size)};
   }
 };
 

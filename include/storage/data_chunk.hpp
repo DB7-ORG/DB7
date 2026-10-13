@@ -196,29 +196,27 @@ public:
   //   }
   // }
 
-  void WriteVarlen(u16 idx, std::span<const byte> slot, std::span<const byte> heap) {
+  void WriteVarlen(u16 idx, std::span<const byte> payload) {
     using storage::VarlenEntry;
     DB7_ASSERT(idx < col_count_, "column index out of range");
-    DB7_ASSERT(slot.size() <= VarlenEntry::slot_size, "slot larger than varlen slot");
     DB7_ASSERT(Offsets()[idx] + VarlenEntry::slot_size <= fixed_size_, "slot outside fixed area");
-    DB7_ASSERT(slot.data() != nullptr, "slot value with null heap pointer");
+    DB7_ASSERT(payload.size() <= UINT16_MAX, "varlen length does not fit in u16");
 
+    // insert prefix
     byte *dest = GetByIdx(idx);
-    std::memcpy(dest, slot.data(), slot.size());
+    *reinterpret_cast<u16 *>(dest) = payload.size();
+    std::memcpy(dest + sizeof(u16), payload.data(),
+                std::min(payload.size(), size_t(VarlenEntry::inline_bytes)));
+
+    // check if i need to insert something to heap
     auto *entry = VarlenEntry::Cast(dest);
+    if (entry->IsInlined()) { return; }
 
-    if (entry->IsInlined()) {
-      DB7_ASSERT(entry->Size() <= slot.size(), "inlined value truncated: slot shorter than size_");
-      DB7_ASSERT(heap.empty(), "inlined value must not carry heap bytes");
-      return;
-    }
+    // insert to heap
+    DB7_ASSERT(entry->HeapSize() == payload.size(),
+               "spilled value must store the whole payload in heap");
 
-    DB7_ASSERT(slot.size() == VarlenEntry::slot_size, "spilled value needs a full slot");
-    DB7_ASSERT(heap.size() == entry->HeapSize(), "heap span does not match size_");
-    DB7_ASSERT(heap.size() <= UINT16_MAX, "heap length does not fit in u16");
-    DB7_ASSERT(heap.data() != nullptr, "spilled value with null heap pointer");
-
-    const u16 off = AppendTail(heap.data(), static_cast<u16>(heap.size()));
+    const u16 off = AppendTail(payload.data(), static_cast<u16>(payload.size()));
     entry->SetOffset(off);
   }
 

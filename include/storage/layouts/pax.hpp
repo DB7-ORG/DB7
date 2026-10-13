@@ -46,10 +46,10 @@
   | heap: spilled varlen bytes, grows toward lower addresses      |
   +---------------------------------------------------------------+ DB7_PAGE_SIZE
 
-  Varlen slot (SizeOf(VARCHAR) bytes, value includes its length prefix):
-    value fits in the slot  -> [value bytes .................]
-    value is larger         -> [(first slot-2) bytes][u16 heap offset]
-                               the remaining bytes live at the heap offset
+  Varlen slot (SizeOf(VARCHAR) bytes):
+    value fits in the slot  -> [u16 len][value bytes .........................]
+    value is larger         -> [u16 len][value prefix........][u16 heap offset]
+                               full payload lives at the heap offset
 
   NULLs: the value slot of a NULL is left unspecified, only its bitmap bit is set.
   A column without a bitmap (bit 15 clear) contains no NULLs on this page. Pages
@@ -129,7 +129,6 @@ public:
 struct ColumnStatistics { // TODO should be moved to layers above likely catalog
   type_id type;
   bool isDropped;
-  // WARNING: avg_size should take into account bytes used for setting the len of the string
   u16 avg_size;
 
   bool nullable;
