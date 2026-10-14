@@ -267,13 +267,13 @@ public:
     return chunk;
   }
 
-  static DataChunk *BuildDataChunk(DataChunk *initializer, u32 size) {
+  static DataChunk *BuildDataChunk(const DataChunk *initializer, u32 size) {
     return initializer->Copy(size);
   }
 
   static void Destroy(DataChunk *chunk) { delete[] reinterpret_cast<byte *>(chunk); }
 
-  DataChunk *Copy(u32 heap_size) {
+  DataChunk *Copy(u32 heap_size) const {
     byte *raw = new byte[fixed_size_ + heap_size];
     std::memcpy(raw, this, fixed_size_);
     return reinterpret_cast<DataChunk *>(raw);

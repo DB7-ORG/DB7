@@ -11,6 +11,15 @@ DatabaseCatalog::DatabaseCatalog(Identifier name)
 
 DatabaseCatalog::~DatabaseCatalog() = default;
 
+optional_ptr<CatalogEntry> DatabaseCatalog::GetEntry(transaction::TransactionContext &context,
+                                                     const Identifier &schema,
+                                                     const EntryLookupInfo &entry_info) {
+  auto schema_lookup = EntryLookupInfo(CatalogType::SCHEMA_ENTRY, Identifier(schema));
+  auto schema_entry = LookupSchema(context, schema_lookup, OnEntryNotFound::THROW_EXCEPTION);
+  auto entry = schema_entry->LookupEntry(context, entry_info);
+  return entry;
+}
+
 optional_ptr<SchemaCatalogEntryBase>
 DatabaseCatalog::LookupSchema(transaction::TransactionContext &context,
                               const EntryLookupInfo &schema_lookup, OnEntryNotFound if_not_found) {

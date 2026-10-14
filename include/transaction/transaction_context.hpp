@@ -144,26 +144,34 @@ public:
     return ResultObj<TupleId>(result);
   }
 
-  ResultObj<TupleId> GetTid(const std::vector<TupleId> &tids, table_id tbl_id) const {
-    u32 result = INVALID_TID;
+  /**
+   * This method probes the version manager hash map and looks for first tid that is visible to
+   * this transaction. In case tuple is not found its also returns failed result.
+   */
+  ResultObj<TupleId> GetFirstVisibleTid(const std::vector<TupleId> &tids, table_id tbl_id) const {
+    u32 result = 0;
     for (auto tid : tids) {
+      // start of the undo cahin
       auto *undo = version_manager_->GetDelta(tid, tbl_id);
-      if (undo == nullptr) {
+      if (undo == nullptr) { // if its null entry is visible to all txns
         result = tid.GetValue();
-        break;
+        return ResultObj<TupleId>(result);
       }
 
+      // check if it has conflict with the version
       if (transaction::TransactionUtil::HasConflict(undo->GetTimestamp(), FinishTime(),
                                                     StartTime())) {
         return ResultObj<TupleId>::Fail("Conflicting version");
       }
 
+      // check if its deleted skip it
       if (!undo->IsDeleted()) {
         result = tid;
-        break;
+        return ResultObj<TupleId>(result);
       }
     }
-    return ResultObj<TupleId>(result);
+
+    return ResultObj<TupleId>::Fail("Valid tuple not found");
   }
 
   bool GetTidExists(std::vector<TupleId> &tids, table_id tbl_id) {

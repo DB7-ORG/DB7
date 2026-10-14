@@ -469,9 +469,9 @@ public:
   ~BTreeIndex() override = default;
 
   ResultObj<void> Insert(DataChunk *chunk, ValTyp value) {
-    auto ptr =
-        std::make_unique_for_overwrite<byte[]>(key_buffer_size_); // TODO if i ever get larger
-                                                                  // strings ill need to change this
+    auto ptr = std::make_unique_for_overwrite<byte[]>(
+        key_buffer_size_); // TODO storage if i ever get larger
+                           // strings ill need to change this
     Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, value, attrs_);
     shared::TlState::Clear();
     storage::Page *page = DropToLevel(key);

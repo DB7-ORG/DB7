@@ -40,6 +40,9 @@ private:
 public:
   std::mutex &GetLock() { return mu; }
 
+  optional_ptr<CatalogEntry> GetEntry(transaction::TransactionContext &context,
+                                      const Identifier &schema, const EntryLookupInfo &entry_info);
+
   // Finds schema by Identifier from CatalogSet
   optional_ptr<SchemaCatalogEntryBase> LookupSchema(transaction::TransactionContext &context,
                                                     const EntryLookupInfo &schema_lookup,

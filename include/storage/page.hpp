@@ -122,4 +122,51 @@ public:
     io_cv_.notify_all();
   }
 };
+
+class PagePinGuard {
+private:
+  Page *page_;
+
+public:
+  PagePinGuard(Page *page) : page_(page) {}
+
+  ~PagePinGuard() { page_->Unpin(); }
+
+  PagePinGuard(const PagePinGuard &) = delete;
+  PagePinGuard &operator=(const PagePinGuard &) = delete;
+  PagePinGuard(PagePinGuard &&) = delete;
+  PagePinGuard &operator=(PagePinGuard &&) = delete;
+
+  Page *get() const { return page_; }
+  Page *operator->() const { return page_; }
+};
+
+class PageWriteGuard {
+private:
+  Page *page_;
+
+public:
+  PageWriteGuard(Page *page) : page_(page) { page_->WDataLock(); }
+  ~PageWriteGuard() { page_->WDataUnlock(); }
+
+  PageWriteGuard(const PageWriteGuard &) = delete;
+  PageWriteGuard &operator=(const PageWriteGuard &) = delete;
+  PageWriteGuard(PagePinGuard &&) = delete;
+  PageWriteGuard &operator=(PageWriteGuard &&) = delete;
+};
+
+class PageReadGuard {
+private:
+  Page *page_;
+
+public:
+  PageReadGuard(Page *page) : page_(page) { page_->RDataLock(); }
+  ~PageReadGuard() { page_->RDataUnlock(); }
+
+  PageReadGuard(const PageReadGuard &) = delete;
+  PageReadGuard &operator=(const PageReadGuard &) = delete;
+  PageReadGuard(PagePinGuard &&) = delete;
+  PageReadGuard &operator=(PageReadGuard &&) = delete;
+};
+
 } // namespace db7::storage

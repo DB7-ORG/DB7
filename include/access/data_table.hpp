@@ -1,6 +1,8 @@
 #pragma once
 
 #include "access/objects/add_table_index_info.hpp"
+#include "catalog/constraints/foreign_key_constraint.hpp"
+#include "catalog/database_catalog.hpp"
 #include "storage/layouts/storage_column_desc.hpp"
 #include "transaction/transaction_context.hpp"
 
@@ -23,22 +25,38 @@ class Index;
 
 class DataTable {
 private:
+  catalog::DatabaseCatalog &catalog;
+
   storage::BufferPool *buffer_;
   storage::DiskManagerAsync *disk_mng_;
   std::vector<storage::StorageColumnDesc> columns_;
   std::vector<storage::StorageColumnDesc> valid_columns_;
   column_t ncols_;
-  DataChunkPtr initializer_;
+  const DataChunkPtr initializer_;
   std::vector<std::unique_ptr<AddTableIndexInfo>> indexes_;
   table_id oid_; // table id
 
 private:
   storage::Page *GetPageForInsert(DataChunk *chunk);
+
   void InsertUndo(transaction::TransactionContext &context, u16 index, storage::Page *page);
 
+  void VerifyForeignKeyConstraint(transaction::TransactionContext &context,
+                                  catalog::ForeignKeyConstraint &constraint, DataChunk *chunk);
+
+  void VerifyForeignKeyConstraint(
+      transaction::TransactionContext &context,
+      const std::vector<std::unique_ptr<catalog::ForeignKeyConstraint>> &constraints,
+      DataChunk *chunk);
+
 public:
-  DataTable(storage::BufferPool *buffer, storage::DiskManagerAsync *disk_mng,
-            std::vector<storage::StorageColumnDesc> &columns, column_t ncols, idx_t oid_);
+  DataTable(catalog::DatabaseCatalog &catalog, storage::BufferPool *buffer,
+            storage::DiskManagerAsync *disk_mng, std::vector<storage::StorageColumnDesc> &columns,
+            column_t ncols, idx_t oid_);
+
+  const DataChunk *Initializer() const;
+
+  table_id GetTableId() const;
 
   /**
    * Appends an index to the list

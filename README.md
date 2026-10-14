@@ -82,4 +82,4 @@ Need a new Table abstraction
  <!-- static LogRecord *Initialize(byte *const head, const timestamp_t txn_begin, table_id t_id,
                                page_id p_id, u32 idx) -->
 
-// TODO add a null check in data chunk
+// TODO need to change index buffer allocation size function

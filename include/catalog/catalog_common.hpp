@@ -9,11 +9,11 @@
 
 namespace db7 {
 namespace access {
-class Table;
+class DataTable;
 }
 namespace catalog {
 
-using StorageTable = access::Table;
+using StorageTable = access::DataTable;
 
 constexpr u32 INVALID_OID = 0;
 
