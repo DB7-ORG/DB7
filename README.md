@@ -60,3 +60,7 @@ Data table:
  <!-- static LogRecord *Initialize(byte *const head, const timestamp_t txn_begin, table_id t_id,
                                page_id p_id, u32 idx) -->
 
+- plan how to populate index safely 
+- see if u should abort running writers if create index runs concurrently
+- find a method to freeze commit transactions
+- TODO transaction Try()

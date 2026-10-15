@@ -12,7 +12,7 @@ TransactionContext *TransactionManager::BeginTransaction() {
 timestamp_t TransactionManager::Commit(TransactionContext *txn) {
   DB7_ASSERT(!txn->GetState(), "Txn shouldnt be aborted");
   // TODO if its not read-only txn
-  shared::AdaptiveSpinLock::SpinGuard guard(commit_latch_);
+  shared::SpinBarrier::SpinBarrierGuard guard(commit_latch_);
   timestamp_t commit_time = timestamp_manager_->CheckOutTimestamp();
   txn->RestampVersions(commit_time);
   return commit_time;

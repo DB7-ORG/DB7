@@ -2,7 +2,7 @@
 
 #include "shared/arena/fixed_bump_arena.hpp"
 #include "shared/arena/object_pool.hpp"
-#include "shared/locks/adaptive_spin_lock.hpp"
+#include "shared/locks/spin_barrier.hpp"
 #include "storage/buffer_pool/buffer_pool.hpp"
 #include "transaction/timestamp_manager.hpp"
 #include "transaction/transaction_context.hpp"
@@ -14,7 +14,7 @@ private:
   storage::BufferPool *buffer_pool_;
   storage::PageVersionManager *version_manager_;
   shared::ObjectPool<shared::FixedBumpArena> *mem_pool_;
-  shared::AdaptiveSpinLock commit_latch_;
+  shared::SpinBarrier commit_latch_;
 
 public:
   TransactionManager(TimestampManager *timestamp_manager, storage::BufferPool *buffer_pool,

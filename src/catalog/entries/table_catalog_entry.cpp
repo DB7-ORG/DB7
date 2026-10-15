@@ -35,13 +35,16 @@ TableCatalogEntry::TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntr
       std::vector<access::TypeSize> index_columns;
       for (const auto &name : unique.GetColumnNames()) {
         const auto id = info.columns.GetColumnId(name);
-        const auto col = column_defs[id];
+        const auto &col = column_defs[id];
         index_columns.push_back({col.column_id, col.type});
       }
 
-      auto btree = std::make_unique<access::BTreeIndex<>>(buffer_pool, disk, oid, 0, index_columns);
-      auto info = std::make_unique<access::AddTableIndexInfo>(std::move(btree), constraint_type);
-      storage->AddIndex(std::move(info));
+      auto btree = std::make_unique<access::BTreeIndex<>>(buffer_pool, disk, 0, oid,
+                                                          index_columns); // TODO index oid
+      auto index_info =
+          std::make_unique<access::AddTableIndexInfo>(std::move(btree), constraint_type);
+      storage->AddIndex(std::move(index_info));
+      break;
     }
 
     case ConstraintType::FOREIGN_KEY: {
@@ -50,15 +53,18 @@ TableCatalogEntry::TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntr
       auto constraint_type = IndexConstraintType::FOREIGN;
 
       std::vector<access::TypeSize> index_columns;
-      for (const auto &name : bfk.pk_columns) {
+      for (const auto &name : bfk.fk_columns) {
         const auto id = info.columns.GetColumnId(name);
-        const auto col = column_defs[id];
+        const auto &col = column_defs[id];
         index_columns.push_back({col.column_id, col.type});
       }
 
-      auto btree = std::make_unique<access::BTreeIndex<>>(buffer_pool, disk, oid, 0, index_columns);
-      auto info = std::make_unique<access::AddTableIndexInfo>(std::move(btree), constraint_type);
-      storage->AddIndex(std::move(info));
+      auto btree = std::make_unique<access::BTreeIndex<>>(buffer_pool, disk, 0, oid,
+                                                          index_columns); // TODO index oid
+      auto index_info =
+          std::make_unique<access::AddTableIndexInfo>(std::move(btree), constraint_type);
+      storage->AddIndex(std::move(index_info));
+      break;
     }
     case ConstraintType::CHECK:
     case ConstraintType::INVALID:
