@@ -22,8 +22,8 @@ TableCatalogEntry::TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntr
   storage = std::make_shared<access::DataTable>(*this, column_defs, oid);
 
   // create indexes for primary, unique and foreign key constraints
-  auto *buffer_pool = &catalog.Storage().GetBufferPool();
-  auto *disk = &catalog.Storage().GetDiskManager();
+  auto *buffer_pool = &catalog.StorageManager().GetBufferPool();
+  auto *disk = &catalog.StorageManager().GetDiskManager();
   for (idx_t i = 0; i < constraints.size(); i++) {
     auto &constraint = constraints[i];
     switch (constraint->type) {

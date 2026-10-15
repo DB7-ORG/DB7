@@ -5,8 +5,8 @@
 
 namespace db7::catalog {
 
-DatabaseCatalog::DatabaseCatalog(storage::StorageManager &storage, Identifier name)
-    : storage_(storage), name_(name),
+DatabaseCatalog::DatabaseCatalog(storage::StorageManager &storage_manager, Identifier name)
+    : storage_manager_(storage_manager), name_(name),
       dependency_manager_(std::make_unique<DependencyManager>(*this)),
       schemas_(std::make_unique<CatalogSet>(*this)) {}
 

@@ -26,7 +26,7 @@ class Index;
 class DataTable {
 private:
   catalog::TableCatalogEntry &parent;
-  storage::StorageManager &storage_;
+  storage::StorageManager &storage_manager_;
   std::vector<storage::StorageColumnDesc> columns_;
   std::vector<storage::StorageColumnDesc> valid_columns_;
   column_t ncols_;

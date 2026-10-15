@@ -16,8 +16,8 @@ namespace db7::access {
 
 DataTable::DataTable(catalog::TableCatalogEntry &parent,
                      std::vector<storage::StorageColumnDesc> &columns, table_id oid)
-    : parent(parent), storage_(parent.catalog.Storage()), columns_(std::move(columns)),
-      ncols_(columns.size()), oid_(oid) {
+    : parent(parent), storage_manager_(parent.catalog.StorageManager()),
+      columns_(std::move(columns)), ncols_(columns.size()), oid_(oid) {
   for (const auto &col : columns_) {
     if (!col.isDropped) { valid_columns_.push_back(col); }
   }
@@ -35,7 +35,7 @@ void DataTable::AddIndex(std::unique_ptr<AddTableIndexInfo> info) {
 storage::Page *DataTable::GetPageForInsert(DataChunk *chunk) {
   u32 page_id = storage::FreeSpaceManagerVarlen::Get(chunk->GetSize());
   storage::PageIdentifier id(oid_, page_id);
-  storage::Page *insert_page = storage_.GetBufferPool().Pin(id);
+  storage::Page *insert_page = storage_manager_.GetBufferPool().Pin(id);
   insert_page->WaitIO();
   return insert_page;
 }

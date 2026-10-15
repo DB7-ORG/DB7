@@ -24,7 +24,7 @@ class TableCatalogEntry;
 
 class DatabaseCatalog {
 private:
-  storage::StorageManager &storage_;
+  storage::StorageManager &storage_manager_;
   std::mutex mu;
   Identifier name_;
   std::unique_ptr<DependencyManager> dependency_manager_;
@@ -32,7 +32,7 @@ private:
   std::atomic<idx_t> gen_oid_;
 
 public:
-  DatabaseCatalog(storage::StorageManager &storage, Identifier name_);
+  DatabaseCatalog(storage::StorageManager &storage_manager, Identifier name);
   ~DatabaseCatalog();
 
   idx_t NextOid() { return gen_oid_++; }
@@ -44,7 +44,7 @@ private:
                                                   Identifier &name);
 
 public:
-  storage::StorageManager &Storage() { return storage_; }
+  storage::StorageManager &StorageManager() { return storage_manager_; }
 
   std::mutex &GetLock() { return mu; }
 
