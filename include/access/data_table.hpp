@@ -25,14 +25,12 @@ class Index;
 
 class DataTable {
 private:
-  catalog::DatabaseCatalog &catalog;
-
-  storage::BufferPool *buffer_;
-  storage::DiskManagerAsync *disk_mng_;
+  catalog::TableCatalogEntry &parent;
+  storage::StorageManager &storage_;
   std::vector<storage::StorageColumnDesc> columns_;
   std::vector<storage::StorageColumnDesc> valid_columns_;
   column_t ncols_;
-  const DataChunkPtr initializer_;
+  DataChunkPtr initializer_;
   std::vector<std::unique_ptr<AddTableIndexInfo>> indexes_;
   table_id oid_; // table id
 
@@ -50,9 +48,8 @@ private:
       DataChunk *chunk);
 
 public:
-  DataTable(catalog::DatabaseCatalog &catalog, storage::BufferPool *buffer,
-            storage::DiskManagerAsync *disk_mng, std::vector<storage::StorageColumnDesc> &columns,
-            column_t ncols, idx_t oid_);
+  DataTable(catalog::TableCatalogEntry &parent, std::vector<storage::StorageColumnDesc> &columns,
+            table_id oid_);
 
   const DataChunk *Initializer() const;
 

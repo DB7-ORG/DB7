@@ -1,11 +1,73 @@
 #include "catalog/entries/table_catalog_entry.hpp"
+#include "access/data_table.hpp"
+#include "access/index/btree.hpp"
+#include "access/objects/add_table_index_info.hpp"
 #include "catalog/constraints/foreign_key_constraint.hpp"
+#include "catalog/constraints/unique_constraint.hpp"
+#include "storage/storage_manager.hpp"
 
 namespace db7::catalog {
 TableCatalogEntry::TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntryBase &schema,
                                      CreateTableInfo &info,
-                                     std::shared_ptr<StorageTable> inherited_storage)
-    : TableCatalogEntryBase(catalog, schema, info), storage(std::move(inherited_storage)) {};
+                                     std::shared_ptr<access::DataTable> inherited_storage)
+    : TableCatalogEntryBase(catalog, schema, info), storage(std::move(inherited_storage)) {
+
+  if (storage) { return; }
+
+  table_id oid = NextOid();
+
+  std::vector<storage::StorageColumnDesc> column_defs;
+  column_t column_id = 0;
+  for (const auto &col : info.columns) { column_defs.push_back({column_id++, col.GetType()}); }
+  storage = std::make_shared<access::DataTable>(*this, column_defs, oid);
+
+  // create indexes for primary, unique and foreign key constraints
+  auto *buffer_pool = &catalog.Storage().GetBufferPool();
+  auto *disk = &catalog.Storage().GetDiskManager();
+  for (idx_t i = 0; i < constraints.size(); i++) {
+    auto &constraint = constraints[i];
+    switch (constraint->type) {
+    case ConstraintType::UNIQUE: {
+      auto &unique = constraint->Cast<UniqueConstraint>();
+      IndexConstraintType constraint_type =
+          unique.IsPrimaryKey() ? IndexConstraintType::PRIMARY : IndexConstraintType::UNIQUE;
+
+      std::vector<access::TypeSize> index_columns;
+      for (const auto &name : unique.GetColumnNames()) {
+        const auto id = info.columns.GetColumnId(name);
+        const auto col = column_defs[id];
+        index_columns.push_back({col.column_id, col.type});
+      }
+
+      auto btree = std::make_unique<access::BTreeIndex<>>(buffer_pool, disk, oid, 0, index_columns);
+      auto info = std::make_unique<access::AddTableIndexInfo>(std::move(btree), constraint_type);
+      storage->AddIndex(std::move(info));
+    }
+
+    case ConstraintType::FOREIGN_KEY: {
+      auto &bfk = constraint->Cast<ForeignKeyConstraint>();
+      if (bfk.info.type == ForeignKeyType::FK_TYPE_PRIMARY_KEY_TABLE) { continue; }
+      auto constraint_type = IndexConstraintType::FOREIGN;
+
+      std::vector<access::TypeSize> index_columns;
+      for (const auto &name : bfk.pk_columns) {
+        const auto id = info.columns.GetColumnId(name);
+        const auto col = column_defs[id];
+        index_columns.push_back({col.column_id, col.type});
+      }
+
+      auto btree = std::make_unique<access::BTreeIndex<>>(buffer_pool, disk, oid, 0, index_columns);
+      auto info = std::make_unique<access::AddTableIndexInfo>(std::move(btree), constraint_type);
+      storage->AddIndex(std::move(info));
+    }
+    case ConstraintType::CHECK:
+    case ConstraintType::INVALID:
+    case ConstraintType::NOT_NULL: break;
+    }
+  }
+};
+
+table_id TableCatalogEntry::NextOid() { return next_oid_.fetch_add(1, std::memory_order_relaxed); }
 
 const std::vector<std::unique_ptr<Constraint>> &TableCatalogEntry::GetConstraints() const {
   return constraints;

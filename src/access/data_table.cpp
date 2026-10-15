@@ -8,20 +8,20 @@
 #include "storage/data_chunk.hpp"
 #include "storage/fsm/fsm_varlen.hpp"
 #include "storage/layouts/pax.hpp"
+#include "storage/storage_manager.hpp"
 
-#include <set>
 #include <utility>
 
 namespace db7::access {
 
-DataTable::DataTable(catalog::DatabaseCatalog &catalog, storage::BufferPool *buffer,
-                     storage::DiskManagerAsync *disk_mng,
-                     std::vector<storage::StorageColumnDesc> &columns, column_t ncols, idx_t oid)
-    : catalog(catalog), buffer_(buffer), disk_mng_(disk_mng), columns_(std::move(columns)),
-      ncols_(ncols), initializer_(DataChunk::BuildDataChunkInitializer(columns_)), oid_(oid) {
+DataTable::DataTable(catalog::TableCatalogEntry &parent,
+                     std::vector<storage::StorageColumnDesc> &columns, table_id oid)
+    : parent(parent), storage_(parent.catalog.Storage()), columns_(std::move(columns)),
+      ncols_(columns.size()), oid_(oid) {
   for (const auto &col : columns_) {
     if (!col.isDropped) { valid_columns_.push_back(col); }
   }
+  initializer_ = DataChunkPtr(DataChunk::BuildDataChunkInitializer(valid_columns_));
 }
 
 const DataChunk *DataTable::Initializer() const { return initializer_.get(); }
@@ -35,19 +35,19 @@ void DataTable::AddIndex(std::unique_ptr<AddTableIndexInfo> info) {
 storage::Page *DataTable::GetPageForInsert(DataChunk *chunk) {
   u32 page_id = storage::FreeSpaceManagerVarlen::Get(chunk->GetSize());
   storage::PageIdentifier id(oid_, page_id);
-  storage::Page *insert_page = buffer_->Pin(id);
+  storage::Page *insert_page = storage_.GetBufferPool().Pin(id);
   insert_page->WaitIO();
   return insert_page;
 }
 
-// TODO storage only for append
 void DataTable::VerifyForeignKeyConstraint(transaction::TransactionContext &context,
                                            catalog::ForeignKeyConstraint &constraint,
                                            DataChunk *chunk) {
   std::vector<catalog::PhysicalIndex> &src_keys = constraint.info.fk_keys;
   std::vector<catalog::PhysicalIndex> &dst_keys = constraint.info.pk_keys;
+  DB7_ASSERT(src_keys.size() == dst_keys.size(), "Should be same size");
 
-  optional_ptr<catalog::CatalogEntry> catalog_entry = catalog.GetEntry(
+  optional_ptr<catalog::CatalogEntry> catalog_entry = parent.catalog.GetEntry(
       context, constraint.info.schema, {catalog::CatalogType::TABLE_ENTRY, constraint.info.table});
   if (!catalog_entry) { throw CATALOG_EXCEPTION("Not found"); }
   auto &table_entry = catalog_entry->Cast<catalog::TableCatalogEntry>();
@@ -56,43 +56,51 @@ void DataTable::VerifyForeignKeyConstraint(transaction::TransactionContext &cont
 
   size_t size = 0;
   for (const auto key : src_keys) {
-    const auto &col = columns_[key.index];
-    if (!IsVarlen(col.type)) { continue; }
-    byte *slot = chunk->GetByIdxNullCheck(key.index);
+    const auto &col = columns_[key];
+    DB7_ASSERT(!col.isDropped, "Dropped column in use");
+    byte *slot = chunk->GetByOidNullCheck(key);
+    // if any column is null for a fk check there is no need to probe the index
+    if (slot == nullptr) { return; }
+    if (!col.isVarlen) { continue; }
     size += storage::VarlenEntry::Cast(slot)->HeapSize();
   }
 
   DataChunkPtr dst_chunk(DataChunk::BuildDataChunk(builder, size));
+
   for (u16 i = 0; i < src_keys.size(); i++) {
     const auto src_key = src_keys[i];
     const auto dst_key = dst_keys[i];
-    const auto &col = columns_[src_key.index];
-    byte *slot = chunk->GetByIdxNullCheck(src_key.index);
-    if (slot == nullptr) {
-      dst_chunk->SetNull(dst_key.index, true);
-      continue;
-    }
+    const auto &col = columns_[src_key];
+    byte *slot = chunk->GetByOid(src_key);
     if (col.isVarlen) {
       auto varlen = storage::VarlenEntry::Cast(slot)->Data(chunk->Bytes());
-      dst_chunk->WriteVarlen(dst_key.index, varlen);
+      dst_chunk->WriteVarlenByOid(dst_key, varlen);
     } else {
-      dst_chunk->WriteByIdx(dst_key.index, {slot, col.slot_size});
+      dst_chunk->WriteByOid(dst_key, {slot, col.slot_size});
     }
   }
 
+  bool has_inserted = false;
   for (auto &index : storage->indexes_) {
-    if (index->type_ != catalog::IndexConstraintType::UNIQUE ||
+    if (index->type_ != catalog::IndexConstraintType::UNIQUE &&
         index->type_ != catalog::IndexConstraintType::PRIMARY) {
       continue;
     }
-    // TODO storage use dest keys to find indexes we need
     auto &btree = index->index_->Cast<BTreeIndex<>>();
+    bool is_matching_index = btree.CheckIndexColumns(dst_keys);
+    if (!is_matching_index) { continue; }
 
     shared::VectorValues<TupleId> results;
     auto res = btree.Get(dst_chunk.get(), results);
     if (!res.success) { throw CATALOG_EXCEPTION(res.message); }
     ResultObj<TupleId> r = context.GetFirstVisibleTid(results.vec, storage->GetTableId());
-    if (!r.success) { throw CATALOG_EXCEPTION(res.message); }
+    if (!r.success) { throw CATALOG_EXCEPTION(r.message); }
+
+    has_inserted = true;
+  }
+
+  if (!has_inserted) {
+    throw CATALOG_EXCEPTION("Unreachable code: No matching index for fk check");
   }
 }
 
@@ -113,7 +121,6 @@ void DataTable::InsertUndo(transaction::TransactionContext &context, u16 index,
   versions[index].Set(record);
 }
 
-// TODO storage insert undo
 bool DataTable::Insert(transaction::TransactionContext &context, DataChunk *chunk) {
   u16 required_heap = storage::Pax::CalcHeapBytes(columns_, chunk);
   auto *page = GetPageForInsert(chunk); // TODO storage should pass required_heap here
@@ -153,19 +160,11 @@ bool DataTable::Insert(transaction::TransactionContext &context, DataChunk *chun
     }
   }
 
-  // TODO storage check fk constraints
-  auto lookup_info =
-      catalog::EntryLookupInfo(catalog::CatalogType::TABLE_ENTRY, Identifier("table"));
-  optional_ptr<catalog::CatalogEntry> catalog_entry =
-      catalog.GetEntry(context, Identifier("schema"), lookup_info);
-  if (!catalog_entry) { throw CATALOG_EXCEPTION("Not found"); }
-  auto &table_entry = catalog_entry->Cast<catalog::TableCatalogEntry>();
-
-  const auto &constraints = table_entry.GetConstraints();
+  const auto &constraints = parent.GetConstraints();
   for (const auto &constraint : constraints) {
     switch (constraint->type) {
     case catalog::ConstraintType::FOREIGN_KEY: {
-      auto fk_constraint = constraint->Cast<catalog::ForeignKeyConstraint>();
+      auto &fk_constraint = constraint->Cast<catalog::ForeignKeyConstraint>();
       VerifyForeignKeyConstraint(context, fk_constraint, chunk);
       break;
     }

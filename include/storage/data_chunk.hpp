@@ -93,6 +93,11 @@ public:
 
   u16 GetColCount() const { return col_count_; }
 
+  u16 GetHeapSize() const {
+    DB7_ASSERT(size_ >= fixed_size_, "Corrupted chunk");
+    return size_ - fixed_size_;
+  }
+
   const column_t *ColumnIds() const { return reinterpret_cast<const column_t *>(varlen_contents_); }
 
   column_t *ColumnIds() { return reinterpret_cast<column_t *>(varlen_contents_); }
@@ -201,7 +206,7 @@ public:
   //   }
   // }
 
-  void WriteVarlen(u16 idx, std::span<const byte> payload) {
+  void WriteVarlenByIdx(u16 idx, std::span<const byte> payload) {
     using storage::VarlenEntry;
     DB7_ASSERT(idx < col_count_, "column index out of range");
     DB7_ASSERT(Offsets()[idx] + VarlenEntry::slot_size <= fixed_size_, "slot outside fixed area");
@@ -223,6 +228,10 @@ public:
 
     const u16 off = AppendTail(payload.data(), static_cast<u16>(payload.size()));
     entry->SetOffset(off);
+  }
+
+  void WriteVarlenByOid(column_t oid, std::span<const byte> payload) {
+    WriteVarlenByIdx(IdxOf(oid), payload);
   }
 
 private:
@@ -271,13 +280,13 @@ public:
     return initializer->Copy(size);
   }
 
-  static void Destroy(DataChunk *chunk) { delete[] reinterpret_cast<byte *>(chunk); }
-
   DataChunk *Copy(u32 heap_size) const {
     byte *raw = new byte[fixed_size_ + heap_size];
-    std::memcpy(raw, this, fixed_size_);
+    std::memcpy(raw, this, size_t(DataSlots() - Bytes()));
     return reinterpret_cast<DataChunk *>(raw);
   }
+
+  static void Destroy(DataChunk *chunk) { delete[] reinterpret_cast<byte *>(chunk); }
 };
 
 static_assert(sizeof(column_t) == 2);

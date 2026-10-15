@@ -155,6 +155,8 @@ void Pax::WriteSlot(byte *page, byte *dest, byte *source, const StorageColumnDes
 
 PaxInsertResponse Pax::Insert(byte *page, DataChunk *chunk, std::vector<StorageColumnDesc> &columns,
                               size_t required_heap, column_t catalog_col_count) {
+  DB7_ASSERT(chunk->GetColCount() == columns.size(), "Mismatch in DataTable and chunk sizes");
+
   const column_t ncols = PaxHeader::ColumnCount(page);
   if (catalog_col_count < ncols) { return PaxInsertResponse::WRITER_SCHEMA_STALE; }
   if (catalog_col_count > ncols) { return PaxInsertResponse::PAGE_SCHEMA_OLDER; }
@@ -285,7 +287,7 @@ void Pax::WriteDefaultValueToChunk(byte *dest, const StorageColumnDesc &col, Dat
   if (default_ptr == nullptr) {
     chunk->SetNull(i, true);
   } else if (col.isVarlen) {
-    chunk->WriteVarlen(i, col.default_val);
+    chunk->WriteVarlenByIdx(i, col.default_val);
   } else {
     std::memcpy(dest, default_ptr, size);
   }
@@ -335,7 +337,7 @@ DataChunk *Pax::Get(byte *page, u16 row_idx, std::vector<StorageColumnDesc> &col
     byte *cell = CalcCellPos(page, stripped, row_idx, col.slot_size);
     if (col.isVarlen) {
       auto *entry = VarlenEntry::Cast(cell);
-      chunk->WriteVarlen(i, entry->Data(page));
+      chunk->WriteVarlenByIdx(i, entry->Data(page));
     } else {
       std::memcpy(dest, cell, col.slot_size);
     }

@@ -10,7 +10,12 @@
 #include <atomic>
 #include <memory>
 
-namespace db7::catalog {
+namespace db7 {
+namespace storage {
+class StorageManager;
+}
+
+namespace catalog {
 
 class DependencyManager;
 class CreateTableInfo;
@@ -19,6 +24,7 @@ class TableCatalogEntry;
 
 class DatabaseCatalog {
 private:
+  storage::StorageManager &storage_;
   std::mutex mu;
   Identifier name_;
   std::unique_ptr<DependencyManager> dependency_manager_;
@@ -26,7 +32,7 @@ private:
   std::atomic<idx_t> gen_oid_;
 
 public:
-  DatabaseCatalog(Identifier name_);
+  DatabaseCatalog(storage::StorageManager &storage, Identifier name_);
   ~DatabaseCatalog();
 
   idx_t NextOid() { return gen_oid_++; }
@@ -38,6 +44,8 @@ private:
                                                   Identifier &name);
 
 public:
+  storage::StorageManager &Storage() { return storage_; }
+
   std::mutex &GetLock() { return mu; }
 
   optional_ptr<CatalogEntry> GetEntry(transaction::TransactionContext &context,
@@ -65,4 +73,5 @@ public:
   optional_ptr<CatalogEntry> CreateIndex(transaction::TransactionContext &context,
                                          CreateIndexInfo &info, TableCatalogEntry &table);
 };
-} // namespace db7::catalog
+} // namespace catalog
+} // namespace db7

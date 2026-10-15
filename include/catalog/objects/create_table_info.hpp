@@ -4,7 +4,8 @@
 #include "catalog/objects/column_list.hpp"
 #include "catalog/objects/create_info.hpp"
 
-namespace db7::catalog {
+namespace db7 {
+namespace catalog {
 class SchemaCatalogEntryBase;
 
 class CreateTableInfo : public CreateInfo {
@@ -20,4 +21,5 @@ public:
   CreateTableInfo(SchemaCatalogEntryBase &schema, Identifier table);
   CreateTableInfo(Identifier catalog, Identifier schema, Identifier table);
 };
-} // namespace db7::catalog
+} // namespace catalog
+} // namespace db7

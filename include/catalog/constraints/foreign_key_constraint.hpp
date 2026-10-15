@@ -17,7 +17,7 @@ public:
   ForeignKeyInfo info;
 
   ForeignKeyConstraint(std::vector<Identifier> pk_columns, std::vector<Identifier> fk_columns,
-                       ForeignKeyInfo info);
+                       ForeignKeyInfo i);
   ~ForeignKeyConstraint() override;
 
   std::unique_ptr<Constraint> Copy() const override;

@@ -9,8 +9,7 @@
 #include "common.hpp"
 #include "shared/arena/fixed_bump_arena.hpp"
 #include "shared/arena/object_pool.hpp"
-#include "storage/buffer_pool/buffer_pool.hpp"
-#include "storage/disk_manager/disk_scheduler.hpp"
+#include "storage/storage_manager.hpp"
 #include "transaction/transaction_manager.hpp"
 
 #include "common.hpp"
@@ -103,26 +102,19 @@ int main3() {
 int main() {
   using namespace db7::catalog;
 
-  db7::storage::DiskManagerAsync disk_mng_async(".data");
-
-  db7::storage::DiskScheduler disk_scheduler(&disk_mng_async);
-  disk_scheduler.Start();
-
-  db7::storage::PageVersionManager version_manager;
-
-  db7::storage::BufferPool buffer_pool(&disk_scheduler, &version_manager);
+  storage::StorageManager storage(".data");
 
   db7::transaction::TimestampManager timestamp_manager;
 
   db7::shared::ObjectPool<shared::FixedBumpArena> pool(10'000, 2000);
 
-  db7::transaction::TransactionManager txn_manager(&timestamp_manager, &buffer_pool,
-                                                   &version_manager, &pool);
+  db7::transaction::TransactionManager txn_manager(&timestamp_manager, &storage.GetBufferPool(),
+                                                   &storage.GetVersionManager(), &pool);
 
   auto context = txn_manager.BeginTransaction();
 
   auto catalogName = Identifier("katalog");
-  auto catalog = DatabaseCatalog(catalogName);
+  auto catalog = DatabaseCatalog(storage, catalogName);
 
   auto name = Identifier("jovan");
   auto schema = catalog.CreateSchema(*context, name);

@@ -4,15 +4,27 @@
 #include "catalog/objects/alter_table_info.hpp"
 #include "catalog/objects/create_table_info.hpp"
 
-namespace db7::catalog {
+namespace db7 {
+namespace storage {
+class BufferPool;
+class DiskManagerAsync;
+} // namespace storage
+
+namespace catalog {
 class TableCatalogEntry : public TableCatalogEntryBase {
+
+private:
+  // counter that generates table oids
+  static inline std::atomic<table_id> next_oid_{1};
+  table_id NextOid();
+
 public:
-  std::shared_ptr<StorageTable> storage;
+  std::shared_ptr<access::DataTable> storage;
   // //! Manages dependencies of the individual columns of the table
   // ColumnDependencyManager column_dependency_manager;
 
   TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntryBase &schema, CreateTableInfo &info,
-                    std::shared_ptr<StorageTable> inherited_storage = nullptr);
+                    std::shared_ptr<access::DataTable> inherited_storage = nullptr);
 
   const std::vector<std::unique_ptr<Constraint>> &GetConstraints() const;
 
@@ -21,4 +33,5 @@ public:
 
   std::unique_ptr<CatalogEntry> AddForeignKeyConstraint(AlterForeignKeyInfo &info);
 };
-} // namespace db7::catalog
+} // namespace catalog
+} // namespace db7

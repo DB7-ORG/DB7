@@ -12,7 +12,7 @@ ColumnDefinition ColumnDefinition::Copy() const {
   return copy;
 }
 
-void ColumnList::AddToNameMap(ColumnDefinition &col, idx_t idx) {
+void ColumnList::AddToNameMap(ColumnDefinition &col, column_t idx) {
 
   if (name_map.find(col.GetName()) != name_map.end()) {
     throw CATALOG_EXCEPTION(

@@ -446,6 +446,11 @@ private:
     return result;
   }
 
+  // TODO index this greatly overallocates for now
+  std::unique_ptr<byte[]> AllocateBuffer(u16 heap_size) {
+    return std::make_unique_for_overwrite<byte[]>(key_buffer_size_ + heap_size);
+  }
+
 public:
   BTreeIndex(storage::BufferPool *buffer_pool, storage::DiskManagerAsync *disk_mng, table_id tbl_id,
              table_id heap_tbl_id, std::vector<TypeSize> attr)
@@ -469,9 +474,7 @@ public:
   ~BTreeIndex() override = default;
 
   ResultObj<void> Insert(DataChunk *chunk, ValTyp value) {
-    auto ptr = std::make_unique_for_overwrite<byte[]>(
-        key_buffer_size_); // TODO storage if i ever get larger
-                           // strings ill need to change this
+    auto ptr = AllocateBuffer(chunk->GetHeapSize());
     Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, value, attrs_);
     shared::TlState::Clear();
     storage::Page *page = DropToLevel(key);
@@ -481,9 +484,7 @@ public:
   ResultObj<void> InsertUnique(transaction::TransactionContext *txn, DataChunk *chunk,
                                ValTyp value) {
 
-    auto ptr =
-        std::make_unique_for_overwrite<byte[]>(key_buffer_size_); // TODO if i ever get larger
-                                                                  // strings ill need to change this
+    auto ptr = AllocateBuffer(chunk->GetHeapSize());
     Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, 0, attrs_);
 
     shared::TlState::Clear();
@@ -543,7 +544,7 @@ public:
    * multiple copies of the same key on different locations in teh heap
    */
   ResultObj<void> Delete(DataChunk *chunk, ValTyp value) {
-    auto ptr = std::make_unique_for_overwrite<byte[]>(key_buffer_size_);
+    auto ptr = AllocateBuffer(chunk->GetHeapSize());
     Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, value, attrs_);
     shared::TlState::Clear();
     storage::Page *page = DropToLevel(key);
@@ -551,11 +552,19 @@ public:
   }
 
   ResultObj<void> Get(DataChunk *chunk, shared::VectorValues<ValTyp> &results) {
-    auto ptr = std::make_unique_for_overwrite<byte[]>(key_buffer_size_);
+    auto ptr = AllocateBuffer(chunk->GetHeapSize());
     Key key = access::KeyNormEncoder::BuildKey(ptr.get(), chunk, 0, attrs_);
     shared::TlState::Clear();
     auto *page = DropToLevel(key);
     return InternalGet(page, key, results);
+  }
+
+  bool CheckIndexColumns(std::vector<column_t> &column_ids) {
+    if (column_ids.size() != attrs_.size()) { return false; }
+    for (size_t i = 0; i < attrs_.size(); i++) {
+      if (attrs_[i].col_id != column_ids[i]) { return false; }
+    }
+    return true;
   }
 };
 } // namespace db7::access

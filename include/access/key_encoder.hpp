@@ -69,6 +69,8 @@ public:
       if (is_data_null) return size;
       buf++;
     }
+    // TODO add after adding specs feature
+    //  DB7_ASSERT(specs.is_nullable == is_data_null, "Passed null value on not null index column");
 
     if constexpr (std::is_integral_v<T> && std::is_signed_v<T>) { // i32, i64...
       using UTyp = std::make_unsigned_t<T>;
@@ -132,7 +134,7 @@ public:
 
   static u16 MaxKeyLen(std::span<const TypeSize> types) {
     u16 n = 0;
-    for (const auto &t : types) n += MaxEncodedSize(t, {false, false});
+    for (const auto &t : types) { n += MaxEncodedSize(t, {false, false}); }
     return n + sizeof(u64); // the tid suffix
   }
 
@@ -172,19 +174,11 @@ public:
     byte *cur = out;
 
     for (size_t i = 0; i < types.size(); i++) {
-      void *ptr = chunk->GetByOid(types[i].col_id);
-      cur += SwitchType(cur, ptr, chunk, false, types[i].type, {false, false});
+      void *ptr = chunk->GetByOidNullCheck(types[i].col_id);
+      cur += SwitchType(cur, ptr, chunk, ptr == nullptr, types[i].type, {false, false});
     }
 
     cur += EncodeUnsigned(cur, key_value);
-
-    // NOTE: i removed original value since it only makes sense for index only
-    // scans which are rare might add it later if needed fr now keep it simple
-    // for (size_t i = 0; i < types.size(); i++)
-    // {
-    //     memcpy(cur, chunk->Get(types[i].col_id), types[i].size);
-    //     cur += types[i].size;
-    // }
 
     u16 len = u16(cur - out);
 

@@ -19,9 +19,9 @@ struct ForeignKeyInfo {
   //! FK_TYPE_PRIMARY_KEY_TABLE, means foreign key table
   Identifier table;
   //! The set of main key table's column's index
-  std::vector<PhysicalIndex> pk_keys;
+  std::vector<column_t> pk_keys; // PhysicalIndex
   //! The set of foreign key table's column's index
-  std::vector<PhysicalIndex> fk_keys;
+  std::vector<column_t> fk_keys; // PhysicalIndex
 
   bool IsDeleteConstraint() const {
     return type == ForeignKeyType::FK_TYPE_PRIMARY_KEY_TABLE ||

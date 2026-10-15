@@ -4,7 +4,6 @@
 #include "shared/types/type_defs.hpp"
 
 #include <span>
-#include <vector>
 
 namespace db7::storage {
 class DefaultValue {
@@ -13,6 +12,7 @@ private:
 
 public:
   DefaultValue(std::span<const byte> value) : value_(value) {}
+  DefaultValue() = default;
 
   const byte *data() const { return value_.data(); }
   size_t size() const { return value_.size(); }
@@ -31,10 +31,10 @@ struct StorageColumnDesc {
   bool isVarlen;
   // default value for column, used for insert
   DefaultValue default_val;
-  bool isDropped = false;
+  bool isDropped;
 
-  StorageColumnDesc(column_t column_id, type_id type, DefaultValue def)
+  StorageColumnDesc(column_t column_id, type_id type, DefaultValue def = {}, bool dropped = false)
       : column_id(column_id), slot_size(SizeOf(type)), type(type), isVarlen(IsVarlen(type)),
-        default_val(def) {}
+        default_val(def), isDropped(dropped) {}
 };
 } // namespace db7::storage

@@ -13,8 +13,6 @@ class DataTable;
 }
 namespace catalog {
 
-using StorageTable = access::DataTable;
-
 constexpr u32 INVALID_OID = 0;
 
 // TODO catalog do i need all of these seems stupid
@@ -270,18 +268,20 @@ struct ConstraintProps {
 
 enum class OnEntryNotFound : u8 { THROW_EXCEPTION = 0, RETURN_NULL = 1 };
 
-struct PhysicalIndex {
-  static constexpr const idx_t INVALID_INDEX = idx_t(-1);
+using PhysicalIndex = column_t;
 
-  explicit PhysicalIndex(idx_t index) : index(index) {}
+// struct PhysicalIndex {
+//   static constexpr const idx_t INVALID_INDEX = idx_t(-1);
 
-  idx_t index;
+//   explicit PhysicalIndex(idx_t index) : index(index) {}
 
-  inline bool operator==(const PhysicalIndex &rhs) const { return index == rhs.index; };
-  inline bool operator!=(const PhysicalIndex &rhs) const { return index != rhs.index; };
-  inline bool operator<(const PhysicalIndex &rhs) const { return index < rhs.index; };
-  bool IsValid() const { return index != INVALID_INDEX; }
-};
+//   idx_t index;
+
+//   inline bool operator==(const PhysicalIndex &rhs) const { return index == rhs.index; };
+//   inline bool operator!=(const PhysicalIndex &rhs) const { return index != rhs.index; };
+//   inline bool operator<(const PhysicalIndex &rhs) const { return index < rhs.index; };
+//   bool IsValid() const { return index != INVALID_INDEX; }
+// };
 
 enum class IndexConstraintType : uint8_t {
   NONE = 0,    // index is an index don't built to any constraint
