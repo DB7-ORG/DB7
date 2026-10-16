@@ -18,12 +18,6 @@
         {
           "text": "-enable-pretty-printing",
           "ignoreFailures": true
-        },
-        {
-          "text": "source ${workspaceFolder}/tools/gdb/db7_printer.py"
-        },
-        {
-          "text": "set print object on"
         }
       ]
     },

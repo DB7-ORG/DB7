@@ -77,24 +77,26 @@ u16 Pax::StripOff(u16 offset) {
 // TODO storage could add min heap size if i need some specific layout
 // for a really large string for example so i dont get stuck creating
 // pages that dont have enough heap
-void Pax::Init(byte *page, std::vector<ColumnStatistics> &stats, size_t min_heap_size) {
+void Pax::Init(byte *page, std::vector<StorageColumnDesc> &columns, u16 avg_heap_size,
+               size_t min_heap_size) {
   DB7_ASSERT(min_heap_size <= UINT16_MAX, "Out of bounds");
-  DB7_ASSERT(stats.size() >= 1, "number of columns in the page must be atleast 1");
-  PaxHeader::SetColumnCount(page, stats.size());
+  DB7_ASSERT(columns.size() >= 1, "number of columns in the page must be atleast 1");
+  PaxHeader::SetMagic(page);
+  PaxHeader::SetColumnCount(page, columns.size());
   PaxHeader::SetTupleCount(page, 0);
   PaxHeader::SetCurrHeapOffset(page, DB7_PAGE_SIZE);
 
   /** Calculates cost of each row(size) for regular minipage and heap */
-  size_t row_heap_size = 0;
+  size_t row_heap_size = avg_heap_size;
   size_t row_size = 0;
   size_t valid_column_count = 0;
   size_t nullable_count = 0;
-  for (const auto &s : stats) {
+  for (const auto &s : columns) {
     if (s.isDropped) continue;
-    if (IsVarlen(s.type)) { row_heap_size += CalcHeapBytes(s.avg_size); }
+    // if (IsVarlen(s.type)) { row_heap_size += CalcHeapBytes(s.avg_size); }
     row_size += SizeOf(s.type);
     valid_column_count++;
-    nullable_count += size_t(s.nullable);
+    nullable_count += size_t(s.isNullable);
   }
   row_heap_size = std::min(row_heap_size, min_heap_size);
   DB7_ASSERT(row_size > 0, "table has no live columns");
@@ -106,22 +108,22 @@ void Pax::Init(byte *page, std::vector<ColumnStatistics> &stats, size_t min_heap
    * row is row_size - number of columns
    */
   auto worst_case_padding = row_size - valid_column_count;
-  size_t N =
-      CalculateNumTuples(row_heap_size, row_size, worst_case_padding, stats.size(), nullable_count);
+  size_t N = CalculateNumTuples(row_heap_size, row_size, worst_case_padding, columns.size(),
+                                nullable_count);
   PaxHeader::SetCapacity(page, N);
 
   u16 *offsets = PaxHeader::Offsets(page);
-  size_t start = stats.size() * sizeof(u16) + PaxHeader::fixed_header_size_;
+  size_t start = columns.size() * sizeof(u16) + PaxHeader::fixed_header_size_;
   int i = 0;
-  for (const auto &s : stats) {
+  for (const auto &s : columns) {
     if (s.isDropped) {
       offsets[i] = Pax::invalid_offset;
     } else {
       const auto col_size = SizeOf(s.type);
       start = shared::AlignUp(start, col_size);
-      u16 offset_nullable = s.nullable ? PaxHeader::offset_nullable_mask_ : 0;
+      u16 offset_nullable = s.isNullable ? PaxHeader::offset_nullable_mask_ : 0;
       offsets[i] = static_cast<u16>(start) | offset_nullable;
-      const auto null_bitmap_size = s.nullable ? (N + 7) / 8 : 0;
+      const auto null_bitmap_size = s.isNullable ? (N + 7) / 8 : 0;
       start += N * col_size + null_bitmap_size;
     }
     i++;
@@ -141,7 +143,8 @@ u16 Pax::AppendHeapUnsafe(byte *page, std::span<const byte> ptr) {
 void Pax::WriteSlot(byte *page, byte *dest, byte *source, const StorageColumnDesc &column,
                     const DataChunk *chunk) {
   if (!IsVarlen(column.type)) {
-    DB7_ASSERT(column.default_val.size() == column.slot_size, "fixed-width value size mismatch");
+    DB7_ASSERT(column.default_val.size() == 0 || column.default_val.size() == column.slot_size,
+               "fixed-width value size mismatch");
     std::memcpy(dest, source, column.slot_size);
   } else {
     const auto *entry = VarlenEntry::Cast(source);

@@ -7,7 +7,6 @@
 #include <cstring>
 #include <span>
 
-
 // TODO fix includes
 
 namespace db7::storage {

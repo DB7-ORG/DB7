@@ -29,7 +29,6 @@ private:
   storage::StorageManager &storage_manager_;
   std::vector<storage::StorageColumnDesc> columns_;
   std::vector<storage::StorageColumnDesc> valid_columns_;
-  column_t ncols_;
   DataChunkPtr initializer_;
   std::vector<std::unique_ptr<AddTableIndexInfo>> indexes_;
   table_id oid_; // table id
@@ -42,13 +41,8 @@ private:
   void VerifyForeignKeyConstraint(transaction::TransactionContext &context,
                                   catalog::ForeignKeyConstraint &constraint, DataChunk *chunk);
 
-  void VerifyForeignKeyConstraint(
-      transaction::TransactionContext &context,
-      const std::vector<std::unique_ptr<catalog::ForeignKeyConstraint>> &constraints,
-      DataChunk *chunk);
-
 public:
-  DataTable(catalog::TableCatalogEntry &parent, std::vector<storage::StorageColumnDesc> &columns,
+  DataTable(catalog::TableCatalogEntry &parent, std::vector<storage::StorageColumnDesc> columns,
             table_id oid_);
 
   const DataChunk *Initializer() const;

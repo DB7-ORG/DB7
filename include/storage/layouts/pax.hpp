@@ -14,13 +14,14 @@
   A page holds up to `capacity` tuples. Every live column gets a minipage sized
   for exactly `capacity` values, so the address of any value is pure arithmetic:
 
-      value(col, i) = page + ColumnOffset(col) + i * SizeOf(type)
+      value(col, i) = page + magic_size_ + ColumnOffset(col) + i * SizeOf(type)
 
   Variable-length values that don't fit in their slot spill into a heap at the
   end of the page.
 
   +---------------------------------------------------------------+ 0
   | Header                                                        |
+  |   magic number         u32   DB7_PAX_MAGIC                    |
   |   column count         sizeof(column_t)                       |
   |   tuple count          u16   tuples currently stored          |
   |   capacity             u16   max tuples, fixed at Init        |
@@ -67,10 +68,15 @@ enum PaxInsertResponse {
 };
 
 class PaxHeader {
-public:
-  /** ColumnCount + TupleCount + Capacity + CurrHeapOffset + MaxHeapOffsetRef */
+private:
+  friend class Pax;
+
+  static constexpr u32 pax_magic_ = 3042617577;
+
+  static constexpr u16 magic_size_ = sizeof(u32);
+  /** MagicNumber + ColumnCount + TupleCount + Capacity + CurrHeapOffset + MaxHeapOffsetRef */
   static constexpr u16 fixed_header_size_ =
-      sizeof(column_t) + sizeof(u16) + sizeof(u16) + sizeof(u16) + sizeof(u16);
+      magic_size_ + sizeof(column_t) + sizeof(u16) + sizeof(u16) + sizeof(u16) + sizeof(u16);
 
   static constexpr u16 offset_nullable_mask_ = 1 << (sizeof(u16) * 8 - 1);
 
@@ -78,26 +84,35 @@ public:
                 "Page size must be below 32KB in order for this layout to work");
 
 private:
-  static column_t &ColumnCountRef(byte *page) { return *reinterpret_cast<column_t *>(page); }
+  static u32 &MagicRef(byte *page) { return *reinterpret_cast<u32 *>(page); }
+
+  static column_t &ColumnCountRef(byte *page) {
+    return *reinterpret_cast<column_t *>(page + magic_size_);
+  }
 
   static u16 &TupleCountRef(byte *page) {
-    return *reinterpret_cast<u16 *>(page + sizeof(column_t));
+    return *reinterpret_cast<u16 *>(page + magic_size_ + sizeof(column_t));
   }
 
   static u16 &CapacityRef(byte *page) {
-    return *reinterpret_cast<u16 *>(page + sizeof(column_t) + sizeof(u16));
+    return *reinterpret_cast<u16 *>(page + magic_size_ + sizeof(column_t) + sizeof(u16));
   }
 
   static u16 &CurrHeapOffsetRef(byte *page) {
-    return *reinterpret_cast<u16 *>(page + sizeof(column_t) + sizeof(u16) + sizeof(u16));
-  }
-
-  static u16 &MaxHeapOffsetRef(byte *page) {
-    return *reinterpret_cast<u16 *>(page + sizeof(column_t) + sizeof(u16) + sizeof(u16) +
+    return *reinterpret_cast<u16 *>(page + magic_size_ + sizeof(column_t) + sizeof(u16) +
                                     sizeof(u16));
   }
 
+  static u16 &MaxHeapOffsetRef(byte *page) {
+    return *reinterpret_cast<u16 *>(page + magic_size_ + sizeof(column_t) + sizeof(u16) +
+                                    sizeof(u16) + sizeof(u16));
+  }
+
 public:
+  static u32 Magic(byte *page) { return MagicRef(page); }
+
+  static void SetMagic(byte *page) { MagicRef(page) = pax_magic_; }
+
   static column_t ColumnCount(byte *page) { return ColumnCountRef(page); }
 
   static void SetColumnCount(byte *page, column_t count) { ColumnCountRef(page) = count; }
@@ -122,17 +137,6 @@ public:
     byte *data = page + PaxHeader::fixed_header_size_;
     return reinterpret_cast<u16 *>(data);
   }
-};
-
-struct ColumnStatistics { // TODO should be moved to layers above likely catalog
-  type_id type;
-  bool isDropped;
-  u16 avg_size;
-
-  bool nullable;
-
-  ColumnStatistics(type_id type, bool isDropped, u16 avg_size, bool nullable)
-      : type(type), isDropped(isDropped), avg_size(avg_size), nullable(nullable) {}
 };
 
 class Pax {
@@ -197,6 +201,7 @@ private:
                                        const size_t i);
 
 public:
+  static bool IsInitialized(byte *page) { return PaxHeader::Magic(page) == PaxHeader::pax_magic_; }
   /**
    * Method used for calculating a required heap size for some DataChunk.
    * Usually called before FSM to request free page.
@@ -227,7 +232,8 @@ public:
    *                      a fixed layout
    * @param min_heap_size minimum size of the heap
    */
-  static void Init(byte *page, std::vector<ColumnStatistics> &stats, size_t min_heap_size);
+  static void Init(byte *page, std::vector<StorageColumnDesc> &columns, u16 avg_heap_size,
+                   size_t min_heap_size);
 
   /**
    * Method for inserting data chunk into a page that uses pax layout.

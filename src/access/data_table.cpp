@@ -15,13 +15,17 @@
 namespace db7::access {
 
 DataTable::DataTable(catalog::TableCatalogEntry &parent,
-                     std::vector<storage::StorageColumnDesc> &columns, table_id oid)
+                     std::vector<storage::StorageColumnDesc> columns, table_id oid)
     : parent(parent), storage_manager_(parent.catalog.StorageManager()),
-      columns_(std::move(columns)), ncols_(columns.size()), oid_(oid) {
+      columns_(std::move(columns)), oid_(oid) {
   for (const auto &col : columns_) {
     if (!col.isDropped) { valid_columns_.push_back(col); }
   }
   initializer_ = DataChunkPtr(DataChunk::BuildDataChunkInitializer(valid_columns_));
+
+  // creates a file for the heap
+  auto &disk_mng_ = storage_manager_.GetDiskManager();
+  if (!disk_mng_.CreateOpenFile(oid_, 1)) { throw IO_EXCEPTION("Could not create/open file"); }
 }
 
 const DataChunk *DataTable::Initializer() const { return initializer_.get(); }
@@ -127,17 +131,22 @@ bool DataTable::Insert(transaction::TransactionContext &context, DataChunk *chun
 
   u16 tuple_index;
   const auto page_id = page->GetPageId();
+  byte *data = page->GetData();
   { // Inserts into the heap
     storage::PagePinGuard ping_(page);
     storage::PageWriteGuard lockg_(page);
 
-    tuple_index = storage::Pax::CurrentRowCount(page->GetData());
+    if (!storage::Pax::IsInitialized(data)) {
+      storage::Pax::Init(data, columns_, required_heap, required_heap);
+    }
 
-    storage::PaxInsertResponse result =
-        storage::Pax::Insert(page->GetData(), chunk, valid_columns_, required_heap, ncols_);
-    page->SetDirty();
+    tuple_index = storage::Pax::CurrentRowCount(data);
+
+    storage::PaxInsertResponse result = storage::Pax::Insert(page->GetData(), chunk, valid_columns_,
+                                                             required_heap, columns_.size());
     // TODO storage once fsm is added this will need to be handled
     if (result != storage::PaxInsertResponse::OK) { return false; }
+    page->SetDirty();
 
     InsertUndo(context, tuple_index, page);
   }
@@ -154,6 +163,10 @@ bool DataTable::Insert(transaction::TransactionContext &context, DataChunk *chun
       if (!res.success) {
         throw EXECUTION_EXCEPTION(res.message, shared::ErrorCode::ERRCODE_UNIQUE_VIOLATION);
       }
+      break;
+    }
+    case catalog::IndexConstraintType::FOREIGN: {
+      btree.Insert(chunk, {tuple_index, page_id});
       break;
     }
     default: break;
@@ -181,8 +194,7 @@ bool DataTable::Insert(transaction::TransactionContext &context, DataChunk *chun
   for (const auto &index : indexes_) {
     auto &btree = index->index_->Cast<BTreeIndex<>>();
     switch (index->type_) {
-    case catalog::IndexConstraintType::NONE:
-    case catalog::IndexConstraintType::FOREIGN: {
+    case catalog::IndexConstraintType::NONE: {
       btree.Insert(chunk, {tuple_index, page_id});
       break;
     }

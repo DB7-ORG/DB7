@@ -1,10 +1,13 @@
 
+#include "access/data_table.hpp"
 #include "catalog/builder.hpp"
 #include "catalog/constraints/constraint.hpp"
 #include "catalog/constraints/foreign_key_constraint.hpp"
+#include "catalog/constraints/unique_constraint.hpp"
 #include "catalog/database_catalog.hpp"
 #include "catalog/dependency/dependency_list.hpp"
 #include "catalog/entries/schema_catalog_entry.hpp"
+#include "catalog/entries/table_catalog_entry.hpp"
 #include "catalog/objects/column_list.hpp"
 #include "common.hpp"
 #include "shared/arena/fixed_bump_arena.hpp"
@@ -20,6 +23,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fmt/core.h>
+#include <span>
 #include <string>
 #include <thread>
 #include <vector>
@@ -116,42 +120,47 @@ int main() {
   auto catalogName = Identifier("katalog");
   auto catalog = DatabaseCatalog(storage, catalogName);
 
-  auto name = Identifier("jovan");
-  auto schema = catalog.CreateSchema(*context, name);
+  auto schema_name = Identifier("schema_default");
+  auto schema = catalog.CreateSchema(*context, schema_name);
   auto &schema_entry = schema->Cast<SchemaCatalogEntry>();
 
   /////
-
+  auto cust_tbl_name = Identifier("customers");
   ColumnList columns_cust;
   columns_cust.AddColumn({"id", type_id::BIGINT});
+  UniqueConstraint pk({"id"}, true);
   columns_cust.AddColumn({"name", type_id::VARCHAR});
 
-  auto tbl_name = Identifier("customers");
-  CreateTableInfo customer_info(schema_entry, tbl_name);
+  CreateTableInfo customer_info(schema_entry, cust_tbl_name);
   customer_info.columns = std::move(columns_cust);
+  customer_info.constraints.push_back(pk.Copy());
   auto table_customer = catalog.CreateTable(*context, customer_info, schema_entry);
-  auto &ss = table_customer->Cast<TableCatalogEntry>();
+  TableCatalogEntry &customers = table_customer->Cast<TableCatalogEntry>();
 
-  CreateIndexInfo customer_index_info;
-  customer_index_info.table = tbl_name;
-  customer_index_info.index_name = "customer index";
-  customer_index_info.constraint_type = IndexConstraintType::PRIMARY;
-  customer_index_info.column_ids = {0};
+  // CreateIndexInfo customer_index_info;
+  // customer_index_info.table = tbl_name;
+  // customer_index_info.index_name = "customer index";
+  // customer_index_info.constraint_type = IndexConstraintType::PRIMARY;
+  // customer_index_info.column_ids = {0};
 
-  auto index_customer = catalog.CreateIndex(*context, customer_index_info, ss);
+  // auto index_customer = catalog.CreateIndex(*context, customer_index_info, customers);
 
-  (void)index_customer;
+  // (void)index_customer;
   ////
 
+  auto orders_tbl_name = Identifier("orders");
   ColumnList columns;
   columns.AddColumn({"order_id", type_id::BIGINT});
+  UniqueConstraint pk2({"order_id"}, true);
   columns.AddColumn({"product_name", type_id::VARCHAR});
   columns.AddColumn({"customer_id", type_id::BIGINT});
 
   ForeignKeyInfo key_info;
   key_info.type = ForeignKeyType::FK_TYPE_FOREIGN_KEY_TABLE;
-  key_info.schema = "jovan";
-  key_info.table = "customers";
+  key_info.schema = schema_name;
+  key_info.table = cust_tbl_name;
+  key_info.pk_keys = {0};
+  key_info.fk_keys = {2};
   auto costraint = std::make_unique<ForeignKeyConstraint>(
       std::vector<Identifier>{
           std::vector<Identifier>{"id"},
@@ -161,16 +170,43 @@ int main() {
       },
       std::move(key_info));
   std::vector<std::unique_ptr<Constraint>> constraints;
+  constraints.push_back(pk2.Copy());
   constraints.push_back(std::move(costraint));
 
   LogicalDependencyList deps;
 
-  CreateTableInfo info(schema_entry, Identifier("orders"));
+  CreateTableInfo info(schema_entry, orders_tbl_name);
   info.columns = std::move(columns);
   info.constraints = std::move(constraints);
   info.dependencies = std::move(deps);
 
-  auto table = catalog.CreateTable(*context, info, schema_entry);
-  (void)table;
-  std::cout << "OK" << std::endl;
+  auto table_orders = catalog.CreateTable(*context, info, schema_entry);
+  auto &orders = table_orders->Cast<TableCatalogEntry>();
+  std::cout << "CREATED OK" << std::endl;
+  {
+    // insert to customer
+    auto *initializer = customers.storage->Initializer();
+    auto *chunk = DataChunk::BuildDataChunk(initializer, 0);
+    u64 id = 1;
+    std::string name = "jovan katanic";
+    chunk->WriteByIdxNullCheck(0, std::span<byte>(reinterpret_cast<byte *>(&id), sizeof(u64)));
+    chunk->WriteVarlenByIdx(1, std::span<byte>(reinterpret_cast<byte *>(name.data()), name.size()));
+    customers.storage->Insert(*context, chunk);
+  }
+  {
+    // insert to orders
+    auto *initializer2 = orders.storage->Initializer();
+    u64 order_id = 1;
+    std::string product_name = "neki proizvod "; // sa jako dugackim imenom";
+    u64 customer_id = 1;
+    auto *chunk2 = DataChunk::BuildDataChunk(initializer2, 0);
+
+    chunk2->WriteByIdxNullCheck(0,
+                                std::span<byte>(reinterpret_cast<byte *>(&order_id), sizeof(u64)));
+    chunk2->WriteVarlenByIdx(
+        1, std::span<byte>(reinterpret_cast<byte *>(product_name.data()), product_name.size()));
+    chunk2->WriteByIdxNullCheck(
+        2, std::span<byte>(reinterpret_cast<byte *>(&customer_id), sizeof(u64)));
+    orders.storage->Insert(*context, chunk2);
+  }
 }

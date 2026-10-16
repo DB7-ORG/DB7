@@ -14,7 +14,7 @@ private:
   storage::BufferPool *buffer_pool_;
   storage::PageVersionManager *version_manager_;
   shared::ObjectPool<shared::FixedBumpArena> *mem_pool_;
-  shared::SpinBarrier commit_latch_;
+  shared::SpinBarrier commit_barrier_;
 
 public:
   TransactionManager(TimestampManager *timestamp_manager, storage::BufferPool *buffer_pool,

@@ -32,9 +32,11 @@ struct StorageColumnDesc {
   // default value for column, used for insert
   DefaultValue default_val;
   bool isDropped;
+  bool isNullable;
 
-  StorageColumnDesc(column_t column_id, type_id type, DefaultValue def = {}, bool dropped = false)
+  StorageColumnDesc(column_t column_id, type_id type, DefaultValue def = {}, bool dropped = false,
+                    bool isNullable = false)
       : column_id(column_id), slot_size(SizeOf(type)), type(type), isVarlen(IsVarlen(type)),
-        default_val(def), isDropped(dropped) {}
+        default_val(def), isDropped(dropped), isNullable(isNullable) {}
 };
 } // namespace db7::storage

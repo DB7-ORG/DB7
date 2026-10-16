@@ -15,6 +15,10 @@ private:
   bool is_primary_key;
 
 public:
+  UniqueConstraint(std::vector<Identifier> columns, const bool is_primary_key);
+
+  std::unique_ptr<Constraint> Copy() const;
+
   bool IsPrimaryKey() const;
 
   const std::vector<Identifier> &GetColumnNames() const;

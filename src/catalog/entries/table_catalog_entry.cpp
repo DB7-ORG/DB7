@@ -11,14 +11,14 @@ TableCatalogEntry::TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntr
                                      CreateTableInfo &info,
                                      std::shared_ptr<access::DataTable> inherited_storage)
     : TableCatalogEntryBase(catalog, schema, info), storage(std::move(inherited_storage)) {
-
+  // NOTE: info.columns and info.constraints is moved
   if (storage) { return; }
 
   table_id oid = NextOid();
 
   std::vector<storage::StorageColumnDesc> column_defs;
   column_t column_id = 0;
-  for (const auto &col : info.columns) { column_defs.push_back({column_id++, col.GetType()}); }
+  for (const auto &col : columns) { column_defs.push_back({column_id++, col.GetType()}); }
   storage = std::make_shared<access::DataTable>(*this, column_defs, oid);
 
   // create indexes for primary, unique and foreign key constraints
@@ -34,7 +34,7 @@ TableCatalogEntry::TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntr
 
       std::vector<access::TypeSize> index_columns;
       for (const auto &name : unique.GetColumnNames()) {
-        const auto id = info.columns.GetColumnId(name);
+        const auto id = columns.GetColumnId(name);
         const auto &col = column_defs[id];
         index_columns.push_back({col.column_id, col.type});
       }
@@ -54,7 +54,7 @@ TableCatalogEntry::TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntr
 
       std::vector<access::TypeSize> index_columns;
       for (const auto &name : bfk.fk_columns) {
-        const auto id = info.columns.GetColumnId(name);
+        const auto id = columns.GetColumnId(name);
         const auto &col = column_defs[id];
         index_columns.push_back({col.column_id, col.type});
       }
