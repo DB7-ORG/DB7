@@ -62,5 +62,12 @@ Data table:
 
 - plan how to populate index safely 
 - see if u should abort running writers if create index runs concurrently
-- find a method to freeze commit transactions
 - TODO transaction Try()
+
+online index creation:
+- publish index in BUILDING state
+- start scanning the heap
+- when we get a tuple:
+  (tuple commited)      add it to index
+  (tuple not commited)  add it to index, get next value in chain then repeat
+- GC will later collect aborted values 

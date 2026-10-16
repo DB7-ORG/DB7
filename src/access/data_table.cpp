@@ -44,6 +44,7 @@ storage::Page *DataTable::GetPageForInsert(DataChunk *chunk) {
   return insert_page;
 }
 
+// TODO storage likely can be optimized by removing write/get by oid
 void DataTable::VerifyForeignKeyConstraint(transaction::TransactionContext &context,
                                            catalog::ForeignKeyConstraint &constraint,
                                            DataChunk *chunk) {
@@ -124,7 +125,8 @@ void DataTable::InsertUndo(transaction::TransactionContext &context, u16 index,
 
   versions[index].Set(record);
 }
-
+// Every write modifies the row first (under the page latch), and only then reads the current index
+// list. This assures online index creation is safe.
 bool DataTable::Insert(transaction::TransactionContext &context, DataChunk *chunk) {
   u16 required_heap = storage::Pax::CalcHeapBytes(columns_, chunk);
   auto *page = GetPageForInsert(chunk); // TODO storage should pass required_heap here

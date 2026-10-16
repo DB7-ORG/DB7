@@ -21,9 +21,7 @@ public:
                      storage::PageVersionManager *version_manager,
                      shared::ObjectPool<shared::FixedBumpArena> *mem_pool)
       : timestamp_manager_(timestamp_manager), buffer_pool_(buffer_pool),
-        version_manager_(version_manager), mem_pool_(mem_pool) {
-    (void)buffer_pool_;
-  }
+        version_manager_(version_manager), mem_pool_(mem_pool) {}
 
   /**
    * Begins a transaction.
