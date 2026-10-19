@@ -235,6 +235,8 @@ public:
   static void Init(byte *page, std::vector<StorageColumnDesc> &columns, u16 avg_heap_size,
                    size_t min_heap_size);
 
+  static bool HasAvailableHeapSpace(byte *page, u16 required_heap);
+
   /**
    * Method for inserting data chunk into a page that uses pax layout.
    * Data chunk should contain all values except columns that are dropped.
@@ -250,10 +252,17 @@ public:
                                   std::vector<StorageColumnDesc> &columns, size_t required_heap,
                                   column_t catalog_col_count);
 
+  /* Required only for scan to skip newer pages. For delete/update we can assume version is visible
+   * to the transaction and there was a scan beforehand so there is no need for this since it was
+   * already called.*/
   static bool IsPageVisible(byte *page, const std::vector<StorageColumnDesc> &cols,
                             column_t catalog_col_count);
 
   static DataChunk *Get(byte *page, u16 row_idx, std::vector<StorageColumnDesc> &columns,
                         u16 catalog_col_count, DataChunk *initializer);
+
+  static PaxInsertResponse Update(byte *page, DataChunk *chunk,
+                                  std::vector<StorageColumnDesc> &columns, size_t required_heap,
+                                  u16 catalog_col_count, u16 index);
 };
 } // namespace db7::storage

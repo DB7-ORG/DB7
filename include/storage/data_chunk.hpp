@@ -89,6 +89,8 @@ public:
 
   const byte *Bytes() const { return reinterpret_cast<const byte *>(this); }
 
+  std::span<byte> Span() { return {Bytes(), GetSize()}; }
+
   u32 GetSize() const { return size_; }
 
   u16 GetColCount() const { return col_count_; }

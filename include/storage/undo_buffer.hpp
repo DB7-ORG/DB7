@@ -6,7 +6,6 @@
 #include "storage/storage_common.hpp"
 #include "transaction/transaction_common.hpp"
 
-
 #include <span>
 #include <vector>
 
@@ -67,7 +66,7 @@ public:
   }
 
   static UndoRecord *InitializeUpdate(byte *head, const timestamp_t timestamp, table_id tbl_id,
-                                      page_id pid, u32 idx, std::span<byte> chunk_header) {
+                                      page_id pid, u32 idx, std::span<byte> chunk) {
     auto *result = reinterpret_cast<UndoRecord *>(head);
     result->type_ = DeltaRecordType::UPDATE;
     result->next_ = nullptr;
@@ -75,7 +74,7 @@ public:
     result->t_id_ = tbl_id;
     result->p_id_ = pid;
     result->idx_ = idx;
-    std::memcpy(result->varlen_contents_, chunk_header.data(), chunk_header.size());
+    std::memcpy(result->varlen_contents_, chunk.data(), chunk.size());
     return result;
   }
 };

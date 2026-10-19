@@ -6,6 +6,7 @@
 #include "access/index/layouts/varlen/varlen_layout_leaf.hpp"
 #include "access/key_encoder.hpp"
 #include "common.hpp"
+#include "shared/data_structures/bitset.hpp"
 #include "shared/thread_local_util.hpp"
 #include "storage/buffer_pool/buffer_pool.hpp"
 
@@ -27,6 +28,7 @@ private:
   BtreeVarlenLayoutIntermediate<page_id> layout_inter_;
   BtreeVarlenLayoutLeaf<ValTyp> layout_leaf_;
   std::vector<TypeSize> attrs_;
+  shared::BitSet column_set_;
   u16 key_buffer_size_;
 
   static constexpr size_t ALLOC_CONST = 3;
@@ -461,6 +463,8 @@ public:
       throw IO_EXCEPTION("IO exception could not open file");
     }
 
+    for (const auto &attr : attrs_) { column_set_.Add(attr.col_id); }
+
     key_buffer_size_ = KeyNormEncoder::MaxKeyLen(attrs_);
 
     storage::Page *page = ReserveNode();
@@ -472,6 +476,8 @@ public:
   }
 
   ~BTreeIndex() override = default;
+
+  bool ContainsColumns(const shared::BitSet &set) const { return column_set_.Intersects(set); }
 
   ResultObj<void> Insert(DataChunk *chunk, ValTyp value) {
     auto ptr = AllocateBuffer(chunk->GetHeapSize());

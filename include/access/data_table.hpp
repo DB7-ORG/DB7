@@ -48,6 +48,9 @@ private:
 
   bool DeleteUndo(transaction::TransactionContext &context, u16 index, storage::Page *page);
 
+  bool UpdateUndo(transaction::TransactionContext &context, u16 index, storage::Page *page,
+                  DataChunk *chunk);
+
 public:
   DataTable(catalog::DatabaseCatalog &catalog, std::vector<storage::StorageColumnDesc> columns,
             table_id oid_);
@@ -65,28 +68,32 @@ public:
   /**
    * Inserts a record to table along with indexes on this table
    * while making sure no constraints are violated
+   * @param table Table from which we are reading constraints(should be table u see under MVCC)
    * @param chunk Abstraction used to pass data around
    */
   bool Insert(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
               DataChunk *chunk);
 
   /**
-   * Updates a record to table along with indexes on this table
-   * while making sure no constraints are violated.
-   * Updates are done in place or using delete + insert if
-   * updated fields contain indexes
-   * @param chunk Abstraction used to pass data around
-   */
-  bool Update(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
-              TupleId tuple, DataChunk *chunk);
-
-  /**
    * Deletes a record to table along with indexes on this table
    * while making sure no constraints are violated
+   * @param table Table from which we are reading constraints(should be table u see under MVCC)
    * @param tuple Location which row to delete
    */
   bool Delete(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
               TupleId tuple);
+
+  /**
+   * Updates a record to table along with indexes on this table
+   * while making sure no constraints are violated.
+   * Updates are done in place or using delete + insert if
+   * updated fields contain indexes
+   * @param table Table from which we are reading constraints(should be table u see under MVCC)
+   * @param chunk Abstraction used to pass data around
+   * @param tuple Location which row to update
+   */
+  bool Update(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
+              TupleId tuple, DataChunk *chunk);
 };
 } // namespace access
 } // namespace db7

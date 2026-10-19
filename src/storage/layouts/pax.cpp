@@ -41,6 +41,11 @@ size_t Pax::CalcHeapBytes(const std::vector<storage::StorageColumnDesc> &columns
   return required_heap;
 }
 
+bool Pax::HasAvailableHeapSpace(byte *page, u16 required_heap) {
+  if (required_heap > PaxHeader::CurrHeapOffset(page) - PaxHeader::MaxHeapOffset(page))
+    return PaxInsertResponse::NO_SPACE_HEAP;
+}
+
 u16 Pax::MaxRowCount(byte *page) { return PaxHeader::Capacity(page); }
 
 u16 Pax::CurrentRowCount(byte *page) { return PaxHeader::TupleCount(page); }
@@ -164,8 +169,7 @@ PaxInsertResponse Pax::Insert(byte *page, DataChunk *chunk, std::vector<StorageC
   if (catalog_col_count < ncols) { return PaxInsertResponse::WRITER_SCHEMA_STALE; }
   if (catalog_col_count > ncols) { return PaxInsertResponse::PAGE_SCHEMA_OLDER; }
 
-  if (required_heap > PaxHeader::CurrHeapOffset(page) - PaxHeader::MaxHeapOffset(page))
-    return PaxInsertResponse::NO_SPACE_HEAP;
+  if (!HasAvailableHeapSpace(page, required_heap)) { return PaxInsertResponse::NO_SPACE_HEAP; }
 
   /** Is there still space in the page */
   const u16 ntup = PaxHeader::TupleCount(page);
@@ -189,7 +193,6 @@ PaxInsertResponse Pax::Insert(byte *page, DataChunk *chunk, std::vector<StorageC
 
     const u16 offset = offsets[col_id];
     if (offset == Pax::invalid_offset) { return PaxInsertResponse::WRITER_SCHEMA_STALE; }
-    DB7_ASSERT(offset != Pax::invalid_offset, "trying to insert to dropped column");
     if (chunk->IsNull(i) && !(offset & PaxHeader::offset_nullable_mask_))
       return PaxInsertResponse::PAGE_SCHEMA_OLDER;
   }
@@ -347,6 +350,76 @@ DataChunk *Pax::Get(byte *page, u16 row_idx, std::vector<StorageColumnDesc> &col
     }
   }
   return chunk;
+}
+
+PaxInsertResponse Pax::Update(byte *page, DataChunk *chunk, std::vector<StorageColumnDesc> &columns,
+                              size_t required_heap, u16 catalog_col_count, u16 index) {
+  DB7_ASSERT(chunk->GetColCount() == columns.size(), "Mismatch in DataTable and chunk sizes");
+  DB7_ASSERT(index < PaxHeader::TupleCount(page), "Index out of bounds");
+
+  const column_t ncols = PaxHeader::ColumnCount(page);
+  if (catalog_col_count < ncols) { return PaxInsertResponse::WRITER_SCHEMA_STALE; }
+
+  // TODO storage this is stricter than it needs to be not sure if fix will help here since schema
+  // changes are rare
+  if (catalog_col_count > ncols) { return PaxInsertResponse::PAGE_SCHEMA_OLDER; }
+
+  if (!HasAvailableHeapSpace(page, required_heap)) { return PaxInsertResponse::NO_SPACE_HEAP; }
+
+  const u16 *offsets = PaxHeader::Offsets(page);
+  const column_t *column_ids = chunk->ColumnIds();
+
+  /**
+   * Validate before writing anything, so a refused insert leaves the page untouched.
+   * A NULL for a column without a bitmap means the page was written before the column
+   * became nullable (or the column is NOT NULL). Treat it like a full page so the
+   * caller moves on (e.g. zero space hint in the FSM).
+   */
+  // TODO storage this should be done once per page
+  for (u16 i = 0; i < chunk->GetColCount(); ++i) {
+    const column_t col_id = column_ids[i];
+    DB7_ASSERT(col_id < ncols, "Column tried to write outside of range");
+
+    const u16 offset = offsets[col_id];
+    if (offset == Pax::invalid_offset) { return PaxInsertResponse::WRITER_SCHEMA_STALE; }
+    if (chunk->IsNull(i) && !(offset & PaxHeader::offset_nullable_mask_))
+      return PaxInsertResponse::PAGE_SCHEMA_OLDER;
+  }
+
+  const u16 capacity = PaxHeader::Capacity(page);
+
+  /** Scan over every column in chunk */
+  for (u16 i = 0; i < chunk->GetColCount(); ++i) {
+    column_t col_id = column_ids[i];
+    DB7_ASSERT(col_id < PaxHeader::ColumnCount(page), "Column tried to write outside of range");
+
+    const u16 offset = offsets[col_id];
+
+    const auto &column = columns[i];
+    DB7_ASSERT(!column.isDropped, "Dropped columns shouldnt be included");
+    /** Get data from the chunk that will be copied to the page */
+    byte *ptr = chunk->GetByIdxNullCheck(i);
+
+    const u16 stripped_offset = StripOff(offset);
+
+    /* Set null bitmap */
+    if (offset & PaxHeader::offset_nullable_mask_) {
+      byte *bitmap = ColBitmap(page, stripped_offset, column.slot_size, capacity);
+      if (ptr == nullptr) {
+        SetBit<true>(bitmap, index);
+        continue;
+      } else {
+        SetBit<false>(bitmap, index);
+      }
+    }
+    DB7_ASSERT(ptr != nullptr, "Data cant be null here");
+
+    /* Copy data to the right cell */
+    byte *dest = CalcCellPos(page, stripped_offset, index, column.slot_size);
+    WriteSlot(page, dest, ptr, column, chunk);
+  }
+
+  return PaxInsertResponse::OK;
 }
 
 } // namespace db7::storage
