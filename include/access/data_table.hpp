@@ -25,7 +25,7 @@ class Index;
 
 class DataTable {
 private:
-  catalog::TableCatalogEntry &parent;
+  catalog::DatabaseCatalog &catalog_;
   storage::StorageManager &storage_manager_;
   std::vector<storage::StorageColumnDesc> columns_;
   std::vector<storage::StorageColumnDesc> valid_columns_;
@@ -33,16 +33,23 @@ private:
   std::vector<std::unique_ptr<AddTableIndexInfo>> indexes_;
   table_id oid_; // table id
 
+  enum class FkCheck { Insert, Delete };
+
 private:
   storage::Page *GetPageForInsert(DataChunk *chunk);
 
   void InsertUndo(transaction::TransactionContext &context, u16 index, storage::Page *page);
 
   void VerifyForeignKeyConstraint(transaction::TransactionContext &context,
-                                  catalog::ForeignKeyConstraint &constraint, DataChunk *chunk);
+                                  catalog::ForeignKeyConstraint &constraint, DataChunk *chunk,
+                                  FkCheck type);
+
+  storage::Page *GetPageById(page_id pid);
+
+  bool DeleteUndo(transaction::TransactionContext &context, u16 index, storage::Page *page);
 
 public:
-  DataTable(catalog::TableCatalogEntry &parent, std::vector<storage::StorageColumnDesc> columns,
+  DataTable(catalog::DatabaseCatalog &catalog, std::vector<storage::StorageColumnDesc> columns,
             table_id oid_);
 
   const DataChunk *Initializer() const;
@@ -60,7 +67,8 @@ public:
    * while making sure no constraints are violated
    * @param chunk Abstraction used to pass data around
    */
-  bool Insert(transaction::TransactionContext &context, DataChunk *chunk);
+  bool Insert(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
+              DataChunk *chunk);
 
   /**
    * Updates a record to table along with indexes on this table
@@ -69,14 +77,16 @@ public:
    * updated fields contain indexes
    * @param chunk Abstraction used to pass data around
    */
-  bool Update(transaction::TransactionContext &context, TupleId tuple, DataChunk *chunk);
+  bool Update(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
+              TupleId tuple, DataChunk *chunk);
 
   /**
    * Deletes a record to table along with indexes on this table
    * while making sure no constraints are violated
    * @param tuple Location which row to delete
    */
-  bool Delete(transaction::TransactionContext &context, TupleId tuple);
+  bool Delete(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
+              TupleId tuple);
 };
 } // namespace access
 } // namespace db7

@@ -30,7 +30,7 @@
 
 using namespace db7;
 
-static inline u64 now_ns() {
+[[maybe_unused]] static inline u64 now_ns() {
   std::atomic_signal_fence(std::memory_order_seq_cst);
 
   timespec ts;
@@ -191,7 +191,8 @@ int main() {
     std::string name = "jovan katanic";
     chunk->WriteByIdxNullCheck(0, std::span<byte>(reinterpret_cast<byte *>(&id), sizeof(u64)));
     chunk->WriteVarlenByIdx(1, std::span<byte>(reinterpret_cast<byte *>(name.data()), name.size()));
-    customers.storage->Insert(*context, chunk);
+    bool r = customers.storage->Insert(*context, customers, chunk);
+    if (!r) { throw CATALOG_EXCEPTION(""); }
   }
   {
     // insert to orders
@@ -207,6 +208,24 @@ int main() {
         1, std::span<byte>(reinterpret_cast<byte *>(product_name.data()), product_name.size()));
     chunk2->WriteByIdxNullCheck(
         2, std::span<byte>(reinterpret_cast<byte *>(&customer_id), sizeof(u64)));
-    orders.storage->Insert(*context, chunk2);
+    bool r = orders.storage->Insert(*context, orders, chunk2);
+    if (!r) { throw CATALOG_EXCEPTION(""); }
+  }
+
+  {
+    // delete from customer
+    auto entry =
+        catalog.GetEntry(*context, schema_name, {CatalogType::TABLE_ENTRY, orders_tbl_name});
+    TableCatalogEntry &o = entry->Cast<TableCatalogEntry>();
+    bool r = o.storage->Delete(*context, o, {0, 1});
+    if (!r) { throw CATALOG_EXCEPTION(""); }
+  }
+
+  {
+    // delete from customer
+    auto entry = catalog.GetEntry(*context, schema_name, {CatalogType::TABLE_ENTRY, cust_tbl_name});
+    TableCatalogEntry &c = entry->Cast<TableCatalogEntry>();
+    bool r = c.storage->Delete(*context, c, {0, 1});
+    if (!r) { throw CATALOG_EXCEPTION(""); }
   }
 }

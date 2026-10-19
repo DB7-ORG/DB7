@@ -559,7 +559,7 @@ public:
     return InternalGet(page, key, results);
   }
 
-  bool CheckIndexColumns(std::vector<column_t> &column_ids) {
+  bool CheckIndexColumns(const std::vector<column_t> &column_ids) {
     if (column_ids.size() != attrs_.size()) { return false; }
     for (size_t i = 0; i < attrs_.size(); i++) {
       if (attrs_[i].col_id != column_ids[i]) { return false; }

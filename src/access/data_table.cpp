@@ -14,10 +14,10 @@
 
 namespace db7::access {
 
-DataTable::DataTable(catalog::TableCatalogEntry &parent,
+DataTable::DataTable(catalog::DatabaseCatalog &catalog,
                      std::vector<storage::StorageColumnDesc> columns, table_id oid)
-    : parent(parent), storage_manager_(parent.catalog.StorageManager()),
-      columns_(std::move(columns)), oid_(oid) {
+    : catalog_(catalog), storage_manager_(catalog.StorageManager()), columns_(std::move(columns)),
+      oid_(oid) {
   for (const auto &col : columns_) {
     if (!col.isDropped) { valid_columns_.push_back(col); }
   }
@@ -28,14 +28,6 @@ DataTable::DataTable(catalog::TableCatalogEntry &parent,
   if (!disk_mng_.CreateOpenFile(oid_, 1)) { throw IO_EXCEPTION("Could not create/open file"); }
 }
 
-const DataChunk *DataTable::Initializer() const { return initializer_.get(); }
-
-table_id DataTable::GetTableId() const { return oid_; }
-
-void DataTable::AddIndex(std::unique_ptr<AddTableIndexInfo> info) {
-  indexes_.push_back(std::move(info));
-}
-
 storage::Page *DataTable::GetPageForInsert(DataChunk *chunk) {
   u32 page_id = storage::FreeSpaceManagerVarlen::Get(chunk->GetSize());
   storage::PageIdentifier id(oid_, page_id);
@@ -44,21 +36,40 @@ storage::Page *DataTable::GetPageForInsert(DataChunk *chunk) {
   return insert_page;
 }
 
+storage::Page *DataTable::GetPageById(page_id pid) {
+  storage::PageIdentifier id(oid_, pid);
+  storage::Page *page = storage_manager_.GetBufferPool().Pin(id);
+  page->WaitIO();
+  return page;
+}
+
+const DataChunk *DataTable::Initializer() const { return initializer_.get(); }
+
+table_id DataTable::GetTableId() const { return oid_; }
+
+void DataTable::AddIndex(std::unique_ptr<AddTableIndexInfo> info) {
+  indexes_.push_back(std::move(info));
+}
+
 // TODO storage likely can be optimized by removing write/get by oid
 void DataTable::VerifyForeignKeyConstraint(transaction::TransactionContext &context,
                                            catalog::ForeignKeyConstraint &constraint,
-                                           DataChunk *chunk) {
-  std::vector<catalog::PhysicalIndex> &src_keys = constraint.info.fk_keys;
-  std::vector<catalog::PhysicalIndex> &dst_keys = constraint.info.pk_keys;
+                                           DataChunk *chunk, FkCheck type) {
+
+  const bool is_insert = type == FkCheck::Insert;
+
+  const auto &src_keys = is_insert ? constraint.info.fk_keys : constraint.info.pk_keys;
+  const auto &dst_keys = is_insert ? constraint.info.pk_keys : constraint.info.fk_keys;
   DB7_ASSERT(src_keys.size() == dst_keys.size(), "Should be same size");
 
-  optional_ptr<catalog::CatalogEntry> catalog_entry = parent.catalog.GetEntry(
+  optional_ptr<catalog::CatalogEntry> catalog_entry = catalog_.GetEntry(
       context, constraint.info.schema, {catalog::CatalogType::TABLE_ENTRY, constraint.info.table});
   if (!catalog_entry) { throw CATALOG_EXCEPTION("Not found"); }
   auto &table_entry = catalog_entry->Cast<catalog::TableCatalogEntry>();
   auto storage = table_entry.storage.get();
   const DataChunk *builder = storage->Initializer();
 
+  /* Calculates required size for varlen heap of data chunk */
   size_t size = 0;
   for (const auto key : src_keys) {
     const auto &col = columns_[key];
@@ -70,8 +81,10 @@ void DataTable::VerifyForeignKeyConstraint(transaction::TransactionContext &cont
     size += storage::VarlenEntry::Cast(slot)->HeapSize();
   }
 
+  /* Allocates a chunk */
   DataChunkPtr dst_chunk(DataChunk::BuildDataChunk(builder, size));
 
+  /* Fills the chunk with data needed for current index we are checking */
   for (u16 i = 0; i < src_keys.size(); i++) {
     const auto src_key = src_keys[i];
     const auto dst_key = dst_keys[i];
@@ -85,9 +98,9 @@ void DataTable::VerifyForeignKeyConstraint(transaction::TransactionContext &cont
     }
   }
 
-  bool has_inserted = false;
+  bool valid = false;
   for (auto &index : storage->indexes_) {
-    if (index->type_ != catalog::IndexConstraintType::UNIQUE &&
+    if (is_insert && index->type_ != catalog::IndexConstraintType::UNIQUE &&
         index->type_ != catalog::IndexConstraintType::PRIMARY) {
       continue;
     }
@@ -98,15 +111,19 @@ void DataTable::VerifyForeignKeyConstraint(transaction::TransactionContext &cont
     shared::VectorValues<TupleId> results;
     auto res = btree.Get(dst_chunk.get(), results);
     if (!res.success) { throw CATALOG_EXCEPTION(res.message); }
+
     ResultObj<TupleId> r = context.GetFirstVisibleTid(results.vec, storage->GetTableId());
-    if (!r.success) { throw CATALOG_EXCEPTION(r.message); }
+    if (is_insert && !r.success) {
+      throw CATALOG_EXCEPTION("FK violation: referenced key not found");
+    }
+    if (!is_insert && r.success) {
+      throw CATALOG_EXCEPTION("FK violation: key is still referenced");
+    }
 
-    has_inserted = true;
+    valid = true;
   }
 
-  if (!has_inserted) {
-    throw CATALOG_EXCEPTION("Unreachable code: No matching index for fk check");
-  }
+  if (!valid) { throw CATALOG_EXCEPTION("Unreachable code: No matching index for fk check"); }
 }
 
 /**
@@ -125,9 +142,11 @@ void DataTable::InsertUndo(transaction::TransactionContext &context, u16 index,
 
   versions[index].Set(record);
 }
+
 // Every write modifies the row first (under the page latch), and only then reads the current index
 // list. This assures online index creation is safe.
-bool DataTable::Insert(transaction::TransactionContext &context, DataChunk *chunk) {
+bool DataTable::Insert(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
+                       DataChunk *chunk) {
   u16 required_heap = storage::Pax::CalcHeapBytes(columns_, chunk);
   auto *page = GetPageForInsert(chunk); // TODO storage should pass required_heap here
 
@@ -175,12 +194,14 @@ bool DataTable::Insert(transaction::TransactionContext &context, DataChunk *chun
     }
   }
 
-  const auto &constraints = parent.GetConstraints();
+  const auto &constraints = table.GetConstraints();
   for (const auto &constraint : constraints) {
     switch (constraint->type) {
     case catalog::ConstraintType::FOREIGN_KEY: {
       auto &fk_constraint = constraint->Cast<catalog::ForeignKeyConstraint>();
-      VerifyForeignKeyConstraint(context, fk_constraint, chunk);
+      if (fk_constraint.info.IsAppendConstraint()) {
+        VerifyForeignKeyConstraint(context, fk_constraint, chunk, FkCheck::Insert);
+      }
       break;
     }
     case catalog::ConstraintType::CHECK: break;
@@ -201,6 +222,82 @@ bool DataTable::Insert(transaction::TransactionContext &context, DataChunk *chun
       break;
     }
     default: break;
+    }
+  }
+
+  return true;
+}
+
+bool HasConflict(transaction::TransactionContext &context, storage::UndoRecord *version_ptr) {
+  /* Nobody modified this tuple */
+  if (version_ptr == nullptr) return false;
+
+  return transaction::TransactionUtil::HasConflict(version_ptr->GetTimestamp(),
+                                                   context.FinishTime(), context.StartTime());
+}
+
+/**
+ * @warning make sure to hold the page data lock like w other columns
+ */
+bool DataTable::DeleteUndo(transaction::TransactionContext &context, u16 index,
+                           storage::Page *page) {
+  u32 max_tuple_count = storage::Pax::MaxRowCount(page->GetData());
+
+  auto page_id = page->GetPageId();
+
+  storage::UndoRecord *record = context.UndoRecordForDelete(oid_, page_id, index);
+
+  storage::VersionPtr *versions =
+      context.GetVersions(page, storage::PageIdentifier{oid_, page_id}, max_tuple_count);
+
+  storage::UndoRecord *version_ptr;
+
+  do {
+    version_ptr = versions[index].Get();
+
+    if (HasConflict(context, version_ptr)) {
+      record->Invalidate();
+      return false;
+    }
+
+    record->SetNext(version_ptr);
+
+  } while (!versions[index].CompareAndSwap(version_ptr, record));
+
+  return true;
+}
+
+bool DataTable::Delete(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
+                       TupleId tuple) {
+
+  auto *page = GetPageById(tuple.GetPageId());
+
+  DataChunkPtr chunk; // RAII guard for cleanup
+  {
+    storage::PagePinGuard ping_(page);
+    storage::PageWriteGuard lockg_(page);
+    chunk.reset(storage::Pax::Get(page->GetData(), tuple.GetIndex(), valid_columns_,
+                                  columns_.size(), initializer_.get()));
+    bool result = DeleteUndo(context, tuple.GetIndex(), page);
+    if (!result) { return false; }
+  }
+
+  const auto &constraints = table.GetConstraints();
+  for (const auto &constraint : constraints) {
+    switch (constraint->type) {
+    case catalog::ConstraintType::FOREIGN_KEY: {
+      auto &fk_constraint = constraint->Cast<catalog::ForeignKeyConstraint>();
+      if (fk_constraint.info.IsDeleteConstraint()) {
+        VerifyForeignKeyConstraint(context, fk_constraint, chunk.get(), FkCheck::Delete);
+      }
+      break;
+    }
+    case catalog::ConstraintType::CHECK: break;
+    case catalog::ConstraintType::NOT_NULL: break;
+    case catalog::ConstraintType::UNIQUE: break;
+    case catalog::ConstraintType::INVALID:
+      throw EXECUTION_EXCEPTION("Invalid constraint type",
+                                shared::ErrorCode::ERRCODE_FEATURE_NOT_SUPPORTED);
     }
   }
 

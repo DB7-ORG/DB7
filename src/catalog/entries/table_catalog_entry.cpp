@@ -19,7 +19,7 @@ TableCatalogEntry::TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntr
   std::vector<storage::StorageColumnDesc> column_defs;
   column_t column_id = 0;
   for (const auto &col : columns) { column_defs.push_back({column_id++, col.GetType()}); }
-  storage = std::make_shared<access::DataTable>(*this, column_defs, oid);
+  storage = std::make_shared<access::DataTable>(catalog, column_defs, oid);
 
   // create indexes for primary, unique and foreign key constraints
   auto *buffer_pool = &catalog.StorageManager().GetBufferPool();

@@ -26,6 +26,9 @@ public:
   TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntryBase &schema, CreateTableInfo &info,
                     std::shared_ptr<access::DataTable> inherited_storage = nullptr);
 
+  TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntry &schema, CreateTableInfo &info,
+                    const access::DataTable &prev);
+
   const std::vector<std::unique_ptr<Constraint>> &GetConstraints() const;
 
   std::unique_ptr<CatalogEntry> AlterEntry(transaction::TransactionContext &context,

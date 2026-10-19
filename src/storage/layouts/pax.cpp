@@ -253,7 +253,8 @@ u32 Pax::CalculateChunkHeapSize(byte *page, const column_t ncols, const u16 capa
   for (size_t i = 0; i < columns.size(); i++) {
 
     const auto &col = columns[i];
-    DB7_ASSERT(col.isVarlen || col.default_val.size() == col.slot_size,
+    DB7_ASSERT(col.isVarlen || col.default_val.size() == 0 ||
+                   col.default_val.size() == col.slot_size,
                "Slot size and size must be equal for fixed types");
 
     if (col.isVarlen) {
