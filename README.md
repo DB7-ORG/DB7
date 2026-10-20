@@ -64,6 +64,11 @@ Data table:
 - see if u should abort running writers if create index runs concurrently
 - TODO transaction Try()
 
+- pax layout is too strict sometimes
+- TODO storage we dont have error handling for is writable
+- TODO storage add code thaqt asserts chunk column order is same as columns vector order
+- rename columns_ so u know its entire vector
+
 online index creation:
 - publish index in BUILDING state
 - start scanning the heap

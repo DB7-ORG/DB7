@@ -27,7 +27,7 @@ class DataTable {
 private:
   catalog::DatabaseCatalog &catalog_;
   storage::StorageManager &storage_manager_;
-  std::vector<storage::StorageColumnDesc> columns_;
+  std::vector<storage::StorageColumnDesc> main_columns_;
   std::vector<storage::StorageColumnDesc> valid_columns_;
   DataChunkPtr initializer_;
   std::vector<std::unique_ptr<AddTableIndexInfo>> indexes_;
@@ -36,6 +36,9 @@ private:
   enum class FkCheck { Insert, Delete };
 
 private:
+  /* Basically version of the current schema or columns_ vector size. */
+  size_t NCols() const;
+
   storage::Page *GetPageForInsert(DataChunk *chunk);
 
   void InsertUndo(transaction::TransactionContext &context, u16 index, storage::Page *page);
@@ -43,6 +46,14 @@ private:
   void VerifyForeignKeyConstraint(transaction::TransactionContext &context,
                                   catalog::ForeignKeyConstraint &constraint, DataChunk *chunk,
                                   FkCheck type);
+
+  u16 InsertInternalHeap(transaction::TransactionContext &context, storage::Page *page,
+                         DataChunk *chunk, u16 required_heap);
+
+  void InsertInternalIndexConstraints(transaction::TransactionContext &context, DataChunk *chunk,
+                                      page_id page_id, u16 tuple_index);
+
+  void InsertInternalIndexOther(DataChunk *chunk, page_id page_id, u16 tuple_index);
 
   storage::Page *GetPageById(page_id pid);
 
@@ -56,6 +67,10 @@ public:
             table_id oid_);
 
   const DataChunk *Initializer() const;
+
+  const DataChunkPtr Initializer(std::vector<storage::StorageColumnDesc> &columns) const;
+
+  const DataChunkPtr Initializer(std::vector<ChunkColumn> &columns) const;
 
   table_id GetTableId() const;
 

@@ -2,6 +2,7 @@
 
 #include "common.hpp"
 #include "shared/align_util.hpp"
+#include "shared/data_structures/bitset.hpp"
 #include "shared/error/exception.hpp"
 #include "storage/layouts/storage_column_desc.hpp"
 #include "storage/varlen_entry.hpp"
@@ -236,6 +237,20 @@ public:
     WriteVarlenByIdx(IdxOf(oid), payload);
   }
 
+  void WriteVarlenByIdxNullCheck(u16 idx, std::span<const byte> payload) {
+    if (payload.data() == nullptr) {
+      SetNull(idx, true);
+      return;
+    } else {
+      SetNull(idx, false);
+    }
+    WriteVarlenByIdx(idx, payload);
+  }
+
+  void WriteVarlenByOidNullCheck(column_t oid, std::span<const byte> payload) {
+    WriteVarlenByIdxNullCheck(IdxOf(oid), payload);
+  }
+
 private:
   static size_t CalcFixedSizeAndOffsets(std::vector<ChunkColumn> &columns,
                                         std::vector<u16> &offsets) {
@@ -249,6 +264,12 @@ private:
       size += col.size;
     }
     return size;
+  }
+
+  DataChunk *Allocate(u32 heap_size) const {
+    byte *raw = new byte[fixed_size_ + heap_size];
+    std::memcpy(raw, this, size_t(DataSlots() - Bytes()));
+    return reinterpret_cast<DataChunk *>(raw);
   }
 
 public:
@@ -279,13 +300,40 @@ public:
   }
 
   static DataChunk *BuildDataChunk(const DataChunk *initializer, u32 size) {
-    return initializer->Copy(size);
+    return initializer->Allocate(size);
   }
 
-  DataChunk *Copy(u32 heap_size) const {
-    byte *raw = new byte[fixed_size_ + heap_size];
-    std::memcpy(raw, this, size_t(DataSlots() - Bytes()));
+  DataChunk *Copy() {
+    byte *raw = new byte[size_];
+    std::memcpy(raw, this, size_);
     return reinterpret_cast<DataChunk *>(raw);
+  }
+
+  /* columns is all columns in the catalog including dropped ones */
+  void MergeInto(DataChunk *in, const std::vector<storage::StorageColumnDesc> &main_columns) {
+    DB7_ASSERT(this->GetColCount() >= in->GetColCount(), "Out should have all of in columns");
+    // TODO assert thtat also ^
+
+    const column_t *in_cols = in->ColumnIds();
+    for (u16 i = 0; i < in->GetColCount(); i++) {
+      const auto &column = main_columns[in_cols[i]];
+      byte *data = in->GetByIdxNullCheck(i);
+      u16 idx = IdxOf(column.column_id);
+
+      if (data == nullptr) {
+        SetNull(idx, true);
+        continue;
+      } else {
+        SetNull(idx, false);
+      }
+
+      if (column.isVarlen) {
+        auto varlen = storage::VarlenEntry::Cast(data);
+        this->WriteVarlenByOid(column.column_id, varlen->Data(in->Bytes()));
+      } else {
+        this->WriteByOid(column.column_id, {data, column.slot_size});
+      }
+    }
   }
 
   static void Destroy(DataChunk *chunk) { delete[] reinterpret_cast<byte *>(chunk); }
@@ -299,3 +347,64 @@ struct DataChunkDeleter {
 };
 using DataChunkPtr = std::unique_ptr<DataChunk, DataChunkDeleter>;
 } // namespace db7
+
+namespace db7::storage {
+
+class ChunkDiff {
+public:
+  /**
+   * Byte-wise value equality of column `oid` in two chunks.
+   * NULL == NULL, NULL != value. Varlen compares payloads, not slots,
+   * because the heap offset inside a slot differs between chunks.
+   * Conservative: values that are equal but have different bytes (e.g. -0.0 vs 0.0)
+   * count as changed, which only costs an extra check, never a missed one.
+   */
+  static bool ValueEquals(DataChunk *a, DataChunk *b, column_t oid, const StorageColumnDesc &col) {
+    byte *va = a->GetByOidNullCheck(oid);
+    byte *vb = b->GetByOidNullCheck(oid);
+    if (va == nullptr || vb == nullptr) { return va == vb; }
+
+    if (!col.isVarlen) { return std::memcmp(va, vb, col.slot_size) == 0; }
+
+    const auto *ea = VarlenEntry::Cast(va);
+    const auto *eb = VarlenEntry::Cast(vb);
+    const auto da = ea->Data(a->Bytes());
+    const auto db = eb->Data(b->Bytes());
+    return da.size() == db.size() && std::memcmp(da.data(), db.data(), da.size()) == 0;
+  }
+
+  // /**
+  //  * Hot path: does any column in `keys` that `changes` sets have a new value?
+  //  * No allocation, exits early. Use it for FK, unique-index and in-place decisions.
+  //  *
+  //  * @param base     full old row (from GetUnsafe over valid_columns_)
+  //  * @param changes  update chunk (only the SET columns)
+  //  * @param columns  columns_ indexed by column id
+  //  */
+  // static bool AnyChanged(DataChunk &base, DataChunk &changes, std::span<const column_t> keys,
+  //                        const std::vector<StorageColumnDesc> &columns) {
+  //   const column_t *ids = changes.ColumnIds();
+  //   for (const column_t key : keys) {
+  //     for (u16 i = 0; i < changes.GetColCount(); i++) {
+  //       if (ids[i] != key) { continue; }
+  //       if (!ValueEquals(base, changes, key, columns[key])) { return true; }
+  //       break;
+  //     }
+  //   }
+  //   return false;
+  // }
+
+  /** Every column of `changes` whose value differs from `base`. Build it once per row if several
+   * checks need it. */
+  static shared::BitSet ChangedColumns(DataChunk *base, DataChunk *changes,
+                                       const std::vector<StorageColumnDesc> &columns) {
+    shared::BitSet out;
+    const column_t *ids = changes->ColumnIds();
+    for (u16 i = 0; i < changes->GetColCount(); i++) {
+      if (!ValueEquals(base, changes, ids[i], columns[ids[i]])) { out.Add(ids[i]); }
+    }
+    return out;
+  }
+};
+
+} // namespace db7::storage

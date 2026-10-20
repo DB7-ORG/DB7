@@ -228,4 +228,60 @@ int main() {
     bool r = c.storage->Delete(*context, c, {0, 1});
     if (!r) { throw CATALOG_EXCEPTION(""); }
   }
+  //////////////////////2
+  {
+    // insert to customer
+    auto *initializer = customers.storage->Initializer();
+    auto *chunk = DataChunk::BuildDataChunk(initializer, 0);
+    u64 id = 1;
+    std::string name = "jovan katanic";
+    chunk->WriteByIdxNullCheck(0, std::span<byte>(reinterpret_cast<byte *>(&id), sizeof(u64)));
+    chunk->WriteVarlenByIdx(1, std::span<byte>(reinterpret_cast<byte *>(name.data()), name.size()));
+    bool r = customers.storage->Insert(*context, customers, chunk);
+    if (!r) { throw CATALOG_EXCEPTION(""); }
+  }
+
+  {
+    // insert to orders
+    auto *initializer2 = orders.storage->Initializer();
+    u64 order_id = 1;
+    std::string product_name = "neki proizvod "; // sa jako dugackim imenom";
+    u64 customer_id = 1;
+    auto *chunk2 = DataChunk::BuildDataChunk(initializer2, 0);
+
+    chunk2->WriteByIdxNullCheck(0,
+                                std::span<byte>(reinterpret_cast<byte *>(&order_id), sizeof(u64)));
+    chunk2->WriteVarlenByIdx(
+        1, std::span<byte>(reinterpret_cast<byte *>(product_name.data()), product_name.size()));
+    chunk2->WriteByIdxNullCheck(
+        2, std::span<byte>(reinterpret_cast<byte *>(&customer_id), sizeof(u64)));
+    bool r = orders.storage->Insert(*context, orders, chunk2);
+    if (!r) { throw CATALOG_EXCEPTION(""); }
+  }
+
+  {
+    std::vector<ChunkColumn> columns = {{1, SizeOf(db7::type_id::VARCHAR)}};
+    auto initializer2 = orders.storage->Initializer(columns);
+    auto *chunk = DataChunk::BuildDataChunk(initializer2.get(), 0);
+    std::string product_name = "neki drugi";
+    chunk->WriteVarlenByIdx(
+        0, std::span<byte>(reinterpret_cast<byte *>(product_name.data()), product_name.size()));
+    bool r = orders.storage->Update(*context, orders, {1, 1}, chunk);
+    if (!r) { throw CATALOG_EXCEPTION(""); }
+  }
+
+  {
+    std::vector<ChunkColumn> columns = {{0, SizeOf(db7::type_id::BIGINT)},
+                                        {2, SizeOf(db7::type_id::BIGINT)}};
+    auto initializer2 = orders.storage->Initializer(columns);
+    auto *chunk = DataChunk::BuildDataChunk(initializer2.get(), 0);
+    u64 order_id = 2;
+    u64 customer_id = 2;
+    chunk->WriteByIdxNullCheck(0,
+                               std::span<byte>(reinterpret_cast<byte *>(&order_id), sizeof(u64)));
+    chunk->WriteByIdxNullCheck(
+        1, std::span<byte>(reinterpret_cast<byte *>(&customer_id), sizeof(u64)));
+    bool r = orders.storage->Update(*context, orders, {1, 1}, chunk);
+    if (!r) { throw CATALOG_EXCEPTION(""); }
+  }
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.hpp"
+#include "shared/pointers/optional_ptr.hpp"
 #include "shared/types/type_defs.hpp"
 #include "storage/data_chunk.hpp"
 #include "storage/storage_common.hpp"
@@ -60,8 +61,9 @@ namespace db7::storage {
 
 enum PaxInsertResponse {
   OK,
-  NO_SPACE_HEAP,       // no more space in heap of the page
-  NO_SPACE_CAPACITY,   // limit of max number of tuples for this layout reached
+  NO_SPACE_HEAP,     // no more space in heap of the page
+  NO_SPACE_CAPACITY, // limit of max number of tuples for this layout reached
+  NOT_INITIALIZED,
   PAGE_SCHEMA_OLDER,   // some columns are missing in page cant insert
   WRITER_SCHEMA_STALE, // column changed from NOT NULL to NULLABLE
   COLUMN_DROPPED,      // someone else dropped the column that we want to insert
@@ -208,8 +210,8 @@ public:
    *
    * @param columns column metadata
    */
-  static size_t CalcHeapBytes(const std::vector<storage::StorageColumnDesc> &columns,
-                              const DataChunk *chunk);
+  static u16 CalcHeapBytes(const std::vector<storage::StorageColumnDesc> &main_columns,
+                           const DataChunk *chunk);
   /**
    * Method used for fetching maximum number of rows u can insert.
    *
@@ -232,37 +234,106 @@ public:
    *                      a fixed layout
    * @param min_heap_size minimum size of the heap
    */
-  static void Init(byte *page, std::vector<StorageColumnDesc> &columns, u16 avg_heap_size,
+  static void Init(byte *page, std::vector<StorageColumnDesc> &main_columns, u16 avg_heap_size,
                    size_t min_heap_size);
 
   static bool HasAvailableHeapSpace(byte *page, u16 required_heap);
 
   /**
+   * Method for checking if chunk can be added to the page.
+   *
+   * @param page              page bytes
+   * @param chunk             data we want to insert to the page
+   * @param columns           metadata for columns in chunk like column item size and type.
+   *                          NOTE: doesnt include dropped columns
+   * @param catalog_col_count total number of columns in a catalog
+   * @param required_heap     required for tuple to be inserted
+   */
+  static PaxInsertResponse IsPageWritable(byte *page, DataChunk *chunk,
+                                          const std::vector<StorageColumnDesc> &columns,
+                                          column_t catalog_col_count, u16 required_heap);
+  /**
    * Method for inserting data chunk into a page that uses pax layout.
    * Data chunk should contain all values except columns that are dropped.
    * Columns with default value should be provided.
+   * NOTE: this method should call __ IsPageWritable __ to validate if layout is allowed
    *
    * @param page          page bytes
    * @param chunk         data we want to insert to the page
    * @param columns       metadata for columns in chunk like column item size and type.
    *                      NOTE: doesnt include dropped columns
-   * @param required_heap heap required in bytes for data to fit into this page
+   * @return              index of the inserted tuple in the page
    */
-  static PaxInsertResponse Insert(byte *page, DataChunk *chunk,
-                                  std::vector<StorageColumnDesc> &columns, size_t required_heap,
-                                  column_t catalog_col_count);
+  static u16 InsertUnsafe(byte *page, DataChunk *chunk, std::vector<StorageColumnDesc> &columns);
 
-  /* Required only for scan to skip newer pages. For delete/update we can assume version is visible
-   * to the transaction and there was a scan beforehand so there is no need for this since it was
-   * already called.*/
-  static bool IsPageVisible(byte *page, const std::vector<StorageColumnDesc> &cols,
-                            column_t catalog_col_count);
+  /**
+   * Method for quick checking if page should be skipped during scans.
+   * Required only for scan to skip newer pages.
+   *
+   * @param page              page bytes
+   * @param columns           metadata for columns in chunk like column item size and type.
+   *                          NOTE: doesnt include dropped columns
+   * @param catalog_col_count total number of columns in a catalog
+   */
+  static bool IsPageReadable(byte *page, const std::vector<StorageColumnDesc> &columns,
+                             column_t catalog_col_count);
 
-  static DataChunk *Get(byte *page, u16 row_idx, std::vector<StorageColumnDesc> &columns,
-                        u16 catalog_col_count, DataChunk *initializer);
+  /**
+   * Method for retrieving data chunk from the page.
+   * Data chunk should contain all values except columns that are dropped.
+   * Columns with default value should be provided.
+   * NOTE: this method should call __ IsPageReadable __ to validate if layout is allowed
+   *
+   * @param page              page bytes
+   * @param row_idx           row index in the page to fetch
+   * @param columns           metadata for columns in chunk like column item size and type.
+   *                          NOTE: doesnt include dropped columns
+   * @param catalog_col_count total number of columns in a catalog
+   * @param initializer       used for creating a chunk for this schema
+   */
+  static DataChunk *GetUnsafe(byte *page, u16 row_idx, std::vector<StorageColumnDesc> &columns,
+                              u16 catalog_col_count, DataChunk *initializer, u16 base_heap = 0);
 
-  static PaxInsertResponse Update(byte *page, DataChunk *chunk,
-                                  std::vector<StorageColumnDesc> &columns, size_t required_heap,
-                                  u16 catalog_col_count, u16 index);
+  /**
+   * Method for retrieving data chunk from the page with safety checks.
+   * Data chunk should contain all values except columns that are dropped.
+   * Columns with default value should be provided.
+   *
+   * @param page              page bytes
+   * @param row_idx           row index in the page to fetch
+   * @param columns           metadata for columns in chunk like column item size and type.
+   *                          NOTE: doesnt include dropped columns
+   * @param catalog_col_count total number of columns in a catalog
+   * @param initializer       used for creating a chunk for this schema
+   */
+  static optional_ptr<DataChunk> Get(byte *page, u16 row_idx,
+                                     std::vector<StorageColumnDesc> &columns, u16 catalog_col_count,
+                                     DataChunk *initializer);
+
+  /**
+   * Method for checking if chunk can be updated in place on this page.
+   *
+   * @param page              page bytes
+   * @param chunk             data we want to update with
+   *                          NOTE: contains only columns we want to change
+   * @param columns           metadata for columns in chunk like column item size and type.
+   *                          NOTE: doesnt include dropped columns
+   */
+  static PaxInsertResponse IsPageUpdatable(byte *page, DataChunk *chunk, column_t catalog_col_count,
+                                           u16 required_heap);
+  /**
+   * Method for updating row using columns from data chunk.
+   * Data chunk should contain only values we update, not all columns.
+   * Columns in the chunk.
+   * NOTE: this method should call __ IsPageUpdatable __ to validate if layout is allowed
+   *
+   * @param page          page bytes
+   * @param chunk         data we want to update to the page
+   * @param columns       metadata for columns in chunk like column item size and type.
+   *                      NOTE: doesnt include dropped columns
+   * @param index         row index we want to modify
+   */
+  static void UpdateUnsafe(byte *page, DataChunk *chunk, std::vector<StorageColumnDesc> &columns,
+                           u16 index);
 };
 } // namespace db7::storage

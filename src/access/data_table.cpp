@@ -16,9 +16,9 @@ namespace db7::access {
 
 DataTable::DataTable(catalog::DatabaseCatalog &catalog,
                      std::vector<storage::StorageColumnDesc> columns, table_id oid)
-    : catalog_(catalog), storage_manager_(catalog.StorageManager()), columns_(std::move(columns)),
-      oid_(oid) {
-  for (const auto &col : columns_) {
+    : catalog_(catalog), storage_manager_(catalog.StorageManager()),
+      main_columns_(std::move(columns)), oid_(oid) {
+  for (const auto &col : main_columns_) {
     if (!col.isDropped) { valid_columns_.push_back(col); }
   }
   initializer_ = DataChunkPtr(DataChunk::BuildDataChunkInitializer(valid_columns_));
@@ -26,6 +26,11 @@ DataTable::DataTable(catalog::DatabaseCatalog &catalog,
   // creates a file for the heap
   auto &disk_mng_ = storage_manager_.GetDiskManager();
   if (!disk_mng_.CreateOpenFile(oid_, 1)) { throw IO_EXCEPTION("Could not create/open file"); }
+}
+
+size_t DataTable::NCols() const {
+  DB7_ASSERT(main_columns_.size() <= UINT16_MAX, "Too many columns");
+  return main_columns_.size();
 }
 
 storage::Page *DataTable::GetPageForInsert(DataChunk *chunk) {
@@ -44,6 +49,16 @@ storage::Page *DataTable::GetPageById(page_id pid) {
 }
 
 const DataChunk *DataTable::Initializer() const { return initializer_.get(); }
+
+const DataChunkPtr DataTable::Initializer(std::vector<storage::StorageColumnDesc> &columns) const {
+  DataChunkPtr ptr(DataChunk::BuildDataChunkInitializer(columns));
+  return ptr;
+}
+
+const DataChunkPtr DataTable::Initializer(std::vector<ChunkColumn> &columns) const {
+  DataChunkPtr ptr(DataChunk::BuildDataChunkInitializer(columns));
+  return ptr;
+}
 
 table_id DataTable::GetTableId() const { return oid_; }
 
@@ -72,7 +87,7 @@ void DataTable::VerifyForeignKeyConstraint(transaction::TransactionContext &cont
   /* Calculates required size for varlen heap of data chunk */
   size_t size = 0;
   for (const auto key : src_keys) {
-    const auto &col = columns_[key];
+    const auto &col = main_columns_[key];
     DB7_ASSERT(!col.isDropped, "Dropped column in use");
     byte *slot = chunk->GetByOidNullCheck(key);
     // if any column is null for a fk check there is no need to probe the index
@@ -88,7 +103,7 @@ void DataTable::VerifyForeignKeyConstraint(transaction::TransactionContext &cont
   for (u16 i = 0; i < src_keys.size(); i++) {
     const auto src_key = src_keys[i];
     const auto dst_key = dst_keys[i];
-    const auto &col = columns_[src_key];
+    const auto &col = main_columns_[src_key];
     byte *slot = chunk->GetByOid(src_key);
     if (col.isVarlen) {
       auto varlen = storage::VarlenEntry::Cast(slot)->Data(chunk->Bytes());
@@ -127,7 +142,7 @@ void DataTable::VerifyForeignKeyConstraint(transaction::TransactionContext &cont
 }
 
 /**
- * @warning make sure to hold the page data lock like w other columns
+ * @warning make sure to hold the page data lock like with other columns
  */
 void DataTable::InsertUndo(transaction::TransactionContext &context, u16 index,
                            storage::Page *page) {
@@ -143,56 +158,90 @@ void DataTable::InsertUndo(transaction::TransactionContext &context, u16 index,
   versions[index].Set(record);
 }
 
-// Every write modifies the row first (under the page latch), and only then reads the current index
-// list. This assures online index creation is safe.
-bool DataTable::Insert(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
-                       DataChunk *chunk) {
-  u16 required_heap = storage::Pax::CalcHeapBytes(columns_, chunk);
-  auto *page = GetPageForInsert(chunk); // TODO storage should pass required_heap here
-
-  u16 tuple_index;
-  const auto page_id = page->GetPageId();
+/* Should hold a latch */
+u16 DataTable::InsertInternalHeap(transaction::TransactionContext &context, storage::Page *page,
+                                  DataChunk *chunk, u16 required_heap) {
   byte *data = page->GetData();
-  { // Inserts into the heap
-    storage::PagePinGuard ping_(page);
-    storage::PageWriteGuard lockg_(page);
-
-    if (!storage::Pax::IsInitialized(data)) {
-      storage::Pax::Init(data, columns_, required_heap, required_heap);
-    }
-
-    tuple_index = storage::Pax::CurrentRowCount(data);
-
-    storage::PaxInsertResponse result = storage::Pax::Insert(page->GetData(), chunk, valid_columns_,
-                                                             required_heap, columns_.size());
-    // TODO storage once fsm is added this will need to be handled
-    if (result != storage::PaxInsertResponse::OK) { return false; }
-    page->SetDirty();
-
-    InsertUndo(context, tuple_index, page);
+  auto result = storage::Pax::IsPageWritable(data, chunk, valid_columns_, NCols(), required_heap);
+  switch (result) {
+  case storage::PaxInsertResponse::NOT_INITIALIZED: {
+    storage::Pax::Init(data, main_columns_, required_heap, required_heap);
+    break;
+  }
+  case storage::PaxInsertResponse::OK: break;
+  case storage::NO_SPACE_HEAP:
+  case storage::NO_SPACE_CAPACITY:
+  case storage::PAGE_SCHEMA_OLDER:
+  case storage::WRITER_SCHEMA_STALE:
+  case storage::COLUMN_DROPPED: // TODO storage should find another page or abort
+  default: throw CATALOG_EXCEPTION("Switch not populated");
   }
 
+  u16 tuple_index = storage::Pax::InsertUnsafe(page->GetData(), chunk, valid_columns_);
+
+  InsertUndo(context, tuple_index, page);
+
+  page->SetDirty();
+
+  return tuple_index;
+}
+
+void DataTable::InsertInternalIndexConstraints(transaction::TransactionContext &context,
+                                               DataChunk *chunk, page_id page_id, u16 tuple_index) {
   // Verifies unique constraints and inserts to those indexes
   // (since those indexes can throw verify them first)
   for (const auto &index : indexes_) {
     auto &btree = index->index_->Cast<BTreeIndex<>>();
-    ResultObj<void> res;
     switch (index->type_) {
     case catalog::IndexConstraintType::PRIMARY:
     case catalog::IndexConstraintType::UNIQUE: {
-      res = btree.InsertUnique(&context, chunk, {tuple_index, page_id});
+      auto res = btree.InsertUnique(&context, chunk, {tuple_index, page_id});
       if (!res.success) {
         throw EXECUTION_EXCEPTION(res.message, shared::ErrorCode::ERRCODE_UNIQUE_VIOLATION);
       }
       break;
     }
     case catalog::IndexConstraintType::FOREIGN: {
-      btree.Insert(chunk, {tuple_index, page_id});
+      auto res = btree.Insert(chunk, {tuple_index, page_id});
+      if (!res.success) { throw CATALOG_EXCEPTION("Failed to insert to index"); }
       break;
     }
     default: break;
     }
   }
+}
+
+void DataTable::InsertInternalIndexOther(DataChunk *chunk, page_id page_id, u16 tuple_index) {
+  // Inserts to other indexes at the end
+  for (const auto &index : indexes_) {
+    auto &btree = index->index_->Cast<BTreeIndex<>>();
+    switch (index->type_) {
+    case catalog::IndexConstraintType::NONE: {
+      auto res = btree.Insert(chunk, {tuple_index, page_id});
+      if (!res.success) { throw CATALOG_EXCEPTION("Failed to insert to index"); }
+      break;
+    }
+    default: break;
+    }
+  }
+}
+
+// Every write modifies the row first (under the page latch), and only then reads the current index
+// list. This assures online index creation is safe.
+bool DataTable::Insert(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
+                       DataChunk *chunk) {
+  u16 required_heap = storage::Pax::CalcHeapBytes(main_columns_, chunk);
+  auto *page = GetPageForInsert(chunk); // TODO storage should pass required_heap here
+
+  u16 tuple_index;
+  const auto page_id = page->GetPageId();
+  { // Inserts into the heap
+    storage::PagePinGuard ping_(page);
+    storage::PageWriteGuard lockg_(page);
+    tuple_index = InsertInternalHeap(context, page, chunk, required_heap);
+  }
+
+  InsertInternalIndexConstraints(context, chunk, page_id, tuple_index);
 
   const auto &constraints = table.GetConstraints();
   for (const auto &constraint : constraints) {
@@ -213,17 +262,7 @@ bool DataTable::Insert(transaction::TransactionContext &context, catalog::TableC
     }
   }
 
-  // Inserts to other indexes at the end
-  for (const auto &index : indexes_) {
-    auto &btree = index->index_->Cast<BTreeIndex<>>();
-    switch (index->type_) {
-    case catalog::IndexConstraintType::NONE: {
-      btree.Insert(chunk, {tuple_index, page_id});
-      break;
-    }
-    default: break;
-    }
-  }
+  InsertInternalIndexOther(chunk, page_id, tuple_index);
 
   return true;
 }
@@ -277,10 +316,13 @@ bool DataTable::Delete(transaction::TransactionContext &context, catalog::TableC
   {
     storage::PagePinGuard ping_(page);
     storage::PageWriteGuard lockg_(page);
-    chunk.reset(storage::Pax::Get(page->GetData(), tuple.GetIndex(), valid_columns_,
-                                  columns_.size(), initializer_.get()));
+
     bool result = DeleteUndo(context, tuple.GetIndex(), page);
     if (!result) { return false; }
+
+    /* No need to check is page safe since we know my snapshot can see this */
+    chunk.reset(storage::Pax::GetUnsafe(page->GetData(), tuple.GetIndex(), valid_columns_, NCols(),
+                                        initializer_.get()));
   }
 
   const auto &constraints = table.GetConstraints();
@@ -323,7 +365,7 @@ bool DataTable::UpdateUndo(transaction::TransactionContext &context, u16 index, 
   do {
     version_ptr = versions[index].Get();
 
-    if (version_ptr != nullptr && (HasConflict(context, version_ptr))) {
+    if (HasConflict(context, version_ptr)) {
       record->Invalidate();
       return false;
     }
@@ -338,6 +380,7 @@ bool DataTable::UpdateUndo(transaction::TransactionContext &context, u16 index, 
 bool DataTable::Update(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
                        TupleId tuple, DataChunk *chunk) {
   auto *page = GetPageById(tuple.GetPageId());
+  page_id page_id = page->GetPageId();
 
   const auto *column_ids = chunk->ColumnIds();
   shared::BitSet set;
@@ -354,55 +397,95 @@ bool DataTable::Update(transaction::TransactionContext &context, catalog::TableC
 
   std::vector<storage::StorageColumnDesc> projected;
   projected.reserve(chunk->GetColCount());
-  for (const auto &col : valid_columns_) {
-    if (set.Contains(col.column_id)) { projected.push_back(col); }
+  for (u16 i = 0; i < chunk->GetColCount(); i++) {
+    DB7_ASSERT(!main_columns_[column_ids[i]].isDropped, "Dropped column access");
+    projected.push_back(main_columns_[column_ids[i]]);
   }
   DB7_ASSERT(chunk->GetColCount() == projected.size(), "Size mismatch");
 
-  // TODO storage check other constraints
-  const auto &constraints = table.GetConstraints();
-  for (const auto &constraint : constraints) {
-    switch (constraint->type) {
-    case catalog::ConstraintType::FOREIGN_KEY: break;
-    case catalog::ConstraintType::CHECK: break;    // TODO storage
-    case catalog::ConstraintType::NOT_NULL: break; // TODO storage
-    case catalog::ConstraintType::UNIQUE: break;   // already checked above
-    case catalog::ConstraintType::INVALID:
-      throw EXECUTION_EXCEPTION("Invalid constraint type",
-                                shared::ErrorCode::ERRCODE_FEATURE_NOT_SUPPORTED);
-    }
-  }
-
+  DataChunkPtr current;
+  DataChunkPtr old_row;
+  u16 tuple_index;
+  u16 required_chunk_heap = storage::Pax::CalcHeapBytes(main_columns_, chunk);
   {
     storage::PagePinGuard ping_(page);
     storage::PageWriteGuard lockg_(page);
 
-    bool update_in_place = !contains_col_index &&
-                           storage::Pax::IsPageVisible(page->GetData(), projected, columns_.size());
+    bool update_in_place =
+        !contains_col_index &&
+        storage::Pax::IsPageUpdatable(page->GetData(), chunk, NCols(), required_chunk_heap) ==
+            storage::PaxInsertResponse::OK;
+
     if (update_in_place) {
-      u16 required_heap = storage::Pax::CalcHeapBytes(projected, chunk);
-      if (storage::Pax::HasAvailableHeapSpace(page->GetData(), required_heap)) {
-        // do in place update
-        DataChunkPtr current(storage::Pax::Get(page->GetData(), tuple.GetIndex(), projected,
-                                               columns_.size(), initializer_.get()));
-        storage::PaxInsertResponse result = storage::Pax::Update(
-            page->GetData(), chunk, projected, required_heap, columns_.size(), tuple.GetIndex());
-        if (result == storage::PaxInsertResponse::OK) {
-          bool res = UpdateUndo(context, tuple.GetIndex(), page, current.get());
-          if (!res) { return false; }
-          return true;
-        }
-      }
+      // do in place update
+      current.reset(storage::Pax::GetUnsafe(page->GetData(), tuple.GetIndex(), projected, NCols(),
+                                            initializer_.get()));
+
+      bool res = UpdateUndo(context, tuple.GetIndex(), page, current.get());
+      if (!res) { return false; }
+
+      storage::Pax::UpdateUnsafe(page->GetData(), chunk, projected, tuple.GetIndex());
+      page->SetDirty();
+
+      return true;
     }
 
-    // TODO storage delete + insert
-    // auto *current = storage::Pax::Get(page->GetData(), tuple.GetIndex(), valid_columns_,
-    //                                   columns_.size(), initializer_.get());
-    // bool result = DeleteUndo(context, tuple.GetIndex(), page);
-    // if (!result) { return false; }
-    // bool res = Insert(context, table, current);
-    // if (!res) { return false; }
+    // do delete + insert
+
+    bool result = DeleteUndo(context, tuple.GetIndex(), page);
+    if (!result) { return false; }
+
+    current.reset(storage::Pax::GetUnsafe(page->GetData(), tuple.GetIndex(), valid_columns_,
+                                          NCols(), initializer_.get(), chunk->GetHeapSize()));
+
+    old_row.reset(current->Copy());
+
+    // Merge 2 chunks
+    current->MergeInto(chunk, main_columns_);
+
+    u16 required_heap = storage::Pax::CalcHeapBytes(main_columns_, current.get());
+
+    tuple_index = InsertInternalHeap(context, page, current.get(), required_heap);
   }
+
+  shared::BitSet changed_set =
+      storage::ChunkDiff::ChangedColumns(old_row.get(), chunk, main_columns_);
+
+  InsertInternalIndexConstraints(context, current.get(), page_id, tuple_index);
+
+  if (contains_col_index) {
+    const auto &constraints = table.GetConstraints();
+    for (const auto &constraint : constraints) {
+      switch (constraint->type) {
+      case catalog::ConstraintType::FOREIGN_KEY: {
+        auto &fk = constraint->Cast<catalog::ForeignKeyConstraint>();
+        auto any_changed = [&](const auto &keys) {
+          for (const auto k : keys)
+            if (changed_set.Contains(k)) return true;
+          return false;
+        };
+        if (fk.info.IsAppendConstraint() && any_changed(fk.info.fk_keys)) {
+          VerifyForeignKeyConstraint(context, fk, current.get(),
+                                     FkCheck::Insert); // new value must exist
+        }
+        if (fk.info.IsDeleteConstraint() && any_changed(fk.info.pk_keys)) {
+          VerifyForeignKeyConstraint(context, fk, old_row.get(),
+                                     FkCheck::Delete); // old value must be free
+        }
+
+        break;
+      }
+      case catalog::ConstraintType::CHECK: break;    // TODO storage
+      case catalog::ConstraintType::NOT_NULL: break; // TODO storage
+      case catalog::ConstraintType::UNIQUE: break;   // already checked above
+      case catalog::ConstraintType::INVALID:
+        throw EXECUTION_EXCEPTION("Invalid constraint type",
+                                  shared::ErrorCode::ERRCODE_FEATURE_NOT_SUPPORTED);
+      }
+    }
+  }
+
+  InsertInternalIndexOther(current.get(), page_id, tuple_index);
 
   return true;
 }

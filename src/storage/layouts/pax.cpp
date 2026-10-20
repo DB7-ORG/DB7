@@ -24,12 +24,15 @@ u16 Pax::CalcHeapBytes(type_id type, u16 size) {
   return CalcHeapBytes(size);
 }
 
-size_t Pax::CalcHeapBytes(const std::vector<storage::StorageColumnDesc> &columns,
-                          const DataChunk *chunk) {
+// TODO storage this can be modified later to just read current heap size as aproximation
+// aldo it complicates debugging later since its not exact
+u16 Pax::CalcHeapBytes(const std::vector<storage::StorageColumnDesc> &main_columns,
+                       const DataChunk *chunk) {
+  DB7_ASSERT(chunk->GetColCount() <= main_columns.size(), "passed wrong main_columns");
   u16 required_heap = 0;
   const column_t *chunk_column_ids = chunk->ColumnIds();
   for (u16 i = 0; i < chunk->GetColCount(); i++) {
-    const auto col = columns[chunk_column_ids[i]];
+    const auto col = main_columns[chunk_column_ids[i]];
     DB7_ASSERT(!col.isDropped, "Tried to index into dropped columns");
     if (col.isVarlen) {
       const auto *slot = chunk->GetByIdxNullCheck(i);
@@ -43,7 +46,8 @@ size_t Pax::CalcHeapBytes(const std::vector<storage::StorageColumnDesc> &columns
 
 bool Pax::HasAvailableHeapSpace(byte *page, u16 required_heap) {
   if (required_heap > PaxHeader::CurrHeapOffset(page) - PaxHeader::MaxHeapOffset(page))
-    return PaxInsertResponse::NO_SPACE_HEAP;
+    return false;
+  return true;
 }
 
 u16 Pax::MaxRowCount(byte *page) { return PaxHeader::Capacity(page); }
@@ -82,12 +86,12 @@ u16 Pax::StripOff(u16 offset) {
 // TODO storage could add min heap size if i need some specific layout
 // for a really large string for example so i dont get stuck creating
 // pages that dont have enough heap
-void Pax::Init(byte *page, std::vector<StorageColumnDesc> &columns, u16 avg_heap_size,
+void Pax::Init(byte *page, std::vector<StorageColumnDesc> &main_columns, u16 avg_heap_size,
                size_t min_heap_size) {
   DB7_ASSERT(min_heap_size <= UINT16_MAX, "Out of bounds");
-  DB7_ASSERT(columns.size() >= 1, "number of columns in the page must be atleast 1");
+  DB7_ASSERT(main_columns.size() >= 1, "number of columns in the page must be atleast 1");
   PaxHeader::SetMagic(page);
-  PaxHeader::SetColumnCount(page, columns.size());
+  PaxHeader::SetColumnCount(page, main_columns.size());
   PaxHeader::SetTupleCount(page, 0);
   PaxHeader::SetCurrHeapOffset(page, DB7_PAGE_SIZE);
 
@@ -96,7 +100,7 @@ void Pax::Init(byte *page, std::vector<StorageColumnDesc> &columns, u16 avg_heap
   size_t row_size = 0;
   size_t valid_column_count = 0;
   size_t nullable_count = 0;
-  for (const auto &s : columns) {
+  for (const auto &s : main_columns) {
     if (s.isDropped) continue;
     // if (IsVarlen(s.type)) { row_heap_size += CalcHeapBytes(s.avg_size); }
     row_size += SizeOf(s.type);
@@ -113,14 +117,14 @@ void Pax::Init(byte *page, std::vector<StorageColumnDesc> &columns, u16 avg_heap
    * row is row_size - number of columns
    */
   auto worst_case_padding = row_size - valid_column_count;
-  size_t N = CalculateNumTuples(row_heap_size, row_size, worst_case_padding, columns.size(),
+  size_t N = CalculateNumTuples(row_heap_size, row_size, worst_case_padding, main_columns.size(),
                                 nullable_count);
   PaxHeader::SetCapacity(page, N);
 
   u16 *offsets = PaxHeader::Offsets(page);
-  size_t start = columns.size() * sizeof(u16) + PaxHeader::fixed_header_size_;
+  size_t start = main_columns.size() * sizeof(u16) + PaxHeader::fixed_header_size_;
   int i = 0;
-  for (const auto &s : columns) {
+  for (const auto &s : main_columns) {
     if (s.isDropped) {
       offsets[i] = Pax::invalid_offset;
     } else {
@@ -161,9 +165,12 @@ void Pax::WriteSlot(byte *page, byte *dest, byte *source, const StorageColumnDes
   }
 }
 
-PaxInsertResponse Pax::Insert(byte *page, DataChunk *chunk, std::vector<StorageColumnDesc> &columns,
-                              size_t required_heap, column_t catalog_col_count) {
+PaxInsertResponse Pax::IsPageWritable(byte *page, DataChunk *chunk,
+                                      const std::vector<StorageColumnDesc> &columns,
+                                      column_t catalog_col_count, u16 required_heap) {
   DB7_ASSERT(chunk->GetColCount() == columns.size(), "Mismatch in DataTable and chunk sizes");
+
+  if (!IsInitialized(page)) { return PaxInsertResponse::NOT_INITIALIZED; }
 
   const column_t ncols = PaxHeader::ColumnCount(page);
   if (catalog_col_count < ncols) { return PaxInsertResponse::WRITER_SCHEMA_STALE; }
@@ -186,7 +193,6 @@ PaxInsertResponse Pax::Insert(byte *page, DataChunk *chunk, std::vector<StorageC
    * became nullable (or the column is NOT NULL). Treat it like a full page so the
    * caller moves on (e.g. zero space hint in the FSM).
    */
-  // TODO storage this should be done once per page
   for (u16 i = 0; i < chunk->GetColCount(); ++i) {
     const column_t col_id = column_ids[i];
     DB7_ASSERT(col_id < ncols, "Column tried to write outside of range");
@@ -197,6 +203,18 @@ PaxInsertResponse Pax::Insert(byte *page, DataChunk *chunk, std::vector<StorageC
       return PaxInsertResponse::PAGE_SCHEMA_OLDER;
   }
 
+  return PaxInsertResponse::OK;
+}
+
+u16 Pax::InsertUnsafe(byte *page, DataChunk *chunk, std::vector<StorageColumnDesc> &columns) {
+  DB7_ASSERT(chunk->GetColCount() == columns.size(), "Mismatch in DataTable and chunk sizes");
+
+  const u16 ntup = PaxHeader::TupleCount(page);
+  const u16 capacity = PaxHeader::Capacity(page);
+  const column_t ncols = PaxHeader::ColumnCount(page);
+  const u16 *offsets = PaxHeader::Offsets(page);
+  const column_t *column_ids = chunk->ColumnIds();
+
   /** Scan over every column in chunk */
   for (u16 i = 0; i < chunk->GetColCount(); ++i) {
     column_t col_id = column_ids[i];
@@ -204,7 +222,7 @@ PaxInsertResponse Pax::Insert(byte *page, DataChunk *chunk, std::vector<StorageC
 
     const u16 offset = offsets[col_id];
 
-    const auto column = columns[i];
+    const auto &column = columns[i];
     DB7_ASSERT(!column.isDropped, "Dropped columns shouldnt be included");
     /** Get data from the chunk that will be copied to the page */
     byte *ptr = chunk->GetByIdxNullCheck(i);
@@ -230,16 +248,17 @@ PaxInsertResponse Pax::Insert(byte *page, DataChunk *chunk, std::vector<StorageC
 
   PaxHeader::SetTupleCount(page, ntup + 1);
 
-  return PaxInsertResponse::OK;
+  return ntup;
 }
 
-bool Pax::IsPageVisible(byte *page, const std::vector<StorageColumnDesc> &cols,
-                        column_t catalog_col_count) {
+bool Pax::IsPageReadable(byte *page, const std::vector<StorageColumnDesc> &columns,
+                         column_t catalog_col_count) {
+  if (!IsInitialized(page)) { return false; }
   const column_t ncols = PaxHeader::ColumnCount(page);
   if (ncols > catalog_col_count)
     return false; // created under a newer txn that called ADD COLUMN: optional fast skip
   const u16 *offsets = PaxHeader::Offsets(page);
-  for (const auto &c : cols) {
+  for (const auto &c : columns) {
     if (c.column_id >= ncols)
       continue; // ur schema contains new columns, but ur still able to read existing pages by
                 // setting the default value for new columns
@@ -300,11 +319,11 @@ void Pax::WriteDefaultValueToChunk(byte *dest, const StorageColumnDesc &col, Dat
   }
 }
 
-DataChunk *Pax::Get(byte *page, u16 row_idx, std::vector<StorageColumnDesc> &columns,
-                    u16 catalog_col_count, DataChunk *initializer) {
+DataChunk *Pax::GetUnsafe(byte *page, u16 row_idx, std::vector<StorageColumnDesc> &columns,
+                          u16 catalog_col_count, DataChunk *initializer, u16 base_heap) {
 
   DB7_ASSERT(row_idx < PaxHeader::TupleCount(page), "Row outside the inserted tuples");
-  DB7_ASSERT(IsPageVisible(page, columns, catalog_col_count),
+  DB7_ASSERT(IsPageReadable(page, columns, catalog_col_count),
              "IsPageVisible Should be called before this to see if page is valid");
 
   const u16 capacity = PaxHeader::Capacity(page);
@@ -312,7 +331,8 @@ DataChunk *Pax::Get(byte *page, u16 row_idx, std::vector<StorageColumnDesc> &col
   const column_t ncols = PaxHeader::ColumnCount(page);
 
   // Calculates the size of the heap in data chunk for this data
-  const u32 alloc_size = CalculateChunkHeapSize(page, ncols, capacity, offsets, row_idx, columns);
+  const u32 alloc_size =
+      CalculateChunkHeapSize(page, ncols, capacity, offsets, row_idx, columns) + base_heap;
 
   // Builds data chunk
   auto *chunk = DataChunk::BuildDataChunk(initializer, alloc_size);
@@ -352,22 +372,26 @@ DataChunk *Pax::Get(byte *page, u16 row_idx, std::vector<StorageColumnDesc> &col
   return chunk;
 }
 
-PaxInsertResponse Pax::Update(byte *page, DataChunk *chunk, std::vector<StorageColumnDesc> &columns,
-                              size_t required_heap, u16 catalog_col_count, u16 index) {
-  DB7_ASSERT(chunk->GetColCount() == columns.size(), "Mismatch in DataTable and chunk sizes");
-  DB7_ASSERT(index < PaxHeader::TupleCount(page), "Index out of bounds");
+optional_ptr<DataChunk> Pax::Get(byte *page, u16 row_idx, std::vector<StorageColumnDesc> &columns,
+                                 u16 catalog_col_count, DataChunk *initializer) {
+  if (!IsPageReadable(page, columns, catalog_col_count)) { return nullptr; }
+  return GetUnsafe(page, row_idx, columns, catalog_col_count, initializer);
+}
 
-  const column_t ncols = PaxHeader::ColumnCount(page);
-  if (catalog_col_count < ncols) { return PaxInsertResponse::WRITER_SCHEMA_STALE; }
-
-  // TODO storage this is stricter than it needs to be not sure if fix will help here since schema
-  // changes are rare
-  if (catalog_col_count > ncols) { return PaxInsertResponse::PAGE_SCHEMA_OLDER; }
+PaxInsertResponse Pax::IsPageUpdatable(byte *page, DataChunk *chunk, column_t catalog_col_count,
+                                       u16 required_heap) {
 
   if (!HasAvailableHeapSpace(page, required_heap)) { return PaxInsertResponse::NO_SPACE_HEAP; }
 
-  const u16 *offsets = PaxHeader::Offsets(page);
+  const column_t ncols = PaxHeader::ColumnCount(page);
   const column_t *column_ids = chunk->ColumnIds();
+
+  /* Checks if all columns are included in the page */
+  if (catalog_col_count > ncols) {
+    for (u16 i = 0; i < chunk->GetColCount(); i++) {
+      if (column_ids[i] >= ncols) { return PaxInsertResponse::PAGE_SCHEMA_OLDER; }
+    }
+  }
 
   /**
    * Validate before writing anything, so a refused insert leaves the page untouched.
@@ -375,7 +399,8 @@ PaxInsertResponse Pax::Update(byte *page, DataChunk *chunk, std::vector<StorageC
    * became nullable (or the column is NOT NULL). Treat it like a full page so the
    * caller moves on (e.g. zero space hint in the FSM).
    */
-  // TODO storage this should be done once per page
+  const u16 *offsets = PaxHeader::Offsets(page);
+
   for (u16 i = 0; i < chunk->GetColCount(); ++i) {
     const column_t col_id = column_ids[i];
     DB7_ASSERT(col_id < ncols, "Column tried to write outside of range");
@@ -386,7 +411,17 @@ PaxInsertResponse Pax::Update(byte *page, DataChunk *chunk, std::vector<StorageC
       return PaxInsertResponse::PAGE_SCHEMA_OLDER;
   }
 
+  return PaxInsertResponse::OK;
+}
+
+void Pax::UpdateUnsafe(byte *page, DataChunk *chunk, std::vector<StorageColumnDesc> &columns,
+                       u16 index) {
+  DB7_ASSERT(chunk->GetColCount() == columns.size(), "Mismatch in DataTable and chunk sizes");
+  DB7_ASSERT(index < PaxHeader::TupleCount(page), "Index out of bounds");
+
   const u16 capacity = PaxHeader::Capacity(page);
+  const u16 *offsets = PaxHeader::Offsets(page);
+  const column_t *column_ids = chunk->ColumnIds();
 
   /** Scan over every column in chunk */
   for (u16 i = 0; i < chunk->GetColCount(); ++i) {
@@ -418,8 +453,6 @@ PaxInsertResponse Pax::Update(byte *page, DataChunk *chunk, std::vector<StorageC
     byte *dest = CalcCellPos(page, stripped_offset, index, column.slot_size);
     WriteSlot(page, dest, ptr, column, chunk);
   }
-
-  return PaxInsertResponse::OK;
 }
 
 } // namespace db7::storage
