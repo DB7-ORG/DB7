@@ -159,10 +159,11 @@ void DataTable::InsertUndo(transaction::TransactionContext &context, u16 index,
 }
 
 /* Should hold a latch */
-u16 DataTable::InsertInternalHeap(transaction::TransactionContext &context, storage::Page *page,
-                                  DataChunk *chunk, u16 required_heap) {
+PageInsertResult DataTable::TryInsertInternalHeap(transaction::TransactionContext &context,
+                                                  storage::Page *page, DataChunk *chunk,
+                                                  u16 required_heap) {
   byte *data = page->GetData();
-  auto result = storage::Pax::IsPageWritable(data, chunk, valid_columns_, NCols(), required_heap);
+  auto result = storage::Pax::IsPageWritable(data, chunk, NCols(), required_heap);
   switch (result) {
   case storage::PaxInsertResponse::NOT_INITIALIZED: {
     storage::Pax::Init(data, main_columns_, required_heap, required_heap);
@@ -171,7 +172,7 @@ u16 DataTable::InsertInternalHeap(transaction::TransactionContext &context, stor
   case storage::PaxInsertResponse::OK: break;
   case storage::NO_SPACE_HEAP:
   case storage::NO_SPACE_CAPACITY:
-  case storage::PAGE_SCHEMA_OLDER:
+  case storage::PAGE_SCHEMA_OLDER: return {0, true};
   case storage::WRITER_SCHEMA_STALE:
   case storage::COLUMN_DROPPED: // TODO storage should find another page or abort
   default: throw CATALOG_EXCEPTION("Switch not populated");
@@ -183,11 +184,11 @@ u16 DataTable::InsertInternalHeap(transaction::TransactionContext &context, stor
 
   page->SetDirty();
 
-  return tuple_index;
+  return {tuple_index, false};
 }
 
 void DataTable::InsertInternalIndexConstraints(transaction::TransactionContext &context,
-                                               DataChunk *chunk, page_id page_id, u16 tuple_index) {
+                                               DataChunk *chunk, TupleId tuple) {
   // Verifies unique constraints and inserts to those indexes
   // (since those indexes can throw verify them first)
   for (const auto &index : indexes_) {
@@ -195,14 +196,14 @@ void DataTable::InsertInternalIndexConstraints(transaction::TransactionContext &
     switch (index->type_) {
     case catalog::IndexConstraintType::PRIMARY:
     case catalog::IndexConstraintType::UNIQUE: {
-      auto res = btree.InsertUnique(&context, chunk, {tuple_index, page_id});
+      auto res = btree.InsertUnique(&context, chunk, tuple);
       if (!res.success) {
         throw EXECUTION_EXCEPTION(res.message, shared::ErrorCode::ERRCODE_UNIQUE_VIOLATION);
       }
       break;
     }
     case catalog::IndexConstraintType::FOREIGN: {
-      auto res = btree.Insert(chunk, {tuple_index, page_id});
+      auto res = btree.Insert(chunk, tuple);
       if (!res.success) { throw CATALOG_EXCEPTION("Failed to insert to index"); }
       break;
     }
@@ -211,13 +212,13 @@ void DataTable::InsertInternalIndexConstraints(transaction::TransactionContext &
   }
 }
 
-void DataTable::InsertInternalIndexOther(DataChunk *chunk, page_id page_id, u16 tuple_index) {
+void DataTable::InsertInternalIndexOther(DataChunk *chunk, TupleId tuple) {
   // Inserts to other indexes at the end
   for (const auto &index : indexes_) {
     auto &btree = index->index_->Cast<BTreeIndex<>>();
     switch (index->type_) {
     case catalog::IndexConstraintType::NONE: {
-      auto res = btree.Insert(chunk, {tuple_index, page_id});
+      auto res = btree.Insert(chunk, tuple);
       if (!res.success) { throw CATALOG_EXCEPTION("Failed to insert to index"); }
       break;
     }
@@ -233,15 +234,18 @@ bool DataTable::Insert(transaction::TransactionContext &context, catalog::TableC
   u16 required_heap = storage::Pax::CalcHeapBytes(main_columns_, chunk);
   auto *page = GetPageForInsert(chunk); // TODO storage should pass required_heap here
 
-  u16 tuple_index;
+  PageInsertResult insert_res;
   const auto page_id = page->GetPageId();
   { // Inserts into the heap
     storage::PagePinGuard ping_(page);
     storage::PageWriteGuard lockg_(page);
-    tuple_index = InsertInternalHeap(context, page, chunk, required_heap);
+    insert_res = TryInsertInternalHeap(context, page, chunk, required_heap);
   }
 
-  InsertInternalIndexConstraints(context, chunk, page_id, tuple_index);
+  if (insert_res.fetch) { throw CATALOG_EXCEPTION("Fetch new page please"); }
+
+  const TupleId tuple = {insert_res.index, page_id};
+  InsertInternalIndexConstraints(context, chunk, tuple);
 
   const auto &constraints = table.GetConstraints();
   for (const auto &constraint : constraints) {
@@ -262,7 +266,7 @@ bool DataTable::Insert(transaction::TransactionContext &context, catalog::TableC
     }
   }
 
-  InsertInternalIndexOther(chunk, page_id, tuple_index);
+  InsertInternalIndexOther(chunk, tuple);
 
   return true;
 }
@@ -405,7 +409,7 @@ bool DataTable::Update(transaction::TransactionContext &context, catalog::TableC
 
   DataChunkPtr current;
   DataChunkPtr old_row;
-  u16 tuple_index;
+  PageInsertResult insert_res;
   u16 required_chunk_heap = storage::Pax::CalcHeapBytes(main_columns_, chunk);
   {
     storage::PagePinGuard ping_(page);
@@ -445,13 +449,16 @@ bool DataTable::Update(transaction::TransactionContext &context, catalog::TableC
 
     u16 required_heap = storage::Pax::CalcHeapBytes(main_columns_, current.get());
 
-    tuple_index = InsertInternalHeap(context, page, current.get(), required_heap);
+    insert_res = TryInsertInternalHeap(context, page, current.get(), required_heap);
   }
+
+  const TupleId inserted_tuple = {insert_res.index, page_id};
+  if (insert_res.fetch) { throw CATALOG_EXCEPTION("Please provide another page tnx"); }
 
   shared::BitSet changed_set =
       storage::ChunkDiff::ChangedColumns(old_row.get(), chunk, main_columns_);
 
-  InsertInternalIndexConstraints(context, current.get(), page_id, tuple_index);
+  InsertInternalIndexConstraints(context, current.get(), inserted_tuple);
 
   if (contains_col_index) {
     const auto &constraints = table.GetConstraints();
@@ -485,7 +492,7 @@ bool DataTable::Update(transaction::TransactionContext &context, catalog::TableC
     }
   }
 
-  InsertInternalIndexOther(current.get(), page_id, tuple_index);
+  InsertInternalIndexOther(current.get(), inserted_tuple);
 
   return true;
 }

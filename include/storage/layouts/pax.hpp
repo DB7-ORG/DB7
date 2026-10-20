@@ -244,14 +244,11 @@ public:
    *
    * @param page              page bytes
    * @param chunk             data we want to insert to the page
-   * @param columns           metadata for columns in chunk like column item size and type.
-   *                          NOTE: doesnt include dropped columns
    * @param catalog_col_count total number of columns in a catalog
    * @param required_heap     required for tuple to be inserted
    */
-  static PaxInsertResponse IsPageWritable(byte *page, DataChunk *chunk,
-                                          const std::vector<StorageColumnDesc> &columns,
-                                          column_t catalog_col_count, u16 required_heap);
+  static PaxInsertResponse IsPageWritable(byte *page, DataChunk *chunk, column_t catalog_col_count,
+                                          u16 required_heap);
   /**
    * Method for inserting data chunk into a page that uses pax layout.
    * Data chunk should contain all values except columns that are dropped.

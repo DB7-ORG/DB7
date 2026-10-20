@@ -23,6 +23,11 @@ namespace access {
 class SchemaColumn;
 class Index;
 
+struct PageInsertResult {
+  u16 index;
+  bool fetch;
+};
+
 class DataTable {
 private:
   catalog::DatabaseCatalog &catalog_;
@@ -47,13 +52,13 @@ private:
                                   catalog::ForeignKeyConstraint &constraint, DataChunk *chunk,
                                   FkCheck type);
 
-  u16 InsertInternalHeap(transaction::TransactionContext &context, storage::Page *page,
-                         DataChunk *chunk, u16 required_heap);
+  PageInsertResult TryInsertInternalHeap(transaction::TransactionContext &context,
+                                         storage::Page *page, DataChunk *chunk, u16 required_heap);
 
   void InsertInternalIndexConstraints(transaction::TransactionContext &context, DataChunk *chunk,
-                                      page_id page_id, u16 tuple_index);
+                                      TupleId tuple);
 
-  void InsertInternalIndexOther(DataChunk *chunk, page_id page_id, u16 tuple_index);
+  void InsertInternalIndexOther(DataChunk *chunk, TupleId tuple);
 
   storage::Page *GetPageById(page_id pid);
 

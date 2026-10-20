@@ -86,6 +86,8 @@ private:
   }
 
 public:
+  static void Destroy(DataChunk *chunk) { delete[] reinterpret_cast<byte *>(chunk); }
+
   byte *Bytes() { return reinterpret_cast<byte *>(this); }
 
   const byte *Bytes() const { return reinterpret_cast<const byte *>(this); }
@@ -312,7 +314,7 @@ public:
   /* columns is all columns in the catalog including dropped ones */
   void MergeInto(DataChunk *in, const std::vector<storage::StorageColumnDesc> &main_columns) {
     DB7_ASSERT(this->GetColCount() >= in->GetColCount(), "Out should have all of in columns");
-    // TODO assert thtat also ^
+    Db7AssertMergeColumnOrder(this, in);
 
     const column_t *in_cols = in->ColumnIds();
     for (u16 i = 0; i < in->GetColCount(); i++) {
@@ -336,7 +338,27 @@ public:
     }
   }
 
-  static void Destroy(DataChunk *chunk) { delete[] reinterpret_cast<byte *>(chunk); }
+private:
+  void Db7AssertMergeColumnOrder(DataChunk *out, DataChunk *in) {
+#ifdef DB7DEBUG
+
+    const auto *out_column_ids = out->ColumnIds();
+    const auto *in_column_ids = in->ColumnIds();
+    for (u16 i = 0; in->GetColCount(); i++) {
+      bool flag = false;
+      for (u16 j = 0; out->GetColCount(); j++) {
+        if (in_column_ids[i] == out_column_ids[j]) {
+          flag = true;
+          break;
+        }
+      }
+      if (!flag) { throw CATALOG_EXCEPTION("Out chunk doesnt contain all of in chunks values"); }
+    }
+
+    return;
+#endif
+    DB7_UNREACHABLE();
+  }
 };
 
 static_assert(sizeof(column_t) == 2);
@@ -372,27 +394,6 @@ public:
     const auto db = eb->Data(b->Bytes());
     return da.size() == db.size() && std::memcmp(da.data(), db.data(), da.size()) == 0;
   }
-
-  // /**
-  //  * Hot path: does any column in `keys` that `changes` sets have a new value?
-  //  * No allocation, exits early. Use it for FK, unique-index and in-place decisions.
-  //  *
-  //  * @param base     full old row (from GetUnsafe over valid_columns_)
-  //  * @param changes  update chunk (only the SET columns)
-  //  * @param columns  columns_ indexed by column id
-  //  */
-  // static bool AnyChanged(DataChunk &base, DataChunk &changes, std::span<const column_t> keys,
-  //                        const std::vector<StorageColumnDesc> &columns) {
-  //   const column_t *ids = changes.ColumnIds();
-  //   for (const column_t key : keys) {
-  //     for (u16 i = 0; i < changes.GetColCount(); i++) {
-  //       if (ids[i] != key) { continue; }
-  //       if (!ValueEquals(base, changes, key, columns[key])) { return true; }
-  //       break;
-  //     }
-  //   }
-  //   return false;
-  // }
 
   /** Every column of `changes` whose value differs from `base`. Build it once per row if several
    * checks need it. */

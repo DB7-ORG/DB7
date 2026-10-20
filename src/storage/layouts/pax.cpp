@@ -1,6 +1,22 @@
 #include "storage/layouts/pax.hpp"
 
 namespace db7::storage {
+
+void Db7AssertColumnOrder(DataChunk *chunk,
+                          const std::vector<storage::StorageColumnDesc> &columns) {
+#ifdef DB7DEBUG
+
+  int i = 0;
+  const auto *column_ids = chunk->ColumnIds();
+  for (const auto &col : columns) {
+    DB7_ASSERT(column_ids[i++] == col.column_id, "Column order is not correct");
+  }
+
+  return;
+#endif
+  DB7_UNREACHABLE();
+}
+
 size_t Pax::CalculateNumTuples(size_t row_heap_size, size_t row_size, size_t padding,
                                size_t col_count, size_t nullable_count) {
   const size_t fixed = PaxHeader::fixed_header_size_ + col_count * sizeof(u16) + padding;
@@ -165,10 +181,8 @@ void Pax::WriteSlot(byte *page, byte *dest, byte *source, const StorageColumnDes
   }
 }
 
-PaxInsertResponse Pax::IsPageWritable(byte *page, DataChunk *chunk,
-                                      const std::vector<StorageColumnDesc> &columns,
-                                      column_t catalog_col_count, u16 required_heap) {
-  DB7_ASSERT(chunk->GetColCount() == columns.size(), "Mismatch in DataTable and chunk sizes");
+PaxInsertResponse Pax::IsPageWritable(byte *page, DataChunk *chunk, column_t catalog_col_count,
+                                      u16 required_heap) {
 
   if (!IsInitialized(page)) { return PaxInsertResponse::NOT_INITIALIZED; }
 
@@ -207,6 +221,7 @@ PaxInsertResponse Pax::IsPageWritable(byte *page, DataChunk *chunk,
 }
 
 u16 Pax::InsertUnsafe(byte *page, DataChunk *chunk, std::vector<StorageColumnDesc> &columns) {
+  Db7AssertColumnOrder(chunk, columns);
   DB7_ASSERT(chunk->GetColCount() == columns.size(), "Mismatch in DataTable and chunk sizes");
 
   const u16 ntup = PaxHeader::TupleCount(page);
@@ -336,6 +351,7 @@ DataChunk *Pax::GetUnsafe(byte *page, u16 row_idx, std::vector<StorageColumnDesc
 
   // Builds data chunk
   auto *chunk = DataChunk::BuildDataChunk(initializer, alloc_size);
+  Db7AssertColumnOrder(chunk, columns);
 
   for (size_t i = 0; i < columns.size(); i++) {
     const auto &col = columns[i];
@@ -418,6 +434,7 @@ void Pax::UpdateUnsafe(byte *page, DataChunk *chunk, std::vector<StorageColumnDe
                        u16 index) {
   DB7_ASSERT(chunk->GetColCount() == columns.size(), "Mismatch in DataTable and chunk sizes");
   DB7_ASSERT(index < PaxHeader::TupleCount(page), "Index out of bounds");
+  Db7AssertColumnOrder(chunk, columns);
 
   const u16 capacity = PaxHeader::Capacity(page);
   const u16 *offsets = PaxHeader::Offsets(page);
