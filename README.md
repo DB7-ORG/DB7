@@ -73,3 +73,13 @@ online index creation:
   (tuple commited)      add it to index
   (tuple not commited)  add it to index, get next value in chain then repeat
 - GC will later collect aborted values 
+
+ this command raises the limit for max memory reserved 
+ sudo prlimit --memlock=unlimited:unlimited --pid $$ 
+
+- fix index table id being 0
+
+- lower this limit to 1 after testing
+  if (!disk_mng_.CreateOpenFile(oid_, 10'000)) { throw IO_EXCEPTION("Could not create/open file"); }
+
+- vectorized preadv and pwritev in iouring

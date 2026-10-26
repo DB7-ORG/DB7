@@ -33,6 +33,7 @@ struct IoTask {
 
 class DiskScheduler {
 private:
+  friend class BufferPool;
   DiskManagerAsync *io_;
   u32 inflight_;
   u32 max_inflight_;
@@ -45,6 +46,11 @@ private:
     io_->SetCompletionCallback([](void *user_data, ssize_t result) {
       (void)result;
       auto *page = static_cast<Page *>(user_data);
+      if (result != DB7_PAGE_SIZE) {
+        fprintf(stderr, "IO failed: page tbl=%u pid=%u result=%zd (%s)\n", page->GetId().tbl_id,
+                page->GetId().pid, result, result < 0 ? strerror((int)-result) : "short");
+      }
+      DB7_ASSERT(result == DB7_PAGE_SIZE, "Short read");
       DB7_ASSERT(result == DB7_PAGE_SIZE, "Short read");
       page->SignalIO();
     });

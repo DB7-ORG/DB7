@@ -9,8 +9,8 @@ namespace db7::storage {
 BufferPool::BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_table, size_t page_num)
     : disk_mng_(disk_mng), pool_size_(page_num), version_table_(version_table) {
   pages_ = new Page[page_num];
-  auto data =
-      static_cast<u8 *>(std::aligned_alloc(4096, static_cast<size_t>(page_num) * DB7_PAGE_SIZE));
+  auto block_size = static_cast<size_t>(page_num) * DB7_PAGE_SIZE;
+  auto data = static_cast<u8 *>(std::aligned_alloc(4096, block_size));
   DB7_ASSERT(data != nullptr, "Failed to allocate");
   PageIdentifier id(0);
   for (u32 i = 0; i < page_num; i++) {
@@ -24,6 +24,7 @@ BufferPool::BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_tabl
   for (u32 i = 0; i < BUFFER_POOL_PARTITION_NUM; i++) { partitions_.Reserve(per_partition, i); }
 
   FreeSpaceManagerIndex::Reset();
+  disk_mng_->io_->RegisterPool(pages_[0].GetData(), block_size);
 }
 
 BufferPool::~BufferPool() {

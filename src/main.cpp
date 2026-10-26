@@ -103,7 +103,7 @@ int main3() {
   }
 }
 
-int main() {
+int main2() {
   using namespace db7::catalog;
 
   storage::StorageManager storage(".data");
@@ -284,4 +284,55 @@ int main() {
     bool r = orders.storage->Update(*context, orders, {1, 1}, chunk);
     if (!r) { throw CATALOG_EXCEPTION(""); }
   }
+}
+
+int main() {
+  using namespace db7::catalog;
+
+  storage::StorageManager storage(".data");
+
+  db7::transaction::TimestampManager timestamp_manager;
+
+  db7::shared::ObjectPool<shared::FixedBumpArena> pool(10'000, 2000);
+
+  db7::transaction::TransactionManager txn_manager(&timestamp_manager, &storage.GetBufferPool(),
+                                                   &storage.GetVersionManager(), &pool);
+
+  auto context = txn_manager.BeginTransaction();
+
+  auto catalogName = Identifier("katalog");
+  auto catalog = DatabaseCatalog(storage, catalogName);
+
+  auto schema_name = Identifier("schema_default");
+  auto schema = catalog.CreateSchema(*context, schema_name);
+  auto &schema_entry = schema->Cast<SchemaCatalogEntry>();
+
+  /////
+  auto cust_tbl_name = Identifier("customers");
+  ColumnList columns_cust;
+  columns_cust.AddColumn({"id", type_id::BIGINT});
+  UniqueConstraint pk({"id"}, true);
+  columns_cust.AddColumn({"name", type_id::VARCHAR});
+
+  CreateTableInfo customer_info(schema_entry, cust_tbl_name);
+  customer_info.columns = std::move(columns_cust);
+  customer_info.constraints.push_back(pk.Copy());
+  auto table_customer = catalog.CreateTable(*context, customer_info, schema_entry);
+  TableCatalogEntry &customers = table_customer->Cast<TableCatalogEntry>();
+
+  std::cout << customers.storage->GetTableId() << std::endl;
+
+  auto &buffer_pool = storage.GetBufferPool();
+  u32 n = 8;
+  std::vector<storage::Page *> state(n);
+  auto start = now_ns();
+  for (u32 i = 1; i < 1000; i++) {
+    for (u32 j = 0; j < n; j++) {
+      storage::Page *page = buffer_pool.Pin({u32(customers.storage->GetTableId()), i});
+      state[j] = page;
+    }
+    for (u32 j = 0; j < n; j++) { state[j]->WaitIO(); }
+  }
+  auto end = now_ns();
+  printf("time:        %.3f ms\n", (end - start) / 1e6);
 }

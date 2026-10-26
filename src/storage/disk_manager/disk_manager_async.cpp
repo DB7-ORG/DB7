@@ -66,6 +66,32 @@ DiskManagerAsync::DiskManagerAsync(const char *base_dir, u32 queue_depth)
   LoadExistingTables();
 }
 
+bool DiskManagerAsync::RegisterPool(u8 *base, size_t len) {
+  DB7_ASSERT((uintptr_t)base % 4096 == 0, "unaligned buffer");
+  DB7_ASSERT(len % 4096 == 0, "unaligned length");
+
+  /**
+   * Calculates how many 1GB chunks we need to split the buffer since the os has
+   * a limit that prevents larger blocks
+   */
+  u32 n = (len + kRegChunk - 1) / kRegChunk;
+  std::vector<iovec> iov(n);
+  for (u32 i = 0; i < n; i++) {
+    iov[i].iov_base = base + (size_t)i * kRegChunk;
+    iov[i].iov_len = std::min(kRegChunk, len - (size_t)i * kRegChunk);
+  }
+  /* Registers thechunks */
+  int ret = io_uring_register_buffers(&ring_, iov.data(), n);
+  if (ret != 0) {
+    fprintf(stderr,
+            "WARNING: io_uring_register_buffers failed (%s), falling back to non-fixed I/O\n",
+            strerror(-ret));
+    return false; // reg_base_ stays nullptr, plain reads still work
+  }
+  reg_base_ = base;
+  return true;
+}
+
 bool DiskManagerAsync::DeleteDir(const char *directory) {
   int res = rmdir(directory);
   return res == 0;
@@ -96,7 +122,13 @@ bool DiskManagerAsync::SubmitRead(table_id tid, void *buf, u32 len, off_t offset
   struct io_uring_sqe *sqe = io_uring_get_sqe(&ring_);
   if (!sqe) return false;
 
-  io_uring_prep_read(sqe, hdr.fd, buf, len, offset);
+  // io_uring_prep_read(sqe, hdr.fd, buf, len, offset);
+  if (reg_base_) {
+    u32 idx = (u32)(((u8 *)buf - reg_base_) / kRegChunk);
+    io_uring_prep_read_fixed(sqe, hdr.fd, buf, len, offset, idx);
+  } else {
+    io_uring_prep_read(sqe, hdr.fd, buf, len, offset);
+  }
   io_uring_sqe_set_data(sqe, user_data);
   return true;
 }
@@ -113,7 +145,13 @@ bool DiskManagerAsync::SubmitWrite(table_id tid, const void *buf, u32 len, off_t
   struct io_uring_sqe *sqe = io_uring_get_sqe(&ring_);
   if (!sqe) return false;
 
-  io_uring_prep_write(sqe, hdr.fd, buf, len, offset);
+  // io_uring_prep_write(sqe, hdr.fd, buf, len, offset);
+  if (reg_base_) {
+    u32 idx = (u32)(((u8 *)buf - reg_base_) / kRegChunk);
+    io_uring_prep_write_fixed(sqe, hdr.fd, buf, len, offset, idx);
+  } else {
+    io_uring_prep_write(sqe, hdr.fd, buf, len, offset);
+  }
   io_uring_sqe_set_data(sqe, user_data);
   return true;
 }

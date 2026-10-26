@@ -25,6 +25,9 @@ private:
   using CompletionCb = std::function<void(void *user_data, ssize_t result)>;
   CompletionCb completion_cb_;
 
+  static constexpr size_t kRegChunk = 1ull << 30;
+  u8 *reg_base_ = nullptr;
+
   void BuildPath(table_id tid, char *buf, u32 len);
   void LoadExistingTables();
 
@@ -32,6 +35,13 @@ public:
   explicit DiskManagerAsync(const char *base_dir, u32 queue_depth = IOURING_QUEUE_SIZE);
   ~DiskManagerAsync();
   void SetCompletionCallback(CompletionCb cb) { completion_cb_ = std::move(cb); }
+
+  /**
+   * Optimization that registers your upfront buffer pool block of memory for io uring to use.
+   * This is an optimization that prevents table lookups and extra pinning that kernel needs
+   * to do on every read/write request.
+   */
+  bool RegisterPool(u8 *base, size_t len);
 
   bool SubmitRead(table_id pid, void *buf, u32 len, off_t offset, void *user_data);
   bool SubmitWrite(table_id pid, const void *buf, u32 len, off_t offset, void *user_data);
