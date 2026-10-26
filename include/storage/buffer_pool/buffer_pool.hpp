@@ -24,12 +24,16 @@ private:
   bool PageVisit(Page *page, PageIdentifier id);
   u32 GetPartitionIdx(PageIdentifier id);
 
+  enum class PinKind { Hit, Foreign, Miss };
+  Page *PinForBlock(PageIdentifier id, PinKind &kind);
+
 public:
   BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_table,
              size_t page_num = BUFFER_POOL_PAGE_NUM);
   ~BufferPool();
 
   Page *Pin(PageIdentifier id);
+  u32 PinRange(table_id tbl, u32 first_pid, u32 n, Page **out, u32 &io_count);
   void Unpin(Page *page, bool dirty = false);
   Page *Reserve(table_id tbl_id);
 

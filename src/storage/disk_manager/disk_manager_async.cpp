@@ -124,13 +124,22 @@ bool DiskManagerAsync::SubmitRead(table_id tid, void *buf, u32 len, off_t offset
 
   // io_uring_prep_read(sqe, hdr.fd, buf, len, offset);
   if (reg_base_) {
-    u32 idx = (u32)(((u8 *)buf - reg_base_) / kRegChunk);
+    u32 idx = RegIndex(buf);
     io_uring_prep_read_fixed(sqe, hdr.fd, buf, len, offset, idx);
   } else {
     io_uring_prep_read(sqe, hdr.fd, buf, len, offset);
   }
   io_uring_sqe_set_data(sqe, user_data);
   return true;
+}
+
+bool DiskManagerAsync::SubmitReadv(table_id tid, const iovec *iov, u32 nr, off_t offset,
+                                   void *user_data) {
+  return true;
+}
+
+u32 DiskManagerAsync::RegIndex(const void *buf) const {
+  return (u32)(((const u8 *)buf - reg_base_) / kRegChunk);
 }
 
 bool DiskManagerAsync::SubmitWrite(table_id tid, const void *buf, u32 len, off_t offset,

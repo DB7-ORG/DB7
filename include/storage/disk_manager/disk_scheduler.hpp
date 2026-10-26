@@ -12,18 +12,28 @@ enum class IoPriority : u8 {
   HIGH,     // page reads for active queries
   LOW       // background tasks, prefetch
 };
+inline constexpr u32 IO_MAX_COMBINE = 16;
 
 struct IoTask {
-  enum Op { READ, WRITE };
+  enum Op { READ, WRITE, READV };
   Op op;
   IoPriority priority;
-  Page *page;
-  PageIdentifier id;
+  PageIdentifier id; // first page
+  u8 count = 0;
+  Page *pages[IO_MAX_COMBINE];
 
   IoTask() {}
 
   IoTask(Op op, IoPriority priority, Page *page, PageIdentifier id)
-      : op(op), priority(priority), page(page), id(id) {}
+      : op(op), priority(priority), id(id), count(1) {
+    pages[0] = page;
+  }
+
+  IoTask(Op op, IoPriority priority, Page *const *pages_in, u32 n, PageIdentifier first)
+      : op(op), priority(priority), id(first), count(static_cast<u8>(n)) {
+    DB7_ASSERT(n >= 1 && n <= IO_MAX_COMBINE, "invalid io size");
+    std::copy_n(pages_in, n, pages);
+  }
 
   // higher priority = should come first
   bool operator<(const IoTask &other) const {
@@ -85,12 +95,18 @@ private:
 
     for (size_t i = 0; i < count; ++i) {
       bool ok;
-      if (tasks[i].op == IoTask::READ)
-        ok = io_->SubmitRead(tasks[i].id.tbl_id, tasks[i].page->GetData(), DB7_PAGE_SIZE,
-                             (tasks[i].id.pid - 1) * DB7_PAGE_SIZE, (void *)tasks[i].page);
-      else
-        ok = io_->SubmitWrite(tasks[i].id.tbl_id, tasks[i].page->GetData(), DB7_PAGE_SIZE,
-                              (tasks[i].id.pid - 1) * DB7_PAGE_SIZE, (void *)tasks[i].page);
+      switch (tasks[i].op) {
+      case IoTask::READ:
+        ok = io_->SubmitRead(tasks[i].id.tbl_id, tasks[i].pages[0]->GetData(), DB7_PAGE_SIZE,
+                             (tasks[i].id.pid - 1) * DB7_PAGE_SIZE, (void *)tasks[i].pages[0]);
+        break;
+      case IoTask::WRITE:
+        ok = io_->SubmitWrite(tasks[i].id.tbl_id, tasks[i].pages[0]->GetData(), DB7_PAGE_SIZE,
+                              (tasks[i].id.pid - 1) * DB7_PAGE_SIZE, (void *)tasks[i].pages[0]);
+        break;
+      case IoTask::READV: ok = io_->SubmitReadv(); break;
+      default: throw;
+      }
 
       if (ok) {
         inflight_++;

@@ -30,6 +30,7 @@ private:
 
   void BuildPath(table_id tid, char *buf, u32 len);
   void LoadExistingTables();
+  u32 RegIndex(const void *buf) const;
 
 public:
   explicit DiskManagerAsync(const char *base_dir, u32 queue_depth = IOURING_QUEUE_SIZE);
@@ -44,6 +45,7 @@ public:
   bool RegisterPool(u8 *base, size_t len);
 
   bool SubmitRead(table_id pid, void *buf, u32 len, off_t offset, void *user_data);
+  bool SubmitReadv(table_id tid, const iovec *iov, u32 nr, off_t offset, void *user_data);
   bool SubmitWrite(table_id pid, const void *buf, u32 len, off_t offset, void *user_data);
   int ReapCompletions(u32 max_completions = IOURING_QUEUE_SIZE);
   int Submit();
