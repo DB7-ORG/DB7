@@ -83,3 +83,7 @@ online index creation:
   if (!disk_mng_.CreateOpenFile(oid_, 10'000)) { throw IO_EXCEPTION("Could not create/open file"); }
 
 - vectorized preadv and pwritev in iouring
+- implement ^
+- refactor files to not be header only
+- figure out access strategy
+- figure out deadlock scenarios w ring buffers strategy

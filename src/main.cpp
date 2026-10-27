@@ -12,6 +12,7 @@
 #include "common.hpp"
 #include "shared/arena/fixed_bump_arena.hpp"
 #include "shared/arena/object_pool.hpp"
+#include "storage/buffer_pool/iostream.hpp"
 #include "storage/storage_manager.hpp"
 #include "transaction/transaction_manager.hpp"
 
@@ -286,6 +287,35 @@ int main2() {
   }
 }
 
+void FillTable(const char *path, u32 first, u32 npages) {
+  int fd = open(path, O_WRONLY);
+  DB7_ASSERT(fd >= 0, "open failed");
+
+  constexpr u32 kChunk = 128;
+  std::vector<u8> buf(size_t(kChunk) * DB7_PAGE_SIZE, 0xAB);
+
+  const u32 end = first + npages;
+  for (u32 p = first; p < end; p += kChunk) {
+    u32 cnt = std::min(kChunk, end - p);
+    for (u32 k = 0; k < cnt; k++) {
+      u32 pid = p + k;
+      std::memcpy(buf.data() + size_t(k) * DB7_PAGE_SIZE, &pid, sizeof pid);
+    }
+    ssize_t w = pwrite(fd, buf.data(), size_t(cnt) * DB7_PAGE_SIZE, off_t(p - 1) * DB7_PAGE_SIZE);
+    DB7_ASSERT(w == ssize_t(cnt) * DB7_PAGE_SIZE, "pwrite failed");
+  }
+
+  fsync(fd);
+  close(fd);
+}
+#include <sys/resource.h>
+double CpuSeconds() {
+  rusage ru;
+  getrusage(RUSAGE_SELF, &ru);
+  auto s = [](timeval t) { return double(t.tv_sec) + double(t.tv_usec) / 1e6; };
+  return s(ru.ru_utime) + s(ru.ru_stime);
+}
+
 int main() {
   using namespace db7::catalog;
 
@@ -322,17 +352,73 @@ int main() {
 
   std::cout << customers.storage->GetTableId() << std::endl;
 
+  constexpr u32 kThreads = 16;      // ≈ batches in flight; try 1, 4, 16, 32
+  constexpr u32 kPages = 64'000;    // 500 MB; each page is read exactly once
+  constexpr u32 kN = 8;             // pages per batch
+  constexpr bool kVectored = false; // false = solution A, true = solution B
+  constexpr u32 kFirstPid = 1 + 64; // skip pages the catalog may own
+
+  const u32 tbl = u32(customers.storage->GetTableId());
+  char path[256];
+  std::snprintf(path, sizeof path, ".data/table_%u.db", tbl);
+  FillTable(path, kFirstPid, kPages);
+
   auto &buffer_pool = storage.GetBufferPool();
-  u32 n = 8;
-  std::vector<storage::Page *> state(n);
-  auto start = now_ns();
-  for (u32 i = 1; i < 1000; i++) {
-    for (u32 j = 0; j < n; j++) {
-      storage::Page *page = buffer_pool.Pin({u32(customers.storage->GetTableId()), i});
-      state[j] = page;
+  const u32 nbatches = kPages / kN;
+  std::atomic<bool> go{false};
+
+  auto worker = [&](u32 t) {
+    storage::Page *state[IO_MAX_COMBINE];
+    while (!go.load(std::memory_order_acquire)) std::this_thread::yield();
+
+    // this thread's batches: [b_begin, b_end)
+    const u32 per = nbatches / kThreads;
+    const u32 b_begin = t * per;
+    const u32 b_end = (t == kThreads - 1) ? nbatches : b_begin + per;
+
+    u32 next_pg = kFirstPid + b_begin * kN;
+    const u32 pg_end = kFirstPid + b_end * kN;
+    storage::ReadIoStream stream(
+        &buffer_pool, tbl,
+        [&next_pg, pg_end]() { return next_pg < pg_end ? next_pg++ : storage::INVALID_BLOCK; }, 16);
+
+    for (u32 b = b_begin; b < b_end; b++) {
+      u32 first = kFirstPid + b * kN;
+
+      if (kVectored) {
+        for (u32 done = 0; done < kN;) { // PinRange may stop early at a hit
+          auto r = buffer_pool.PinRange(tbl, first + done, kN - done, state + done);
+          done += r.count;
+        }
+      } else {
+        for (u32 j = 0; j < kN; j++) { state[j] = buffer_pool.Pin({tbl, first + j}); }
+      }
+
+      for (u32 j = 0; j < kN; j++) {
+        state[j]->WaitIO();
+        u32 stamp;
+        std::memcpy(&stamp, state[j]->GetData(), sizeof stamp);
+        if (stamp != first + j) {
+          std::fprintf(stderr, "wrong page: expected %u got %u\n", first + j, stamp);
+          std::abort();
+        }
+        buffer_pool.Unpin(state[j], false);
+      }
     }
-    for (u32 j = 0; j < n; j++) { state[j]->WaitIO(); }
-  }
+  };
+
+  std::vector<std::thread> threads;
+  for (u32 t = 0; t < kThreads; t++) threads.emplace_back(worker, t);
+
+  double cpu0 = CpuSeconds();
+  auto start = now_ns();
+  go.store(true, std::memory_order_release); // all threads start together
+  for (auto &t : threads) t.join();
   auto end = now_ns();
-  printf("time:        %.3f ms\n", (end - start) / 1e6);
+  double cpu = CpuSeconds() - cpu0;
+
+  double secs = (end - start) / 1e9;
+  double mb = double(kPages) * DB7_PAGE_SIZE / 1e6;
+  printf("%s threads=%u n=%u: %.1f ms, %.0f MB/s, cpu %.2f us/page\n",
+         kVectored ? "readv" : "single", kThreads, kN, secs * 1e3, mb / secs, cpu * 1e6 / kPages);
 }

@@ -12,7 +12,6 @@ enum class IoPriority : u8 {
   HIGH,     // page reads for active queries
   LOW       // background tasks, prefetch
 };
-inline constexpr u32 IO_MAX_COMBINE = 16;
 
 struct IoTask {
   enum Op { READ, WRITE, READV };
@@ -52,17 +51,30 @@ private:
   moodycamel::ConcurrentQueue<IoTask> queue_;
   std::thread worker_;
 
+private:
+  IoTask inflight_tasks_[IOURING_QUEUE_SIZE];
+  u32 free_[IOURING_QUEUE_SIZE];
+  u32 nfree_ = IOURING_QUEUE_SIZE;
+
+  IoTask *AllocTask(const IoTask &t) {
+    DB7_ASSERT(nfree_ > 0, "inflight pool exhausted");
+    IoTask *slot = &inflight_tasks_[free_[--nfree_]];
+    *slot = t;
+    return slot;
+  }
+  void FreeTask(IoTask *t) { free_[nfree_++] = u32(t - inflight_tasks_); }
+
   void Run() {
-    io_->SetCompletionCallback([](void *user_data, ssize_t result) {
-      (void)result;
-      auto *page = static_cast<Page *>(user_data);
-      if (result != DB7_PAGE_SIZE) {
-        fprintf(stderr, "IO failed: page tbl=%u pid=%u result=%zd (%s)\n", page->GetId().tbl_id,
-                page->GetId().pid, result, result < 0 ? strerror((int)-result) : "short");
+    io_->SetCompletionCallback([this](void *user_data, ssize_t result) {
+      auto *t = static_cast<IoTask *>(user_data);
+      ssize_t expected = ssize_t(t->count) * DB7_PAGE_SIZE;
+      if (result != expected) {
+        fprintf(stderr, "IO failed: tbl=%u pid=%u count=%u result=%zd (%s)\n", t->id.tbl_id,
+                t->id.pid, t->count, result, result < 0 ? strerror(int(-result)) : "short");
+        DB7_ASSERT(false, "IO failed");
       }
-      DB7_ASSERT(result == DB7_PAGE_SIZE, "Short read");
-      DB7_ASSERT(result == DB7_PAGE_SIZE, "Short read");
-      page->SignalIO();
+      for (u32 j = 0; j < t->count; ++j) t->pages[j]->SignalIO();
+      FreeTask(t);
     });
 
     while (running_) {
@@ -94,18 +106,23 @@ private:
     size_t count = queue_.try_dequeue_bulk(tasks, slots);
 
     for (size_t i = 0; i < count; ++i) {
+      IoTask *t = AllocTask(tasks[i]);
+      off_t off = off_t(t->id.pid - 1) * DB7_PAGE_SIZE;
       bool ok;
-      switch (tasks[i].op) {
-      case IoTask::READ:
-        ok = io_->SubmitRead(tasks[i].id.tbl_id, tasks[i].pages[0]->GetData(), DB7_PAGE_SIZE,
-                             (tasks[i].id.pid - 1) * DB7_PAGE_SIZE, (void *)tasks[i].pages[0]);
+      switch (t->op) {
+      case IoTask::READ: {
+        ok = io_->SubmitRead(t->id.tbl_id, t->pages[0]->GetData(), DB7_PAGE_SIZE, off, t);
         break;
-      case IoTask::WRITE:
-        ok = io_->SubmitWrite(tasks[i].id.tbl_id, tasks[i].pages[0]->GetData(), DB7_PAGE_SIZE,
-                              (tasks[i].id.pid - 1) * DB7_PAGE_SIZE, (void *)tasks[i].pages[0]);
+      }
+      case IoTask::WRITE: {
+        ok = io_->SubmitWrite(t->id.tbl_id, t->pages[0]->GetData(), DB7_PAGE_SIZE, off, t);
         break;
-      case IoTask::READV: ok = io_->SubmitReadv(); break;
-      default: throw;
+      }
+      case IoTask::READV: {
+        ok = io_->SubmitReadv(t->id.tbl_id, t->pages, t->count, off, t);
+        break;
+      }
+      default: DB7_UNREACHABLE();
       }
 
       if (ok) {
@@ -113,6 +130,7 @@ private:
         submitted_any = true;
       } else {
         // Ring full — re-enqueue this task and all remaining ones
+        FreeTask(t);
         queue_.enqueue_bulk(tasks + i,
                             count - i); // should probl use try_enqueue
         break;
@@ -129,7 +147,9 @@ private:
 public:
   DiskScheduler(DiskManagerAsync *io)
       : io_(io), inflight_(0), max_inflight_(IOURING_QUEUE_SIZE), running_(false),
-        queue_(IOURING_QUEUE_SIZE) {}
+        queue_(IOURING_QUEUE_SIZE) {
+    for (u32 i = 0; i < IOURING_QUEUE_SIZE; i++) free_[i] = i;
+  }
 
   ~DiskScheduler() { Stop(); }
 

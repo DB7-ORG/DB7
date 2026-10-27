@@ -9,6 +9,12 @@
 #include <atomic>
 
 namespace db7::storage {
+
+struct PinRangeResult {
+  u32 count;       // pages pinned and written to out
+  bool io_started; // a read was enqueued for out[0 .. misses)
+};
+
 class BufferPool {
 private:
   DiskScheduler *disk_mng_;
@@ -33,7 +39,7 @@ public:
   ~BufferPool();
 
   Page *Pin(PageIdentifier id);
-  u32 PinRange(table_id tbl, u32 first_pid, u32 n, Page **out, u32 &io_count);
+  PinRangeResult PinRange(table_id tbl, u32 first_pid, u32 n, Page **out);
   void Unpin(Page *page, bool dirty = false);
   Page *Reserve(table_id tbl_id);
 

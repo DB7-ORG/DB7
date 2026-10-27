@@ -1,5 +1,6 @@
 #include "storage/disk_manager/disk_manager_async.hpp"
 #include "shared/error/exception.hpp"
+#include "storage/page.hpp"
 
 #include <cstring>
 #include <dirent.h>
@@ -56,6 +57,13 @@ DiskManagerAsync::DiskManagerAsync(const char *base_dir, u32 queue_depth)
     : cache_(std::make_unique<FdCache>()) {
   int ret = io_uring_queue_init(queue_depth, &ring_, 0);
   if (ret < 0) throw std::runtime_error("io_uring_queue_init failed");
+
+  if (!(ring_.features & IORING_FEAT_SUBMIT_STABLE)) {
+    io_uring_queue_exit(&ring_);
+    throw std::runtime_error("io_uring: IORING_FEAT_SUBMIT_STABLE not supported");
+  }
+  sqe_shift_ = (ring_.flags & IORING_SETUP_SQE128) ? 1 : 0;
+  iov_store_ = std::make_unique<iovec[]>(size_t(ring_.sq.ring_entries) * kMaxIov);
 
   strncpy(base_dir_, base_dir, MAX_PATH_LEN_2 - 1);
 
@@ -133,13 +141,40 @@ bool DiskManagerAsync::SubmitRead(table_id tid, void *buf, u32 len, off_t offset
   return true;
 }
 
-bool DiskManagerAsync::SubmitReadv(table_id tid, const iovec *iov, u32 nr, off_t offset,
-                                   void *user_data) {
-  return true;
-}
-
 u32 DiskManagerAsync::RegIndex(const void *buf) const {
   return (u32)(((const u8 *)buf - reg_base_) / kRegChunk);
+}
+
+iovec *DiskManagerAsync::IovFor(io_uring_sqe *sqe) {
+  size_t slot = size_t(sqe - ring_.sq.sqes) >> sqe_shift_;
+  return &iov_store_[slot * kMaxIov];
+}
+
+bool DiskManagerAsync::SubmitReadv(table_id tid, Page *const *pages, u32 nr, off_t offset,
+                                   void *user_data) {
+  DB7_ASSERT(nr >= 1 && nr <= kMaxIov, "invalid iovec count");
+  DB7_ASSERT(offset % 4096 == 0, "unaligned offset");
+
+  if (nr == 1) return SubmitRead(tid, pages[0]->GetData(), DB7_PAGE_SIZE, offset, user_data);
+
+  auto hdr = cache_->Get(tid);
+  DB7_ASSERT(hdr.fd >= 0, "No valid file descriptor");
+
+  io_uring_sqe *sqe = io_uring_get_sqe(&ring_);
+  if (!sqe) return false;
+
+  iovec *iov = IovFor(sqe);
+
+  for (u32 i = 0; i < nr; i++) {
+    DB7_ASSERT((uintptr_t)pages[i]->GetData() % 4096 == 0, "unaligned buffer");
+    iov[i].iov_base = pages[i]->GetData();
+    iov[i].iov_len = DB7_PAGE_SIZE;
+  }
+
+  io_uring_prep_readv(sqe, hdr.fd, iov, nr, offset);
+
+  io_uring_sqe_set_data(sqe, user_data);
+  return true;
 }
 
 bool DiskManagerAsync::SubmitWrite(table_id tid, const void *buf, u32 len, off_t offset,

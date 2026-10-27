@@ -137,21 +137,22 @@ Page *BufferPool::Pin(PageIdentifier id) { // unchanged behaviour for single-pag
 // Stops after the first hit or foreign page, which is included in out[].
 // out[0 .. io_count) are misses, submitted together as one vectored read.
 // Returns the number of pages pinned.
-u32 BufferPool::PinRange(table_id tbl, u32 first_pid, u32 n, Page **out, u32 &io_count) {
-  io_count = 0;
-  u32 i = 0;
-  while (i < n) {
+PinRangeResult BufferPool::PinRange(table_id tbl, u32 first_pid, u32 n, Page **out) {
+  u32 count = 0;
+  u32 misses = 0;
+  while (count < n) {
     PinKind kind;
-    out[i] = PinForBlock(PageIdentifier(tbl, first_pid + i), kind);
-    i++;
-    if (kind != PinKind::Miss) break; // a cached or being-loaded page ends the run
-    io_count++;
+    out[count] = PinForBlock(PageIdentifier(tbl, first_pid + count), kind);
+    count++;
+    if (kind != PinKind::Miss)
+      break; // cached or being loaded: ends the run, but it's pinned, so return it
+    misses++;
   }
 
-  if (io_count > 0) return 0;
-  disk_mng_->Enqueue(
-      IoTask(IoTask::READV, IoPriority::HIGH, out, io_count, PageIdentifier(tbl, first_pid)));
-  return i;
+  if (misses > 0)
+    disk_mng_->Enqueue(
+        IoTask(IoTask::READV, IoPriority::HIGH, out, misses, PageIdentifier(tbl, first_pid)));
+  return {count, misses > 0};
 }
 
 void BufferPool::Unpin(Page *page, bool dirty) {

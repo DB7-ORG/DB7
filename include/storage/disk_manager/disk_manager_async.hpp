@@ -1,6 +1,7 @@
 #pragma once
 
 #include "storage/disk_manager/fd_cache.hpp"
+#include "storage/page.hpp"
 #include "storage/storage_common.hpp"
 
 #include <functional>
@@ -14,6 +15,7 @@
 #define MAX_PATH_LEN_2 128u
 #define DIRECT_ALIGN 4096
 #define INIT_FREE_PAGES 3
+#define IO_MAX_COMBINE 32
 
 namespace db7::storage {
 class DiskManagerAsync {
@@ -28,9 +30,14 @@ private:
   static constexpr size_t kRegChunk = 1ull << 30;
   u8 *reg_base_ = nullptr;
 
+  static constexpr u32 kMaxIov = IO_MAX_COMBINE;
+  std::unique_ptr<iovec[]> iov_store_; // kMaxIov iovecs per SQE slot
+  u32 sqe_shift_ = 0;                  // 1 if the ring uses 128-byte SQEs
+
   void BuildPath(table_id tid, char *buf, u32 len);
   void LoadExistingTables();
   u32 RegIndex(const void *buf) const;
+  iovec *IovFor(io_uring_sqe *sqe);
 
 public:
   explicit DiskManagerAsync(const char *base_dir, u32 queue_depth = IOURING_QUEUE_SIZE);
@@ -45,7 +52,7 @@ public:
   bool RegisterPool(u8 *base, size_t len);
 
   bool SubmitRead(table_id pid, void *buf, u32 len, off_t offset, void *user_data);
-  bool SubmitReadv(table_id tid, const iovec *iov, u32 nr, off_t offset, void *user_data);
+  bool SubmitReadv(table_id tid, Page *const *pages, u32 nr, off_t offset, void *user_data);
   bool SubmitWrite(table_id pid, const void *buf, u32 len, off_t offset, void *user_data);
   int ReapCompletions(u32 max_completions = IOURING_QUEUE_SIZE);
   int Submit();
