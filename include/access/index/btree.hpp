@@ -30,13 +30,14 @@ private:
   std::vector<TypeSize> attrs_;
   shared::BitSet column_set_;
   u16 key_buffer_size_;
+  storage::AccessStrategy strategy;
 
   static constexpr size_t ALLOC_CONST = 3;
 
 private:
   template <shared::LockMode Mode>
   storage::Page *GetNode(page_id id) {
-    storage::Page *page = buffer_pool_->Pin({tbl_id_, id});
+    storage::Page *page = buffer_pool_->Pin({tbl_id_, id}, strategy);
     page->WaitIO();
     shared::Lock<Mode>(page);
     return page;
@@ -49,7 +50,7 @@ private:
   }
 
   storage::Page *ReserveNode() {
-    auto page = buffer_pool_->Reserve(tbl_id_);
+    auto page = buffer_pool_->Reserve(tbl_id_, strategy);
     shared::Lock<shared::LockMode::Write>(page);
     return page;
   }

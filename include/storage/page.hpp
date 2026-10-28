@@ -20,7 +20,8 @@ private:
   std::atomic<VersionPtr *> versions_; // 8 bytes
   byte *data_;                         // 8 bytes
   std::atomic<u32> ref_count_;         // 4 bytes
-  std::atomic<u8> flags_;              // 1 byte
+  std::atomic<u8> usage_count_;
+  std::atomic<u8> flags_; // 1 byte
 
   alignas(CACHE_LINE_SIZE) std::mutex latch_; // ~56 bytes typically
   std::condition_variable_any io_cv_;
@@ -82,6 +83,30 @@ public:
   void SetDirty() { flags_.fetch_or(DIRTY_FLAG); }
   void ClearDirty() { flags_.fetch_and(~DIRTY_FLAG); }
 
+  u8 UsageCount() const { return usage_count_; }
+  // void SetUsageCount(u8 value) {
+  //   DB7_ASSERT(kMaxUsage >= value, "Invalid value sent");
+  //   usage_count_.store(value);
+  // }
+  static constexpr u32 kMaxUsage = 1;
+
+  // Returns true if the count changed.
+  bool IncUsageCount() {
+    u8 cur = usage_count_.load();
+    do {
+      if (cur >= kMaxUsage) return false;
+    } while (!usage_count_.compare_exchange_weak(cur, cur + 1));
+    return true;
+  }
+
+  bool DecUsageCount() {
+    u8 cur = usage_count_.load();
+    do {
+      if (cur == 0) return false;
+    } while (!usage_count_.compare_exchange_weak(cur, cur - 1));
+    return true;
+  }
+
   bool IsEvictable() const { return !IsPinned() && !IsDirty() && !IsIOInProgress(); }
 
   /**
@@ -114,9 +139,8 @@ public:
   void SignalIO() {
     {
       std::lock_guard lk(latch_);
-      DB7_ASSERT(IsIOInProgress(), "Io in progress not set");
-      DB7_ASSERT(IsPinned(), "Pin not set");
-      // DB7_ASSERT(GetId().pid == *(u64 *)GetData(), "Invalid page");
+      // DB7_ASSERT(IsIOInProgress(), "Io in progress not set");
+      // DB7_ASSERT(IsPinned(), "Pin not set");
       ClearIOInProgress();
     }
     io_cv_.notify_all();

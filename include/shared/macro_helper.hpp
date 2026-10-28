@@ -35,3 +35,8 @@
   } while (0)
 
 #define DB7_UNIMPLEMENTED() throw std::logic_error("Not implemented")
+
+template <class T>
+inline void DoNotOptimize(T const &value) {
+  asm volatile("" : : "r,m"(value) : "memory");
+}

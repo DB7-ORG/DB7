@@ -37,6 +37,7 @@ class ReadIoStream final : public IoStream {
 private:
   shared::Ringbuffer<Page *> ring_;
   BufferPool *pool_;
+  AccessStrategy strategy_;
   [[no_unique_address]] NextFn next_fn_; // takes no space when the callback captures nothing
 
   u32 distance_ = 1;      // current look-ahead (Postgres: readahead_distance)
@@ -95,9 +96,10 @@ private:
   }
 
 public:
-  ReadIoStream(BufferPool *pool, table_id tbl, NextFn next_fn, u32 max_distance, u32 batch_size = 8)
+  ReadIoStream(BufferPool *pool, AccessStrategy strategy, table_id tbl, NextFn next_fn,
+               u32 max_distance, u32 batch_size = 8)
       : IoStream(StreamType::SCAN, tbl), ring_(max_distance + batch_size), pool_(pool),
-        next_fn_(std::move(next_fn)), max_distance_(max_distance),
+        strategy_(strategy), next_fn_(std::move(next_fn)), max_distance_(max_distance),
         batch_size_(static_cast<u8>(batch_size)) {
     DB7_ASSERT(max_distance >= 1, "max_distance must be at least 1");
     DB7_ASSERT(batch_size > 0 && batch_size <= IO_MAX_COMBINE, "Invalid batch size");
@@ -132,71 +134,71 @@ public:
   }
 };
 
-/* Not thread safe */
-class ReadUnorderedIoStream : public IoStream {
-private:
-  u32 nblocks_;           // pages in the table
-  u32 next_block_ = 0;    // next block to pin (Postgres: rs_prefetch_block)
-  u32 distance_ = 1;      // current look-ahead (Postgres: readahead_distance)
-  u32 decay_holdoff_ = 0; // don't shrink right after we had to wait
-  u32 count_ = 0;
-  shared::Ringbuffer<Page *> wait_ring_;
-  shared::Ringbuffer<Page *> ready_ring_;
-  BufferPool *pool_;
+// /* Not thread safe */
+// class ReadUnorderedIoStream : public IoStream {
+// private:
+//   u32 nblocks_;           // pages in the table
+//   u32 next_block_ = 0;    // next block to pin (Postgres: rs_prefetch_block)
+//   u32 distance_ = 1;      // current look-ahead (Postgres: readahead_distance)
+//   u32 decay_holdoff_ = 0; // don't shrink right after we had to wait
+//   u32 count_ = 0;
+//   shared::Ringbuffer<Page *> wait_ring_;
+//   shared::Ringbuffer<Page *> ready_ring_;
+//   BufferPool *pool_;
 
-  void LookAhead() {
-    while (count_ < distance_ && next_block_ < nblocks_) {
-      auto *page = pool_->Pin({GetTableId(), next_block_++});
-      count_++;
-      if (!page->IsIOInProgress()) {
-        if (decay_holdoff_ > 0)
-          decay_holdoff_--;
-        else if (distance_ > 1)
-          distance_--; // cached: look-ahead isn't buying anything
+//   void LookAhead() {
+//     while (count_ < distance_ && next_block_ < nblocks_) {
+//       auto *page = pool_->Pin({GetTableId(), next_block_++});
+//       count_++;
+//       if (!page->IsIOInProgress()) {
+//         if (decay_holdoff_ > 0)
+//           decay_holdoff_--;
+//         else if (distance_ > 1)
+//           distance_--; // cached: look-ahead isn't buying anything
 
-        ready_ring_.Append(page);
-      } else {
-        wait_ring_.Append(page);
-      }
-    }
-  }
+//         ready_ring_.Append(page);
+//       } else {
+//         wait_ring_.Append(page);
+//       }
+//     }
+//   }
 
-  u32 Count() const { return ready_ring_.Size() + wait_ring_.Size(); }
+//   u32 Count() const { return ready_ring_.Size() + wait_ring_.Size(); }
 
-public:
-  ReadUnorderedIoStream(BufferPool *pool, table_id tbl, u32 nblocks, u32 max_distance)
-      : IoStream(StreamType::SCAN_UNORDERED, tbl), nblocks_(nblocks), wait_ring_(32),
-        ready_ring_(32), pool_(pool) {}
+// public:
+//   ReadUnorderedIoStream(BufferPool *pool, table_id tbl, u32 nblocks, u32 max_distance)
+//       : IoStream(StreamType::SCAN_UNORDERED, tbl), nblocks_(nblocks), wait_ring_(32),
+//         ready_ring_(32), pool_(pool) {}
 
-  ~ReadUnorderedIoStream() override { // scan ended early (LIMIT, error)
-    for (auto r = wait_ring_.Read(); r.success; r = wait_ring_.Read()) pool_->Unpin(r.value);
-    for (auto r = ready_ring_.Read(); r.success; r = ready_ring_.Read()) pool_->Unpin(r.value);
-  }
+//   ~ReadUnorderedIoStream() override { // scan ended early (LIMIT, error)
+//     for (auto r = wait_ring_.Read(); r.success; r = wait_ring_.Read()) pool_->Unpin(r.value);
+//     for (auto r = ready_ring_.Read(); r.success; r = ready_ring_.Read()) pool_->Unpin(r.value);
+//   }
 
-  // Returns a pinned page; the caller must Unpin it. Returns nullptr at the end.
-  Page *Next() override {
-    if (count_ == 0) {
-      LookAhead();
-      if (count_ == 0) return nullptr;
-    }
+//   // Returns a pinned page; the caller must Unpin it. Returns nullptr at the end.
+//   Page *Next() override {
+//     if (count_ == 0) {
+//       LookAhead();
+//       if (count_ == 0) return nullptr;
+//     }
 
-    auto result = ready_ring_.Read();
-    count_--;
-    if (result.success) {
-      Page *page = result.value;
-      LookAhead();
-      return page;
-    }
+//     auto result = ready_ring_.Read();
+//     count_--;
+//     if (result.success) {
+//       Page *page = result.value;
+//       LookAhead();
+//       return page;
+//     }
 
-    Page *page = wait_ring_.ReadUnsafe();
-    if (page->IsIOInProgress()) {
-      distance_ = std::min(distance_ * 2, wait_ring_.MaxSize());
-      decay_holdoff_ = wait_ring_.MaxSize();
-      page->WaitIO();
-    }
+//     Page *page = wait_ring_.ReadUnsafe();
+//     if (page->IsIOInProgress()) {
+//       distance_ = std::min(distance_ * 2, wait_ring_.MaxSize());
+//       decay_holdoff_ = wait_ring_.MaxSize();
+//       page->WaitIO();
+//     }
 
-    LookAhead(); // refill the slot we just freed
-    return page;
-  }
-};
+//     LookAhead(); // refill the slot we just freed
+//     return page;
+//   }
+// };
 } // namespace db7::storage
