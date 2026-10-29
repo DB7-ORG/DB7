@@ -14,7 +14,7 @@ enum class IoPriority : u8 {
 };
 
 struct IoTask {
-  enum Op { READ, WRITE, READV };
+  enum Op { READ, WRITE, READV, WRITEV };
   Op op;
   IoPriority priority;
   PageIdentifier id; // first page
@@ -120,6 +120,10 @@ private:
       }
       case IoTask::READV: {
         ok = io_->SubmitReadv(t->id.tbl_id, t->pages, t->count, off, t);
+        break;
+      }
+      case IoTask::WRITEV: {
+        ok = io_->SubmitWritev(t->id.tbl_id, t->pages, t->count, off, t);
         break;
       }
       default: DB7_UNREACHABLE();

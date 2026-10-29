@@ -200,6 +200,33 @@ bool DiskManagerAsync::SubmitWrite(table_id tid, const void *buf, u32 len, off_t
   return true;
 }
 
+bool DiskManagerAsync::SubmitWritev(table_id tid, Page *const *pages, u32 nr, off_t offset,
+                                    void *user_data) {
+  DB7_ASSERT(nr >= 1 && nr <= kMaxIov, "invalid iovec count");
+  DB7_ASSERT(offset % 4096 == 0, "unaligned offset");
+
+  if (nr == 1) return SubmitWrite(tid, pages[0]->GetData(), DB7_PAGE_SIZE, offset, user_data);
+
+  auto hdr = cache_->Get(tid);
+  DB7_ASSERT(hdr.fd >= 0, "No valid file descriptor");
+
+  io_uring_sqe *sqe = io_uring_get_sqe(&ring_);
+  if (!sqe) return false;
+
+  iovec *iov = IovFor(sqe);
+
+  for (u32 i = 0; i < nr; i++) {
+    DB7_ASSERT((uintptr_t)pages[i]->GetData() % 4096 == 0, "unaligned buffer");
+    iov[i].iov_base = pages[i]->GetData();
+    iov[i].iov_len = DB7_PAGE_SIZE;
+  }
+
+  io_uring_prep_writev(sqe, hdr.fd, iov, nr, offset);
+
+  io_uring_sqe_set_data(sqe, user_data);
+  return true;
+}
+
 int DiskManagerAsync::Submit() { return io_uring_submit(&ring_); }
 
 int DiskManagerAsync::ReapCompletions(u32 max_completions) {

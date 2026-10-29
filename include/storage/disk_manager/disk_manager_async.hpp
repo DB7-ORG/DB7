@@ -54,6 +54,7 @@ public:
   bool SubmitRead(table_id pid, void *buf, u32 len, off_t offset, void *user_data);
   bool SubmitReadv(table_id tid, Page *const *pages, u32 nr, off_t offset, void *user_data);
   bool SubmitWrite(table_id pid, const void *buf, u32 len, off_t offset, void *user_data);
+  bool SubmitWritev(table_id tid, Page *const *pages, u32 nr, off_t offset, void *user_data);
   int ReapCompletions(u32 max_completions = IOURING_QUEUE_SIZE);
   int Submit();
 

@@ -77,8 +77,6 @@ online index creation:
  this command raises the limit for max memory reserved 
  sudo prlimit --memlock=unlimited:unlimited --pid $$ 
 
-- vectorized pwritev in iouring
-- implement ^
 - refactor files to not be header only
 - refactor access strategy
 - figure out deadlock scenarios w ring buffers strategy
@@ -87,3 +85,4 @@ online index creation:
 - add partitioned map to version storage
 - consider lock free hmaps for partitions
 - consider removing template in io stream
+- fsm!!!!!
