@@ -9,7 +9,7 @@ BufferPool::BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_tabl
   auto block_size = static_cast<size_t>(page_num) * DB7_PAGE_SIZE;
   auto data = static_cast<u8 *>(std::aligned_alloc(4096, block_size));
   DB7_ASSERT(data != nullptr, "Failed to allocate");
-  PageIdentifier id(0);
+  PageIdentifier id(INVALID_PAGE_IDENTFIER);
   for (u32 i = 0; i < page_num; i++) {
     pages_[i].WLock();
     pages_[i].SetId(id);
@@ -78,15 +78,11 @@ bool BufferPool::PageVisit(Page *page,
   return false;
 }
 
-u32 BufferPool::GetPartitionIdx(PageIdentifier id) {
-  return HashUtil::murmurhash64(id.packed) % BUFFER_POOL_PARTITION_NUM;
-}
-
 Page *BufferPool::PinForBlock(PageIdentifier id, AccessStrategy &strategy, PinKind &kind) {
   DB7_ASSERT(id.pid != 0, "invalid pid");
   DB7_ASSERT(id.pid != std::numeric_limits<page_id>::max(), "invalid pid");
 
-  u32 partIdx = GetPartitionIdx(id);
+  u32 partIdx = partitions_.GetPartitionIdx(id);
 
   while (true) {
     u32 frame_idx = partitions_.Get(id, partIdx);
@@ -104,7 +100,10 @@ Page *BufferPool::PinForBlock(PageIdentifier id, AccessStrategy &strategy, PinKi
 
     u32 new_frame_idx;
     if (partitions_.Put(id, victim_frame_idx, new_frame_idx, partIdx)) {
-      partitions_.Delete(victim_page_id, victim_frame_idx, GetPartitionIdx(victim_page_id));
+      if (victim_page_id != INVALID_PAGE_IDENTFIER) {
+        partitions_.Delete(victim_page_id, victim_frame_idx,
+                           partitions_.GetPartitionIdx(victim_page_id));
+      }
       page->SetVersions(version_table_->Get(id));
       kind = PinKind::Miss; // caller must submit the read
       return page;
@@ -127,7 +126,12 @@ Page *BufferPool::Pin(PageIdentifier id) {
 Page *BufferPool::Pin(PageIdentifier id, AccessStrategy &strategy) {
   PinKind kind;
   Page *page = PinForBlock(id, strategy, kind);
-  if (kind == PinKind::Miss) disk_mng_->Enqueue(IoTask(IoTask::READ, IoPriority::HIGH, page, id));
+  // if (kind == PinKind::Miss) disk_mng_->Enqueue(IoTask(IoTask::READ, IoPriority::HIGH, page,
+  // id));
+  if (kind == PinKind::Miss) {
+    DoNotOptimize(page);
+    page->ClearIOInProgress(); // important, see below
+  }
   return page;
 }
 
@@ -172,7 +176,7 @@ Page *BufferPool::Reserve(table_id tbl_id, AccessStrategy &strategy) {
   DB7_ASSERT(pid < BUFFER_POOL_PAGE_NUM, "no more pages");
 
   auto id = PageIdentifier(tbl_id, pid);
-  u32 partIdx = GetPartitionIdx(id);
+  u32 partIdx = partitions_.GetPartitionIdx(id);
 
   u32 victim_frame_idx;
   PageIdentifier victim_page_id(0);
@@ -180,8 +184,10 @@ Page *BufferPool::Reserve(table_id tbl_id, AccessStrategy &strategy) {
 
   u32 new_frame_idx;
   if (partitions_.Put(id, victim_frame_idx, new_frame_idx, partIdx)) {
-    partIdx = GetPartitionIdx(victim_page_id);
-    partitions_.Delete(victim_page_id, victim_frame_idx, partIdx);
+    if (victim_page_id != INVALID_PAGE_IDENTFIER) {
+      partIdx = partitions_.GetPartitionIdx(victim_page_id);
+      partitions_.Delete(victim_page_id, victim_frame_idx, partIdx);
+    }
     std::memset(page->GetData(), 0, DB7_PAGE_SIZE); // TODO i dont needd this
     return page;
   }

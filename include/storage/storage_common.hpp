@@ -32,7 +32,7 @@ struct PACKED PageIdentifier {
 
   PageIdentifier(table_id tbl_id, page_id pid) : tbl_id(tbl_id), pid(pid) {}
 
-  PageIdentifier(u64 packed) : packed(packed) {}
+  constexpr PageIdentifier(u64 packed) : packed(packed) {}
 
   bool operator==(const PageIdentifier &other) const { return packed == other.packed; }
 };

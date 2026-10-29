@@ -59,7 +59,7 @@ TableCatalogEntry::TableCatalogEntry(DatabaseCatalog &catalog, SchemaCatalogEntr
         index_columns.push_back({col.column_id, col.type});
       }
 
-      auto btree = std::make_unique<access::BTreeIndex<>>(buffer_pool, disk, 0, oid,
+      auto btree = std::make_unique<access::BTreeIndex<>>(buffer_pool, disk, NextOid(), oid,
                                                           index_columns); // TODO index oid
       auto index_info =
           std::make_unique<access::AddTableIndexInfo>(std::move(btree), constraint_type);

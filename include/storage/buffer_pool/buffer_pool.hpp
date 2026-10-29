@@ -23,11 +23,12 @@ private:
   BufferPartitions partitions_;
   PageVersionManager *version_table_;
 
+  static constexpr PageIdentifier INVALID_PAGE_IDENTFIER = 0;
+
   Page *GetVictim(PageIdentifier id, u32 &victim_frame_idx, PageIdentifier &victim_page_id,
                   AccessStrategy &strategy, bool isIO = true);
   void UndoState(Page *victim_page, PageIdentifier victim_page_id);
   bool PageVisit(Page *page, PageIdentifier id);
-  u32 GetPartitionIdx(PageIdentifier id);
 
   enum class PinKind { Hit, Foreign, Miss };
   Page *PinForBlock(PageIdentifier id, AccessStrategy &strategy, PinKind &kind);

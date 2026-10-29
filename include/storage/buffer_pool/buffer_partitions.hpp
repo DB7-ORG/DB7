@@ -1,8 +1,10 @@
 #pragma once
 
+#include "shared/hash_util.hpp"
 #include "shared/locks/adaptive_version_lock.hpp"
 #include "storage/storage_common.hpp"
 #include "third_party/unordered_dense.h"
+
 
 namespace db7::storage {
 class BufferPartitions {
@@ -21,6 +23,10 @@ private:
   }
 
 public:
+  u32 GetPartitionIdx(PageIdentifier id) {
+    return HashUtil::murmurhash64(id.packed) % BUFFER_POOL_PARTITION_NUM;
+  }
+
   void Reserve(size_t n, u32 partIdx) {
     shared::AdaptiveVersionLock::WriteGuard guard(partition_locks_[partIdx].lock);
     partition_maps_[partIdx].reserve(n);

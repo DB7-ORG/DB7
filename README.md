@@ -77,11 +77,6 @@ online index creation:
  this command raises the limit for max memory reserved 
  sudo prlimit --memlock=unlimited:unlimited --pid $$ 
 
-- fix index table id being 0
-
-- lower this limit to 1 after testing
-  if (!disk_mng_.CreateOpenFile(oid_, 10'000)) { throw IO_EXCEPTION("Could not create/open file"); }
-
 - vectorized pwritev in iouring
 - implement ^
 - refactor files to not be header only
@@ -89,3 +84,6 @@ online index creation:
 - figure out deadlock scenarios w ring buffers strategy
 - optimize page header so its more efficient 
 - move frames stuff from page replacement
+- add partitioned map to version storage
+- consider lock free hmaps for partitions
+- consider removing template in io stream

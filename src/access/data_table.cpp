@@ -25,7 +25,9 @@ DataTable::DataTable(catalog::DatabaseCatalog &catalog,
 
   // creates a file for the heap
   auto &disk_mng_ = storage_manager_.GetDiskManager();
-  if (!disk_mng_.CreateOpenFile(oid_, 10'000)) { throw IO_EXCEPTION("Could not create/open file"); }
+  if (!disk_mng_.CreateOpenFile(oid_, INIT_FREE_PAGES)) {
+    throw IO_EXCEPTION("Could not create/open file");
+  }
 }
 
 size_t DataTable::NCols() const {

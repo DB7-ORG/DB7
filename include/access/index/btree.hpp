@@ -460,7 +460,7 @@ public:
       : Index(IndexType::BTREE), buffer_pool_(buffer_pool), disk_mng_(disk_mng), tbl_id_(tbl_id),
         heap_tbl_id_(heap_tbl_id), layout_inter_(), layout_leaf_(), attrs_(std::move(attr)) {
 
-    if (!disk_mng_->CreateOpenFile(tbl_id_, 1)) {
+    if (!disk_mng_->CreateOpenFile(tbl_id_, INIT_FREE_PAGES)) {
       throw IO_EXCEPTION("IO exception could not open file");
     }
 
