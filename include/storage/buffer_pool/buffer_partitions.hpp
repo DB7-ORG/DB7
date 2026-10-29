@@ -8,7 +8,7 @@
 namespace db7::storage {
 
 template <typename Key, typename Val, int PCount, typename Deleter = void>
-class BufferPartitions {
+class PartitionedHashMap {
   static_assert(PCount > 0 && (PCount & (PCount - 1)) == 0, "PCount must be a power of 2");
 
 private:
@@ -35,7 +35,7 @@ private:
   }
 
 public:
-  ~BufferPartitions() {
+  ~PartitionedHashMap() {
     if constexpr (!std::is_void_v<Deleter>) {
       for (auto &map : partition_maps_)
         for (auto &[key, val] : map) Deleter{}(val);

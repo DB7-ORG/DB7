@@ -38,14 +38,14 @@ size_t DataTable::NCols() const {
 storage::Page *DataTable::GetPageForInsert(DataChunk *chunk) {
   u32 page_id = storage::FreeSpaceManagerVarlen::Get(chunk->GetSize());
   storage::PageIdentifier id(oid_, page_id);
-  storage::Page *insert_page = storage_manager_.GetBufferPool().Pin(id);
+  storage::Page *insert_page = storage_manager_.GetBufferPool().Pin(id, true);
   insert_page->WaitIO();
   return insert_page;
 }
 
 storage::Page *DataTable::GetPageById(page_id pid) {
   storage::PageIdentifier id(oid_, pid);
-  storage::Page *page = storage_manager_.GetBufferPool().Pin(id);
+  storage::Page *page = storage_manager_.GetBufferPool().Pin(id, true);
   page->WaitIO();
   return page;
 }

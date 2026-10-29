@@ -20,7 +20,7 @@ private:
   Page *pages_;
   u32 pool_size_;
   ClockSweep replacement_;
-  BufferPartitions<PageIdentifier, u32, BUFFER_POOL_PARTITION_NUM> partitions_;
+  PartitionedHashMap<PageIdentifier, u32, BUFFER_POOL_PARTITION_NUM> partitions_;
   PageVersionManager *version_table_;
 
   static constexpr PageIdentifier INVALID_PAGE_IDENTFIER = 0;
@@ -31,18 +31,21 @@ private:
   bool PageVisit(Page *page, PageIdentifier id);
 
   enum class PinKind { Hit, Foreign, Miss };
-  Page *PinForBlock(PageIdentifier id, AccessStrategy &strategy, PinKind &kind);
+  Page *PinForBlock(PageIdentifier id, AccessStrategy &strategy, bool isHeapPage, PinKind &kind);
 
 public:
   BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_table,
              size_t page_num = BUFFER_POOL_PAGE_NUM);
   ~BufferPool();
 
-  Page *Pin(PageIdentifier id);
-  Page *Pin(PageIdentifier id, AccessStrategy &strategy);
-  PinRangeResult PinRange(table_id tbl, u32 first_pid, u32 n, Page **out);
-  PinRangeResult PinRange(table_id tbl, u32 first_pid, u32 n, Page **out, AccessStrategy &strategy);
+  Page *Pin(PageIdentifier id, bool isHeapPage);
+  Page *Pin(PageIdentifier id, AccessStrategy &strategy, bool isHeapPage);
+  PinRangeResult PinRange(table_id tbl, u32 first_pid, u32 n, Page **out, bool isHeapPage);
+  PinRangeResult PinRange(table_id tbl, u32 first_pid, u32 n, Page **out, AccessStrategy &strategy,
+                          bool isHeapPage);
   void Unpin(Page *page, bool dirty = false);
+
+  /* Only used for indexes for now should be more flexible in future */
   Page *Reserve(table_id tbl_id, AccessStrategy &strategy);
 
   // TODO remove

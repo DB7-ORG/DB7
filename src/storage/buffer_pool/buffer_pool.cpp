@@ -77,7 +77,8 @@ bool BufferPool::PageVisit(Page *page,
   return false;
 }
 
-Page *BufferPool::PinForBlock(PageIdentifier id, AccessStrategy &strategy, PinKind &kind) {
+Page *BufferPool::PinForBlock(PageIdentifier id, AccessStrategy &strategy, bool isHeapPage,
+                              PinKind &kind) {
   DB7_ASSERT(id.pid != 0, "invalid pid");
   DB7_ASSERT(id.pid != std::numeric_limits<page_id>::max(), "invalid pid");
 
@@ -102,7 +103,11 @@ Page *BufferPool::PinForBlock(PageIdentifier id, AccessStrategy &strategy, PinKi
       if (victim_page_id != INVALID_PAGE_IDENTFIER) {
         partitions_.Delete(victim_page_id, victim_frame_idx);
       }
-      page->SetVersions(version_table_->Get(id));
+      if (isHeapPage) {
+        page->SetVersions(version_table_->Get(id));
+      } else {
+        page->SetVersions(nullptr);
+      }
       kind = PinKind::Miss; // caller must submit the read
       return page;
     }
@@ -116,21 +121,22 @@ Page *BufferPool::PinForBlock(PageIdentifier id, AccessStrategy &strategy, PinKi
   }
 }
 
-Page *BufferPool::Pin(PageIdentifier id) {
+Page *BufferPool::Pin(PageIdentifier id, bool isHeapPage) {
   AccessStrategy strategy;
-  return Pin(id, strategy);
+  return Pin(id, strategy, isHeapPage);
 }
 
-Page *BufferPool::Pin(PageIdentifier id, AccessStrategy &strategy) {
+Page *BufferPool::Pin(PageIdentifier id, AccessStrategy &strategy, bool isHeapPage) {
   PinKind kind;
-  Page *page = PinForBlock(id, strategy, kind);
+  Page *page = PinForBlock(id, strategy, isHeapPage, kind);
   if (kind == PinKind::Miss) disk_mng_->Enqueue(IoTask(IoTask::READ, IoPriority::HIGH, page, id));
   return page;
 }
 
-PinRangeResult BufferPool::PinRange(table_id tbl, u32 first_pid, u32 n, Page **out) {
+PinRangeResult BufferPool::PinRange(table_id tbl, u32 first_pid, u32 n, Page **out,
+                                    bool isHeapPage) {
   AccessStrategy strategy;
-  return PinRange(tbl, first_pid, n, out, strategy);
+  return PinRange(tbl, first_pid, n, out, strategy, isHeapPage);
 }
 
 // Pins up to n consecutive pages starting at first_pid into out[].
@@ -138,12 +144,12 @@ PinRangeResult BufferPool::PinRange(table_id tbl, u32 first_pid, u32 n, Page **o
 // out[0 .. io_count) are misses, submitted together as one vectored read.
 // Returns the number of pages pinned.
 PinRangeResult BufferPool::PinRange(table_id tbl, u32 first_pid, u32 n, Page **out,
-                                    AccessStrategy &strategy) {
+                                    AccessStrategy &strategy, bool isHeapPage) {
   u32 count = 0;
   u32 misses = 0;
   while (count < n) {
     PinKind kind;
-    out[count] = PinForBlock(PageIdentifier(tbl, first_pid + count), strategy, kind);
+    out[count] = PinForBlock(PageIdentifier(tbl, first_pid + count), strategy, isHeapPage, kind);
     count++;
     if (kind != PinKind::Miss)
       break; // cached or being loaded: ends the run, but it's pinned, so return it

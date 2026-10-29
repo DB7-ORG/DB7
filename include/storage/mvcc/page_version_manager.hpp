@@ -11,8 +11,8 @@ private:
   static constexpr u32 PageVersionPartitions = BUFFER_POOL_PARTITION_NUM;
 
 private:
-  using PartitionedMap = BufferPartitions<PageIdentifier, VersionPtr *, PageVersionPartitions,
-                                          std::default_delete<VersionPtr[]>>;
+  using PartitionedMap = PartitionedHashMap<PageIdentifier, VersionPtr *, PageVersionPartitions,
+                                            std::default_delete<VersionPtr[]>>;
   PartitionedMap partitions_;
 
 public:

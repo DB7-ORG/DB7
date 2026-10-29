@@ -388,11 +388,13 @@ int main() {
 
       if (kVectored) {
         for (u32 done = 0; done < kN;) { // PinRange may stop early at a hit
-          auto r = buffer_pool.PinRange(tbl, first + done, kN - done, state + done, strategy);
+          auto r = buffer_pool.PinRange(tbl, first + done, kN - done, state + done, strategy, true);
           done += r.count;
         }
       } else {
-        for (u32 j = 0; j < kN; j++) { state[j] = buffer_pool.Pin({tbl, first + j}, strategy); }
+        for (u32 j = 0; j < kN; j++) {
+          state[j] = buffer_pool.Pin({tbl, first + j}, strategy, true);
+        }
       }
 
       for (u32 j = 0; j < kN; j++) {

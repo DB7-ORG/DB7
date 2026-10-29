@@ -37,7 +37,7 @@ private:
 private:
   template <shared::LockMode Mode>
   storage::Page *GetNode(page_id id) {
-    storage::Page *page = buffer_pool_->Pin({tbl_id_, id}, strategy);
+    storage::Page *page = buffer_pool_->Pin({tbl_id_, id}, strategy, false);
     page->WaitIO();
     shared::Lock<Mode>(page);
     return page;
