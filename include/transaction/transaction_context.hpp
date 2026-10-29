@@ -75,6 +75,9 @@ public:
     return versions_arr;
   }
 
+  /**
+   * @warning make sure to hold the page data lock like w other columns
+   */
   storage::VersionPtr *GetVersions(storage::PageIdentifier id, u32 count) {
     return version_manager_->GetCreateVersions(id, count);
   }

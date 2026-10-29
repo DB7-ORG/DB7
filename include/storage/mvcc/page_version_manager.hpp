@@ -1,58 +1,28 @@
 #pragma once
 
-#include "shared/locks/adaptive_version_lock.hpp"
 #include "shared/models/tuple_id.hpp"
+#include "storage/buffer_pool/buffer_partitions.hpp"
 #include "storage/mvcc/version_ptr.hpp"
 #include "storage/storage_common.hpp"
-
-#include <unordered_map>
 
 namespace db7::storage {
 class PageVersionManager {
 private:
-  shared::AdaptiveVersionLock lock_; // TODO should be cas hash map
+  static constexpr u32 PageVersionPartitions = BUFFER_POOL_PARTITION_NUM;
 
-  // Tracks page -> version vector
-  std::unordered_map<PageIdentifier, VersionPtr *> table_;
-
-  VersionPtr *GetUnsafe(PageIdentifier new_page_id) {
-    auto it = table_.find(new_page_id);
-    if (it != table_.end()) { return it->second; }
-
-    return nullptr;
-  }
+private:
+  using PartitionedMap = BufferPartitions<PageIdentifier, VersionPtr *, PageVersionPartitions,
+                                          std::default_delete<VersionPtr[]>>;
+  PartitionedMap partitions_;
 
 public:
   PageVersionManager() = default;
+  ~PageVersionManager() = default;
 
-  ~PageVersionManager() {
-    for (auto &[id, versions] : table_) delete[] versions;
-  }
+  VersionPtr *Get(PageIdentifier new_page_id);
 
-  VersionPtr *Get(PageIdentifier new_page_id) {
-    shared::AdaptiveVersionLock::WriteGuard guard(lock_);
+  VersionPtr *GetCreateVersions(PageIdentifier id, u32 count);
 
-    return GetUnsafe(new_page_id);
-  }
-
-  VersionPtr *GetCreateVersions(PageIdentifier id, u32 count) {
-    shared::AdaptiveVersionLock::WriteGuard guard(lock_);
-
-    auto *result = GetUnsafe(id);
-
-    result = (result == nullptr) ? new storage::VersionPtr[count]() : result;
-
-    table_[id] = result;
-
-    return result;
-  }
-
-  storage::UndoRecord *GetDelta(TupleId tid, table_id tbl_id) {
-    shared::AdaptiveVersionLock::WriteGuard guard(lock_);
-    auto *versions = GetUnsafe({tbl_id, tid.GetPageId()});
-    if (!versions) return nullptr;
-    auto *undo = versions[tid.GetIndex()].Get();
-    return undo;
-  }
+  storage::UndoRecord *GetDelta(TupleId tid, table_id tbl_id);
 };
 } // namespace db7::storage

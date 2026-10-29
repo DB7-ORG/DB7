@@ -20,7 +20,7 @@ private:
   Page *pages_;
   u32 pool_size_;
   ClockSweep replacement_;
-  BufferPartitions partitions_;
+  BufferPartitions<PageIdentifier, u32, BUFFER_POOL_PARTITION_NUM> partitions_;
   PageVersionManager *version_table_;
 
   static constexpr PageIdentifier INVALID_PAGE_IDENTFIER = 0;

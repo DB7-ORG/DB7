@@ -1,5 +1,4 @@
 #include "storage/buffer_pool/buffer_pool.hpp"
-#include "shared/hash_util.hpp"
 #include "storage/fsm/fsm_index.hpp"
 
 namespace db7::storage {
@@ -86,7 +85,7 @@ Page *BufferPool::PinForBlock(PageIdentifier id, AccessStrategy &strategy, PinKi
 
   while (true) {
     u32 frame_idx = partitions_.Get(id, partIdx);
-    if (frame_idx != UINT32_MAX) {
+    if (partitions_.IsValid(frame_idx)) {
       Page *page = &pages_[frame_idx];
       if (PageVisit(page, id)) {
         kind = page->IsIOInProgress() ? PinKind::Foreign : PinKind::Hit;
@@ -101,8 +100,7 @@ Page *BufferPool::PinForBlock(PageIdentifier id, AccessStrategy &strategy, PinKi
     u32 new_frame_idx;
     if (partitions_.Put(id, victim_frame_idx, new_frame_idx, partIdx)) {
       if (victim_page_id != INVALID_PAGE_IDENTFIER) {
-        partitions_.Delete(victim_page_id, victim_frame_idx,
-                           partitions_.GetPartitionIdx(victim_page_id));
+        partitions_.Delete(victim_page_id, victim_frame_idx);
       }
       page->SetVersions(version_table_->Get(id));
       kind = PinKind::Miss; // caller must submit the read
@@ -126,12 +124,7 @@ Page *BufferPool::Pin(PageIdentifier id) {
 Page *BufferPool::Pin(PageIdentifier id, AccessStrategy &strategy) {
   PinKind kind;
   Page *page = PinForBlock(id, strategy, kind);
-  // if (kind == PinKind::Miss) disk_mng_->Enqueue(IoTask(IoTask::READ, IoPriority::HIGH, page,
-  // id));
-  if (kind == PinKind::Miss) {
-    DoNotOptimize(page);
-    page->ClearIOInProgress(); // important, see below
-  }
+  if (kind == PinKind::Miss) disk_mng_->Enqueue(IoTask(IoTask::READ, IoPriority::HIGH, page, id));
   return page;
 }
 
@@ -176,17 +169,14 @@ Page *BufferPool::Reserve(table_id tbl_id, AccessStrategy &strategy) {
   DB7_ASSERT(pid < BUFFER_POOL_PAGE_NUM, "no more pages");
 
   auto id = PageIdentifier(tbl_id, pid);
-  u32 partIdx = partitions_.GetPartitionIdx(id);
-
   u32 victim_frame_idx;
-  PageIdentifier victim_page_id(0);
+  PageIdentifier victim_page_id(INVALID_PAGE_IDENTFIER);
   auto page = GetVictim(id, victim_frame_idx, victim_page_id, strategy, false);
 
   u32 new_frame_idx;
-  if (partitions_.Put(id, victim_frame_idx, new_frame_idx, partIdx)) {
+  if (partitions_.Put(id, victim_frame_idx, new_frame_idx)) {
     if (victim_page_id != INVALID_PAGE_IDENTFIER) {
-      partIdx = partitions_.GetPartitionIdx(victim_page_id);
-      partitions_.Delete(victim_page_id, victim_frame_idx, partIdx);
+      partitions_.Delete(victim_page_id, victim_frame_idx);
     }
     std::memset(page->GetData(), 0, DB7_PAGE_SIZE); // TODO i dont needd this
     return page;
