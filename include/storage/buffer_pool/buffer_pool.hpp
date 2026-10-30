@@ -18,16 +18,15 @@ class BufferPool {
 private:
   DiskScheduler *disk_mng_;
   Page *pages_;
-  u32 pool_size_;
+  frame_idx_t pool_size_;
   ClockSweep replacement_;
-  PartitionedHashMap<PageIdentifier, u32, BUFFER_POOL_PARTITION_NUM> partitions_;
+  PartitionedHashMap<PageIdentifier, frame_idx_t, BUFFER_POOL_PARTITION_NUM> partitions_;
   PageVersionManager *version_table_;
 
   static constexpr PageIdentifier INVALID_PAGE_IDENTFIER = 0;
 
-  Page *GetVictim(PageIdentifier id, u32 &victim_frame_idx, PageIdentifier &victim_page_id,
-                  AccessStrategy &strategy, bool isIO = true);
-  void UndoState(Page *victim_page, PageIdentifier victim_page_id);
+  std::span<Page> GetPages() { return {pages_, pool_size_}; }
+  void UndoState(VictimPage victim);
   bool PageVisit(Page *page, PageIdentifier id);
 
   enum class PinKind { Hit, Foreign, Miss };
@@ -35,13 +34,13 @@ private:
 
 public:
   BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_table,
-             size_t page_num = BUFFER_POOL_PAGE_NUM);
+             frame_idx_t page_num = BUFFER_POOL_PAGE_NUM);
   ~BufferPool();
 
   Page *Pin(PageIdentifier id, bool isHeapPage);
   Page *Pin(PageIdentifier id, AccessStrategy &strategy, bool isHeapPage);
-  PinRangeResult PinRange(table_id tbl, u32 first_pid, u32 n, Page **out, bool isHeapPage);
-  PinRangeResult PinRange(table_id tbl, u32 first_pid, u32 n, Page **out, AccessStrategy &strategy,
+  PinRangeResult PinRange(PageIdentifier first_id, u32 n, Page **out, bool isHeapPage);
+  PinRangeResult PinRange(PageIdentifier first_id, u32 n, Page **out, AccessStrategy &strategy,
                           bool isHeapPage);
   void Unpin(Page *page, bool dirty = false);
 

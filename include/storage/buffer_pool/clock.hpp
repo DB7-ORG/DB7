@@ -6,11 +6,21 @@
 namespace db7::storage {
 enum AccessStrategyType { NORMAL, BULK_READ };
 
+struct VictimPage {
+  Page *page;
+  PageIdentifier page_id;
+  frame_idx_t frame_idx;
+
+  VictimPage() : page(nullptr), page_id(0), frame_idx(0) {}
+
+  VictimPage(Page *p, PageIdentifier id, frame_idx_t idx) : page(p), page_id(id), frame_idx(idx) {}
+};
+
 class AccessStrategy {
 private:
   AccessStrategyType type_;
-  u32 nbuffers_;
-  u32 current_;
+  frame_idx_t nbuffers_;
+  frame_idx_t current_;
   std::vector<Page *> ring_;
 
 private:
@@ -26,8 +36,7 @@ public:
   AccessStrategyType GetType() const { return type_; }
   bool IsDefaultType() const { return type_ == NORMAL; }
 
-  Page *GetVictim(std::span<Page> pages_, PageIdentifier id, u32 &victim_frame_idx,
-                  PageIdentifier &victim_page_id, bool isIO);
+  VictimPage GetVictim(std::span<Page> pages_, PageIdentifier id, bool isIO);
 
   bool IsFull() { return ring_.size() == nbuffers_; }
   void Append(Page *page) { ring_.push_back(page); }
@@ -41,10 +50,26 @@ class ClockSweep {
 private:
   std::atomic<u32> sweep_head_;
 
+  /**
+   * Finds a victim page to evict.
+   *
+   * @param pages_ main buffer pool buffer that stores pages
+   * @param id     id of a new page that needs to take its place
+   * @param isIO   should it set IO_IN_PROGRESS flag
+   */
+  VictimPage GetVictim(std::span<Page> pages_, PageIdentifier id, bool isIO);
+
 public:
   ClockSweep() = default;
 
-  Page *GetVictim(std::span<Page> pages_, PageIdentifier id, u32 &victim_frame_idx,
-                  PageIdentifier &victim_page_id, bool isIO);
+  /**
+   * Finds a victim page to evict considering an access strategy policy.
+   *
+   * @param pages_ main buffer pool buffer that stores pages
+   * @param id     id of a new page that needs to take its place
+   * @param isIO   should it set IO_IN_PROGRESS flag
+   */
+  VictimPage GetVictim(std::span<Page> pages_, PageIdentifier id, AccessStrategy &strategy,
+                       bool isIO);
 };
 } // namespace db7::storage

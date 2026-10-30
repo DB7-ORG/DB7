@@ -21,32 +21,33 @@ AccessStrategy::AccessStrategy(AccessStrategyType type)
   }
 }
 
-Page *AccessStrategy::GetVictim(std::span<Page> pages_, PageIdentifier id, u32 &victim_frame_idx,
-                                PageIdentifier &victim_page_id, bool isIO) {
+VictimPage AccessStrategy::GetVictim(std::span<Page> pages_, PageIdentifier id, bool isIO) {
+  VictimPage result;
   for (u32 iters = 0; iters < nbuffers_; iters++) {
     u32 head = Advance();
     Page *page = ring_[head];
     if (page->TryWLock()) {
       if (!page->IsPinned() && page->UsageCount() <= 1 && !page->IsDirty() &&
           !page->IsIOInProgress()) {
-        victim_page_id = page->GetId();
+        result.page_id = page->GetId();
         page->SetId(id);
         page->Pin();
         if (isIO) { page->SetIOInProgress(); }
         page->WUnlock();
-        victim_frame_idx = static_cast<u32>(page - pages_.data());
-        return page;
+        result.frame_idx = static_cast<u32>(page - pages_.data());
+        result.page = page;
+        return result;
       }
       page->WUnlock();
     }
   }
 
-  return nullptr;
+  return result;
 }
 
-Page *ClockSweep::GetVictim(std::span<Page> pages_, PageIdentifier id, u32 &victim_frame_idx,
-                            PageIdentifier &victim_page_id, bool isIO) {
+VictimPage ClockSweep::GetVictim(std::span<Page> pages_, PageIdentifier id, bool isIO) {
   u32 max_iters = BUFFER_POOL_PAGE_NUM * 2;
+  VictimPage result;
 
   for (u32 iters = 1; true; iters++) {
     u32 head = (sweep_head_++) % pages_.size();
@@ -54,13 +55,14 @@ Page *ClockSweep::GetVictim(std::span<Page> pages_, PageIdentifier id, u32 &vict
     if (page->TryWLock()) {
       if (!page->IsPinned() && !page->DecUsageCount() && !page->IsDirty() &&
           !page->IsIOInProgress()) {
-        victim_page_id = page->GetId();
+        result.page_id = page->GetId();
         page->SetId(id);
         page->Pin();
         if (isIO) { page->SetIOInProgress(); }
         page->WUnlock();
-        victim_frame_idx = head;
-        return page;
+        result.frame_idx = head;
+        result.page = page;
+        return result;
       }
       page->WUnlock();
     }
@@ -69,5 +71,22 @@ Page *ClockSweep::GetVictim(std::span<Page> pages_, PageIdentifier id, u32 &vict
   }
 
   DB7_UNREACHABLE();
+}
+
+VictimPage ClockSweep::GetVictim(std::span<Page> pages_, PageIdentifier id,
+                                 AccessStrategy &strategy, bool isIO) {
+  if (strategy.IsDefaultType()) { return GetVictim(pages_, id, isIO); }
+
+  if (strategy.IsFull()) {
+    auto victim = strategy.GetVictim(pages_, id, isIO);
+    if (victim.page != nullptr) { return victim; }
+    auto defvictim = GetVictim(pages_, id, isIO);
+    strategy.Replace(defvictim.page);
+    return defvictim;
+  } else {
+    auto victim = GetVictim(pages_, id, isIO);
+    strategy.Append(victim.page);
+    return victim;
+  }
 }
 } // namespace db7::storage
