@@ -142,6 +142,7 @@ PinRangeResult BufferPool::PinRange(PageIdentifier first_id, u32 n, Page **out,
 void BufferPool::Unpin(Page *page, bool dirty) {
   (void)dirty;
   // page->WLock();
+  page->SetDirty();
   page->Unpin();
   // page->WUnlock();
 }

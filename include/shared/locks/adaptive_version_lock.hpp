@@ -24,6 +24,8 @@ public:
 
   void ReadLock() { rw_mtx.lock_shared(); }
 
+  bool TryReadLock() { return rw_mtx.try_lock_shared(); }
+
   void ReadUnlock() { rw_mtx.unlock_shared(); }
 
   bool ReadOptimistic(u64 &version) {

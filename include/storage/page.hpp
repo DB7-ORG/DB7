@@ -23,9 +23,9 @@ private:
   std::atomic<u8> usage_count_;
   std::atomic<u8> flags_; // 1 byte
 
-  alignas(CACHE_LINE_SIZE) std::mutex latch_; // ~56 bytes typically
-  std::condition_variable_any io_cv_;
-  alignas(CACHE_LINE_SIZE) shared::AdaptiveVersionLock lock_;
+  alignas(CACHE_LINE_SIZE) mutable std::mutex latch_; // ~56 bytes typically
+  mutable std::condition_variable_any io_cv_;
+  alignas(CACHE_LINE_SIZE) mutable shared::AdaptiveVersionLock lock_;
 
 public:
   Page() : id_(PageIdentifier{0}), data_(nullptr), ref_count_(0), flags_(0) {}
@@ -121,6 +121,7 @@ public:
   bool TryWLock() { return latch_.try_lock(); }
 
   void RDataLock() { lock_.ReadLock(); }
+  bool TryRDataLock() { return lock_.TryReadLock(); }
   void RDataUnlock() { lock_.ReadUnlock(); }
   void WDataLock() { lock_.WriteLock(); }
   void WDataUnlock() { lock_.WriteUnlock(); }

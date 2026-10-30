@@ -67,6 +67,7 @@ private:
 public:
   ClockSweep() = default;
 
+  frame_idx_t GetCurrent() const { return sweep_head_; }
   /**
    * Finds a victim page to evict considering an access strategy policy.
    *

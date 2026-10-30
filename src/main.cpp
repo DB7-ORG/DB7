@@ -399,13 +399,13 @@ int main() {
       }
 
       for (u32 j = 0; j < kN; j++) {
-        // state[j]->WaitIO();
-        // u32 stamp;
-        // std::memcpy(&stamp, state[j]->GetData(), sizeof stamp);
-        // if (stamp != first + j) {
-        //   std::fprintf(stderr, "wrong page: expected %u got %u\n", first + j, stamp);
-        //   std::abort();
-        // }
+        state[j]->WaitIO();
+        u32 stamp;
+        std::memcpy(&stamp, state[j]->GetData(), sizeof stamp);
+        if (stamp != first + j) {
+          std::fprintf(stderr, "wrong page: expected %u got %u\n", first + j, stamp);
+          std::abort();
+        }
         buffer_pool.Unpin(state[j], false);
       }
     }

@@ -9,6 +9,8 @@
 
 namespace db7::storage {
 
+class BgWriter;
+
 struct PinRangeResult {
   u32 count;       // pages pinned and written to out
   bool io_started; // a read was enqueued for out[0 .. misses)
@@ -16,6 +18,7 @@ struct PinRangeResult {
 
 class BufferPool {
 private:
+  friend class BgWriter;
   DiskScheduler *disk_mng_;
   Page *pages_;
   frame_idx_t pool_size_;
