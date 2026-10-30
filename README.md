@@ -77,11 +77,13 @@ online index creation:
  this command raises the limit for max memory reserved 
  sudo prlimit --memlock=unlimited:unlimited --pid $$ 
 
-- refactor access strategy
-- figure out deadlock scenarios w ring buffers strategy
 - optimize page header so its more efficient 
-- move frames stuff from page replacement
 - consider lock free hmaps for partitions
 - consider removing template in io stream
 - fsm!!!!!
 - huge contention on scheduler but its fine for now. should change in future
+
+
+
+- understand better eventfd and check out new futext wait alternative
+- write disk scheduler to cpp file

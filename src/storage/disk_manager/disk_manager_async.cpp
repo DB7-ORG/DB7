@@ -229,24 +229,41 @@ bool DiskManagerAsync::SubmitWritev(table_id tid, Page *const *pages, u32 nr, of
 
 int DiskManagerAsync::Submit() { return io_uring_submit(&ring_); }
 
-int DiskManagerAsync::ReapCompletions(u32 max_completions) {
-  struct io_uring_cqe *cqe;
-  int reaped = 0;
+// int DiskManagerAsync::ReapCompletions(u32 max_completions) {
+//   struct io_uring_cqe *cqe;
+//   int reaped = 0;
 
-  while (io_uring_peek_cqe(&ring_, &cqe) == 0) {
-    void *data = io_uring_cqe_get_data(cqe);
-    ssize_t result = cqe->res;
+//   while (io_uring_peek_cqe(&ring_, &cqe) == 0) {
+//     void *data = io_uring_cqe_get_data(cqe);
+//     ssize_t result = cqe->res;
 
-    if (completion_cb_) // always true
-      completion_cb_(data, result);
+//     if (completion_cb_) // always true
+//       completion_cb_(data, result);
 
+//     io_uring_cqe_seen(&ring_, cqe);
+//     reaped++;
+
+//     if ((u32)reaped >= max_completions) break;
+//   }
+
+//   return reaped;
+// }
+
+int DiskManagerAsync::ReapCompletions(u32 max) {
+  io_uring_cqe *cqe;
+  u32 n = 0;
+  while (n < max && io_uring_peek_cqe(&ring_, &cqe) == 0) {
+    void *ud = io_uring_cqe_get_data(cqe);
+    ssize_t res = cqe->res;
     io_uring_cqe_seen(&ring_, cqe);
-    reaped++;
-
-    if ((u32)reaped >= max_completions) break;
+    if (ud == nullptr) {
+      ArmWakeup();
+      continue;
+    } // re-post; submitted by the next Submit/Wait
+    completion_cb_(ud, res);
+    n++;
   }
-
-  return reaped;
+  return n;
 }
 
 bool DiskManagerAsync::CreateTable(table_id tbl_id, u32 initial_pages) {
