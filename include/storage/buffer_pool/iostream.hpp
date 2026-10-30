@@ -76,7 +76,7 @@ private:
 
       DB7_ASSERT(pending_len_ <= ring_.MaxSize() - ring_.Size(), "Ring has no room for the run");
 
-      auto r = pool_->PinRange(GetTableId(), pending_start_, pending_len_, pages_, true);
+      auto r = pool_->PinRange({GetTableId(), pending_start_}, pending_len_, pages_, true);
       DB7_ASSERT(r.count > 0 && r.count <= pending_len_, "PinRange must pin at least one page");
 
       if (r.io_started) {
@@ -103,6 +103,8 @@ public:
         batch_size_(static_cast<u8>(batch_size)) {
     DB7_ASSERT(max_distance >= 1, "max_distance must be at least 1");
     DB7_ASSERT(batch_size > 0 && batch_size <= IO_MAX_COMBINE, "Invalid batch size");
+    DB7_ASSERT(strategy.GetType() == NORMAL || strategy_.GetRingSize() >= max_distance,
+               "ring size must cover max prefetch size");
     buffered_ = next_fn_(); // an empty stream is detected by the first LookAhead
   }
 

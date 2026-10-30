@@ -91,10 +91,10 @@ Page *BufferPool::PinForBlock(PageIdentifier id, AccessStrategy &strategy, bool 
     }
 
     UndoState(victim);
-    victim.page = &pages_[new_frame_idx];
-    if (PageVisit(victim.page, id)) {
-      kind = victim.page->IsIOInProgress() ? PinKind::Foreign : PinKind::Hit;
-      return victim.page;
+    auto *page = &pages_[new_frame_idx];
+    if (PageVisit(page, id)) {
+      kind = page->IsIOInProgress() ? PinKind::Foreign : PinKind::Hit;
+      return page;
     }
   }
 }
@@ -135,8 +135,7 @@ PinRangeResult BufferPool::PinRange(PageIdentifier first_id, u32 n, Page **out,
   }
 
   if (misses > 0)
-    disk_mng_->Enqueue(IoTask(IoTask::READV, IoPriority::HIGH, out, misses,
-                              PageIdentifier(first_id.tbl_id, first_id.pid)));
+    disk_mng_->Enqueue(IoTask(IoTask::READV, IoPriority::HIGH, out, misses, first_id));
   return {count, misses > 0};
 }
 

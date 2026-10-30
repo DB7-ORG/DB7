@@ -19,9 +19,10 @@ private:
   DiskScheduler *disk_mng_;
   Page *pages_;
   frame_idx_t pool_size_;
-  ClockSweep replacement_;
-  PartitionedHashMap<PageIdentifier, frame_idx_t, BUFFER_POOL_PARTITION_NUM> partitions_;
   PageVersionManager *version_table_;
+  PartitionedHashMap<PageIdentifier, frame_idx_t, BUFFER_POOL_PARTITION_NUM> partitions_;
+  // replacement should be stored at the end for cache line alignment
+  alignas(CACHE_LINE_SIZE) ClockSweep replacement_;
 
   static constexpr PageIdentifier INVALID_PAGE_IDENTFIER = 0;
 

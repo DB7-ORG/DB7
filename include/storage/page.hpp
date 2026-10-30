@@ -84,10 +84,11 @@ public:
   void ClearDirty() { flags_.fetch_and(~DIRTY_FLAG); }
 
   u8 UsageCount() const { return usage_count_; }
-  // void SetUsageCount(u8 value) {
-  //   DB7_ASSERT(kMaxUsage >= value, "Invalid value sent");
-  //   usage_count_.store(value);
-  // }
+
+  /**
+   * NOTE: If i ever change this to value above 1 i should add a rule to ring strategy so it never
+   * raises usage above 1, since it can by repeated access to the page make it look extremely HOT
+   */
   static constexpr u32 kMaxUsage = 1;
 
   // Returns true if the count changed.

@@ -10,10 +10,12 @@ struct VictimPage {
   Page *page;
   PageIdentifier page_id;
   frame_idx_t frame_idx;
+  bool needs_flush;
 
-  VictimPage() : page(nullptr), page_id(0), frame_idx(0) {}
+  VictimPage() : page(nullptr), page_id(0), frame_idx(0), needs_flush(false) {}
 
-  VictimPage(Page *p, PageIdentifier id, frame_idx_t idx) : page(p), page_id(id), frame_idx(idx) {}
+  VictimPage(Page *p, PageIdentifier id, frame_idx_t idx)
+      : page(p), page_id(id), frame_idx(idx), needs_flush(false) {}
 };
 
 class AccessStrategy {
@@ -21,12 +23,13 @@ private:
   AccessStrategyType type_;
   frame_idx_t nbuffers_;
   frame_idx_t current_;
+  frame_idx_t last_;
   std::vector<Page *> ring_;
 
 private:
-  u32 CalcRingSize(AccessStrategyType type);
+  u32 CalcRingSize(AccessStrategyType type) const;
 
-  u32 Advance();
+  frame_idx_t Advance();
 
 public:
   AccessStrategy() : type_(NORMAL) {}
@@ -36,19 +39,21 @@ public:
   AccessStrategyType GetType() const { return type_; }
   bool IsDefaultType() const { return type_ == NORMAL; }
 
-  VictimPage GetVictim(std::span<Page> pages_, PageIdentifier id, bool isIO);
+  VictimPage GetFromRing(std::span<Page> pages_, PageIdentifier id, bool isIO);
 
+  bool RejectDirty();
   bool IsFull() { return ring_.size() == nbuffers_; }
   void Append(Page *page) { ring_.push_back(page); }
-  void Replace(Page *page) {
-    DB7_ASSERT(IsFull(), "Upsert called on non filled ring_");
-    ring_[Advance()] = page;
+  void Remember(Page *page) {
+    DB7_ASSERT(IsFull(), "Remember called on non filled ring_");
+    ring_[last_] = page;
   }
+  u32 GetRingSize() const { return CalcRingSize(type_); }
 };
 
 class ClockSweep {
 private:
-  std::atomic<u32> sweep_head_;
+  std::atomic<frame_idx_t> sweep_head_;
 
   /**
    * Finds a victim page to evict.
