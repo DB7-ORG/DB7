@@ -3,8 +3,6 @@ much better than current design?????
 
 thread safety for file descriptors
 
-- Consider vectorised read
-
 # i dont like Reserve in buffer pool
 
 # i dont like storing root in metadata page of the index
