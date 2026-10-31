@@ -229,26 +229,6 @@ bool DiskManagerAsync::SubmitWritev(table_id tid, Page *const *pages, u32 nr, of
 
 int DiskManagerAsync::Submit() { return io_uring_submit(&ring_); }
 
-// int DiskManagerAsync::ReapCompletions(u32 max_completions) {
-//   struct io_uring_cqe *cqe;
-//   int reaped = 0;
-
-//   while (io_uring_peek_cqe(&ring_, &cqe) == 0) {
-//     void *data = io_uring_cqe_get_data(cqe);
-//     ssize_t result = cqe->res;
-
-//     if (completion_cb_) // always true
-//       completion_cb_(data, result);
-
-//     io_uring_cqe_seen(&ring_, cqe);
-//     reaped++;
-
-//     if ((u32)reaped >= max_completions) break;
-//   }
-
-//   return reaped;
-// }
-
 int DiskManagerAsync::ReapCompletions(u32 max) {
   io_uring_cqe *cqe;
   u32 n = 0;
@@ -351,6 +331,28 @@ bool DiskManagerAsync::ExtendFile(table_id tbl_id, u64 pages_num) {
 u32 DiskManagerAsync::PageCount(table_id tbl_id) {
   FdCacheEntry hdr = cache_->Get(tbl_id);
   return hdr.page_count;
+}
+
+void DiskManagerAsync::InitWakeup() { ArmWakeup(); }
+
+void DiskManagerAsync::ArmWakeup() {
+  io_uring_sqe *sqe = io_uring_get_sqe(&ring_);
+  u32 seen = std::atomic_ref(wake_seq_).load(std::memory_order_acquire);
+  io_uring_prep_futex_wait(sqe, &wake_seq_, seen, FUTEX_BITSET_MATCH_ANY,
+                           FUTEX2_SIZE_U32 | FUTEX2_PRIVATE, 0);
+  io_uring_sqe_set_data(sqe, nullptr); // still the "wakeup" marker
+}
+
+void DiskManagerAsync::Wake() {
+  std::atomic_ref(wake_seq_).fetch_add(1, std::memory_order_release);
+  syscall(SYS_futex, &wake_seq_, FUTEX_WAKE_PRIVATE, 1, nullptr, nullptr, 0);
+}
+
+void DiskManagerAsync::WaitForCompletion() {
+  int r;
+  do {
+    r = io_uring_submit_and_wait(&ring_, 1); // submit queued SQEs, block until >= 1 CQE
+  } while (r == -EINTR);
 }
 
 } // namespace db7::storage

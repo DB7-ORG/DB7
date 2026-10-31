@@ -9,6 +9,9 @@
 #include <memory>
 #include <sys/eventfd.h>
 
+#include <linux/futex.h>
+#include <sys/syscall.h>
+
 /**
  * this is a hack
  */
@@ -35,8 +38,7 @@ private:
   std::unique_ptr<iovec[]> iov_store_; // kMaxIov iovecs per SQE slot
   u32 sqe_shift_ = 0;                  // 1 if the ring uses 128-byte SQEs
 
-  int efd_; // eventfd, with an IORING_OP_READ on it kept posted in the ring
-  u64 efd_buf_;
+  alignas(4) u32 wake_seq_ = 0; // the futex word; replaces efd_ and efd_buf_
 
   void BuildPath(table_id tid, char *buf, u32 len);
   void LoadExistingTables();
@@ -71,25 +73,10 @@ public:
   u32 PageCount(table_id tbl_id);
   bool DeleteDir(const char *directory);
 
-  /* Notification mechanism for the scheduler */
-  void InitWakeup() {
-    efd_ = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-    ArmWakeup();
-  }
-
-  void ArmWakeup() {
-    io_uring_sqe *sqe = io_uring_get_sqe(&ring_);
-    io_uring_prep_read(sqe, efd_, &efd_buf_, sizeof(efd_buf_), 0);
-    io_uring_sqe_set_data(sqe, nullptr); // nullptr = "wakeup", not a real IoTask
-  }
-
-  void Wake() { eventfd_write(efd_, 1); }
-
-  void WaitForCompletion() {
-    int r;
-    do {
-      r = io_uring_submit_and_wait(&ring_, 1); // submit queued SQEs, block until >= 1 CQE
-    } while (r == -EINTR);
-  }
+  /* Scheduler thread wakeup mechanism */
+  void InitWakeup();
+  void ArmWakeup();
+  void Wake();
+  void WaitForCompletion();
 };
 } // namespace db7::storage
