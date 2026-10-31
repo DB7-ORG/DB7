@@ -7,7 +7,6 @@
 #include <functional>
 #include <liburing.h>
 #include <memory>
-#include <sys/eventfd.h>
 
 #include <linux/futex.h>
 #include <sys/syscall.h>

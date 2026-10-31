@@ -51,6 +51,7 @@ IDEAS FOR WAYS TO MAKE CATALOG WORK ON DISK (NOT LIKE DUCKDB PERSISTING CHANGES 
    do different logic compared to page approach.
 
 Data table:
+
 - fix catalog mvcc to save in undo buffer
 
 //TODO fsm assumes u have only one idx_t in header
@@ -58,30 +59,28 @@ Data table:
  <!-- static LogRecord *Initialize(byte *const head, const timestamp_t txn_begin, table_id t_id,
                                page_id p_id, u32 idx) -->
 
-- plan how to populate index safely 
+- plan how to populate index safely
 - see if u should abort running writers if create index runs concurrently
 - TODO transaction Try()
 
 - TODO storage we dont have error handling for is writable(should also add fsm)
 
 online index creation:
+
 - publish index in BUILDING state
 - start scanning the heap
 - when we get a tuple:
-  (tuple commited)      add it to index
-  (tuple not commited)  add it to index, get next value in chain then repeat
-- GC will later collect aborted values 
+  (tuple commited) add it to index
+  (tuple not commited) add it to index, get next value in chain then repeat
+- GC will later collect aborted values
 
- this command raises the limit for max memory reserved 
- sudo prlimit --memlock=unlimited:unlimited --pid $$ 
+this command raises the limit for max memory reserved
+sudo prlimit --memlock=unlimited:unlimited --pid $$
 
-- optimize page header so its more efficient 
+- optimize page header so its more efficient
 - consider lock free hmaps for partitions
 - consider removing template in io stream
 - fsm!!!!!
-- huge contention on scheduler but its fine for now. should change in future
 
-
-
-- understand better eventfd and check out new futext wait alternative
-- write disk scheduler to cpp file
+- likely dont need allocations in my disk scheduler since output array should outlive the request
+  but keep it for now who knows what might change

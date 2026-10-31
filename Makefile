@@ -30,9 +30,12 @@ BUILD ?= release
 ifeq ($(BUILD),debug)
     CXXFLAGS = $(BASE_CXXFLAGS) -g -O0 -DDB7DEBUG -fno-inline
     CCO3FLAGS = -g -O0 -DDB7DEBUG -fno-inline
+		LTO_LDFLAGS =
 else
     CXXFLAGS = $(BASE_CXXFLAGS) -O2 -DNDB7DEBUG
     CCO3FLAGS = -O3 -DNDB7DEBUG
+		# TODO commented out LTO for faster compilation when developing should uncomment later
+		LTO_LDFLAGS = # -fuse-ld=lld -Wl,--thinlto-cache-dir=$(OBJ_DIR)/lto-cache
 endif
 
 # Separate output directories per build type, so debug and release never mix
@@ -77,7 +80,7 @@ $(PG_QUERY_LIB):
 $(TARGET): $(OBJS) $(PG_QUERY_LIB)
 	@mkdir -p $(dir $@)
 	@echo "  LINK  $@"
-	$(Q)$(CXX) $(CXXFLAGS) $(OBJS) $(PG_QUERY_LIB) -o $@ $(LDFLAGS)
+	$(Q)$(CXX) $(CXXFLAGS) $(LTO_LDFLAGS) $(OBJS) $(PG_QUERY_LIB) -o $@ $(LDFLAGS)
 
 run: $(TARGET)
 	./$(TARGET)
@@ -90,7 +93,7 @@ clean-force:
 	$(MAKE) -C $(PG_QUERY_DIR) clean
 
 install:
-	sudo apt install -y liburing-dev libxxhash-dev libfmt-dev build-essential libjemalloc-dev libutf8proc-dev libgtest-dev
+	sudo apt install -y liburing-dev libxxhash-dev libfmt-dev build-essential libjemalloc-dev libutf8proc-dev libgtest-dev lld
 
 format:
 	find src include tests \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \)   -not -path '*/third_party/*' -print0 | xargs -0 clang-format -i

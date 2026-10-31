@@ -2,8 +2,7 @@
 
 #include "shared/error/exception.hpp"
 #include "shared/macro_helper.hpp"
-// this is neccesary dont remove
-#include "third_party/concurrentqueue_safe.hpp"
+#include "third_party/concurrentqueue_safe.hpp" // IWYU pragma: keep
 
 namespace db7::shared {
 template <typename ObjectType>
