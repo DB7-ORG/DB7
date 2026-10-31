@@ -364,11 +364,15 @@ int main() {
   FillTable(path, kFirstPid, kPages);
 
   auto &buffer_pool = storage.GetBufferPool();
+  auto &disk_scheduler = storage.GetDiskScheduler();
   const u32 nbatches = kPages / kN;
   std::atomic<bool> go{false};
+  std::atomic<u32> ready{0};
 
   auto worker = [&](u32 t) {
     storage::Page *state[IO_MAX_COMBINE];
+    disk_scheduler.RegisterThread();
+    ready.fetch_add(1, std::memory_order_release);
     while (!go.load(std::memory_order_acquire)) std::this_thread::yield();
 
     // this thread's batches: [b_begin, b_end)
@@ -413,6 +417,7 @@ int main() {
 
   std::vector<std::thread> threads;
   for (u32 t = 0; t < kThreads; t++) threads.emplace_back(worker, t);
+  while (ready.load(std::memory_order_acquire) < kThreads) std::this_thread::yield();
 
   double cpu0 = CpuSeconds();
   auto start = now_ns();

@@ -4,7 +4,11 @@
 #include "storage/page.hpp"
 
 #include <atomic>
+#include <memory>
+#include <mutex>
+#include <optional>
 #include <thread>
+#include <unordered_map>
 
 namespace db7::storage {
 
@@ -61,8 +65,13 @@ public:
     if (worker_.joinable()) worker_.join();
   }
 
+  // Creates this thread's producer tokens up front (e.g. at worker-thread startup) so the
+  // first Enqueue doesn't hit the registry mutex. Optional: Enqueue registers lazily.
+  void RegisterThread() { (void)Tokens(); }
+
   void Enqueue(IoTask task) {
-    queues_[u32(task.priority)].enqueue(std::move(task));
+    auto priority = u32(task.priority);
+    queues_[priority].enqueue(*Tokens().tok[priority], std::move(task));
     std::atomic_thread_fence(std::memory_order_seq_cst); // pairs with the fence in Run()
     if (sleeping_.load(std::memory_order_relaxed) &&
         sleeping_.exchange(false, std::memory_order_relaxed)) {
@@ -74,11 +83,55 @@ private:
   friend class BufferPool;
   static constexpr u32 kMaxInflight = IOURING_QUEUE_SIZE - 1; // one slot for the wakeup read
 
+  // One explicit producer per (thread, priority queue).
+  struct ThreadTokens {
+    explicit ThreadTokens(moodycamel::ConcurrentQueue<IoTask> *qs) {
+      for (u32 p = 0; p < kNumIoPriorities; p++) tok[p].emplace(qs[p]);
+    }
+    std::optional<moodycamel::ProducerToken> tok[kNumIoPriorities];
+  };
+
+  // Per-thread cache of "which scheduler did I last use, and where are my tokens".
+  // Keyed by a never-reused instance id, not `this`, so a new scheduler allocated at a
+  // dead one's address can't pick up dangling tokens.
+  struct TlsCache {
+    u64 owner_id = 0;
+    ThreadTokens *tokens = nullptr;
+  };
+  static TlsCache &Tls() {
+    static thread_local TlsCache cache;
+    return cache;
+  }
+
+  ThreadTokens &Tokens() {
+    TlsCache &c = Tls();
+    if (c.owner_id == id_) [[likely]]
+      return *c.tokens;
+    return RegisterSlow();
+  }
+
+  ThreadTokens &RegisterSlow() {
+    std::lock_guard lk(tokens_mu_);
+    auto &slot = tokens_[std::this_thread::get_id()];
+    if (!slot) slot = std::make_unique<ThreadTokens>(queues_);
+    TlsCache &c = Tls();
+    c.owner_id = id_;
+    c.tokens = slot.get();
+    return *slot;
+  }
+
+  static inline std::atomic<u64> next_id_{1};
+  const u64 id_ = next_id_.fetch_add(1, std::memory_order_relaxed);
+
   DiskManagerAsync *io_;
   std::atomic<bool> running_{false};
   std::thread worker_;
 
   moodycamel::ConcurrentQueue<IoTask> queues_[kNumIoPriorities];
+
+  // Declared after queues_ so tokens are destroyed before the queues they point into.
+  std::mutex tokens_mu_;
+  std::unordered_map<std::thread::id, std::unique_ptr<ThreadTokens>> tokens_;
 
   // touched only by the worker thread
   u32 inflight_ = 0;
