@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common.hpp"
-#include "storage/buffer_pool/buffer_partitions.hpp"
+#include "shared/data_structures/partitioned_hashmap.hpp"
 #include "storage/buffer_pool/clock.hpp"
 #include "storage/disk_manager/disk_scheduler.hpp"
 #include "storage/mvcc/page_version_manager.hpp"
@@ -23,7 +23,7 @@ private:
   Page *pages_;
   frame_idx_t pool_size_;
   PageVersionManager *version_table_;
-  PartitionedHashMap<PageIdentifier, frame_idx_t, BUFFER_POOL_PARTITION_NUM> partitions_;
+  shared::PartitionedHashMap<PageIdentifier, frame_idx_t, BUFFER_POOL_PARTITION_NUM> partitions_;
   // replacement should be stored at the end for cache line alignment
   alignas(CACHE_LINE_SIZE) ClockSweep replacement_;
 
@@ -34,6 +34,7 @@ private:
   bool PageVisit(Page *page, PageIdentifier id);
 
   enum class PinKind { Hit, Foreign, Miss };
+  template <typename Fn>
   Page *PinForBlock(PageIdentifier id, AccessStrategy &strategy, bool isHeapPage, PinKind &kind);
 
 public:

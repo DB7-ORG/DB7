@@ -43,7 +43,7 @@ bool BufferPool::PageVisit(Page *page,
                                                 // think this is just a spinlock anyway
   page->WLock();
   if (page->GetId() == id) { // PageVisit
-    page->Pin();
+    // page->Pin();
     page->IncUsageCount();
     page->WUnlock();
     return true;
@@ -53,27 +53,36 @@ bool BufferPool::PageVisit(Page *page,
   return false;
 }
 
+template <typename ReadFn, typename WriteFn>
 Page *BufferPool::PinForBlock(PageIdentifier id, AccessStrategy &strategy, bool isHeapPage,
-                              PinKind &kind) {
+                              PinKind &kind, ReadFn read_fn, WriteFn write_fn) {
   DB7_ASSERT(id.pid != 0, "invalid pid");
   DB7_ASSERT(id.pid != std::numeric_limits<page_id>::max(), "invalid pid");
 
   u32 partIdx = partitions_.GetPartitionIdx(id);
 
   while (true) {
-    frame_idx_t frame_idx = partitions_.Get(id, partIdx);
+    // this function pins the frame because of the instane 5 thread race :D
+    frame_idx_t frame_idx =
+        partitions_.GetAndApply(id, partIdx, [this](frame_idx_t f) { pages_[f].Pin(); });
     if (partitions_.IsValid(frame_idx)) {
       Page *page = &pages_[frame_idx];
       if (PageVisit(page, id)) {
         kind = page->IsIOInProgress() ? PinKind::Foreign : PinKind::Hit;
         return page;
       }
+      page->Unpin();
     }
 
-    VictimPage victim = replacement_.GetVictim(GetPages(), id, strategy, true);
+    VictimPage victim =
+        replacement_.GetVictim(GetPages(), id, strategy, true, write_fn(victim.page));
 
     frame_idx_t new_frame_idx;
     if (partitions_.Put(id, victim.frame_idx, new_frame_idx, partIdx)) {
+      if (!read_fn(victim.page, id)) {
+        UndoState(victim);
+        throw MEMORY_EXCEPTION("Failure inside disk scheduler");
+      }
       if (victim.page_id != INVALID_PAGE_IDENTFIER) {
         partitions_.Delete(victim.page_id, victim.frame_idx);
       }

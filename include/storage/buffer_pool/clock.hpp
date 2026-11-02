@@ -68,6 +68,8 @@ public:
   ClockSweep() = default;
 
   frame_idx_t GetCurrent() const { return sweep_head_; }
+
+  void UndoState(VictimPage victim);
   /**
    * Finds a victim page to evict considering an access strategy policy.
    *
@@ -75,7 +77,8 @@ public:
    * @param id     id of a new page that needs to take its place
    * @param isIO   should it set IO_IN_PROGRESS flag
    */
+  template <typename Fn>
   VictimPage GetVictim(std::span<Page> pages_, PageIdentifier id, AccessStrategy &strategy,
-                       bool isIO);
+                       bool isIO, Fn SubmitWrite);
 };
 } // namespace db7::storage

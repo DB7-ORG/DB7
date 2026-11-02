@@ -1,7 +1,7 @@
 #pragma once
 
+#include "shared/data_structures/partitioned_hashmap.hpp"
 #include "shared/models/tuple_id.hpp"
-#include "storage/buffer_pool/buffer_partitions.hpp"
 #include "storage/mvcc/version_ptr.hpp"
 #include "storage/storage_common.hpp"
 
@@ -11,8 +11,9 @@ private:
   static constexpr u32 PageVersionPartitions = BUFFER_POOL_PARTITION_NUM;
 
 private:
-  using PartitionedMap = PartitionedHashMap<PageIdentifier, VersionPtr *, PageVersionPartitions,
-                                            std::default_delete<VersionPtr[]>>;
+  using PartitionedMap =
+      shared::PartitionedHashMap<PageIdentifier, VersionPtr *, PageVersionPartitions,
+                                 std::default_delete<VersionPtr[]>>;
   PartitionedMap partitions_;
 
 public:

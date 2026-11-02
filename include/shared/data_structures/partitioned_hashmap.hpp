@@ -2,10 +2,9 @@
 
 #include "shared/hash_util.hpp"
 #include "shared/locks/adaptive_version_lock.hpp"
-#include "storage/storage_common.hpp"
 #include "third_party/unordered_dense.h"
 
-namespace db7::storage {
+namespace db7::shared {
 
 template <typename Key, typename Val, int PCount, typename Deleter = void>
 class PartitionedHashMap {
@@ -63,6 +62,15 @@ public:
     return GetUnsafe(partition, id);
   };
 
+  template <typename Fn>
+  Val GetAndApply(Key id, u32 partIdx, Fn &&on_found) {
+    auto &partition = partition_maps_[partIdx];
+    shared::AdaptiveVersionLock::ReadGuard guard(partition_locks_[partIdx].lock);
+    Val val = GetUnsafe(partition, id);
+    if (IsValid(val)) on_found(val);
+    return val;
+  }
+
   bool Put(Key id, Val val, Val &new_val) {
     auto part = GetPartitionIdx(id);
     return Put(id, val, new_val, part);
@@ -76,16 +84,16 @@ public:
     return inserted;
   }
 
-  void Delete(PageIdentifier id, Val old_val) {
+  void Delete(Key id, Val old_val) {
     auto part = GetPartitionIdx(id);
     return Delete(id, old_val, part);
   }
 
-  void Delete(PageIdentifier id, Val old_val, u32 partIdx) {
+  void Delete(Key id, Val old_val, u32 partIdx) {
     auto &partition = partition_maps_[partIdx];
     shared::AdaptiveVersionLock::WriteGuard guard(partition_locks_[partIdx].lock);
     auto it = partition.find(id);
     if (it != partition.end() && it->second == old_val) { partition.erase(it); }
   }
 };
-} // namespace db7::storage
+} // namespace db7::shared
