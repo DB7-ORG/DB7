@@ -88,3 +88,5 @@ sudo prlimit --memlock=unlimited:unlimited --pid $$
 - think how to add flushing flag
 - // TODO this leaks the pins
 - // TODO pis assertion
+
+// write_fn read_fn

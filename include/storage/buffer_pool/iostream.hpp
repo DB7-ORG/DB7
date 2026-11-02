@@ -76,7 +76,8 @@ private:
 
       DB7_ASSERT(pending_len_ <= ring_.MaxSize() - ring_.Size(), "Ring has no room for the run");
 
-      auto r = pool_->PinRange({GetTableId(), pending_start_}, pending_len_, pages_, true);
+      PageIdentifier first = {GetTableId(), pending_start_};
+      auto r = pool_->PinRange({first, pending_len_}, pages_, PageKind::Heap);
       DB7_ASSERT(r.count > 0 && r.count <= pending_len_, "PinRange must pin at least one page");
 
       if (r.io_started) {

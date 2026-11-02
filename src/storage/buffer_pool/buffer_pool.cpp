@@ -53,9 +53,7 @@ bool BufferPool::PageVisit(Page *page,
   return false;
 }
 
-template <typename ReadFn, typename WriteFn>
-Page *BufferPool::PinForBlock(PageIdentifier id, AccessStrategy &strategy, bool isHeapPage,
-                              PinKind &kind, ReadFn read_fn, WriteFn write_fn) {
+BufferPool::PinResult BufferPool::PinForBlock(PageIdentifier id, PinOptions &opts) {
   DB7_ASSERT(id.pid != 0, "invalid pid");
   DB7_ASSERT(id.pid != std::numeric_limits<page_id>::max(), "invalid pid");
 
@@ -68,79 +66,80 @@ Page *BufferPool::PinForBlock(PageIdentifier id, AccessStrategy &strategy, bool 
     if (partitions_.IsValid(frame_idx)) {
       Page *page = &pages_[frame_idx];
       if (PageVisit(page, id)) {
-        kind = page->IsIOInProgress() ? PinKind::Foreign : PinKind::Hit;
-        return page;
+        auto pinkind = page->IsIOInProgress() ? PinKind::Foreign : PinKind::Hit;
+        return {page, pinkind};
       }
       page->Unpin();
     }
 
     VictimPage victim =
-        replacement_.GetVictim(GetPages(), id, strategy, true, write_fn(victim.page));
+        replacement_.GetVictim(GetPages(), id, opts.strategy, true); // write_fn(victim.page)
 
     frame_idx_t new_frame_idx;
     if (partitions_.Put(id, victim.frame_idx, new_frame_idx, partIdx)) {
-      if (!read_fn(victim.page, id)) {
+      if (!false) { // read_fn(victim.page, id)
         UndoState(victim);
         throw MEMORY_EXCEPTION("Failure inside disk scheduler");
       }
       if (victim.page_id != INVALID_PAGE_IDENTFIER) {
         partitions_.Delete(victim.page_id, victim.frame_idx);
       }
-      if (isHeapPage) {
+      if (opts.pkind == PageKind::Heap) {
         victim.page->SetVersions(version_table_->Get(id));
       } else {
         victim.page->SetVersions(nullptr);
       }
-      kind = PinKind::Miss; // caller must submit the read
-      return victim.page;
+      // caller must submit the read
+      return {victim.page, PinKind::Miss};
     }
 
     UndoState(victim);
     auto *page = &pages_[new_frame_idx];
     if (PageVisit(page, id)) {
-      kind = page->IsIOInProgress() ? PinKind::Foreign : PinKind::Hit;
-      return page;
+      auto pinkind = page->IsIOInProgress() ? PinKind::Foreign : PinKind::Hit;
+      return {page, pinkind};
     }
   }
 }
 
-Page *BufferPool::Pin(PageIdentifier id, bool isHeapPage) {
+Page *BufferPool::Pin(PageIdentifier id, PageKind pkind) {
   AccessStrategy strategy;
-  return Pin(id, strategy, isHeapPage);
+  PinOptions opts(pkind, strategy);
+  return Pin(id, opts);
 }
 
-Page *BufferPool::Pin(PageIdentifier id, AccessStrategy &strategy, bool isHeapPage) {
-  PinKind kind;
-  Page *page = PinForBlock(id, strategy, isHeapPage, kind);
-  if (kind == PinKind::Miss) disk_mng_->Enqueue(IoTask(IoTask::READ, IoPriority::HIGH, page, id));
-  return page;
+Page *BufferPool::Pin(PageIdentifier id, PinOptions &opts) {
+  PinResult pinres = PinForBlock(id, opts);
+  if (pinres.kind == PinKind::Miss)
+    disk_mng_->Enqueue(IoTask(IoTask::READ, IoPriority::HIGH, pinres.page, id));
+  return pinres.page;
 }
 
-PinRangeResult BufferPool::PinRange(PageIdentifier first_id, u32 n, Page **out, bool isHeapPage) {
+PinRangeResult BufferPool::PinRange(PageRange range, Page **out, PageKind pkind) {
   AccessStrategy strategy;
-  return PinRange(first_id, n, out, strategy, isHeapPage);
+  PinOptions opts(pkind, strategy);
+  return PinRange(range, out, opts);
 }
 
 // Pins up to n consecutive pages starting at first_pid into out[].
 // Stops after the first hit or foreign page, which is included in out[].
 // out[0 .. io_count) are misses, submitted together as one vectored read.
 // Returns the number of pages pinned.
-PinRangeResult BufferPool::PinRange(PageIdentifier first_id, u32 n, Page **out,
-                                    AccessStrategy &strategy, bool isHeapPage) {
+PinRangeResult BufferPool::PinRange(PageRange range, Page **out, PinOptions &opts) {
   u32 count = 0;
   u32 misses = 0;
-  while (count < n) {
-    PinKind kind;
-    out[count] = PinForBlock(PageIdentifier(first_id.tbl_id, first_id.pid + count), strategy,
-                             isHeapPage, kind);
+  while (count < range.size) {
+    PinResult res = PinForBlock(PageIdentifier(range.first.tbl_id, range.first.pid + count), opts);
+    out[count] = res.page;
     count++;
-    if (kind != PinKind::Miss)
+    if (res.kind != PinKind::Miss)
       break; // cached or being loaded: ends the run, but it's pinned, so return it
     misses++;
   }
 
   if (misses > 0) {
-    bool res = disk_mng_->Enqueue(IoTask(IoTask::READV, IoPriority::HIGH, out, misses, first_id));
+    bool res =
+        disk_mng_->Enqueue(IoTask(IoTask::READV, IoPriority::HIGH, out, misses, range.first));
     if (!res) {
       // TODO this leaks the pins
       throw MEMORY_EXCEPTION("Failed to enqueue a task to camel queue");

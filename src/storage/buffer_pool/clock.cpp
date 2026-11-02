@@ -59,6 +59,34 @@ VictimPage AccessStrategy::GetFromRing(std::span<Page> pages_, PageIdentifier id
   return result;
 }
 
+VictimPage ClockSweep::GetVictim(std::span<Page> pages_, PageIdentifier id, bool isIO) {
+  constexpr u32 max_iters = BUFFER_POOL_PAGE_NUM * 2;
+
+  VictimPage result;
+  for (u32 iters = 1; true; iters++) {
+    frame_idx_t head = (sweep_head_++) % pages_.size();
+    Page *page = &pages_[head];
+    if (page->TryWLock()) {
+      if (!page->IsPinned() && !page->DecUsageCount() && !page->IsDirty() &&
+          !page->IsIOInProgress()) {
+        result.page_id = page->GetId();
+        page->SetId(id);
+        page->Pin();
+        if (isIO) { page->SetIOInProgress(); }
+        page->WUnlock();
+        result.frame_idx = head;
+        result.page = page;
+        return result;
+      }
+      page->WUnlock();
+    }
+
+    if (iters % max_iters == 0) { std::this_thread::sleep_for(std::chrono::milliseconds(1)); }
+  }
+
+  DB7_UNREACHABLE();
+}
+
 void ClockSweep::UndoState(VictimPage victim) {
   auto *victim_page = victim.page;
   victim_page->WLock();
@@ -69,15 +97,14 @@ void ClockSweep::UndoState(VictimPage victim) {
   victim_page->WUnlock();
 }
 
-template <typename WriteFn>
 VictimPage ClockSweep::GetVictim(std::span<Page> pages_, PageIdentifier id,
-                                 AccessStrategy &strategy, bool isIO, WriteFn write_fn) {
+                                 AccessStrategy &strategy, bool isIO) {
   if (strategy.IsDefaultType()) { return GetVictim(pages_, id, isIO); }
 
   if (strategy.IsFull()) {
     auto victim = strategy.GetFromRing(pages_, id, isIO);
     if (victim.page != nullptr) { return victim; }
-    if (victim.needs_flush && !write_fn(victim.page)) {
+    if (victim.needs_flush /*&& !write_fn(victim.page)*/) {
       UndoState(victim);
       throw MEMORY_EXCEPTION("Disk scheduler err");
     }

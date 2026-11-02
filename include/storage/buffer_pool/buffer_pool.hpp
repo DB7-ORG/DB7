@@ -16,6 +16,19 @@ struct PinRangeResult {
   bool io_started; // a read was enqueued for out[0 .. misses)
 };
 
+struct PinOptions {
+  PageKind pkind;
+  AccessStrategy &strategy;
+  IoPriority priority = IoPriority::HIGH;
+
+  PinOptions(PageKind pk, AccessStrategy &strat) : pkind(pk), strategy(strat) {}
+};
+
+struct PageRange {
+  PageIdentifier first;
+  u32 size;
+};
+
 class BufferPool {
 private:
   friend class BgWriter;
@@ -34,19 +47,21 @@ private:
   bool PageVisit(Page *page, PageIdentifier id);
 
   enum class PinKind { Hit, Foreign, Miss };
-  template <typename Fn>
-  Page *PinForBlock(PageIdentifier id, AccessStrategy &strategy, bool isHeapPage, PinKind &kind);
+  struct PinResult {
+    Page *page;
+    PinKind kind;
+  };
+  PinResult PinForBlock(PageIdentifier id, PinOptions &opts);
 
 public:
   BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_table,
              frame_idx_t page_num = BUFFER_POOL_PAGE_NUM);
   ~BufferPool();
 
-  Page *Pin(PageIdentifier id, bool isHeapPage);
-  Page *Pin(PageIdentifier id, AccessStrategy &strategy, bool isHeapPage);
-  PinRangeResult PinRange(PageIdentifier first_id, u32 n, Page **out, bool isHeapPage);
-  PinRangeResult PinRange(PageIdentifier first_id, u32 n, Page **out, AccessStrategy &strategy,
-                          bool isHeapPage);
+  Page *Pin(PageIdentifier id, PageKind pkind);
+  Page *Pin(PageIdentifier id, PinOptions &opts);
+  PinRangeResult PinRange(PageRange range, Page **out, PageKind pkind);
+  PinRangeResult PinRange(PageRange range, Page **out, PinOptions &opts);
   void Unpin(Page *page, bool dirty = false);
 
   /* Only used for indexes for now should be more flexible in future */

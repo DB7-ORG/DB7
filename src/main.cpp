@@ -383,6 +383,7 @@ int main() {
     u32 next_pg = kFirstPid + b_begin * kN;
     const u32 pg_end = kFirstPid + b_end * kN;
     storage::AccessStrategy strategy(db7::storage::AccessStrategyType::NORMAL);
+    storage::PinOptions opts(PageKind::Heap, strategy);
     storage::ReadIoStream stream(
         &buffer_pool, strategy, tbl,
         [&next_pg, pg_end]() { return next_pg < pg_end ? next_pg++ : storage::INVALID_BLOCK; }, 32);
@@ -392,14 +393,12 @@ int main() {
 
       if (kVectored) {
         for (u32 done = 0; done < kN;) { // PinRange may stop early at a hit
-          auto r =
-              buffer_pool.PinRange({tbl, first + done}, kN - done, state + done, strategy, true);
+          db7::storage::PageIdentifier firstid = {tbl, first + done};
+          auto r = buffer_pool.PinRange({firstid, kN - done}, state + done, opts);
           done += r.count;
         }
       } else {
-        for (u32 j = 0; j < kN; j++) {
-          state[j] = buffer_pool.Pin({tbl, first + j}, strategy, true);
-        }
+        for (u32 j = 0; j < kN; j++) { state[j] = buffer_pool.Pin({tbl, first + j}, opts); }
       }
 
       for (u32 j = 0; j < kN; j++) {

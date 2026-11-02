@@ -42,7 +42,7 @@ public:
   VictimPage GetFromRing(std::span<Page> pages_, PageIdentifier id, bool isIO);
 
   bool RejectDirty();
-  bool IsFull() { return ring_.size() == nbuffers_; }
+  bool IsFull() const { return ring_.size() == nbuffers_; }
   void Append(Page *page) { ring_.push_back(page); }
   void Remember(Page *page) {
     DB7_ASSERT(IsFull(), "Remember called on non filled ring_");
@@ -77,8 +77,7 @@ public:
    * @param id     id of a new page that needs to take its place
    * @param isIO   should it set IO_IN_PROGRESS flag
    */
-  template <typename Fn>
   VictimPage GetVictim(std::span<Page> pages_, PageIdentifier id, AccessStrategy &strategy,
-                       bool isIO, Fn SubmitWrite);
+                       bool isIO);
 };
 } // namespace db7::storage

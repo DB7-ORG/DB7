@@ -25,5 +25,7 @@ using byte = u8;
 using idx_t = u64;
 using column_t = u16;
 
+enum PageKind { Heap, Index, Fsm, Tmp, Other };
+
 #define DB7_FALLTHROUGH [[fallthrough]]
 } // namespace db7
