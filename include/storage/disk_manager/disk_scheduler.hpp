@@ -77,7 +77,7 @@ public:
   // Without it, each queue creates the token on this thread's first Enqueue to it.
   void RegisterThread();
 
-  void Enqueue(IoTask task);
+  bool Enqueue(IoTask task);
 };
 
 } // namespace db7::storage

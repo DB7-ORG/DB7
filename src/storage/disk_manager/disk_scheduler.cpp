@@ -40,14 +40,15 @@ void DiskScheduler::RegisterThread() {
   for (auto &q : queues_) q.RegisterThread();
 }
 
-void DiskScheduler::Enqueue(IoTask task) {
+bool DiskScheduler::Enqueue(IoTask task) {
   auto priority = u32(task.priority);
-  queues_[priority].Enqueue(std::move(task));
+  bool res = queues_[priority].Enqueue(std::move(task));
   std::atomic_thread_fence(std::memory_order_seq_cst); // pairs with the fence in Run()
   if (sleeping_.load(std::memory_order_relaxed) &&
       sleeping_.exchange(false, std::memory_order_relaxed)) {
     io_->Wake();
   }
+  return res;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,8 +124,15 @@ void DiskScheduler::OnComplete(IoTask *t, ssize_t res) {
             t->count, res, res < 0 ? strerror(int(-res)) : "short");
     DB7_ASSERT(false, "IO failed");
   }
-  // For WRITE/WRITEV, this is where to clear dirty if the page wasn't dirtied during the I/O.
-  for (u32 j = 0; j < t->count; ++j) t->pages[j]->SignalIO();
+
+  const bool is_write = t->op == IoTask::WRITE || t->op == IoTask::WRITEV;
+  for (u32 j = 0; j < t->count; ++j) {
+    if (is_write)
+      t->pages[j]->SignalWrite();
+    else
+      t->pages[j]->SignalIO();
+  }
+
   inflight_--;
   inflight_by_prio_[u32(t->priority)]--;
   FreeTask(t);

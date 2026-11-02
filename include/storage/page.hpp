@@ -12,6 +12,7 @@
 
 #define DIRTY_FLAG (1 << 0)
 #define IO_IN_PROGRESS_FLAG (1 << 1)
+#define WRITE_IN_PROGRESS_FLAG (1 << 2)
 
 namespace db7::storage {
 class Page {
@@ -72,16 +73,16 @@ public:
   bool IsPinned() const { return PinCount() > 0; }
 
   bool IsIOInProgress() const { return flags_ & IO_IN_PROGRESS_FLAG; }
-  // void SetIOInProgress() { flags_ |= IO_IN_PROGRESS_FLAG; }
-  // void ClearIOInProgress() { flags_ &= ~IO_IN_PROGRESS_FLAG; }
   void SetIOInProgress() { flags_.fetch_or(IO_IN_PROGRESS_FLAG); }
   void ClearIOInProgress() { flags_.fetch_and(~IO_IN_PROGRESS_FLAG); }
 
   bool IsDirty() const { return flags_ & DIRTY_FLAG; }
-  // void SetDirty() { flags_ |= DIRTY_FLAG; }
-  // void ClearDirty() { flags_ &= ~DIRTY_FLAG; }
   void SetDirty() { flags_.fetch_or(DIRTY_FLAG); }
   void ClearDirty() { flags_.fetch_and(~DIRTY_FLAG); }
+
+  bool IsWriteInProgress() const { return flags_ & WRITE_IN_PROGRESS_FLAG; }
+  void SetWriteInProgress() { flags_.fetch_or(WRITE_IN_PROGRESS_FLAG); }
+  void ClearWriteInProgress() { flags_.fetch_and(~WRITE_IN_PROGRESS_FLAG); }
 
   u8 UsageCount() const { return usage_count_; }
 
@@ -141,11 +142,27 @@ public:
   void SignalIO() {
     {
       std::lock_guard lk(latch_);
-      // DB7_ASSERT(IsIOInProgress(), "Io in progress not set");
+      DB7_ASSERT(IsIOInProgress(), "Io in progress not set");
+      // TODO pis assertion
       // DB7_ASSERT(IsPinned(), "Pin not set");
       ClearIOInProgress();
     }
     io_cv_.notify_all();
+  }
+
+  void SignalWrite() {
+    {
+      std::lock_guard lk(latch_);
+      DB7_ASSERT(IsWriteInProgress(), "write in progress not set");
+      ClearWriteInProgress();
+    }
+    io_cv_.notify_all();
+  }
+
+  void WaitWrite() { // flusher: wait for its own write
+    if (!IsWriteInProgress()) return;
+    std::unique_lock lk(latch_);
+    io_cv_.wait(lk, [&] { return !IsWriteInProgress(); });
   }
 };
 

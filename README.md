@@ -84,3 +84,7 @@ sudo prlimit --memlock=unlimited:unlimited --pid $$
 
 - likely dont need allocations in my disk scheduler since output array should outlive the request
   but keep it for now who knows what might change
+- // TODO clear flushing flag
+- think how to add flushing flag
+- // TODO this leaks the pins
+- // TODO pis assertion

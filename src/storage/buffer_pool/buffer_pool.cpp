@@ -50,10 +50,6 @@ bool BufferPool::PageVisit(Page *page,
   }
   page->WUnlock();
 
-  // page->Pin(); // optimistic pin
-  // if (page->GetId() == id) { return true; }
-  // page->Unpin();
-
   return false;
 }
 
@@ -134,15 +130,20 @@ PinRangeResult BufferPool::PinRange(PageIdentifier first_id, u32 n, Page **out,
     misses++;
   }
 
-  if (misses > 0)
-    disk_mng_->Enqueue(IoTask(IoTask::READV, IoPriority::HIGH, out, misses, first_id));
+  if (misses > 0) {
+    bool res = disk_mng_->Enqueue(IoTask(IoTask::READV, IoPriority::HIGH, out, misses, first_id));
+    if (!res) {
+      // TODO this leaks the pins
+      throw MEMORY_EXCEPTION("Failed to enqueue a task to camel queue");
+    }
+  }
   return {count, misses > 0};
 }
 
 void BufferPool::Unpin(Page *page, bool dirty) {
   (void)dirty;
   // page->WLock();
-  page->SetDirty();
+  if (dirty) { page->SetDirty(); }
   page->Unpin();
   // page->WUnlock();
 }
