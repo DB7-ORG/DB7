@@ -89,3 +89,4 @@ sudo prlimit --memlock=unlimited:unlimited --pid $$
 - statistics for buffer pool 
 - PIN GUARD / LOCK
 - // TODO at this point could be removed
+-   alignas(CACHE_LINE_SIZE) ClockSweep replacement_; check if this is isolated
