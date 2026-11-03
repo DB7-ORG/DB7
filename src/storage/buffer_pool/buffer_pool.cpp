@@ -180,7 +180,7 @@ Page *BufferPool::Reserve(table_id tbl_id, AccessStrategy &strategy) {
 
 VictimPage BufferPool::GetVictim(PageIdentifier id, AccessStrategy &strategy, bool isIO) {
   auto pages_span = GetPages();
-  // if (strategy.IsDefaultType()) { return replacement_.GetVictim(pages_span, id, isIO); }
+  if (strategy.IsDefaultType()) { return replacement_.GetVictim(pages_span, id, isIO); }
   while (true) {
     auto reused = strategy.TryReuse(pages_span, id, isIO);
     if (reused.needs_flush) {
@@ -191,11 +191,8 @@ VictimPage BufferPool::GetVictim(PageIdentifier id, AccessStrategy &strategy, bo
     }
 
     auto victim = replacement_.GetVictim(pages_span, id, isIO);
-    // DB7_ASSERT(victim.needs_flush == false, "Clock doesnt use flushing");
-    if (victim.needs_flush) {
-      if (!SafeFlush(victim.page)) { throw MEMORY_EXCEPTION("Disk scheduler err"); }
-      continue;
-    }
+    DB7_ASSERT(victim.needs_flush == false, "Clock doesnt use flushing");
+
     strategy.Track(victim.page);
     return victim;
   }
@@ -210,6 +207,7 @@ bool BufferPool::SafeFlush(Page *page) {
   page->ClearWriteInProgress();
   page->SetDirty();
   page->WUnlock();
+  page->NotifyIO();
   return false;
 }
 

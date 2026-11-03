@@ -60,18 +60,7 @@ VictimPage ClockSweep::GetVictim(std::span<Page> pages_, PageIdentifier id, bool
     Page *page = &pages_[head];
     if (page->TryWLock()) {
       if (!page->IsPinned() && !page->IsWriteInProgress() && !page->DecUsageCount() &&
-          !page->IsIOInProgress()) {
-        if (page->IsDirty()) {
-          page->ClearDirty();
-          page->SetWriteInProgress();
-          page->WUnlock();
-
-          VictimPage result;
-          result.page = page;
-          result.frame_idx = static_cast<frame_idx_t>(page - pages_.data());
-          result.needs_flush = true;
-          return result;
-        }
+          !page->IsIOInProgress() && !page->IsDirty()) {
         result.page_id = page->GetId();
         page->SetId(id);
         page->Pin();
