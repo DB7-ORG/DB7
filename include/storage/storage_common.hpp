@@ -17,6 +17,8 @@ using store_column_id = uint32_t;
 using frame_idx_t = uint32_t;
 
 namespace db7::storage {
+
+constexpr bool DB7_BUFFER_POOL_STATS = true;
 /**
  * If u modify this make sure to change hashing logic
  */

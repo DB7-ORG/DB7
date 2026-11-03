@@ -355,7 +355,7 @@ int main() {
   constexpr u32 kThreads = 16;      // ≈ batches in flight; try 1, 4, 16, 32
   constexpr u32 kPages = 64'000;    // 500 MB; each page is read exactly once
   constexpr u32 kN = 8;             // pages per batch
-  constexpr bool kVectored = false; // false = solution A, true = solution B
+  constexpr bool kVectored = true;  // false = solution A, true = solution B
   constexpr u32 kFirstPid = 1 + 64; // skip pages the catalog may own
 
   const u32 tbl = u32(customers.storage->GetTableId());

@@ -11,6 +11,8 @@ namespace db7::storage {
 
 class BgWriter;
 
+enum class PinKind { Hit, Foreign, Miss };
+
 struct PinRangeResult {
   u32 count;       // pages pinned and written to out
   bool io_started; // a read was enqueued for out[0 .. misses)
@@ -46,7 +48,6 @@ private:
   void UndoState(VictimPage victim);
   bool PageVisit(Page *page, PageIdentifier id);
 
-  enum class PinKind { Hit, Foreign, Miss };
   struct PinResult {
     Page *page;
     PinKind kind;

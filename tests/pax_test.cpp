@@ -178,47 +178,55 @@ protected:
 
   void InitPage(const Schema &schema) {
     std::memset(page_, 0xA5, sizeof(page_)); // a recycled frame is never clean
-    std::vector<ColumnStatistics> stats;
-    for (const Col &c : schema) {
-      const u16 avg = c.type == type_id::VARCHAR ? kAvgString : u16(SizeOf(c.type));
-      stats.emplace_back(c.type, c.dropped, avg, c.nullable);
+    std::vector<StorageColumnDesc> cols;
+    u16 avg_heap = 0; // heap bytes the catalog expects per row
+    for (column_t id = 0; id < schema.size(); ++id) {
+      const Col &c = schema[id];
+      cols.emplace_back(id, c.type, DefaultValue{}, c.dropped, c.nullable);
+      if (!c.dropped && c.type == type_id::VARCHAR) {
+        avg_heap += VarlenEntry::HeapSizeFor(kAvgString);
+      }
     }
-    Pax::Init(page_, stats);
+    Pax::Init(page_, cols, avg_heap, avg_heap);
   }
 
   /** Inserts `row` as a writer on `writer`. Missing live columns are NULL. */
   PaxInsertResponse Write(const Schema &writer, const Row &row) {
     std::vector<ChunkColumn> layout;
-    std::vector<PaxInsertInfo> infos;
+    std::vector<StorageColumnDesc> all;  // every column, indexed by column id
+    std::vector<StorageColumnDesc> live; // same order as the chunk
     std::vector<std::optional<std::vector<byte>>> values;
+    size_t heap = 0;
     for (column_t id = 0; id < writer.size(); ++id) {
       const Col &c = writer[id];
+      all.emplace_back(id, c.type, DefaultValue{}, c.dropped, c.nullable);
       if (c.dropped) { continue; }
       const auto it = row.find(id);
       auto bytes = Encode(it == row.end() ? Value{Null{}} : it->second);
-      const u16 slot = u16(SizeOf(c.type));
-      const u16 size = c.type == type_id::VARCHAR ? u16(bytes ? bytes->size() : 0) : slot;
-      layout.emplace_back(id, slot);
-      infos.push_back({size, slot, c.type});
+      if (bytes && c.type == type_id::VARCHAR) { heap += VarlenEntry::HeapSizeFor(bytes->size()); }
+      layout.emplace_back(id, u16(SizeOf(c.type)));
+      live.push_back(all.back());
       values.push_back(std::move(bytes));
     }
 
-    const size_t heap = Pax::CalcHeapBytes(infos);
     auto init = Own(DataChunk::BuildDataChunkInitializer(layout));
     auto chunk = Own(DataChunk::BuildDataChunk(init.get(), heap));
     for (u16 i = 0; i < values.size(); ++i) {
       if (!values[i])
         chunk->SetNull(i, true);
-      else if (infos[i].type == type_id::VARCHAR)
-        chunk->WriteVarlen(i, *values[i]);
+      else if (live[i].type == type_id::VARCHAR)
+        chunk->WriteVarlenByIdx(i, *values[i]);
       else
         chunk->WriteByIdx(i, *values[i]);
     }
 
     const std::vector<byte> before(page_, page_ + sizeof(page_));
-    const auto resp =
-        Pax::Insert(page_, chunk.get(), infos, heap, static_cast<column_t>(writer.size()));
-    if (resp != PaxInsertResponse::OK) {
+    const u16 required_heap = Pax::CalcHeapBytes(all, chunk.get());
+    const auto resp = Pax::IsPageWritable(page_, chunk.get(), static_cast<column_t>(writer.size()),
+                                          required_heap);
+    if (resp == PaxInsertResponse::OK) {
+      Pax::InsertUnsafe(page_, chunk.get(), live);
+    } else {
       EXPECT_EQ(std::memcmp(before.data(), page_, sizeof(page_)), 0)
           << "refused insert modified the page";
     }
@@ -229,28 +237,28 @@ protected:
   std::optional<Row> Read(const Schema &reader, u16 idx) {
     static byte empty_default{}; // "" must not be passed as nullptr, which means NULL
     std::vector<ChunkColumn> layout;
-    std::vector<PaxGetInfo> infos;
+    std::vector<StorageColumnDesc> cols;
     std::vector<std::optional<std::vector<byte>>> defaults;
     defaults.reserve(reader.size());
     for (column_t id = 0; id < reader.size(); ++id) {
       const Col &c = reader[id];
       if (c.dropped) { continue; }
       auto &d = defaults.emplace_back(Encode(c.dflt));
-      const bool varlen = c.type == type_id::VARCHAR;
-      const u16 slot = u16(SizeOf(c.type));
-      byte *ptr = !d ? nullptr : d->empty() ? &empty_default : d->data();
-      const u16 size = varlen ? u16(d ? d->size() : 0) : slot;
-      layout.emplace_back(id, slot);
-      infos.push_back({id, slot, c.type, size, ptr, varlen});
+      DefaultValue dflt;
+      if (d) {
+        dflt = d->empty() ? std::span<const byte>(&empty_default, 0) : std::span<const byte>(*d);
+      }
+      layout.emplace_back(id, u16(SizeOf(c.type)));
+      cols.emplace_back(id, c.type, dflt, false, c.nullable);
     }
 
     const auto ncols = static_cast<column_t>(reader.size());
-    if (!Pax::IsPageVisible(page_, infos, ncols)) { return std::nullopt; }
+    if (!Pax::IsPageReadable(page_, cols, ncols)) { return std::nullopt; }
     auto init = Own(DataChunk::BuildDataChunkInitializer(layout));
-    auto out = Own(Pax::Get(page_, idx, infos, ncols, init.get()));
+    auto out = Own(Pax::GetUnsafe(page_, idx, cols, u16(ncols), init.get()));
     Row row;
-    for (u16 i = 0; i < infos.size(); ++i) {
-      row[infos[i].column_id] = Decode(*out, i, infos[i].type);
+    for (u16 i = 0; i < cols.size(); ++i) {
+      row[cols[i].column_id] = Decode(*out, i, cols[i].type);
     }
     return row;
   }

@@ -112,6 +112,7 @@ Page *BufferPool::Pin(PageIdentifier id, PinOptions &opts) {
   PinResult pres = PinForBlock(id, opts, [this](Page *page, PageIdentifier pid) {
     return disk_mng_->Enqueue(IoTask(IoTask::READ, IoPriority::HIGH, page, pid));
   });
+  if constexpr (DB7_BUFFER_POOL_STATS) {}
   return pres.page;
 }
 

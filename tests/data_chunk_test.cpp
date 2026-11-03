@@ -264,7 +264,7 @@ TEST_F(DataChunkTest, CopyIsByteIdenticalAndIndependent) {
   const auto patterns = FillAll(*original, cols);
   original->SetNull(kU16, true);
 
-  ChunkPtr copy(original->Copy(0));
+  ChunkPtr copy(original->Copy());
   ASSERT_EQ(copy->GetSize(), original->GetSize());
   EXPECT_EQ(std::memcmp(copy.get(), original.get(), original->GetSize()), 0);
 

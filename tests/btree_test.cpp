@@ -203,7 +203,7 @@ protected:
             using T = std::decay_t<decltype(value)>;
             if constexpr (std::is_same_v<T, std::string>) {
               const auto *p = reinterpret_cast<const byte *>(value.data());
-              chunk.WriteVarlen(i, std::span<const byte>(p, value.size()));
+              chunk.WriteVarlenByIdx(i, std::span<const byte>(p, value.size()));
             } else {
               static_assert(std::is_trivially_copyable_v<T>);
               std::memcpy(chunk.GetByIdx(i), &value, sizeof(T));
