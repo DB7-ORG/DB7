@@ -36,6 +36,7 @@ void BufferPool::UndoState(VictimPage victim) {
   victim_page->SetId(victim.page_id);
   victim_page->ClearIOInProgress();
   victim_page->WUnlock();
+  victim_page->NotifyIO();
 }
 
 bool BufferPool::PageVisit(Page *page,
@@ -159,8 +160,6 @@ void BufferPool::Unpin(Page *page, bool dirty) {
 
 Page *BufferPool::Reserve(table_id tbl_id, AccessStrategy &strategy) {
   page_id pid = FreeSpaceManagerIndex::Get(tbl_id);
-  // TODO just temporary guard
-  DB7_ASSERT(pid < BUFFER_POOL_PAGE_NUM, "no more pages");
 
   auto id = PageIdentifier(tbl_id, pid);
 
@@ -181,7 +180,7 @@ Page *BufferPool::Reserve(table_id tbl_id, AccessStrategy &strategy) {
 
 VictimPage BufferPool::GetVictim(PageIdentifier id, AccessStrategy &strategy, bool isIO) {
   auto pages_span = GetPages();
-  if (strategy.IsDefaultType()) { return replacement_.GetVictim(pages_span, id, isIO); }
+  // if (strategy.IsDefaultType()) { return replacement_.GetVictim(pages_span, id, isIO); }
   while (true) {
     auto reused = strategy.TryReuse(pages_span, id, isIO);
     if (reused.needs_flush) {
@@ -192,7 +191,11 @@ VictimPage BufferPool::GetVictim(PageIdentifier id, AccessStrategy &strategy, bo
     }
 
     auto victim = replacement_.GetVictim(pages_span, id, isIO);
-    DB7_ASSERT(victim.needs_flush == false, "Clock doesnt use flushing");
+    // DB7_ASSERT(victim.needs_flush == false, "Clock doesnt use flushing");
+    if (victim.needs_flush) {
+      if (!SafeFlush(victim.page)) { throw MEMORY_EXCEPTION("Disk scheduler err"); }
+      continue;
+    }
     strategy.Track(victim.page);
     return victim;
   }

@@ -147,7 +147,7 @@ public:
       // DB7_ASSERT(IsPinned(), "Pin not set");
       ClearIOInProgress();
     }
-    io_cv_.notify_all();
+    NotifyIO();
   }
 
   void SignalWrite() {
@@ -156,7 +156,7 @@ public:
       DB7_ASSERT(IsWriteInProgress(), "write in progress not set");
       ClearWriteInProgress();
     }
-    io_cv_.notify_all();
+    NotifyIO();
   }
 
   void WaitWrite() {
@@ -164,6 +164,8 @@ public:
     std::unique_lock lk(latch_);
     io_cv_.wait(lk, [&] { return !IsWriteInProgress() && !IsIOInProgress(); });
   }
+
+  void NotifyIO() { io_cv_.notify_all(); }
 };
 
 class PagePinGuard {

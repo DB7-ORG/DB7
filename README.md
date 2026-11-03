@@ -66,7 +66,6 @@ Data table:
 - TODO storage we dont have error handling for is writable(should also add fsm)
 
 online index creation:
-
 - publish index in BUILDING state
 - start scanning the heap
 - when we get a tuple:
@@ -84,14 +83,9 @@ sudo prlimit --memlock=unlimited:unlimited --pid $$
 
 - likely dont need allocations in my disk scheduler since output array should outlive the request
   but keep it for now who knows what might change
-- // TODO clear flushing flag
-- think how to add flushing flag
 - // TODO this leaks the pins
 - // TODO pis assertion
 
-// write_fn read_fn
-
 - statistics for buffer pool 
-- figure out functions as params
 - PIN GUARD / LOCK
 - // TODO at this point could be removed

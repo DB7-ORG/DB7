@@ -52,7 +52,7 @@ VictimPage AccessStrategy::TryReuse(std::span<Page> pages, PageIdentifier id, bo
 }
 
 VictimPage ClockSweep::GetVictim(std::span<Page> pages_, PageIdentifier id, bool isIO) {
-  constexpr u32 max_iters = BUFFER_POOL_PAGE_NUM * 2;
+  u32 max_iters = pages_.size() * 2;
 
   VictimPage result;
   for (u32 iters = 1; true; iters++) {
@@ -60,7 +60,18 @@ VictimPage ClockSweep::GetVictim(std::span<Page> pages_, PageIdentifier id, bool
     Page *page = &pages_[head];
     if (page->TryWLock()) {
       if (!page->IsPinned() && !page->IsWriteInProgress() && !page->DecUsageCount() &&
-          !page->IsDirty() && !page->IsIOInProgress()) {
+          !page->IsIOInProgress()) {
+        if (page->IsDirty()) {
+          page->ClearDirty();
+          page->SetWriteInProgress();
+          page->WUnlock();
+
+          VictimPage result;
+          result.page = page;
+          result.frame_idx = static_cast<frame_idx_t>(page - pages_.data());
+          result.needs_flush = true;
+          return result;
+        }
         result.page_id = page->GetId();
         page->SetId(id);
         page->Pin();
