@@ -1,71 +1,53 @@
 #include "storage/buffer_pool/clock.hpp"
 
 namespace db7::storage {
-u32 AccessStrategy::CalcRingSize(AccessStrategyType type) const {
-  switch (type) {
-  case NORMAL: return 0;
-  case BULK_READ:
-    return 64;
-    // case BULK_WRITE: return 256;
-  }
-  DB7_UNREACHABLE();
-}
 
-frame_idx_t AccessStrategy::Advance() { return (current_++) & (nbuffers_ - 1); }
+AccessStrategy::AccessStrategy(AccessStrategyType type) : type_(type) {
 
-AccessStrategy::AccessStrategy(AccessStrategyType type)
-    : type_(type), nbuffers_(CalcRingSize(type)), current_(0), last_(0) {
   if (!IsDefaultType()) {
-    ring_.reserve(CalcRingSize(type));
     DB7_ASSERT(std::has_single_bit(CalcRingSize(type)), "Musto be power of 2");
+    ring_.emplace(CalcRingSize(type));
   }
 }
 
-bool AccessStrategy::RejectDirty() { return type_ == BULK_READ; }
+VictimPage AccessStrategy::TryReuse(std::span<Page> pages, PageIdentifier id, bool isIO) {
+  if (!ring_ || !ring_->Full()) { return {}; }
 
-void AccessStrategy::UndoState(VictimPage victim) {
-  auto *victim_page = victim.page;
-  victim_page->WLock();
-  victim_page->Unpin();
-  victim_page->SetId(victim.page_id);
-  victim_page->ClearWriteInProgress();
-  victim_page->SetDirty();
-  victim_page->WUnlock();
-}
+  Page *page = ring_->ReadUnsafe();
+  if (!page->TryWLock()) { return {}; }
 
-VictimPage AccessStrategy::GetFromRing(std::span<Page> pages_, PageIdentifier id, bool isIO) {
-  VictimPage result;
+  if (page->IsPinned() || page->UsageCount() > 0 || page->IsIOInProgress() ||
+      page->IsWriteInProgress()) {
+    page->WUnlock();
+    return {};
+  }
 
-  last_ = Advance();
-  Page *page = ring_[last_];
-  if (page->TryWLock()) {
-    if (page->IsPinned() || page->UsageCount() > 0 || page->IsIOInProgress()) {
+  if (page->IsDirty()) {
+    if (RejectDirty()) {
       page->WUnlock();
       return {};
     }
-    if (page->IsDirty()) {
-      if (RejectDirty()) {
-        page->WUnlock();
-        return {};
-      } else {
-        page->ClearDirty();
-        page->SetWriteInProgress();
-        page->WUnlock();
-        result.needs_flush = true; // TODO page needs to be flushed first
-        return result;
-      }
-    }
-
-    result.page_id = page->GetId();
-    page->SetId(id);
-    page->Pin();
-    if (isIO) { page->SetIOInProgress(); }
+    page->ClearDirty();
+    page->SetWriteInProgress();
     page->WUnlock();
-    result.frame_idx = static_cast<frame_idx_t>(page - pages_.data());
+
+    VictimPage result;
     result.page = page;
+    result.frame_idx = static_cast<frame_idx_t>(page - pages.data());
+    result.needs_flush = true;
     return result;
   }
+
+  VictimPage result;
+  result.page_id = page->GetId();
+  page->SetId(id);
+  page->Pin();
+  if (isIO) { page->SetIOInProgress(); }
   page->WUnlock();
+
+  result.frame_idx = static_cast<frame_idx_t>(page - pages.data());
+  result.page = page;
+  ring_->Append(page);
   return result;
 }
 
@@ -77,8 +59,8 @@ VictimPage ClockSweep::GetVictim(std::span<Page> pages_, PageIdentifier id, bool
     frame_idx_t head = (sweep_head_++) % pages_.size();
     Page *page = &pages_[head];
     if (page->TryWLock()) {
-      if (!page->IsPinned() && !page->DecUsageCount() && !page->IsDirty() &&
-          !page->IsIOInProgress()) {
+      if (!page->IsPinned() && !page->IsWriteInProgress() && !page->DecUsageCount() &&
+          !page->IsDirty() && !page->IsIOInProgress()) {
         result.page_id = page->GetId();
         page->SetId(id);
         page->Pin();

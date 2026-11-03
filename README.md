@@ -93,3 +93,5 @@ sudo prlimit --memlock=unlimited:unlimited --pid $$
 
 - statistics for buffer pool 
 - figure out functions as params
+- PIN GUARD / LOCK
+- // TODO at this point could be removed

@@ -77,28 +77,28 @@ BufferPool::PinResult BufferPool::PinForBlock(PageIdentifier id, PinOptions &opt
 
     frame_idx_t new_frame_idx;
     if (partitions_.Put(id, victim.frame_idx, new_frame_idx, partIdx)) {
-      if (!read_fn(victim.page, id)) {
-        UndoState(victim);
-        throw MEMORY_EXCEPTION("Failure inside disk scheduler");
-      }
-      if (victim.page_id != INVALID_PAGE_IDENTFIER) {
-        partitions_.Delete(victim.page_id, victim.frame_idx);
-      }
       if (opts.pkind == PageKind::Heap) {
         victim.page->SetVersions(version_table_->Get(id));
       } else {
         victim.page->SetVersions(nullptr);
       }
+
+      if (victim.page_id != INVALID_PAGE_IDENTFIER) {
+        partitions_.Delete(victim.page_id, victim.frame_idx);
+      }
+
+      // TODO at this point could be removed
+      if (!read_fn(victim.page, id)) {
+        UndoState(victim);
+        throw MEMORY_EXCEPTION("Failure inside disk scheduler");
+      }
+
       // caller must submit the read
       return {victim.page, PinKind::Miss};
     }
 
     UndoState(victim);
-    auto *page = &pages_[new_frame_idx];
-    if (PageVisit(page, id)) {
-      auto pinkind = page->IsIOInProgress() ? PinKind::Foreign : PinKind::Hit;
-      return {page, pinkind};
-    }
+    continue;
   }
 }
 
@@ -169,6 +169,7 @@ Page *BufferPool::Reserve(table_id tbl_id, AccessStrategy &strategy) {
   if (partitions_.Put(id, victim.frame_idx, new_frame_idx)) {
     if (victim.page_id != INVALID_PAGE_IDENTFIER) {
       partitions_.Delete(victim.page_id, victim.frame_idx);
+      victim.page->SetVersions(nullptr);
     }
     std::memset(victim.page->GetData(), 0, DB7_PAGE_SIZE); // TODO i dont needd this
     return victim.page;
@@ -180,27 +181,32 @@ Page *BufferPool::Reserve(table_id tbl_id, AccessStrategy &strategy) {
 VictimPage BufferPool::GetVictim(PageIdentifier id, AccessStrategy &strategy, bool isIO) {
   auto pages_span = GetPages();
   if (strategy.IsDefaultType()) { return replacement_.GetVictim(pages_span, id, isIO); }
-
-  if (strategy.IsFull()) {
-    auto victim = strategy.GetFromRing(pages_span, id, isIO);
-    if (victim.page != nullptr) { return victim; }
-    if (victim.needs_flush && !Flush(victim.page)) {
-      strategy.UndoState(victim);
-      throw MEMORY_EXCEPTION("Disk scheduler err");
+  while (true) {
+    auto reused = strategy.TryReuse(pages_span, id, isIO);
+    if (reused.needs_flush) {
+      if (!SafeFlush(reused.page)) { throw MEMORY_EXCEPTION("Disk scheduler err"); }
+      continue;
+    } else if (reused.page != nullptr) {
+      return reused;
     }
 
-    auto defvictim = replacement_.GetVictim(pages_span, id, isIO);
-    strategy.Remember(defvictim.page);
-    return defvictim;
-  } else {
     auto victim = replacement_.GetVictim(pages_span, id, isIO);
-    strategy.Append(victim.page);
+    DB7_ASSERT(victim.needs_flush == false, "Clock doesnt use flushing");
+    strategy.Track(victim.page);
     return victim;
   }
 }
 
-bool BufferPool::Flush(Page *page) {
-  return disk_mng_->Enqueue(IoTask(IoTask::WRITE, IoPriority::HIGH, page, page->GetId()));
+bool BufferPool::SafeFlush(Page *page) {
+  if (disk_mng_->Enqueue(IoTask(IoTask::WRITE, IoPriority::HIGH, page, page->GetId()))) {
+    return true;
+  }
+  // undo path
+  page->WLock();
+  page->ClearWriteInProgress();
+  page->SetDirty();
+  page->WUnlock();
+  return false;
 }
 
 } // namespace db7::storage

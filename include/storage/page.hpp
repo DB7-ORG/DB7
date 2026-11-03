@@ -133,10 +133,10 @@ public:
    * Channel
    */
   void WaitIO() {
-    if (!IsIOInProgress()) return;
+    if (!IsIOInProgress()) { return; }
 
     std::unique_lock lk(latch_);
-    io_cv_.wait(lk, [&] { return !IsIOInProgress(); });
+    io_cv_.wait(lk, [&] { return !IsIOInProgress() && !IsWriteInProgress(); });
   }
 
   void SignalIO() {
@@ -159,10 +159,10 @@ public:
     io_cv_.notify_all();
   }
 
-  void WaitWrite() { // flusher: wait for its own write
-    if (!IsWriteInProgress()) return;
+  void WaitWrite() {
+    if (!IsWriteInProgress() && !IsIOInProgress()) return;
     std::unique_lock lk(latch_);
-    io_cv_.wait(lk, [&] { return !IsWriteInProgress(); });
+    io_cv_.wait(lk, [&] { return !IsWriteInProgress() && !IsIOInProgress(); });
   }
 };
 
@@ -189,7 +189,10 @@ private:
   Page *page_;
 
 public:
-  PageWriteGuard(Page *page) : page_(page) { page_->WDataLock(); }
+  PageWriteGuard(Page *page) : page_(page) {
+    page_->WaitWrite();
+    page_->WDataLock();
+  }
   ~PageWriteGuard() { page_->WDataUnlock(); }
 
   PageWriteGuard(const PageWriteGuard &) = delete;
@@ -203,7 +206,10 @@ private:
   Page *page_;
 
 public:
-  PageReadGuard(Page *page) : page_(page) { page_->RDataLock(); }
+  PageReadGuard(Page *page) : page_(page) {
+    page_->WaitIO();
+    page_->RDataLock();
+  }
   ~PageReadGuard() { page_->RDataUnlock(); }
 
   PageReadGuard(const PageReadGuard &) = delete;

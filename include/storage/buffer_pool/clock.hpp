@@ -1,10 +1,13 @@
 #pragma once
 
 #include "common.hpp"
+#include "shared/data_structures/ring_buffer.hpp"
 #include "storage/page.hpp"
 
+#include <optional>
+
 namespace db7::storage {
-enum AccessStrategyType { NORMAL, BULK_READ };
+enum AccessStrategyType { NORMAL, BULK_READ, BULK_WRITE };
 
 struct VictimPage {
   Page *page;
@@ -21,15 +24,17 @@ struct VictimPage {
 class AccessStrategy {
 private:
   AccessStrategyType type_;
-  frame_idx_t nbuffers_;
-  frame_idx_t current_;
-  frame_idx_t last_;
-  std::vector<Page *> ring_;
+  std::optional<shared::Ringbuffer<Page *>> ring_;
 
 private:
-  u32 CalcRingSize(AccessStrategyType type) const;
-
-  frame_idx_t Advance();
+  static constexpr u32 CalcRingSize(AccessStrategyType type) {
+    switch (type) {
+    case NORMAL: return 0;
+    case BULK_READ: return 64;
+    case BULK_WRITE: return 32;
+    }
+    DB7_UNREACHABLE();
+  }
 
 public:
   AccessStrategy() : type_(NORMAL) {}
@@ -38,19 +43,19 @@ public:
 
   AccessStrategyType GetType() const { return type_; }
   bool IsDefaultType() const { return type_ == NORMAL; }
-
-  void UndoState(VictimPage victim);
-
-  VictimPage GetFromRing(std::span<Page> pages_, PageIdentifier id, bool isIO);
-
-  bool RejectDirty();
-  bool IsFull() const { return ring_.size() == nbuffers_; }
-  void Append(Page *page) { ring_.push_back(page); }
-  void Remember(Page *page) {
-    DB7_ASSERT(IsFull(), "Remember called on non filled ring_");
-    ring_[last_] = page;
-  }
   u32 GetRingSize() const { return CalcRingSize(type_); }
+  bool RejectDirty() const { return type_ == BULK_READ; }
+
+  /** Adds a page chosen by the clock to the ring. */
+  void Track(Page *page) {
+    if (ring_) { ring_->Append(page); }
+  }
+
+  /**
+   * Tries to reuse the oldest page in a full ring. On failure that page leaves
+   * the ring, and the caller must Track() the replacement.
+   */
+  VictimPage TryReuse(std::span<Page> pages, PageIdentifier id, bool isIO);
 };
 
 class ClockSweep {

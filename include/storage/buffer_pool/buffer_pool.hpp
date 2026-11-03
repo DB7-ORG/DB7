@@ -57,7 +57,7 @@ private:
   template <typename ReadFn = DeferRead>
   PinResult PinForBlock(PageIdentifier id, PinOptions &opts, ReadFn read_fn = {});
 
-  bool Flush(Page *page);
+  bool SafeFlush(Page *page);
 
 public:
   BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_table,

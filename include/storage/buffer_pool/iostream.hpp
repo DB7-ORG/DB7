@@ -37,7 +37,7 @@ class ReadIoStream final : public IoStream {
 private:
   shared::Ringbuffer<Page *> ring_;
   BufferPool *pool_;
-  AccessStrategy strategy_;
+  PinOptions opts_;
   [[no_unique_address]] NextFn next_fn_; // takes no space when the callback captures nothing
 
   u32 distance_ = 1;      // current look-ahead (Postgres: readahead_distance)
@@ -77,7 +77,7 @@ private:
       DB7_ASSERT(pending_len_ <= ring_.MaxSize() - ring_.Size(), "Ring has no room for the run");
 
       PageIdentifier first = {GetTableId(), pending_start_};
-      auto r = pool_->PinRange({first, pending_len_}, pages_, PageKind::Heap);
+      auto r = pool_->PinRange({first, pending_len_}, pages_, opts_);
       DB7_ASSERT(r.count > 0 && r.count <= pending_len_, "PinRange must pin at least one page");
 
       if (r.io_started) {
@@ -97,14 +97,14 @@ private:
   }
 
 public:
-  ReadIoStream(BufferPool *pool, AccessStrategy strategy, table_id tbl, NextFn next_fn,
+  ReadIoStream(BufferPool *pool, AccessStrategy &strategy, table_id tbl, NextFn next_fn,
                u32 max_distance, u32 batch_size = 8)
       : IoStream(StreamType::SCAN, tbl), ring_(max_distance + batch_size), pool_(pool),
-        strategy_(strategy), next_fn_(std::move(next_fn)), max_distance_(max_distance),
-        batch_size_(static_cast<u8>(batch_size)) {
+        opts_({PageKind::Heap, strategy}), next_fn_(std::move(next_fn)),
+        max_distance_(max_distance), batch_size_(static_cast<u8>(batch_size)) {
     DB7_ASSERT(max_distance >= 1, "max_distance must be at least 1");
     DB7_ASSERT(batch_size > 0 && batch_size <= IO_MAX_COMBINE, "Invalid batch size");
-    DB7_ASSERT(strategy.GetType() == NORMAL || strategy_.GetRingSize() >= max_distance,
+    DB7_ASSERT(strategy.GetType() == NORMAL || opts_.strategy.GetRingSize() >= max_distance,
                "ring size must cover max prefetch size");
     buffered_ = next_fn_(); // an empty stream is detected by the first LookAhead
   }
@@ -130,7 +130,6 @@ public:
     if (page->IsIOInProgress()) { // look-ahead didn't hide the latency: look further ahead
       distance_ = std::min(distance_ * 2, max_distance_);
       decay_holdoff_ = max_distance_;
-      page->WaitIO();
     }
 
     return page;
