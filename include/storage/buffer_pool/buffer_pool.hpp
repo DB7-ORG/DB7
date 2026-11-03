@@ -42,7 +42,7 @@ private:
 
   static constexpr PageIdentifier INVALID_PAGE_IDENTFIER = 0;
 
-  std::span<Page> GetPages() { return {pages_, pool_size_}; }
+  std::span<Page> GetPages() const { return {pages_, pool_size_}; }
   void UndoState(VictimPage victim);
   bool PageVisit(Page *page, PageIdentifier id);
 
@@ -51,7 +51,13 @@ private:
     Page *page;
     PinKind kind;
   };
-  PinResult PinForBlock(PageIdentifier id, PinOptions &opts);
+  struct DeferRead {
+    bool operator()(Page *, PageIdentifier) const { return true; }
+  };
+  template <typename ReadFn = DeferRead>
+  PinResult PinForBlock(PageIdentifier id, PinOptions &opts, ReadFn read_fn = {});
+
+  bool Flush(Page *page);
 
 public:
   BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_table,
@@ -66,6 +72,15 @@ public:
 
   /* Only used for indexes for now should be more flexible in future */
   Page *Reserve(table_id tbl_id, AccessStrategy &strategy);
+
+  /**
+   * Finds a victim page to evict considering an access strategy policy.
+   *
+   * @param pages_ main buffer pool buffer that stores pages
+   * @param id     id of a new page that needs to take its place
+   * @param isIO   should it set IO_IN_PROGRESS flag
+   */
+  VictimPage GetVictim(PageIdentifier id, AccessStrategy &strategy, bool isIO);
 
   // TODO remove
   Page *GetPagesDebug() const { return pages_; };

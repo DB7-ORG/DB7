@@ -53,7 +53,8 @@ bool BufferPool::PageVisit(Page *page,
   return false;
 }
 
-BufferPool::PinResult BufferPool::PinForBlock(PageIdentifier id, PinOptions &opts) {
+template <typename ReadFn>
+BufferPool::PinResult BufferPool::PinForBlock(PageIdentifier id, PinOptions &opts, ReadFn read_fn) {
   DB7_ASSERT(id.pid != 0, "invalid pid");
   DB7_ASSERT(id.pid != std::numeric_limits<page_id>::max(), "invalid pid");
 
@@ -72,12 +73,11 @@ BufferPool::PinResult BufferPool::PinForBlock(PageIdentifier id, PinOptions &opt
       page->Unpin();
     }
 
-    VictimPage victim =
-        replacement_.GetVictim(GetPages(), id, opts.strategy, true); // write_fn(victim.page)
+    VictimPage victim = GetVictim(id, opts.strategy, true);
 
     frame_idx_t new_frame_idx;
     if (partitions_.Put(id, victim.frame_idx, new_frame_idx, partIdx)) {
-      if (!false) { // read_fn(victim.page, id)
+      if (!read_fn(victim.page, id)) {
         UndoState(victim);
         throw MEMORY_EXCEPTION("Failure inside disk scheduler");
       }
@@ -109,10 +109,10 @@ Page *BufferPool::Pin(PageIdentifier id, PageKind pkind) {
 }
 
 Page *BufferPool::Pin(PageIdentifier id, PinOptions &opts) {
-  PinResult pinres = PinForBlock(id, opts);
-  if (pinres.kind == PinKind::Miss)
-    disk_mng_->Enqueue(IoTask(IoTask::READ, IoPriority::HIGH, pinres.page, id));
-  return pinres.page;
+  PinResult pres = PinForBlock(id, opts, [this](Page *page, PageIdentifier pid) {
+    return disk_mng_->Enqueue(IoTask(IoTask::READ, IoPriority::HIGH, page, pid));
+  });
+  return pres.page;
 }
 
 PinRangeResult BufferPool::PinRange(PageRange range, Page **out, PageKind pkind) {
@@ -163,7 +163,7 @@ Page *BufferPool::Reserve(table_id tbl_id, AccessStrategy &strategy) {
 
   auto id = PageIdentifier(tbl_id, pid);
 
-  VictimPage victim = replacement_.GetVictim(GetPages(), id, strategy, false);
+  VictimPage victim = GetVictim(id, strategy, false);
 
   frame_idx_t new_frame_idx;
   if (partitions_.Put(id, victim.frame_idx, new_frame_idx)) {
@@ -176,4 +176,31 @@ Page *BufferPool::Reserve(table_id tbl_id, AccessStrategy &strategy) {
 
   DB7_UNREACHABLE();
 }
+
+VictimPage BufferPool::GetVictim(PageIdentifier id, AccessStrategy &strategy, bool isIO) {
+  auto pages_span = GetPages();
+  if (strategy.IsDefaultType()) { return replacement_.GetVictim(pages_span, id, isIO); }
+
+  if (strategy.IsFull()) {
+    auto victim = strategy.GetFromRing(pages_span, id, isIO);
+    if (victim.page != nullptr) { return victim; }
+    if (victim.needs_flush && !Flush(victim.page)) {
+      strategy.UndoState(victim);
+      throw MEMORY_EXCEPTION("Disk scheduler err");
+    }
+
+    auto defvictim = replacement_.GetVictim(pages_span, id, isIO);
+    strategy.Remember(defvictim.page);
+    return defvictim;
+  } else {
+    auto victim = replacement_.GetVictim(pages_span, id, isIO);
+    strategy.Append(victim.page);
+    return victim;
+  }
+}
+
+bool BufferPool::Flush(Page *page) {
+  return disk_mng_->Enqueue(IoTask(IoTask::WRITE, IoPriority::HIGH, page, page->GetId()));
+}
+
 } // namespace db7::storage

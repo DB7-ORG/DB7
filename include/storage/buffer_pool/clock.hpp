@@ -39,6 +39,8 @@ public:
   AccessStrategyType GetType() const { return type_; }
   bool IsDefaultType() const { return type_ == NORMAL; }
 
+  void UndoState(VictimPage victim);
+
   VictimPage GetFromRing(std::span<Page> pages_, PageIdentifier id, bool isIO);
 
   bool RejectDirty();
@@ -55,6 +57,11 @@ class ClockSweep {
 private:
   std::atomic<frame_idx_t> sweep_head_;
 
+public:
+  ClockSweep() = default;
+
+  frame_idx_t GetCurrent() const { return sweep_head_; }
+
   /**
    * Finds a victim page to evict.
    *
@@ -63,21 +70,5 @@ private:
    * @param isIO   should it set IO_IN_PROGRESS flag
    */
   VictimPage GetVictim(std::span<Page> pages_, PageIdentifier id, bool isIO);
-
-public:
-  ClockSweep() = default;
-
-  frame_idx_t GetCurrent() const { return sweep_head_; }
-
-  void UndoState(VictimPage victim);
-  /**
-   * Finds a victim page to evict considering an access strategy policy.
-   *
-   * @param pages_ main buffer pool buffer that stores pages
-   * @param id     id of a new page that needs to take its place
-   * @param isIO   should it set IO_IN_PROGRESS flag
-   */
-  VictimPage GetVictim(std::span<Page> pages_, PageIdentifier id, AccessStrategy &strategy,
-                       bool isIO);
 };
 } // namespace db7::storage

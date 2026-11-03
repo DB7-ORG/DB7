@@ -23,6 +23,16 @@ AccessStrategy::AccessStrategy(AccessStrategyType type)
 
 bool AccessStrategy::RejectDirty() { return type_ == BULK_READ; }
 
+void AccessStrategy::UndoState(VictimPage victim) {
+  auto *victim_page = victim.page;
+  victim_page->WLock();
+  victim_page->Unpin();
+  victim_page->SetId(victim.page_id);
+  victim_page->ClearWriteInProgress();
+  victim_page->SetDirty();
+  victim_page->WUnlock();
+}
+
 VictimPage AccessStrategy::GetFromRing(std::span<Page> pages_, PageIdentifier id, bool isIO) {
   VictimPage result;
 
@@ -85,37 +95,5 @@ VictimPage ClockSweep::GetVictim(std::span<Page> pages_, PageIdentifier id, bool
   }
 
   DB7_UNREACHABLE();
-}
-
-void ClockSweep::UndoState(VictimPage victim) {
-  auto *victim_page = victim.page;
-  victim_page->WLock();
-  victim_page->Unpin();
-  victim_page->SetId(victim.page_id);
-  victim_page->ClearWriteInProgress();
-  victim_page->SetDirty();
-  victim_page->WUnlock();
-}
-
-VictimPage ClockSweep::GetVictim(std::span<Page> pages_, PageIdentifier id,
-                                 AccessStrategy &strategy, bool isIO) {
-  if (strategy.IsDefaultType()) { return GetVictim(pages_, id, isIO); }
-
-  if (strategy.IsFull()) {
-    auto victim = strategy.GetFromRing(pages_, id, isIO);
-    if (victim.page != nullptr) { return victim; }
-    if (victim.needs_flush /*&& !write_fn(victim.page)*/) {
-      UndoState(victim);
-      throw MEMORY_EXCEPTION("Disk scheduler err");
-    }
-
-    auto defvictim = GetVictim(pages_, id, isIO);
-    strategy.Remember(defvictim.page);
-    return defvictim;
-  } else {
-    auto victim = GetVictim(pages_, id, isIO);
-    strategy.Append(victim.page);
-    return victim;
-  }
 }
 } // namespace db7::storage

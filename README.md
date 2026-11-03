@@ -90,3 +90,6 @@ sudo prlimit --memlock=unlimited:unlimited --pid $$
 - // TODO pis assertion
 
 // write_fn read_fn
+
+- statistics for buffer pool 
+- figure out functions as params
