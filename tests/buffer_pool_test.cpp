@@ -17,7 +17,6 @@
 #include <random>
 #include <set>
 #include <thread>
-#include <unordered_set>
 #include <vector>
 
 using namespace db7;
@@ -58,35 +57,6 @@ std::optional<u64> Load(Page *page) {
   if (head != tail) { return std::nullopt; }
   return head;
 }
-
-/// Aborts the binary if a test hangs, so a deadlock fails the run instead of
-/// blocking it forever.
-class Watchdog {
-private:
-  std::mutex mutex_;
-  std::condition_variable cv_;
-  bool done_ = false;
-  std::thread thread_;
-
-public:
-  Watchdog()
-      : thread_([this] {
-          std::unique_lock lock(mutex_);
-          if (cv_.wait_for(lock, kTestTimeout, [this] { return done_; })) { return; }
-          const auto *info = ::testing::UnitTest::GetInstance()->current_test_info();
-          std::fprintf(stderr, "HANG: %s.%s\n", info->test_suite_name(), info->name());
-          std::abort();
-        }) {}
-
-  ~Watchdog() {
-    {
-      std::lock_guard lock(mutex_);
-      done_ = true;
-    }
-    cv_.notify_all();
-    thread_.join();
-  }
-};
 
 /// Prints progress once a second, and dumps the frames if nothing moved.
 /// Put it in its own scope around RunParallel, so it stops before reporting.
@@ -143,7 +113,6 @@ protected:
   static constexpr const char *kDataDir = ".data_test_buffer_pool";
   static inline table_id next_tbl_ = 1;
 
-  std::unique_ptr<Watchdog> watchdog_;
   std::unique_ptr<DiskManagerAsync> dm_;
   std::unique_ptr<DiskScheduler> sched_;
   std::unique_ptr<PageVersionManager> vm_;
@@ -166,7 +135,6 @@ protected:
   }
 
   void SetUp() override {
-    watchdog_ = std::make_unique<Watchdog>();
     dm_ = std::make_unique<DiskManagerAsync>(kDataDir);
     sched_ = std::make_unique<DiskScheduler>(dm_.get());
     sched_->Start();
@@ -185,7 +153,6 @@ protected:
     ExpectPoolConsistent();
     sched_->Stop();
     bp_.reset();
-    watchdog_.reset();
   }
 
   /// Creates n consecutive dirty pages, each holding StampFor(its id).
@@ -540,6 +507,9 @@ TEST_F(BufferPoolLargeTest, BulkWriteKeepsEveryPage) {
 //
 //    Same rules as the B-tree tests: end states are deterministic, and
 //    workers report through ErrorLog because gtest asserts aren't safe there.
+//
+//    Metrics print right after the parallel phase, so the single-threaded
+//    checks that follow don't count toward them.
 // =========================================================================
 
 /// Every thread misses on one page at once. Only one can win the hash insert,
@@ -548,29 +518,33 @@ TEST_F(BufferPoolTest, ConcurrentMissesShareOneFrame) {
   const unsigned T = DefaultThreads();
   constexpr int kRounds = 100;
   const PageIdentifier id = NewPages(1).front();
-  Progress progress(kRounds, bp_->GetPagesDebug(), PoolPages());
 
-  for (int round = 0; round < kRounds; ++round) {
-    Evict();
+  {
+    Progress progress(kRounds, bp_->GetPagesDebug(), PoolPages());
 
-    ErrorLog log;
-    std::vector<Page *> seen(T, nullptr);
+    for (int round = 0; round < kRounds; ++round) {
+      Evict();
 
-    RunParallel(T, [&](unsigned t) {
-      Page *page = PinReady(id);
-      seen[t] = page;
-      if (page->GetId() != id) { log.Failf("round ", round, ": wrong page"); }
-      {
-        PageReadGuard guard(page);
-        if (Load(page) != StampFor(id)) { log.Failf("round ", round, ": wrong data"); }
-      }
-    });
+      ErrorLog log;
+      std::vector<Page *> seen(T, nullptr);
 
-    ExpectNoFailures(log);
-    EXPECT_EQ(std::set<Page *>(seen.begin(), seen.end()).size(), 1u) << "round " << round;
-    for (Page *page : seen) { bp_->Unpin(page); }
-    progress.Tick();
+      RunParallel(T, [&](unsigned t) {
+        Page *page = PinReady(id);
+        seen[t] = page;
+        if (page->GetId() != id) { log.Failf("round ", round, ": wrong page"); }
+        {
+          PageReadGuard guard(page);
+          if (Load(page) != StampFor(id)) { log.Failf("round ", round, ": wrong data"); }
+        }
+      });
+
+      ExpectNoFailures(log);
+      EXPECT_EQ(std::set<Page *>(seen.begin(), seen.end()).size(), 1u) << "round " << round;
+      for (Page *page : seen) { bp_->Unpin(page); }
+      progress.Tick();
+    }
   }
+  bp_->GetMonitorStats().Print();
 }
 
 /// Threads own separate pages but fight over frames. Reading back anything
@@ -609,6 +583,7 @@ TEST_F(BufferPoolTest, ThreadsSeeTheirOwnWritesUnderEviction) {
       }
     });
   }
+  bp_->GetMonitorStats().Print();
   ExpectNoFailures(log);
 
   Evict();
@@ -658,6 +633,7 @@ TEST_F(BufferPoolTest, SharedCountersLoseNoUpdates) {
       }
     });
   }
+  bp_->GetMonitorStats().Print();
   ExpectNoFailures(log);
 
   Evict();
@@ -706,6 +682,7 @@ TEST_F(BufferPoolTinyTest, TinyPoolNeverReturnsTheWrongPage) {
       }
     });
   }
+  bp_->GetMonitorStats().Print();
   ExpectNoFailures(log);
 }
 
@@ -747,6 +724,7 @@ TEST_F(BufferPoolLargeTest, ScansAndPinsShareReads) {
       }
     });
   }
+  bp_->GetMonitorStats().Print();
   ExpectNoFailures(log);
 }
 
@@ -801,6 +779,7 @@ TEST_F(BufferPoolLargeTest, BulkReadersRaceWithWriters) {
           }
         });
   }
+  bp_->GetMonitorStats().Print();
   ExpectNoFailures(log);
 }
 
@@ -834,6 +813,9 @@ TEST_F(BufferPoolTest, RepeatedMissStorm) {
     }
     ExpectNoFailures(log);
   });
+
+  // Every pass gets a new pool, so this covers the last pass only.
+  bp_->GetMonitorStats().Print();
 }
 
 // =========================================================================

@@ -2,6 +2,7 @@
 
 #include "common.hpp"
 #include "shared/data_structures/ring_buffer.hpp"
+#include "storage/buffer_pool/clock_monitoring.hpp"
 #include "storage/page.hpp"
 
 #include <optional>
@@ -19,6 +20,8 @@ struct VictimPage {
 
   VictimPage(Page *p, PageIdentifier id, frame_idx_t idx)
       : page(p), page_id(id), frame_idx(idx), needs_flush(false) {}
+
+  bool IsValid() const { return page != nullptr; }
 };
 
 class AccessStrategy {
@@ -60,10 +63,25 @@ public:
 
 class ClockSweep {
 private:
-  std::atomic<frame_idx_t> sweep_head_;
+  alignas(CACHE_LINE_SIZE) std::atomic<frame_idx_t> sweep_head_;
+  [[maybe_unused]] byte data_[CACHE_LINE_SIZE - sizeof(frame_idx_t)];
+  std::atomic<u64> wake_epoch_{0};
+  std::atomic<u32> waiters_{0};
+  std::mutex wait_mu_;
+  std::condition_variable wait_cv_;
+  EvictionMonitor stats_;
+
+private:
+  using Clock = std::chrono::steady_clock;
+  static constexpr auto kVictimTimeout = std::chrono::seconds(5);
+  static constexpr auto threadWaitFor = std::chrono::milliseconds(10);
+
+  VictimPage Sweep(std::span<Page> pages, PageIdentifier id, bool isIO);
 
 public:
   ClockSweep() = default;
+
+  const EvictionMonitor &GetEvictionMonitor() const { return stats_; }
 
   frame_idx_t GetCurrent() const { return sweep_head_; }
 
@@ -75,5 +93,7 @@ public:
    * @param isIO   should it set IO_IN_PROGRESS flag
    */
   VictimPage GetVictim(std::span<Page> pages_, PageIdentifier id, bool isIO);
+
+  void NotifyFrameFree();
 };
 } // namespace db7::storage

@@ -8,6 +8,7 @@
 #include <cstdio>
 
 namespace db7::storage {
+
 class BufferMonitor {
 private:
   static constexpr size_t SLOT_COUNT = 64; // ideally >= number of threads
@@ -37,17 +38,24 @@ private:
 
 public:
   void Add(PinKind kind, u64 n = 1) {
-    slots[ThreadSlot()].pins[static_cast<size_t>(kind)].fetch_add(n, std::memory_order_relaxed);
+    if constexpr (DB7_BUFFER_POOL_STATS) {
+      slots[ThreadSlot()].pins[static_cast<size_t>(kind)].fetch_add(n, std::memory_order_relaxed);
+    }
   }
 
   void Print() const {
     static constexpr std::array<const char *, KIND_COUNT> NAMES = {"Hit", "Foreign", "Miss"};
 
+    if constexpr (!DB7_BUFFER_POOL_STATS) {
+      std::printf("MONITORING NOT ENABLED\n");
+      return;
+    }
+
     u64 total = 0;
     auto pins = Totals();
     for (u64 count : pins) total += count;
 
-    std::printf("Buffer pool pins: %" PRIu64 "\n", total);
+    std::printf("[PINS]: %" PRIu64 "\n", total);
     for (size_t i = 0; i < pins.size(); ++i) {
       const double pct =
           total == 0 ? 0.0 : 100.0 * static_cast<double>(pins[i]) / static_cast<double>(total);

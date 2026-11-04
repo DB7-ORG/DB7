@@ -68,7 +68,7 @@ public:
    * Flags
    */
   void Pin() { ref_count_++; }
-  void Unpin() { ref_count_--; }
+  u32 Unpin() { return ref_count_.fetch_sub(1); }
   u32 PinCount() const { return ref_count_; }
   bool IsPinned() const { return PinCount() > 0; }
 

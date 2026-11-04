@@ -32,10 +32,10 @@ BufferPool::~BufferPool() {
 void BufferPool::UndoState(VictimPage victim) {
   auto *victim_page = victim.page;
   victim_page->WLock();
-  victim_page->Unpin();
   victim_page->SetId(victim.page_id);
   victim_page->ClearIOInProgress();
   victim_page->WUnlock();
+  Unpin(victim_page);
   victim_page->NotifyIO();
 }
 
@@ -71,7 +71,7 @@ BufferPool::PinResult BufferPool::PinForBlock(PageIdentifier id, PinOptions &opt
         auto pinkind = page->IsIOInProgress() ? PinKind::Foreign : PinKind::Hit;
         return {page, pinkind};
       }
-      page->Unpin();
+      Unpin(page);
     }
 
     VictimPage victim = GetVictim(id, opts.strategy, true);
@@ -113,7 +113,7 @@ Page *BufferPool::Pin(PageIdentifier id, PinOptions &opts) {
   PinResult pres = PinForBlock(id, opts, [this](Page *page, PageIdentifier pid) {
     return disk_mng_->Enqueue(IoTask(IoTask::READ, IoPriority::HIGH, page, pid));
   });
-  if constexpr (DB7_BUFFER_POOL_STATS) {}
+  stats_.Add(pres.kind);
   return pres.page;
 }
 
@@ -134,14 +134,17 @@ PinRangeResult BufferPool::PinRange(PageRange range, Page **out, PinOptions &opt
     PinResult res = PinForBlock(PageIdentifier(range.first.tbl_id, range.first.pid + count), opts);
     out[count] = res.page;
     count++;
-    if (res.kind != PinKind::Miss)
+    if (res.kind != PinKind::Miss) {
+      stats_.Add(res.kind);
       break; // cached or being loaded: ends the run, but it's pinned, so return it
+    }
     misses++;
   }
 
   if (misses > 0) {
     bool res =
         disk_mng_->Enqueue(IoTask(IoTask::READV, IoPriority::HIGH, out, misses, range.first));
+    stats_.Add(PinKind::Miss, misses);
     if (!res) {
       // TODO this leaks the pins
       throw MEMORY_EXCEPTION("Failed to enqueue a task to camel queue");
@@ -151,11 +154,13 @@ PinRangeResult BufferPool::PinRange(PageRange range, Page **out, PinOptions &opt
 }
 
 void BufferPool::Unpin(Page *page, bool dirty) {
-  (void)dirty;
-  // page->WLock();
   if (dirty) { page->SetDirty(); }
-  page->Unpin();
-  // page->WUnlock();
+  Unpin(page);
+}
+
+void BufferPool::Unpin(Page *page) {
+  auto count = page->Unpin();
+  if (count == 0) { replacement_.NotifyFrameFree(); }
 }
 
 Page *BufferPool::Reserve(table_id tbl_id, AccessStrategy &strategy) {
@@ -180,18 +185,25 @@ Page *BufferPool::Reserve(table_id tbl_id, AccessStrategy &strategy) {
 
 VictimPage BufferPool::GetVictim(PageIdentifier id, AccessStrategy &strategy, bool isIO) {
   auto pages_span = GetPages();
-  if (strategy.IsDefaultType()) { return replacement_.GetVictim(pages_span, id, isIO); }
+  // if (strategy.IsDefaultType()) { return replacement_.GetVictim(pages_span, id, isIO); }
   while (true) {
     auto reused = strategy.TryReuse(pages_span, id, isIO);
     if (reused.needs_flush) {
       if (!SafeFlush(reused.page)) { throw MEMORY_EXCEPTION("Disk scheduler err"); }
       continue;
-    } else if (reused.page != nullptr) {
+    } else if (reused.IsValid()) {
       return reused;
     }
 
     auto victim = replacement_.GetVictim(pages_span, id, isIO);
-    DB7_ASSERT(victim.needs_flush == false, "Clock doesnt use flushing");
+    // DB7_ASSERT(victim.needs_flush == false, "Clock doesnt use flushing");
+    if (victim.needs_flush) {
+      if (!SafeFlush(victim.page)) { throw MEMORY_EXCEPTION("Disk scheduler err"); }
+      continue;
+    }
+    if (!victim.IsValid()) {
+      throw EXECUTION_EXCEPTION("Thread timed out", shared::ErrorCode::ERRCODE_NO_DATA);
+    }
 
     strategy.Track(victim.page);
     return victim;

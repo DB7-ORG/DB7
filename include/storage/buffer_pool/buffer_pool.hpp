@@ -30,6 +30,16 @@ struct PageRange {
   u32 size;
 };
 
+struct Monitoring {
+  const BufferMonitor &bm_;
+  const EvictionMonitor &em_;
+
+  void Print() const {
+    bm_.Print();
+    em_.Print();
+  }
+};
+
 class BufferPool {
 private:
   friend class BgWriter;
@@ -39,8 +49,7 @@ private:
   PageVersionManager *version_table_;
   shared::PartitionedHashMap<PageIdentifier, frame_idx_t, BUFFER_POOL_PARTITION_NUM> partitions_;
   BufferMonitor stats_;
-  // replacement should be stored at the end for cache line alignment
-  alignas(CACHE_LINE_SIZE) ClockSweep replacement_;
+  ClockSweep replacement_;
 
   static constexpr PageIdentifier INVALID_PAGE_IDENTFIER = 0;
 
@@ -69,7 +78,8 @@ public:
   Page *Pin(PageIdentifier id, PinOptions &opts);
   PinRangeResult PinRange(PageRange range, Page **out, PageKind pkind);
   PinRangeResult PinRange(PageRange range, Page **out, PinOptions &opts);
-  void Unpin(Page *page, bool dirty = false);
+  void Unpin(Page *page, bool dirty);
+  void Unpin(Page *page);
 
   /* Only used for indexes for now should be more flexible in future */
   Page *Reserve(table_id tbl_id, AccessStrategy &strategy);
@@ -83,6 +93,7 @@ public:
    */
   VictimPage GetVictim(PageIdentifier id, AccessStrategy &strategy, bool isIO);
 
+  const Monitoring GetMonitorStats() const { return {stats_, replacement_.GetEvictionMonitor()}; }
   // TODO remove
   Page *GetPagesDebug() const { return pages_; };
 };
