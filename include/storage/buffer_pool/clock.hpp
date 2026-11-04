@@ -5,6 +5,7 @@
 #include "storage/buffer_pool/clock_monitoring.hpp"
 #include "storage/page.hpp"
 
+#include <mutex>
 #include <optional>
 
 namespace db7::storage {
@@ -63,6 +64,7 @@ public:
 
 class ClockSweep {
 private:
+  std::mutex sh_mutex_;
   alignas(CACHE_LINE_SIZE) std::atomic<frame_idx_t> sweep_head_;
   [[maybe_unused]] byte data_[CACHE_LINE_SIZE - sizeof(frame_idx_t)];
   std::atomic<u64> wake_epoch_{0};
@@ -75,6 +77,8 @@ private:
   using Clock = std::chrono::steady_clock;
   static constexpr auto kVictimTimeout = std::chrono::seconds(5);
   static constexpr auto threadWaitFor = std::chrono::milliseconds(10);
+
+  frame_idx_t Tick(const u32 n);
 
   VictimPage Sweep(std::span<Page> pages, PageIdentifier id, bool isIO);
 

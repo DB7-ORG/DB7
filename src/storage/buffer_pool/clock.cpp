@@ -1,5 +1,6 @@
 #include "storage/buffer_pool/clock.hpp"
 #include "shared/helper.hpp"
+#include <atomic>
 
 namespace db7::storage {
 
@@ -52,6 +53,21 @@ VictimPage AccessStrategy::TryReuse(std::span<Page> pages, PageIdentifier id, bo
   return result;
 }
 
+frame_idx_t ClockSweep::Tick(const u32 n) {
+  u32 victim = sweep_head_.fetch_add(1);
+
+  if (victim >= n) {
+    const u32 original = victim;
+    victim %= n;
+
+    if (victim == 0) {
+      u32 expected = original + 1;
+      while (!sweep_head_.compare_exchange_weak(expected, expected % n)) {}
+    }
+  }
+  return victim;
+}
+
 VictimPage ClockSweep::Sweep(std::span<Page> pages, PageIdentifier id, bool isIO) {
   const u32 n = pages.size();
 
@@ -59,7 +75,7 @@ VictimPage ClockSweep::Sweep(std::span<Page> pages, PageIdentifier id, bool isIO
   Defer miss_stats([&] { stats_.Add(EvictionType::MISS, misses); });
 
   for (; misses < n;) {
-    frame_idx_t head = (sweep_head_++) % n;
+    frame_idx_t head = Tick(n);
     Page *page = &pages[head];
 
     if (!page->TryWLock()) {
