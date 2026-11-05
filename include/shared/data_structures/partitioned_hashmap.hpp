@@ -2,6 +2,7 @@
 
 #include "shared/hash_util.hpp"
 #include "shared/locks/adaptive_version_lock.hpp"
+#include "storage/page.hpp"
 #include "third_party/unordered_dense.h"
 
 namespace db7::shared {
@@ -84,13 +85,18 @@ public:
     return inserted;
   }
 
-  template <typename Fn>
-  bool PutAndApply(Key id, Val val, Val &new_val, u32 partIdx, Fn &&on_found) {
+  template <typename OnInserted, typename OnExists>
+  bool PutAndApply(Key id, Val val, Val &new_val, u32 partIdx, OnInserted &&on_found,
+                   OnExists &&on_exists, flags_t &state) {
     auto &partition = partition_maps_[partIdx];
     shared::AdaptiveVersionLock::WriteGuard guard(partition_locks_[partIdx].lock);
     auto [it, inserted] = partition.emplace(id, val);
     new_val = it->second;
-    if (inserted) { on_found(val); }
+    if (inserted) {
+      on_found(it->second);
+    } else {
+      state = on_exists(it->second);
+    }
     return inserted;
   }
 

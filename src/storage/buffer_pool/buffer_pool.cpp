@@ -74,8 +74,10 @@ BufferPool::PinResult BufferPool::PinForBlock(PageIdentifier id, PinOptions &opt
     VictimPage victim = GetVictim(id, opts.strategy, true);
 
     frame_idx_t new_frame_idx;
-    if (partitions_.PutAndApply(id, victim.frame_idx, new_frame_idx, part_idx,
-                                [this](frame_idx_t f) { pages_[f].SetTagValid(); })) {
+    if (partitions_.PutAndApply(
+            id, victim.frame_idx, new_frame_idx, part_idx,
+            [this](frame_idx_t f) { pages_[f].SetTagValid(); },
+            [this](frame_idx_t f) -> flags_t { return pages_[f].Pin(); }, state)) {
       if (opts.pkind == PageKind::Heap) { // TODO lockfree make this thread safe
         victim.page->SetVersions(version_table_->Get(id));
       } else {
@@ -98,6 +100,13 @@ BufferPool::PinResult BufferPool::PinForBlock(PageIdentifier id, PinOptions &opt
     }
 
     UndoState(victim);
+
+    Page *page = &pages_[new_frame_idx];
+    if (Page::IsTagValid(state) && PageVisit(page, id, state)) {
+      auto pinkind = page->IsIOInProgress() ? PinKind::Foreign : PinKind::Hit;
+      return {page, pinkind};
+    }
+    Unpin(page);
     continue;
   }
 }
@@ -171,8 +180,11 @@ Page *BufferPool::Reserve(table_id tbl_id, AccessStrategy &strategy) {
 
   frame_idx_t new_frame_idx;
   auto part_idx = partitions_.GetPartitionIdx(id);
-  if (partitions_.PutAndApply(id, victim.frame_idx, new_frame_idx, part_idx,
-                              [this](frame_idx_t f) { pages_[f].SetTagValid(); })) {
+  flags_t state; // TODO unused
+  if (partitions_.PutAndApply(
+          id, victim.frame_idx, new_frame_idx, part_idx,
+          [this](frame_idx_t f) { pages_[f].SetTagValid(); },
+          [this](frame_idx_t f) -> flags_t { pages_[f].Pin(); }, state)) {
     if (victim.page_id != INVALID_PAGE_IDENTFIER) {
       partitions_.Delete(victim.page_id, victim.frame_idx);
       victim.page->SetVersions(nullptr);

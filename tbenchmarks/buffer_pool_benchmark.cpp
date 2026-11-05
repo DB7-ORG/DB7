@@ -102,7 +102,7 @@ static void BM_RandomWorkload(benchmark::State &state) {
 }
 
 BENCHMARK(BM_RandomWorkload)
-    ->Arg(12'000)
+    ->Arg(5'000)
     ->Setup(Setup)
     ->Teardown(Teardown)
     ->ThreadRange(16, 100)

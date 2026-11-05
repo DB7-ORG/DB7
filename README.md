@@ -60,6 +60,7 @@ Data table:
 - TODO storage we dont have error handling for is writable(should also add fsm)
 
 online index creation:
+
 - publish index in BUILDING state
 - start scanning the heap
 - when we get a tuple:
@@ -72,7 +73,7 @@ sudo prlimit --memlock=unlimited:unlimited --pid $$
 
 - optimize page header so its more efficient
 - consider lock free hmaps for partitions
-- consider splitting partitions in buffer pool and version hashmap 
+- consider splitting partitions in buffer pool and version hashmap
 - consider removing template in io stream
 - fsm!!!!!
 
@@ -82,12 +83,13 @@ sudo prlimit --memlock=unlimited:unlimited --pid $$
 - // TODO pis assertion
 - PIN GUARD / LOCK to make buffer pool more modern and safer
 - // TODO at this point could be removed
-- checking io in progress isnt needed since we must hold a pin.
   Uncommenting a pin assert is also needed.
 - FIX LEAKING PINS BY USING GUARDS
   - in buffer pool i can hold partition lock while checking the page and if its a stale entry i can remove it right away without starting from scratch!!!!
-  much better than current design?????
+    much better than current design?????
 
+- checking io in progress isnt needed since we must hold a pin.
+- refactor code for partitioned hash map
 
 TODO clone projetc and benchmark it with and without mutexes
 git clone https://github.com/DB7-ORG/DB7.git
