@@ -10,26 +10,65 @@
 #include <condition_variable>
 #include <cstring>
 
-#define DIRTY_FLAG (1 << 0)
-#define IO_IN_PROGRESS_FLAG (1 << 1)
-#define WRITE_IN_PROGRESS_FLAG (1 << 2)
+namespace db7 {
 
-namespace db7::storage {
+using flags_t = u32;
+
+namespace storage {
 class Page {
 private:
+  /**
+   * Packed page state, same layout as Postgres' BufferDesc.state:
+   *
+   *   31        22 21     18 17            0
+   *  +------------+---------+---------------+
+   *  |  flags(10) | usage(4)|  ref count(18)|
+   *  +------------+---------+---------------+
+   *
+   * Everything lives in one atomic word, so a single load is a consistent snapshot of all three
+   * fields and a single CAS can check and update them together.
+   */
+  static constexpr flags_t kRefCountBits = 18;
+  static constexpr flags_t kUsageCountBits = 4;
+  static constexpr flags_t kFlagBits = 10;
+  static_assert(kRefCountBits + kUsageCountBits + kFlagBits == 32, "State must fill 32 bits");
+
+  static constexpr flags_t kRefCountOne = 1u;
+  static constexpr flags_t kRefCountMask = (1u << kRefCountBits) - 1;
+
+  static constexpr flags_t kUsageCountShift = kRefCountBits;
+  static constexpr flags_t kUsageCountOne = 1u << kUsageCountShift;
+  static constexpr flags_t kUsageCountMask = ((1u << kUsageCountBits) - 1) << kUsageCountShift;
+
+  static constexpr flags_t kFlagShift = kRefCountBits + kUsageCountBits;
+
+  static constexpr flags_t kDirtyFlag = 1u << (kFlagShift + 0);
+  static constexpr flags_t kIOInProgressFlag = 1u << (kFlagShift + 1);
+  static constexpr flags_t kWriteInProgressFlag = 1u << (kFlagShift + 2);
+  static constexpr flags_t kTagValidFlag = 1u << (kFlagShift + 3);
+  static constexpr flags_t kIOErrorFlag = 1u << (kFlagShift + 4);
+
+  static constexpr flags_t RefCountOf(flags_t state) { return state & kRefCountMask; }
+  static constexpr flags_t UsageCountOf(flags_t state) {
+    return (state & kUsageCountMask) >> kUsageCountShift;
+  }
+
+  // TODO fix this
+  static constexpr bool IsEvictableState(flags_t state) {
+    return RefCountOf(state) == 0 && (state & (kIOInProgressFlag | kWriteInProgressFlag)) == 0;
+  }
+
   std::atomic<PageIdentifier> id_;     // 8 bytes
   std::atomic<VersionPtr *> versions_; // 8 bytes
   byte *data_;                         // 8 bytes
-  std::atomic<u32> ref_count_;         // 4 bytes
-  std::atomic<u8> usage_count_;
-  std::atomic<u8> flags_; // 1 byte
+  std::atomic<flags_t> state_;         // 4 bytes
 
   alignas(CACHE_LINE_SIZE) mutable std::mutex latch_; // ~56 bytes typically
   mutable std::condition_variable_any io_cv_;
   alignas(CACHE_LINE_SIZE) mutable shared::AdaptiveVersionLock lock_;
 
 public:
-  Page() : id_(PageIdentifier{0}), data_(nullptr), ref_count_(0), flags_(0) {}
+  Page() : id_(PageIdentifier{0}), versions_(nullptr), data_(nullptr), state_(0) {}
 
   VersionPtr *GetVersions() { return versions_.load(); }
   void SetVersions(VersionPtr *ptr) { versions_.store(ptr); }
@@ -39,6 +78,9 @@ public:
   byte *GetData() { return data_; }
   void SetData(byte *data) { data_ = data; }
 
+  /**
+   * ONLY USED FOR TESTING SHOULD BE REMOVED
+   *//////////////////////////////////////////////////
   byte *GetOffset(u32 offset) {
     DB7_ASSERT(data_ != nullptr, "Page data in null");
     return data_ + offset;
@@ -56,6 +98,7 @@ public:
     DB7_ASSERT(data_ != nullptr, "Page data in null");
     memcpy(data_ + offset, value, size);
   }
+  /////////////////////////////////////////////
 
   /**
    * ID
@@ -63,63 +106,98 @@ public:
   PageIdentifier GetId() const { return id_; }
   page_id GetPageId() const { return id_.load().pid; }
   void SetId(PageIdentifier id) { id_ = id; }
+  PageIdentifier SwapId(PageIdentifier id) { return id_.exchange(id); }
 
+  flags_t State() const { return state_.load(); }
+  void StoreState(flags_t state) { state_.store(state); }
+  bool CasState(u32 &expected, u32 desired) {
+    return state_.compare_exchange_weak(expected, desired);
+  }
+
+  /**
+   * Pins. Pin() and Unpin() return the previous state.
+   *
+   * NOTE: The ref count shares a word with usage and flags, so an overflow or underflow carries
+   * into those fields instead of only corrupting the count.
+   */
+  flags_t Pin() {
+    flags_t prev = state_.fetch_add(kRefCountOne);
+    DB7_ASSERT(RefCountOf(prev) < kRefCountMask, "Pin count overflow");
+    return prev;
+  }
+  flags_t Unpin() {
+    flags_t prev = state_.fetch_sub(kRefCountOne);
+    DB7_ASSERT(RefCountOf(prev) > 0, "Pin count underflow");
+    return prev;
+  }
+
+  static bool IsPinned(flags_t state) { return RefCountOf(state) > 0; }
+  static flags_t PinCount(flags_t state) { return RefCountOf(state); }
+  static flags_t Pin(flags_t state) { return state + kRefCountOne; }
+  static flags_t Unpin(flags_t state) { return state - kRefCountOne; }
+  static bool IsIoInProgress(flags_t state) { return state & kIOInProgressFlag; }
+  static flags_t SetIOInProgress(flags_t state) { return state | kIOInProgressFlag; }
+  static flags_t ClearIOInProgress(flags_t state) { return state & (~kIOInProgressFlag); }
+  static bool IsWriteInProgress(flags_t state) { return state & kWriteInProgressFlag; }
+  static flags_t SetWriteInProgress(flags_t state) { return state | kWriteInProgressFlag; }
+  static flags_t ClearWriteInProgress(flags_t state) { return state & (~kWriteInProgressFlag); }
+  static bool IsDirty(flags_t state) { return state & kDirtyFlag; }
+  static flags_t SetDirty(flags_t state) { return state | kDirtyFlag; }
+  static flags_t ClearDirty(flags_t state) { return state & (~kDirtyFlag); }
+  static flags_t ClearTagValid(flags_t state) { return state & ~kTagValidFlag; }
+  static bool IsTagValid(flags_t state) { return state & kTagValidFlag; }
+  static flags_t SetTagValid(flags_t state) { return state | kTagValidFlag; }
+  static u8 UsageCount(flags_t state) { return static_cast<u8>(UsageCountOf(state)); }
+  static flags_t DecUsage(flags_t s) { return s - kUsageCountOne; }
+
+  static bool IsReclaimable(flags_t state) {
+    // NOTE: does not take into account usage count
+    return RefCountOf(state) == 0 && !IsIoInProgress(state) && !IsWriteInProgress(state);
+  }
   /**
    * Flags
    */
-  void Pin() { ref_count_++; }
-  u32 Unpin() { return ref_count_.fetch_sub(1); }
-  u32 PinCount() const { return ref_count_; }
-  bool IsPinned() const { return PinCount() > 0; }
-
-  bool IsIOInProgress() const { return flags_ & IO_IN_PROGRESS_FLAG; }
-  void SetIOInProgress() { flags_.fetch_or(IO_IN_PROGRESS_FLAG); }
-  void ClearIOInProgress() { flags_.fetch_and(~IO_IN_PROGRESS_FLAG); }
-
-  bool IsDirty() const { return flags_ & DIRTY_FLAG; }
-  void SetDirty() { flags_.fetch_or(DIRTY_FLAG); }
-  void ClearDirty() { flags_.fetch_and(~DIRTY_FLAG); }
-
-  bool IsWriteInProgress() const { return flags_ & WRITE_IN_PROGRESS_FLAG; }
-  void SetWriteInProgress() { flags_.fetch_or(WRITE_IN_PROGRESS_FLAG); }
-  void ClearWriteInProgress() { flags_.fetch_and(~WRITE_IN_PROGRESS_FLAG); }
-
-  u8 UsageCount() const { return usage_count_; }
+  bool IsIOInProgress() const { return state_.load() & kIOInProgressFlag; }
+  void ClearIOInProgress() { state_.fetch_and(~kIOInProgressFlag); }
+  bool IsWriteInProgress() const { return state_.load() & kWriteInProgressFlag; }
+  void ClearWriteInProgress() { state_.fetch_and(~kWriteInProgressFlag); }
+  void SetDirty() { state_.fetch_or(kDirtyFlag); }
+  void SetTagValid() { state_.fetch_or(kTagValidFlag); }
 
   /**
    * NOTE: If i ever change this to value above 1 i should add a rule to ring strategy so it never
    * raises usage above 1, since it can by repeated access to the page make it look extremely HOT
    */
-  static constexpr u32 kMaxUsage = 1;
+  static constexpr u8 kMaxUsage = 1;
+  static_assert(kMaxUsage < (1u << kUsageCountBits), "kMaxUsage must fit in the usage count bits");
 
   // Returns true if the count changed.
   bool IncUsageCount() {
-    u8 cur = usage_count_.load();
+    flags_t cur = state_.load();
+    return IncUsageCount(cur);
+  }
+
+  bool IncUsageCount(flags_t state) {
     do {
-      if (cur >= kMaxUsage) return false;
-    } while (!usage_count_.compare_exchange_weak(cur, cur + 1));
+      if (UsageCountOf(state) >= kMaxUsage) return false;
+    } while (!state_.compare_exchange_weak(state, state + kUsageCountOne));
     return true;
   }
 
   bool DecUsageCount() {
-    u8 cur = usage_count_.load();
+    flags_t cur = state_.load();
     do {
-      if (cur == 0) return false;
-    } while (!usage_count_.compare_exchange_weak(cur, cur - 1));
+      if (UsageCountOf(cur) == 0) return false;
+    } while (!state_.compare_exchange_weak(cur, cur - kUsageCountOne));
     return true;
   }
-
-  bool IsEvictable() const { return !IsPinned() && !IsDirty() && !IsIOInProgress(); }
 
   /**
    * Locks
    */
-  // void RLock() { latch_.lock_shared(); }
-  // void RUnlock() { latch_.unlock_shared(); }
-  // bool TryRLock() { return latch_.try_lock_shared(); }
-  void WLock() { latch_.lock(); }
-  void WUnlock() { latch_.unlock(); }
-  bool TryWLock() { return latch_.try_lock(); }
+  // void WLock() { latch_.lock(); }
+  // void WUnlock() { latch_.unlock(); }
+  // bool TryWLock() { return latch_.try_lock(); }
 
   void RDataLock() { lock_.ReadLock(); }
   bool TryRDataLock() { return lock_.TryReadLock(); }
@@ -136,7 +214,7 @@ public:
     if (!IsIOInProgress()) { return; }
 
     std::unique_lock lk(latch_);
-    io_cv_.wait(lk, [&] { return !IsIOInProgress() && !IsWriteInProgress(); });
+    io_cv_.wait(lk, [&] { return !IsIOInProgress(); });
   }
 
   void SignalIO() {
@@ -160,17 +238,25 @@ public:
   }
 
   void WaitWrite() {
-    if (!IsWriteInProgress() && !IsIOInProgress()) return;
+    if (!IsIOOrWriteInProgress()) return;
     std::unique_lock lk(latch_);
-    io_cv_.wait(lk, [&] { return !IsWriteInProgress() && !IsIOInProgress(); });
+    io_cv_.wait(lk, [&] { return !IsIOOrWriteInProgress(); });
   }
 
-  void NotifyIO() { io_cv_.notify_all(); }
+  void NotifyIO() {
+    { std::lock_guard lk(latch_); }
+    io_cv_.notify_all();
+  }
+
+private:
+  bool IsIOOrWriteInProgress() const {
+    return state_.load() & (kIOInProgressFlag | kWriteInProgressFlag);
+  }
 };
 
 class PagePinGuard {
 private:
-  Page *page_;
+  Page *page_; // TODO lockfree add Unpin from the pool
 
 public:
   PagePinGuard(Page *page) : page_(page) {}
@@ -220,4 +306,5 @@ public:
   PageReadGuard &operator=(PageReadGuard &&) = delete;
 };
 
-} // namespace db7::storage
+} // namespace storage
+} // namespace db7

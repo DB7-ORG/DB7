@@ -16,41 +16,33 @@ VictimPage AccessStrategy::TryReuse(std::span<Page> pages, PageIdentifier id, bo
   if (!ring_ || !ring_->Full()) { return {}; }
 
   Page *page = ring_->ReadUnsafe();
-  if (!page->TryWLock()) { return {}; }
+  flags_t state = page->State();
+  while (true) {
+    if (!page->IsReclaimable(state) || Page::UsageCount(state) > 0) { return {}; }
 
-  if (page->IsPinned() || page->UsageCount() > 0 || page->IsIOInProgress() ||
-      page->IsWriteInProgress()) {
-    page->WUnlock();
-    return {};
-  }
+    if (Page::IsDirty(state)) {
+      if (RejectDirty()) { return {}; }
+      flags_t next = Page::SetWriteInProgress(Page::ClearDirty(state));
+      if (!page->CasState(state, next)) { continue; }
 
-  if (page->IsDirty()) {
-    if (RejectDirty()) {
-      page->WUnlock();
-      return {};
+      VictimPage result;
+      result.page = page;
+      result.frame_idx = static_cast<frame_idx_t>(page - pages.data());
+      result.needs_flush = true;
+      return result;
     }
-    page->ClearDirty();
-    page->SetWriteInProgress();
-    page->WUnlock();
+
+    flags_t next = Page::ClearTagValid(Page::Pin(state));
+    if (isIO) { next = Page::SetIOInProgress(next); }
+    if (!page->CasState(state, next)) { continue; }
 
     VictimPage result;
-    result.page = page;
+    result.page_id = page->SwapId(id);
     result.frame_idx = static_cast<frame_idx_t>(page - pages.data());
-    result.needs_flush = true;
+    result.page = page;
+    ring_->Append(page);
     return result;
   }
-
-  VictimPage result;
-  result.page_id = page->GetId();
-  page->SetId(id);
-  page->Pin();
-  if (isIO) { page->SetIOInProgress(); }
-  page->WUnlock();
-
-  result.frame_idx = static_cast<frame_idx_t>(page - pages.data());
-  result.page = page;
-  ring_->Append(page);
-  return result;
 }
 
 frame_idx_t ClockSweep::Tick(const u32 n) {
@@ -77,45 +69,44 @@ VictimPage ClockSweep::Sweep(std::span<Page> pages, PageIdentifier id, bool isIO
   for (; misses < n;) {
     frame_idx_t head = Tick(n);
     Page *page = &pages[head];
+    flags_t state = page->State();
 
-    if (!page->TryWLock()) {
-      misses++;
-      continue;
+    while (true) {
+      if (!Page::IsReclaimable(state)) {
+        misses++;
+        break; // next frame
+      }
+
+      if (Page::UsageCount(state) > 0) {
+        if (!page->CasState(state, Page::DecUsage(state))) continue;
+        stats_.Add(EvictionType::MISS, misses);
+        misses = 0; // progress
+        break;
+      }
+
+      if (Page::IsDirty(state)) {
+        flags_t next = Page::SetWriteInProgress(Page::ClearDirty(state));
+        if (!page->CasState(state, next)) continue;
+
+        stats_.Add(EvictionType::WRITTEN);
+        VictimPage result;
+        result.page = page;
+        result.frame_idx = head;
+        result.needs_flush = true;
+        return result;
+      }
+
+      // Pin, invalidate and start I/O in one atomic step
+      flags_t next = Page::ClearTagValid(Page::Pin(state));
+      if (isIO) next = Page::SetIOInProgress(next);
+      if (!page->CasState(state, next)) continue;
+
+      // The CAS won, so it's now safe to touch the id
+      auto page_id = page->SwapId(id);
+
+      stats_.Add(EvictionType::HIT);
+      return {page, page_id, head};
     }
-
-    if (page->IsPinned() || page->IsWriteInProgress() || page->IsIOInProgress()) {
-      page->WUnlock();
-      misses++;
-      continue;
-    }
-    if (page->UsageCount() > 0) {
-      page->DecUsageCount();
-      page->WUnlock();
-      stats_.Add(EvictionType::MISS, misses);
-      misses = 0; // progress
-      continue;
-    }
-    if (page->IsDirty()) {
-      page->ClearDirty();
-      page->SetWriteInProgress();
-      page->WUnlock();
-
-      stats_.Add(EvictionType::WRITTEN);
-      VictimPage result;
-      result.page = page;      // missing
-      result.frame_idx = head; // missing
-      result.needs_flush = true;
-      return result;
-    }
-
-    auto page_id = page->GetId();
-    page->SetId(id);
-    page->Pin();
-    if (isIO) { page->SetIOInProgress(); }
-    page->WUnlock();
-
-    stats_.Add(EvictionType::HIT);
-    return {page, page_id, head};
   }
 
   return {};

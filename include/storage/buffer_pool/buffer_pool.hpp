@@ -55,7 +55,7 @@ private:
 
   std::span<Page> GetPages() const { return {pages_, pool_size_}; }
   void UndoState(VictimPage victim);
-  bool PageVisit(Page *page, PageIdentifier id);
+  bool PageVisit(Page *page, PageIdentifier id, flags_t state);
 
   struct PinResult {
     Page *page;

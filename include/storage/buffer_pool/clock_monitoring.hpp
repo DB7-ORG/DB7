@@ -57,7 +57,7 @@ public:
     auto pins = Totals();
     for (u64 count : pins) total += count;
 
-    std::printf("[EVICTIONS]: %" PRIu64 "\n", total);
+    std::printf("[CLOCK TICKS]: %" PRIu64 "\n", total);
     for (size_t i = 0; i < pins.size(); ++i) {
       const double pct =
           total == 0 ? 0.0 : 100.0 * static_cast<double>(pins[i]) / static_cast<double>(total);

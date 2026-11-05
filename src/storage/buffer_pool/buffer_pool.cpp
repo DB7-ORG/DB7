@@ -11,9 +11,7 @@ BufferPool::BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_tabl
   DB7_ASSERT(data != nullptr, "Failed to allocate");
   PageIdentifier id(INVALID_PAGE_IDENTFIER);
   for (frame_idx_t i = 0; i < page_num; i++) {
-    pages_[i].WLock();
     pages_[i].SetId(id);
-    pages_[i].WUnlock();
     pages_[i].SetData(data + (i * DB7_PAGE_SIZE));
   }
 
@@ -28,29 +26,27 @@ BufferPool::~BufferPool() {
   std::free(pages_[0].GetData());
   delete[] pages_;
 }
-
+/** Noone should be able to modify this page flags since Tag is invalid */
 void BufferPool::UndoState(VictimPage victim) {
   auto *victim_page = victim.page;
-  victim_page->WLock();
   victim_page->SetId(victim.page_id);
-  victim_page->ClearIOInProgress();
-  victim_page->WUnlock();
-  Unpin(victim_page);
+
+  flags_t state = victim_page->State();
+  flags_t next;
+  do {
+    next = Page::SetTagValid(Page::Unpin(Page::ClearIOInProgress(state)));
+    if (victim_page->CasState(state, next)) { break; }
+  } while (true);
+
+  if (!Page::IsPinned(next)) { replacement_.NotifyFrameFree(); }
   victim_page->NotifyIO();
 }
 
-bool BufferPool::PageVisit(Page *page,
-                           PageIdentifier id) { // TODO  might be able to use optimistic here but i
-                                                // think this is just a spinlock anyway
-  page->WLock();
-  if (page->GetId() == id) { // PageVisit
-    // page->Pin();
-    page->IncUsageCount();
-    page->WUnlock();
+bool BufferPool::PageVisit(Page *page, PageIdentifier id, flags_t state) {
+  if (page->GetId() == id) {
+    page->IncUsageCount(state); // TODO lockfree
     return true;
   }
-  page->WUnlock();
-
   return false;
 }
 
@@ -59,15 +55,16 @@ BufferPool::PinResult BufferPool::PinForBlock(PageIdentifier id, PinOptions &opt
   DB7_ASSERT(id.pid != 0, "invalid pid");
   DB7_ASSERT(id.pid != std::numeric_limits<page_id>::max(), "invalid pid");
 
-  u32 partIdx = partitions_.GetPartitionIdx(id);
+  u32 part_idx = partitions_.GetPartitionIdx(id);
 
   while (true) {
     // this function pins the frame because of the instane 5 thread race :D
-    frame_idx_t frame_idx =
-        partitions_.GetAndApply(id, partIdx, [this](frame_idx_t f) { pages_[f].Pin(); });
+    flags_t state;
+    frame_idx_t frame_idx = partitions_.GetAndApply(
+        id, part_idx, [this](frame_idx_t f) -> flags_t { return pages_[f].Pin(); }, state);
     if (partitions_.IsValid(frame_idx)) {
       Page *page = &pages_[frame_idx];
-      if (PageVisit(page, id)) {
+      if (Page::IsTagValid(state) && PageVisit(page, id, state)) {
         auto pinkind = page->IsIOInProgress() ? PinKind::Foreign : PinKind::Hit;
         return {page, pinkind};
       }
@@ -77,8 +74,9 @@ BufferPool::PinResult BufferPool::PinForBlock(PageIdentifier id, PinOptions &opt
     VictimPage victim = GetVictim(id, opts.strategy, true);
 
     frame_idx_t new_frame_idx;
-    if (partitions_.Put(id, victim.frame_idx, new_frame_idx, partIdx)) {
-      if (opts.pkind == PageKind::Heap) {
+    if (partitions_.PutAndApply(id, victim.frame_idx, new_frame_idx, part_idx,
+                                [this](frame_idx_t f) { pages_[f].SetTagValid(); })) {
+      if (opts.pkind == PageKind::Heap) { // TODO lockfree make this thread safe
         victim.page->SetVersions(version_table_->Get(id));
       } else {
         victim.page->SetVersions(nullptr);
@@ -88,9 +86,10 @@ BufferPool::PinResult BufferPool::PinForBlock(PageIdentifier id, PinOptions &opt
         partitions_.Delete(victim.page_id, victim.frame_idx);
       }
 
-      // TODO at this point could be removed
+      // TODO lockfree can this be above delete
       if (!read_fn(victim.page, id)) {
         UndoState(victim);
+        partitions_.Delete(id, victim.frame_idx, part_idx);
         throw MEMORY_EXCEPTION("Failure inside disk scheduler");
       }
 
@@ -146,7 +145,7 @@ PinRangeResult BufferPool::PinRange(PageRange range, Page **out, PinOptions &opt
         disk_mng_->Enqueue(IoTask(IoTask::READV, IoPriority::HIGH, out, misses, range.first));
     stats_.Add(PinKind::Miss, misses);
     if (!res) {
-      // TODO this leaks the pins
+      // TODO lockfree this leaks the pins
       throw MEMORY_EXCEPTION("Failed to enqueue a task to camel queue");
     }
   }
@@ -159,19 +158,21 @@ void BufferPool::Unpin(Page *page, bool dirty) {
 }
 
 void BufferPool::Unpin(Page *page) {
-  auto count = page->Unpin();
-  if (count == 0) { replacement_.NotifyFrameFree(); }
+  auto prev_state = page->Unpin();
+  if (Page::PinCount(prev_state) == 1) { replacement_.NotifyFrameFree(); }
 }
 
+// TODO lockfree here i can delete and memset first then do the insert into ht
 Page *BufferPool::Reserve(table_id tbl_id, AccessStrategy &strategy) {
   page_id pid = FreeSpaceManagerIndex::Get(tbl_id);
 
   auto id = PageIdentifier(tbl_id, pid);
-
   VictimPage victim = GetVictim(id, strategy, false);
 
   frame_idx_t new_frame_idx;
-  if (partitions_.Put(id, victim.frame_idx, new_frame_idx)) {
+  auto part_idx = partitions_.GetPartitionIdx(id);
+  if (partitions_.PutAndApply(id, victim.frame_idx, new_frame_idx, part_idx,
+                              [this](frame_idx_t f) { pages_[f].SetTagValid(); })) {
     if (victim.page_id != INVALID_PAGE_IDENTFIER) {
       partitions_.Delete(victim.page_id, victim.frame_idx);
       victim.page->SetVersions(nullptr);
@@ -214,12 +215,16 @@ bool BufferPool::SafeFlush(Page *page) {
   if (disk_mng_->Enqueue(IoTask(IoTask::WRITE, IoPriority::HIGH, page, page->GetId()))) {
     return true;
   }
+
   // undo path
-  page->WLock();
-  page->ClearWriteInProgress();
-  page->SetDirty();
-  page->WUnlock();
+  flags_t state = page->State();
+  do {
+    auto next = Page::ClearWriteInProgress(Page::SetDirty(state));
+    if (page->CasState(state, next)) { break; }
+  } while (true);
+
   page->NotifyIO();
+
   return false;
 }
 

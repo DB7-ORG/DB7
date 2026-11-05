@@ -18,15 +18,6 @@ private:
   Map partition_maps_[PCount];
   AlignedLock partition_locks_[PCount];
 
-  static constexpr Val NotFound() {
-    if constexpr (std::is_pointer_v<Val>)
-      return nullptr;
-    else if constexpr (std::is_integral_v<Val>)
-      return std::numeric_limits<Val>::max();
-    else
-      return Val{}; // e.g. FrameRef, whose default is the sentinel
-  }
-
   Val GetUnsafe(Map &partition_map, Key id) {
     auto it = partition_map.find(id);
     if (it != partition_map.end()) { return it->second; }
@@ -39,6 +30,15 @@ public:
       for (auto &map : partition_maps_)
         for (auto &[key, val] : map) Deleter{}(val);
     }
+  }
+
+  constexpr Val NotFound() const {
+    if constexpr (std::is_pointer_v<Val>)
+      return nullptr;
+    else if constexpr (std::is_integral_v<Val>)
+      return std::numeric_limits<Val>::max();
+    else
+      return Val{}; // e.g. FrameRef, whose default is the sentinel
   }
 
   bool IsValid(Val value) const { return value != NotFound(); }
@@ -62,12 +62,12 @@ public:
     return GetUnsafe(partition, id);
   };
 
-  template <typename Fn>
-  Val GetAndApply(Key id, u32 partIdx, Fn &&on_found) {
+  template <typename Fn, typename FnRes>
+  Val GetAndApply(Key id, u32 partIdx, Fn &&on_found, FnRes &result) {
     auto &partition = partition_maps_[partIdx];
     shared::AdaptiveVersionLock::ReadGuard guard(partition_locks_[partIdx].lock);
     Val val = GetUnsafe(partition, id);
-    if (IsValid(val)) on_found(val);
+    if (IsValid(val)) result = on_found(val);
     return val;
   }
 
@@ -81,6 +81,16 @@ public:
     shared::AdaptiveVersionLock::WriteGuard guard(partition_locks_[partIdx].lock);
     auto [it, inserted] = partition.emplace(id, val);
     new_val = it->second;
+    return inserted;
+  }
+
+  template <typename Fn>
+  bool PutAndApply(Key id, Val val, Val &new_val, u32 partIdx, Fn &&on_found) {
+    auto &partition = partition_maps_[partIdx];
+    shared::AdaptiveVersionLock::WriteGuard guard(partition_locks_[partIdx].lock);
+    auto [it, inserted] = partition.emplace(id, val);
+    new_val = it->second;
+    if (inserted) { on_found(val); }
     return inserted;
   }
 

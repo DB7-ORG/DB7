@@ -1,6 +1,3 @@
-in buffer pool i can hold partition lock while checking the page and if its a stale entry i can remove it right away without starting from scratch!!!!
-much better than current design?????
-
 thread safety for file descriptors
 
 # i dont like Reserve in buffer pool
@@ -10,9 +7,6 @@ thread safety for file descriptors
 # i dont like fsm hacking should plan it first
 
 perf report -i perf.data -f
-
-TODO
-https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrees-are-back.pdf
 
 - check out when encoding utf8proc_decompose
   so i have more controle and less allocations
@@ -78,6 +72,7 @@ sudo prlimit --memlock=unlimited:unlimited --pid $$
 
 - optimize page header so its more efficient
 - consider lock free hmaps for partitions
+- consider splitting partitions in buffer pool and version hashmap 
 - consider removing template in io stream
 - fsm!!!!!
 
@@ -85,8 +80,10 @@ sudo prlimit --memlock=unlimited:unlimited --pid $$
   but keep it for now who knows what might change
 - // TODO this leaks the pins
 - // TODO pis assertion
-
-- statistics for buffer pool 
-- PIN GUARD / LOCK
+- PIN GUARD / LOCK to make buffer pool more modern and safer
 - // TODO at this point could be removed
--   alignas(CACHE_LINE_SIZE) ClockSweep replacement_; check if this is isolated
+- checking io in progress isnt needed since we must hold a pin.
+  Uncommenting a pin assert is also needed.
+- FIX LEAKING PINS BY USING GUARDS
+  - in buffer pool i can hold partition lock while checking the page and if its a stale entry i can remove it right away without starting from scratch!!!!
+  much better than current design?????

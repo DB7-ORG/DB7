@@ -58,6 +58,40 @@ std::optional<u64> Load(Page *page) {
   return head;
 }
 
+/// Page keeps its pin count and flags in one word. These read a snapshot of it.
+u32 PinsOf(const Page *page) { return Page::PinCount(page->State()); }
+bool IsPinned(const Page *page) { return Page::IsPinned(page->State()); }
+bool IsDirty(const Page *page) { return Page::IsDirty(page->State()); }
+
+/// Aborts the run if a test outlives kTestTimeout, so a hang can't block forever.
+class HangGuard {
+private:
+  std::mutex mutex_;
+  std::condition_variable cv_;
+  bool stop_ = false;
+  std::thread thread_;
+
+public:
+  HangGuard()
+      : thread_([this] {
+          std::unique_lock lock(mutex_);
+          if (cv_.wait_for(lock, kTestTimeout, [this] { return stop_; })) { return; }
+          const auto *test = ::testing::UnitTest::GetInstance()->current_test_info();
+          std::fprintf(stderr, "HANG: %s.%s passed kTestTimeout\n", test->test_suite_name(),
+                       test->name());
+          std::abort();
+        }) {}
+
+  ~HangGuard() {
+    {
+      std::lock_guard lock(mutex_);
+      stop_ = true;
+    }
+    cv_.notify_all();
+    thread_.join();
+  }
+};
+
 /// Prints progress once a second, and dumps the frames if nothing moved.
 /// Put it in its own scope around RunParallel, so it stops before reporting.
 class Progress {
@@ -80,9 +114,9 @@ public:
             if (now == last) {
               for (frame_idx_t f = 0; f < std::min<frame_idx_t>(frames, 32); ++f) {
                 std::fprintf(stderr, "  frame %u: pid=%u pins=%u io=%d write=%d dirty=%d\n",
-                             (unsigned)f, (unsigned)pages[f].GetPageId(), pages[f].PinCount(),
+                             (unsigned)f, (unsigned)pages[f].GetPageId(), PinsOf(&pages[f]),
                              pages[f].IsIOInProgress(), pages[f].IsWriteInProgress(),
-                             pages[f].IsDirty());
+                             IsDirty(&pages[f]));
               }
             }
             last = now;
@@ -117,6 +151,7 @@ protected:
   std::unique_ptr<DiskScheduler> sched_;
   std::unique_ptr<PageVersionManager> vm_;
   std::unique_ptr<BufferPool> bp_;
+  std::optional<HangGuard> hang_guard_;
   table_id tbl_ = 0;
   table_id churn_tbl_ = 0;
 
@@ -135,6 +170,7 @@ protected:
   }
 
   void SetUp() override {
+    hang_guard_.emplace();
     dm_ = std::make_unique<DiskManagerAsync>(kDataDir);
     sched_ = std::make_unique<DiskScheduler>(dm_.get());
     sched_->Start();
@@ -152,7 +188,13 @@ protected:
   void TearDown() override {
     ExpectPoolConsistent();
     sched_->Stop();
+    // Newest first: RepeatedMissStorm calls SetUp() again, and replacing dm_ there
+    // would otherwise destroy it while the old scheduler still points at it.
     bp_.reset();
+    vm_.reset();
+    sched_.reset();
+    dm_.reset();
+    hang_guard_.reset();
   }
 
   /// Creates n consecutive dirty pages, each holding StampFor(its id).
@@ -187,7 +229,7 @@ protected:
       }
       cached = false;
       for (frame_idx_t f = 0; f < PoolPages(); ++f) {
-        if (pages[f].GetId().tbl_id == tbl_ && !pages[f].IsPinned()) {
+        if (pages[f].GetId().tbl_id == tbl_ && !IsPinned(&pages[f])) {
           pages[f].WaitWrite();
           cached = true;
         }
@@ -213,14 +255,14 @@ protected:
       page->WaitWrite();
 
       SCOPED_TRACE(f);
-      EXPECT_EQ(page->PinCount(), 0u) << "leaked pin";
+      EXPECT_EQ(PinsOf(page), 0u) << "leaked pin";
       EXPECT_FALSE(page->IsIOInProgress()) << "leaked IO_IN_PROGRESS";
 
       const PageIdentifier id = page->GetId();
       if (id == PageIdentifier{0}) { continue; }
 
       EXPECT_TRUE(seen.insert(StampFor(id)).second) << "page cached in two frames";
-      if (page->PinCount() == 0) {
+      if (PinsOf(page) == 0) {
         Page *found = bp_->Pin(id, kKind);
         EXPECT_EQ(found, page) << "hash table points at the wrong frame";
         found->WaitIO();
@@ -250,7 +292,7 @@ TEST_F(BufferPoolTest, ReservedPageIsPinned) {
   AccessStrategy strategy;
   Page *page = bp_->Reserve(tbl_, strategy);
 
-  EXPECT_EQ(page->PinCount(), 1u);
+  EXPECT_EQ(PinsOf(page), 1u);
   EXPECT_FALSE(page->IsIOInProgress());
   bp_->Unpin(page);
 }
@@ -263,11 +305,11 @@ TEST_F(BufferPoolTest, PinOfResidentPageReturnsSameFrame) {
 
   EXPECT_EQ(first, second);
   EXPECT_EQ(first->GetId(), id);
-  EXPECT_EQ(first->PinCount(), 2u);
+  EXPECT_EQ(PinsOf(first), 2u);
 
   bp_->Unpin(first);
   bp_->Unpin(second);
-  EXPECT_EQ(first->PinCount(), 0u);
+  EXPECT_EQ(PinsOf(first), 0u);
 }
 
 TEST_F(BufferPoolTest, UnpinOnlyMarksDirtyWhenAsked) {
@@ -275,13 +317,13 @@ TEST_F(BufferPoolTest, UnpinOnlyMarksDirtyWhenAsked) {
   Evict();
 
   Page *page = PinReady(id);
-  EXPECT_FALSE(page->IsDirty());
+  EXPECT_FALSE(IsDirty(page));
   bp_->Unpin(page, false);
-  EXPECT_FALSE(page->IsDirty());
+  EXPECT_FALSE(IsDirty(page));
 
   page = PinReady(id);
   bp_->Unpin(page, true);
-  EXPECT_TRUE(page->IsDirty());
+  EXPECT_TRUE(IsDirty(page));
 }
 
 // =========================================================================
