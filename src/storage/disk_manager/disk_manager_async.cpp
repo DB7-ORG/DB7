@@ -91,9 +91,10 @@ bool DiskManagerAsync::RegisterPool(u8 *base, size_t len) {
   /* Registers thechunks */
   int ret = io_uring_register_buffers(&ring_, iov.data(), n);
   if (ret != 0) {
-    fprintf(stderr,
-            "WARNING: io_uring_register_buffers failed (%s), falling back to non-fixed I/O\n",
-            strerror(-ret));
+    // TODO lockfree uncomment this later
+    //  fprintf(stderr,
+    //          "WARNING: io_uring_register_buffers failed (%s), falling back to non-fixed I/O\n",
+    //          strerror(-ret));
     return false; // reg_base_ stays nullptr, plain reads still work
   }
   reg_base_ = base;

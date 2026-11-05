@@ -104,3 +104,4 @@ format:
 -include $(DEPS)
 
 include tests/tests.mk
+include tbenchmarks/benchmarks.mk
