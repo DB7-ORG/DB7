@@ -20,7 +20,7 @@ static void Populate(u32 size, u32 pool_size) {
   for (u32 i = 1; i < size; ++i) {
     PageIdentifier id{tbl_, i};
     Page *page = buffer_pool_->Pin(id, PageKind::Heap);
-
+    page->WaitIO();
     std::memset(page->GetData(), 0xAB, DB7_PAGE_SIZE);
     buffer_pool_->Unpin(page, false);
   }
@@ -30,14 +30,21 @@ static void Populate(u32 size, u32 pool_size) {
     auto &page = pages[i];
     if (page.GetPageId() == 0) continue;
 
-    auto next = Page::SetWriteInProgress(page.State());
-    page.StoreState(next);
+    auto state = page.State();
+    while (!page.CasState(state, Page::SetWriteInProgress(state))) {}
     sched_->Enqueue(IoTask(IoTask::WRITE, IoPriority::HIGH, &page, page.GetId()));
   }
 
   for (u32 i = 0; i < pool_size; i++) {
     auto &page = pages[i];
     if (page.GetPageId() != 0) page.WaitWrite();
+  }
+}
+
+static void PrintStats(const benchmark::State &state) {
+  if (state.thread_index() == 0) {
+    const auto &monitor = buffer_pool_->GetMonitorStats(); // replace with your API
+    monitor.Print();
   }
 }
 
@@ -53,7 +60,9 @@ static void Setup(const benchmark::State &state) {
   Populate(DATA_PAGE_COUNT, pool_size);
 }
 
-static void Teardown(const benchmark::State &) {
+static void Teardown(const benchmark::State &s) {
+  // PrintStats(s);
+  sched_->Stop();
   buffer_pool_.reset();
   vm_.reset();
   sched_.reset();
@@ -72,13 +81,6 @@ static void SimulateWork(Page *page, i64 passes) {
   }
 }
 
-static void PrintStats(benchmark::State &state) {
-  if (state.thread_index() == 0) {
-    const auto &monitor = buffer_pool_->GetMonitorStats(); // replace with your API
-    monitor.Print();
-  }
-}
-
 static void BM_RandomWorkload(benchmark::State &state) {
 
   std::mt19937 rng(state.thread_index());
@@ -90,23 +92,21 @@ static void BM_RandomWorkload(benchmark::State &state) {
     for (int i = 0; i < numOps; i++) {
       Page *page = buffer_pool_->Pin({tbl_, dist(rng)}, PageKind::Heap);
       benchmark::DoNotOptimize(page);
+      page->WaitIO();
       SimulateWork(page, 1);
       buffer_pool_->Unpin(page);
     }
   }
 
-  state.SetItemsProcessed(state.iterations());
-
-  // PrintStats(state);
+  state.SetItemsProcessed(state.iterations() * numOps);
 }
 
 BENCHMARK(BM_RandomWorkload)
-    ->Arg(5'000)
+    ->Arg(12'000)
     ->Setup(Setup)
     ->Teardown(Teardown)
-    ->ThreadRange(1, 16)
+    ->ThreadRange(16, 100)
     ->UseRealTime()
     ->Unit(benchmark::kMillisecond);
-;
 
 BENCHMARK_MAIN();
