@@ -87,3 +87,9 @@ sudo prlimit --memlock=unlimited:unlimited --pid $$
 - FIX LEAKING PINS BY USING GUARDS
   - in buffer pool i can hold partition lock while checking the page and if its a stale entry i can remove it right away without starting from scratch!!!!
   much better than current design?????
+
+
+TODO clone projetc and benchmark it with and without mutexes
+git clone https://github.com/DB7-ORG/DB7.git
+cd DB7
+git checkout a824245abac0985ae4573e829a6552570d44bf34

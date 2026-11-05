@@ -1,0 +1,359 @@
+#include "storage/disk_manager/disk_manager_async.hpp"
+#include "shared/error/exception.hpp"
+#include "storage/page.hpp"
+
+#include <cstring>
+#include <dirent.h>
+#include <fcntl.h>
+#include <stdexcept>
+#include <sys/stat.h>
+#include <unistd.h>
+
+/**
+ * TODO there is no error handling
+ */
+
+namespace db7::storage {
+#pragma GCC diagnostic push // TODO
+#pragma GCC diagnostic ignored "-Wformat-truncation"
+void DiskManagerAsync::BuildPath(table_id tid, char *buf, u32 len) {
+  int n = snprintf(buf, len, "%s/table_%u.db", base_dir_, (unsigned)tid);
+  (void)n;
+  DB7_ASSERT(n > 0 && (u32)n < len, "Path buffer too small");
+}
+#pragma GCC diagnostic pop
+
+void DiskManagerAsync::LoadExistingTables() {
+  DIR *dir = opendir(base_dir_);
+  if (!dir) return;
+
+  struct dirent *entry;
+  while ((entry = readdir(dir)) != nullptr) {
+    if (entry->d_type != DT_REG) continue;
+
+    table_id tbl_id;
+    if (sscanf(entry->d_name, "table_%u", &tbl_id) != 1) continue;
+
+    char path[MAX_PATH_LEN];
+    BuildPath(tbl_id, path, sizeof(path));
+
+    int fd = open(path, O_RDWR | O_DIRECT);
+    if (fd < 0) continue;
+
+    struct stat st;
+    fstat(fd, &st);
+
+    FdCacheEntry hdr;
+    hdr.fd = fd;
+    hdr.page_count = st.st_size / DB7_PAGE_SIZE;
+
+    cache_->Set(tbl_id, hdr);
+  }
+
+  closedir(dir);
+}
+
+DiskManagerAsync::DiskManagerAsync(const char *base_dir, u32 queue_depth)
+    : cache_(std::make_unique<FdCache>()) {
+  int ret = io_uring_queue_init(queue_depth, &ring_, 0);
+  if (ret < 0) throw std::runtime_error("io_uring_queue_init failed");
+
+  if (!(ring_.features & IORING_FEAT_SUBMIT_STABLE)) {
+    io_uring_queue_exit(&ring_);
+    throw std::runtime_error("io_uring: IORING_FEAT_SUBMIT_STABLE not supported");
+  }
+  sqe_shift_ = (ring_.flags & IORING_SETUP_SQE128) ? 1 : 0;
+  iov_store_ = std::make_unique<iovec[]>(size_t(ring_.sq.ring_entries) * kMaxIov);
+
+  strncpy(base_dir_, base_dir, MAX_PATH_LEN_2 - 1);
+
+  for (u32 i = 0; i < MAX_OPEN_FILES; i++) { cache_->Invalidate(i); }
+
+  mkdir(base_dir_, 0755);
+
+  LoadExistingTables();
+}
+
+bool DiskManagerAsync::RegisterPool(u8 *base, size_t len) {
+  DB7_ASSERT((uintptr_t)base % 4096 == 0, "unaligned buffer");
+  DB7_ASSERT(len % 4096 == 0, "unaligned length");
+
+  /**
+   * Calculates how many 1GB chunks we need to split the buffer since the os has
+   * a limit that prevents larger blocks
+   */
+  u32 n = (len + kRegChunk - 1) / kRegChunk;
+  std::vector<iovec> iov(n);
+  for (u32 i = 0; i < n; i++) {
+    iov[i].iov_base = base + (size_t)i * kRegChunk;
+    iov[i].iov_len = std::min(kRegChunk, len - (size_t)i * kRegChunk);
+  }
+  /* Registers thechunks */
+  int ret = io_uring_register_buffers(&ring_, iov.data(), n);
+  if (ret != 0) {
+    // TODO lockfree uncomment this later
+    //  fprintf(stderr,
+    //          "WARNING: io_uring_register_buffers failed (%s), falling back to non-fixed I/O\n",
+    //          strerror(-ret));
+    return false; // reg_base_ stays nullptr, plain reads still work
+  }
+  reg_base_ = base;
+  return true;
+}
+
+bool DiskManagerAsync::DeleteDir(const char *directory) {
+  int res = rmdir(directory);
+  return res == 0;
+}
+
+DiskManagerAsync::~DiskManagerAsync() {
+  io_uring_queue_exit(&ring_);
+
+  for (u32 i = 0; i < MAX_OPEN_FILES; i++) {
+    int fd = cache_->Get(i).fd;
+    if (fd >= 0) { close(fd); }
+  }
+
+  DeleteDir(base_dir_);
+}
+
+/**
+ * sqe - Submission Queue Entry
+ */
+bool DiskManagerAsync::SubmitRead(table_id tid, void *buf, u32 len, off_t offset, void *user_data) {
+  DB7_ASSERT((uintptr_t)buf % 4096 == 0, "unaligned buffer");
+  DB7_ASSERT(len % 4096 == 0, "unaligned length");
+  DB7_ASSERT(offset % 4096 == 0, "unaligned offset");
+
+  auto hdr = cache_->Get(tid);
+  DB7_ASSERT(hdr.fd >= 0, "No valid file descriptor");
+
+  struct io_uring_sqe *sqe = io_uring_get_sqe(&ring_);
+  if (!sqe) return false;
+
+  // io_uring_prep_read(sqe, hdr.fd, buf, len, offset);
+  if (reg_base_) {
+    u32 idx = RegIndex(buf);
+    io_uring_prep_read_fixed(sqe, hdr.fd, buf, len, offset, idx);
+  } else {
+    io_uring_prep_read(sqe, hdr.fd, buf, len, offset);
+  }
+  io_uring_sqe_set_data(sqe, user_data);
+  return true;
+}
+
+u32 DiskManagerAsync::RegIndex(const void *buf) const {
+  return (u32)(((const u8 *)buf - reg_base_) / kRegChunk);
+}
+
+iovec *DiskManagerAsync::IovFor(io_uring_sqe *sqe) {
+  size_t slot = size_t(sqe - ring_.sq.sqes) >> sqe_shift_;
+  return &iov_store_[slot * kMaxIov];
+}
+
+bool DiskManagerAsync::SubmitReadv(table_id tid, Page *const *pages, u32 nr, off_t offset,
+                                   void *user_data) {
+  DB7_ASSERT(nr >= 1 && nr <= kMaxIov, "invalid iovec count");
+  DB7_ASSERT(offset % 4096 == 0, "unaligned offset");
+
+  if (nr == 1) return SubmitRead(tid, pages[0]->GetData(), DB7_PAGE_SIZE, offset, user_data);
+
+  auto hdr = cache_->Get(tid);
+  DB7_ASSERT(hdr.fd >= 0, "No valid file descriptor");
+
+  io_uring_sqe *sqe = io_uring_get_sqe(&ring_);
+  if (!sqe) return false;
+
+  iovec *iov = IovFor(sqe);
+
+  for (u32 i = 0; i < nr; i++) {
+    DB7_ASSERT((uintptr_t)pages[i]->GetData() % 4096 == 0, "unaligned buffer");
+    iov[i].iov_base = pages[i]->GetData();
+    iov[i].iov_len = DB7_PAGE_SIZE;
+  }
+
+  io_uring_prep_readv(sqe, hdr.fd, iov, nr, offset);
+
+  io_uring_sqe_set_data(sqe, user_data);
+  return true;
+}
+
+bool DiskManagerAsync::SubmitWrite(table_id tid, const void *buf, u32 len, off_t offset,
+                                   void *user_data) {
+  DB7_ASSERT((uintptr_t)buf % 4096 == 0, "unaligned buffer");
+  DB7_ASSERT(len % 4096 == 0, "unaligned length");
+  DB7_ASSERT(offset % 4096 == 0, "unaligned offset");
+
+  auto hdr = cache_->Get(tid);
+  DB7_ASSERT(hdr.fd >= 0, "No valid file descriptor");
+
+  struct io_uring_sqe *sqe = io_uring_get_sqe(&ring_);
+  if (!sqe) return false;
+
+  // io_uring_prep_write(sqe, hdr.fd, buf, len, offset);
+  if (reg_base_) {
+    u32 idx = (u32)(((u8 *)buf - reg_base_) / kRegChunk);
+    io_uring_prep_write_fixed(sqe, hdr.fd, buf, len, offset, idx);
+  } else {
+    io_uring_prep_write(sqe, hdr.fd, buf, len, offset);
+  }
+  io_uring_sqe_set_data(sqe, user_data);
+  return true;
+}
+
+bool DiskManagerAsync::SubmitWritev(table_id tid, Page *const *pages, u32 nr, off_t offset,
+                                    void *user_data) {
+  DB7_ASSERT(nr >= 1 && nr <= kMaxIov, "invalid iovec count");
+  DB7_ASSERT(offset % 4096 == 0, "unaligned offset");
+
+  if (nr == 1) return SubmitWrite(tid, pages[0]->GetData(), DB7_PAGE_SIZE, offset, user_data);
+
+  auto hdr = cache_->Get(tid);
+  DB7_ASSERT(hdr.fd >= 0, "No valid file descriptor");
+
+  io_uring_sqe *sqe = io_uring_get_sqe(&ring_);
+  if (!sqe) return false;
+
+  iovec *iov = IovFor(sqe);
+
+  for (u32 i = 0; i < nr; i++) {
+    DB7_ASSERT((uintptr_t)pages[i]->GetData() % 4096 == 0, "unaligned buffer");
+    iov[i].iov_base = pages[i]->GetData();
+    iov[i].iov_len = DB7_PAGE_SIZE;
+  }
+
+  io_uring_prep_writev(sqe, hdr.fd, iov, nr, offset);
+
+  io_uring_sqe_set_data(sqe, user_data);
+  return true;
+}
+
+int DiskManagerAsync::Submit() { return io_uring_submit(&ring_); }
+
+int DiskManagerAsync::ReapCompletions(u32 max) {
+  io_uring_cqe *cqe;
+  u32 n = 0;
+  while (n < max && io_uring_peek_cqe(&ring_, &cqe) == 0) {
+    void *ud = io_uring_cqe_get_data(cqe);
+    ssize_t res = cqe->res;
+    io_uring_cqe_seen(&ring_, cqe);
+    if (ud == nullptr) {
+      ArmWakeup();
+      continue;
+    } // re-post; submitted by the next Submit/Wait
+    completion_cb_(ud, res);
+    n++;
+  }
+  return n;
+}
+
+bool DiskManagerAsync::CreateTable(table_id tbl_id, u32 initial_pages) {
+  if (cache_->Get(tbl_id).fd != -1) { throw IO_EXCEPTION("File already exists"); }
+
+  char path[MAX_PATH_LEN];
+  BuildPath(tbl_id, path, sizeof(path));
+
+  int fd = open(path, O_RDWR | O_CREAT | O_EXCL | O_DIRECT, 0644);
+  if (fd < 0) { throw IO_EXCEPTION("File not found"); }
+
+  FdCacheEntry entry(fd, initial_pages);
+  cache_->Set(tbl_id, entry);
+
+  // TruncateFile(tbl_id, initial_pages);
+  // TODO move this to truncate
+  int ret = fallocate(fd, 0, 0, (off_t)initial_pages * DB7_PAGE_SIZE);
+  (void)ret;
+  DB7_ASSERT(ret == 0, "fallocate failed");
+
+  return true;
+}
+
+bool DiskManagerAsync::OpenFile(table_id tbl_id) {
+  char path[MAX_PATH_LEN];
+  BuildPath(tbl_id, path, sizeof(path));
+
+  int fd = open(path, O_RDWR | O_DIRECT, 0644);
+  if (fd < 0) { throw IO_EXCEPTION("File not found"); }
+
+  struct stat st;
+  fstat(fd, &st);
+  u32 page_count = st.st_size / DB7_PAGE_SIZE;
+
+  FdCacheEntry entry(fd, page_count);
+  cache_->Set(tbl_id, entry);
+
+  return true;
+}
+
+bool DiskManagerAsync::CreateOpenFile(table_id tbl_id, u32 initial_pages) {
+  char path[MAX_PATH_LEN];
+  BuildPath(tbl_id, path, sizeof(path));
+
+  if (access(path, F_OK) == 0) {
+    return OpenFile(tbl_id);
+  } else {
+    return CreateTable(tbl_id, initial_pages);
+  }
+}
+
+bool DiskManagerAsync::DropTable(table_id tbl_id) {
+  auto hdr = cache_->Invalidate(tbl_id);
+  DB7_ASSERT(hdr.fd >= 0, "Invalid file");
+
+  char path[MAX_PATH_LEN];
+  BuildPath(tbl_id, path, sizeof(path));
+
+  close(hdr.fd);
+  unlink(path);
+
+  return true;
+}
+
+bool DiskManagerAsync::ExistsTable(table_id tbl_id) {
+  char path[MAX_PATH_LEN];
+  BuildPath(tbl_id, path, sizeof(path));
+  return access(path, F_OK) == 0;
+}
+
+bool DiskManagerAsync::ExtendFile(table_id tbl_id, u64 pages_num) {
+  FdCacheEntry hdr = cache_->Get(tbl_id);
+  DB7_ASSERT(hdr.fd >= 0, "File not found");
+
+  int ret = fallocate(hdr.fd, 0, hdr.page_count * DB7_PAGE_SIZE, (off_t)pages_num * DB7_PAGE_SIZE);
+  (void)ret;
+  DB7_ASSERT(ret == 0, "fallocate failed");
+
+  hdr.page_count = hdr.page_count + pages_num;
+  cache_->Set(tbl_id, hdr);
+
+  return true;
+}
+
+u32 DiskManagerAsync::PageCount(table_id tbl_id) {
+  FdCacheEntry hdr = cache_->Get(tbl_id);
+  return hdr.page_count;
+}
+
+void DiskManagerAsync::InitWakeup() { ArmWakeup(); }
+
+void DiskManagerAsync::ArmWakeup() {
+  io_uring_sqe *sqe = io_uring_get_sqe(&ring_);
+  u32 seen = std::atomic_ref(wake_seq_).load(std::memory_order_acquire);
+  io_uring_prep_futex_wait(sqe, &wake_seq_, seen, FUTEX_BITSET_MATCH_ANY,
+                           FUTEX2_SIZE_U32 | FUTEX2_PRIVATE, 0);
+  io_uring_sqe_set_data(sqe, nullptr); // still the "wakeup" marker
+}
+
+void DiskManagerAsync::Wake() {
+  std::atomic_ref(wake_seq_).fetch_add(1, std::memory_order_release);
+  syscall(SYS_futex, &wake_seq_, FUTEX_WAKE_PRIVATE, 1, nullptr, nullptr, 0);
+}
+
+void DiskManagerAsync::WaitForCompletion() {
+  int r;
+  do {
+    r = io_uring_submit_and_wait(&ring_, 1); // submit queued SQEs, block until >= 1 CQE
+  } while (r == -EINTR);
+}
+
+} // namespace db7::storage
