@@ -72,3 +72,5 @@ git checkout a824245abac0985ae4573e829a6552570d44bf34
 -compare old and new wakeup mechanisms
 
 - background writer
+- disk err handling
+- // TODO ClearIOInProgress() && ClearWriteInProgress() && SetError;

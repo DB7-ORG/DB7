@@ -220,11 +220,13 @@ public:
   /**
    * Channel
    */
-  void WaitIO() {
-    if (!IsIOInProgress()) { return; }
-
-    std::unique_lock lk(latch_);
-    io_cv_.wait(lk, [&] { return !IsIOInProgress(); });
+  void SignalError() {
+    {
+      std::lock_guard lk(latch_);
+      DB7_ASSERT(IsIOInProgress() || IsWriteInProgress(), "Io/write in progress not set");
+      // TODO ClearIOInProgress() && ClearWriteInProgress() && SetError;
+    }
+    NotifyIO();
   }
 
   void SignalIO() {
@@ -245,15 +247,22 @@ public:
     NotifyIO();
   }
 
+  void NotifyIO() { // TODO lockfree
+    { std::lock_guard lk(latch_); }
+    io_cv_.notify_all();
+  }
+
+  void WaitIO() {
+    if (!IsIOInProgress()) { return; }
+
+    std::unique_lock lk(latch_);
+    io_cv_.wait(lk, [&] { return !IsIOInProgress(); });
+  }
+
   void WaitWrite() {
     if (!IsIOOrWriteInProgress()) return;
     std::unique_lock lk(latch_);
     io_cv_.wait(lk, [&] { return !IsIOOrWriteInProgress(); });
-  }
-
-  void NotifyIO() { // TODO lockfree
-    { std::lock_guard lk(latch_); }
-    io_cv_.notify_all();
   }
 
 private:
