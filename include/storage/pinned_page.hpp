@@ -12,7 +12,7 @@ private:
 
 public:
   PinnedPage() = default;
-  explicit PinnedPage(Page *page) : page_(page) {}
+  PinnedPage(Page *page) : page_(page) {}
   ~PinnedPage() { reset(); }
 
   PinnedPage(const PinnedPage &) = delete;
@@ -28,15 +28,15 @@ public:
   }
 
   void reset() noexcept {
-    if (page_ != nullptr) { std::exchange(page_, nullptr)->Unpin(); }
+    if (page_ != nullptr) { release()->Unpin(); }
   }
-
-  // Set this while holding the write lock.
-  void MarkDirty() const noexcept { page_->SetDirty(); }
+  Page *release() noexcept { return std::exchange(page_, nullptr); }
 
   Page *get() const noexcept { return page_; }
   Page *operator->() const noexcept { return page_; }
   explicit operator bool() const noexcept { return page_ != nullptr; }
+  operator Page *() const & noexcept { return page_; }
+  operator Page *() const && = delete;
 };
 
 } // namespace db7::storage

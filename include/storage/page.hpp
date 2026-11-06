@@ -208,6 +208,7 @@ public:
   // void WUnlock() { latch_.unlock(); }
   // bool TryWLock() { return latch_.try_lock(); }
 
+  shared::AdaptiveVersionLock &DataLock() const { return lock_; }
   void RDataLock() { lock_.ReadLock(); }
   bool TryRDataLock() { return lock_.TryReadLock(); }
   void RDataUnlock() { lock_.ReadUnlock(); }
@@ -259,58 +260,6 @@ private:
   bool IsIOOrWriteInProgress() const {
     return state_.load() & (kIOInProgressFlag | kWriteInProgressFlag);
   }
-};
-
-class PagePinGuard {
-private:
-  Page *page_; // TODO lockfree add Unpin from the pool
-
-public:
-  PagePinGuard(Page *page) : page_(page) {}
-
-  ~PagePinGuard() { page_->Unpin(); }
-
-  PagePinGuard(const PagePinGuard &) = delete;
-  PagePinGuard &operator=(const PagePinGuard &) = delete;
-  PagePinGuard(PagePinGuard &&) = delete;
-  PagePinGuard &operator=(PagePinGuard &&) = delete;
-
-  Page *get() const { return page_; }
-  Page *operator->() const { return page_; }
-};
-
-class PageWriteGuard {
-private:
-  Page *page_;
-
-public:
-  PageWriteGuard(Page *page) : page_(page) {
-    page_->WaitWrite();
-    page_->WDataLock();
-  }
-  ~PageWriteGuard() { page_->WDataUnlock(); }
-
-  PageWriteGuard(const PageWriteGuard &) = delete;
-  PageWriteGuard &operator=(const PageWriteGuard &) = delete;
-  PageWriteGuard(PagePinGuard &&) = delete;
-  PageWriteGuard &operator=(PageWriteGuard &&) = delete;
-};
-
-class PageReadGuard {
-private:
-  Page *page_;
-
-public:
-  PageReadGuard(Page *page) : page_(page) {
-    page_->WaitIO();
-    page_->RDataLock();
-  }
-  ~PageReadGuard() { page_->RDataUnlock(); }
-
-  PageReadGuard(const PageReadGuard &) = delete;
-  PageReadGuard &operator=(const PageReadGuard &) = delete;
-  PageReadGuard(PagePinGuard &&) = delete;
-  PageReadGuard &operator=(PageReadGuard &&) = delete;
 };
 
 } // namespace storage

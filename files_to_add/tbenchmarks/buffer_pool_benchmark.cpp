@@ -19,10 +19,8 @@ static void Populate(u32 size, u32 pool_size) {
 
   for (u32 i = 1; i < size; ++i) {
     PageIdentifier id{tbl_, i};
-    Page *page = buffer_pool_->Pin(id, PageKind::Heap);
-
+    PinnedPage page = buffer_pool_->Pin(id, PageKind::Heap);
     std::memset(page->GetData(), 0xAB, DB7_PAGE_SIZE);
-    buffer_pool_->Unpin(page, false);
   }
 
   auto *pages = buffer_pool_->GetPagesDebug();
@@ -88,10 +86,9 @@ static void BM_RandomWorkload(benchmark::State &state) {
 
   for (auto _ : state) {
     for (int i = 0; i < numOps; i++) {
-      Page *page = buffer_pool_->Pin({tbl_, dist(rng)}, PageKind::Heap);
+      PinnedPage page = buffer_pool_->Pin({tbl_, dist(rng)}, PageKind::Heap);
       benchmark::DoNotOptimize(page);
-      SimulateWork(page, 1);
-      buffer_pool_->Unpin(page);
+      SimulateWork(page.get(), 1);
     }
   }
 

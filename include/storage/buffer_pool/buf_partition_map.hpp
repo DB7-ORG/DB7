@@ -72,10 +72,10 @@ public:
 
   /** NOTE: used when u know entry cant exit in the table */
   template <typename OnInserted>
-  void PutAndApply(Key id, Val val, u32 partIdx, OnInserted &&on_found) {
+  void SetAndApply(Key id, Val val, u32 partIdx, OnInserted &&on_found) {
     auto &partition = partition_maps_[partIdx];
     shared::AdaptiveVersionLock::WriteGuard guard(partition_locks_[partIdx].lock);
-    auto [it, _] = partition.emplace()(id, val);
+    auto [it, _] = partition.emplace(id, val);
     on_found(it->second);
   }
 

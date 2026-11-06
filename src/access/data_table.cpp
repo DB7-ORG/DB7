@@ -234,19 +234,20 @@ void DataTable::InsertInternalIndexOther(DataChunk *chunk, TupleId tuple) {
 bool DataTable::Insert(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
                        DataChunk *chunk) {
   u16 required_heap = storage::Pax::CalcHeapBytes(main_columns_, chunk);
-  auto *page = GetPageForInsert(chunk); // TODO storage should pass required_heap here
 
   PageInsertResult insert_res;
-  const auto page_id = page->GetPageId();
+  page_id pid;
   { // Inserts into the heap
-    storage::PagePinGuard ping_(page);
-    storage::PageWriteGuard lockg_(page);
-    insert_res = TryInsertInternalHeap(context, page, chunk, required_heap);
+    // TODO storage should pass required_heap here
+    storage::PinnedPage page = GetPageForInsert(chunk);
+    pid = page->GetPageId();
+    shared::AdaptiveVersionLock::WriteGuard lock(page->DataLock());
+    insert_res = TryInsertInternalHeap(context, page.get(), chunk, required_heap);
   }
 
   if (insert_res.fetch) { throw CATALOG_EXCEPTION("Fetch new page please"); }
 
-  const TupleId tuple = {insert_res.index, page_id};
+  const TupleId tuple = {insert_res.index, pid};
   InsertInternalIndexConstraints(context, chunk, tuple);
 
   const auto &constraints = table.GetConstraints();
@@ -316,12 +317,10 @@ bool DataTable::DeleteUndo(transaction::TransactionContext &context, u16 index,
 bool DataTable::Delete(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
                        TupleId tuple) {
 
-  auto *page = GetPageById(tuple.GetPageId());
-
   DataChunkPtr chunk; // RAII guard for cleanup
   {
-    storage::PagePinGuard ping_(page);
-    storage::PageWriteGuard lockg_(page);
+    storage::PinnedPage page = GetPageById(tuple.GetPageId());
+    shared::AdaptiveVersionLock::WriteGuard lock(page->DataLock());
 
     bool result = DeleteUndo(context, tuple.GetIndex(), page);
     if (!result) { return false; }
@@ -385,9 +384,6 @@ bool DataTable::UpdateUndo(transaction::TransactionContext &context, u16 index, 
 
 bool DataTable::Update(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
                        TupleId tuple, DataChunk *chunk) {
-  auto *page = GetPageById(tuple.GetPageId());
-  page_id page_id = page->GetPageId();
-
   const auto *column_ids = chunk->ColumnIds();
   shared::BitSet set;
   for (size_t i = 0; i < chunk->GetColCount(); i++) { set.Add(column_ids[i]); }
@@ -412,10 +408,12 @@ bool DataTable::Update(transaction::TransactionContext &context, catalog::TableC
   DataChunkPtr current;
   DataChunkPtr old_row;
   PageInsertResult insert_res;
+  page_id pid;
   u16 required_chunk_heap = storage::Pax::CalcHeapBytes(main_columns_, chunk);
   {
-    storage::PagePinGuard ping_(page);
-    storage::PageWriteGuard lockg_(page);
+    storage::PinnedPage page = GetPageById(tuple.GetPageId());
+    pid = page->GetPageId();
+    shared::AdaptiveVersionLock::WriteGuard lock(page->DataLock());
 
     bool update_in_place =
         !contains_col_index &&
@@ -454,7 +452,7 @@ bool DataTable::Update(transaction::TransactionContext &context, catalog::TableC
     insert_res = TryInsertInternalHeap(context, page, current.get(), required_heap);
   }
 
-  const TupleId inserted_tuple = {insert_res.index, page_id};
+  const TupleId inserted_tuple = {insert_res.index, pid};
   if (insert_res.fetch) { throw CATALOG_EXCEPTION("Please provide another page tnx"); }
 
   shared::BitSet changed_set =

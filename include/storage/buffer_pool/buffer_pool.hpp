@@ -7,6 +7,7 @@
 #include "storage/disk_manager/disk_scheduler.hpp"
 #include "storage/mvcc/page_version_manager.hpp"
 #include "storage/page.hpp"
+#include "storage/pinned_page.hpp"
 
 namespace db7::storage {
 
@@ -55,7 +56,7 @@ private:
 
   std::span<Page> GetPages() const { return {pages_, pool_size_}; }
   void UndoState(VictimPage victim);
-  bool PageVisit(Page *page, PageIdentifier id, flags_t state);
+  bool PageVisit(Page *page, PageIdentifier id, flags_t state) noexcept;
 
   struct PinResult {
     Page *page;
@@ -67,7 +68,9 @@ private:
   template <typename ReadFn = DeferRead>
   PinResult PinForBlock(PageIdentifier id, PinOptions &opts, ReadFn read_fn = {});
 
-  bool SafeFlush(Page *page);
+  bool SafeFlush(Page *page) noexcept;
+
+  void FailRead(Page *page, PageIdentifier id);
 
 public:
   BufferPool(DiskScheduler *disk_mng, PageVersionManager *version_table,
@@ -78,6 +81,7 @@ public:
   Page *Pin(PageIdentifier id, PinOptions &opts);
   PinRangeResult PinRange(PageRange range, Page **out, PageKind pkind);
   PinRangeResult PinRange(PageRange range, Page **out, PinOptions &opts);
+
   void Unpin(Page *page, bool dirty);
   void Unpin(Page *page);
 

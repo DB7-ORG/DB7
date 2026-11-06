@@ -42,7 +42,7 @@ void BufferPool::UndoState(VictimPage victim) {
   victim_page->NotifyIO();
 }
 
-bool BufferPool::PageVisit(Page *page, PageIdentifier id, flags_t state) {
+bool BufferPool::PageVisit(Page *page, PageIdentifier id, flags_t state) noexcept {
   if (page->GetId() == id) {
     page->IncUsageCount(state);
     return true;
@@ -87,8 +87,10 @@ BufferPool::PinResult BufferPool::PinForBlock(PageIdentifier id, PinOptions &opt
       }
 
       if (!read_fn(victim.page, id)) {
-        UndoState(victim);
-        partitions_.Delete(id, victim.frame_idx, part_idx);
+        // UndoState(victim);
+        // partitions_.Delete(id, victim.frame_idx, part_idx);
+        FailRead(victim.page, id);
+        Unpin(victim.page);
         throw MEMORY_EXCEPTION("Failure inside disk scheduler");
       }
 
@@ -105,6 +107,18 @@ BufferPool::PinResult BufferPool::PinForBlock(PageIdentifier id, PinOptions &opt
     stats_.Add(PinKind::SpinMiss);
     continue;
   }
+}
+
+void BufferPool::FailRead(Page *page, PageIdentifier id) {
+  partitions_.Delete(id, static_cast<frame_idx_t>(page - pages_)); // first, so no new pinners
+
+  flags_t state = page->State();
+  flags_t next;
+  do {
+    next = Page::ClearTagValid(Page::ClearIOInProgress(state));
+  } while (!page->CasState(state, next));
+
+  page->NotifyIO();
 }
 
 Page *BufferPool::Pin(PageIdentifier id, PageKind pkind) {
@@ -132,28 +146,35 @@ PinRangeResult BufferPool::PinRange(PageRange range, Page **out, PageKind pkind)
 // out[0 .. io_count) are misses, submitted together as one vectored read.
 // Returns the number of pages pinned.
 PinRangeResult BufferPool::PinRange(PageRange range, Page **out, PinOptions &opts) {
+  DB7_ASSERT(range.size <= IO_MAX_COMBINE, "range too large");
   u32 count = 0;
   u32 misses = 0;
-  while (count < range.size) {
-    PinResult res = PinForBlock(PageIdentifier(range.first.tbl_id, range.first.pid + count), opts);
-    out[count] = res.page;
-    count++;
-    if (res.kind != PinKind::Miss) {
-      stats_.Add(res.kind);
-      break; // cached or being loaded: ends the run, but it's pinned, so return it
+  auto id_at = [&](u32 i) { return PageIdentifier(range.first.tbl_id, range.first.pid + i); };
+
+  try {
+    while (count < range.size) {
+      PinResult res = PinForBlock(id_at(count), opts);
+      out[count] = std::move(res.page);
+      count++;
+      if (res.kind != PinKind::Miss) {
+        stats_.Add(res.kind);
+        break; // cached or being loaded: ends the run, but it's pinned, so return it
+      }
+      misses++;
     }
-    misses++;
+
+    if (misses > 0) {
+      stats_.Add(PinKind::Miss, misses);
+      if (!disk_mng_->Enqueue(IoTask(IoTask::READV, IoPriority::HIGH, out, misses, range.first))) {
+        throw MEMORY_EXCEPTION("Failed to enqueue a task to camel queue");
+      }
+    }
+  } catch (...) {
+    for (u32 i = 0; i < misses; ++i) { FailRead(out[i], id_at(i)); }
+    for (u32 i = 0; i < count; ++i) { out[i]->Unpin(); }
+    throw;
   }
 
-  if (misses > 0) {
-    bool res =
-        disk_mng_->Enqueue(IoTask(IoTask::READV, IoPriority::HIGH, out, misses, range.first));
-    stats_.Add(PinKind::Miss, misses);
-    if (!res) {
-      // TODO lockfree this leaks the pins
-      throw MEMORY_EXCEPTION("Failed to enqueue a task to camel queue");
-    }
-  }
   return {count, misses > 0};
 }
 
@@ -180,7 +201,7 @@ Page *BufferPool::Reserve(table_id tbl_id, AccessStrategy &strategy) {
   std::memset(victim.page->GetData(), 0, DB7_PAGE_SIZE); // TODO i dont needd this
 
   auto part_idx = partitions_.GetPartitionIdx(id);
-  partitions_.PutAndApply(id, victim.frame_idx, part_idx,
+  partitions_.SetAndApply(id, victim.frame_idx, part_idx,
                           [this](frame_idx_t f) { pages_[f].SetTagValid(); });
   return victim.page;
 }
@@ -211,7 +232,7 @@ VictimPage BufferPool::GetVictim(PageIdentifier id, AccessStrategy &strategy, bo
   }
 }
 
-bool BufferPool::SafeFlush(Page *page) {
+bool BufferPool::SafeFlush(Page *page) noexcept {
   if (disk_mng_->Enqueue(IoTask(IoTask::WRITE, IoPriority::HIGH, page, page->GetId()))) {
     return true;
   }

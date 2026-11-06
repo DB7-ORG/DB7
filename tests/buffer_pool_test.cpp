@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "concurrency.hpp"
+#include "shared/locks/adaptive_version_lock.hpp"
 #include "storage/buffer_pool/buffer_pool.hpp"
 
 #include <algorithm>
@@ -207,7 +208,7 @@ protected:
       EXPECT_NE(id.pid, 0u) << "Pin() rejects pid 0";
       if (i > 0) { EXPECT_EQ(id.pid, ids.front().pid + i) << "pages must be consecutive"; }
       {
-        PageWriteGuard guard(page);
+        shared::AdaptiveVersionLock::WriteGuard lock(page->DataLock());
         Store(page, StampFor(id));
       }
       bp_->Unpin(page, true);
@@ -339,7 +340,7 @@ TEST_F(BufferPoolTest, PinnedPageIsNeverEvicted) {
 
   EXPECT_EQ(page->GetId(), id);
   {
-    PageReadGuard guard(page);
+    shared::AdaptiveVersionLock::ReadGuard lock(page->DataLock());
     EXPECT_EQ(Load(page), StampFor(id));
   }
   bp_->Unpin(page);
@@ -356,7 +357,7 @@ TEST_F(BufferPoolTest, DirtyPagesSurviveEviction) {
     Page *page = PinReady(id);
     EXPECT_EQ(page->GetId(), id);
     {
-      PageReadGuard guard(page);
+      shared::AdaptiveVersionLock::ReadGuard lock(page->DataLock());
       EXPECT_EQ(Load(page), StampFor(id));
     }
     bp_->Unpin(page);
@@ -372,7 +373,7 @@ TEST_F(BufferPoolTest, NewestVersionSurvivesRepeatedEviction) {
     SCOPED_TRACE(version);
     Page *page = PinReady(id);
     {
-      PageWriteGuard guard(page);
+      shared::AdaptiveVersionLock::WriteGuard lock(page->DataLock());
       Store(page, version);
     }
     bp_->Unpin(page, true);
@@ -381,7 +382,7 @@ TEST_F(BufferPoolTest, NewestVersionSurvivesRepeatedEviction) {
 
     page = PinReady(id);
     {
-      PageReadGuard guard(page);
+      shared::AdaptiveVersionLock::ReadGuard lock(page->DataLock());
       EXPECT_EQ(Load(page), version);
     }
     bp_->Unpin(page);
@@ -433,7 +434,7 @@ TEST_F(BufferPoolTest, PinRangeReadsColdPages) {
     out[i]->WaitIO();
     EXPECT_EQ(out[i]->GetId(), ids[i]);
     {
-      PageReadGuard guard(out[i]);
+      shared::AdaptiveVersionLock::ReadGuard lock(out[i]->DataLock());
       EXPECT_EQ(Load(out[i]), StampFor(ids[i]));
     }
     bp_->Unpin(out[i]);
@@ -509,7 +510,7 @@ TEST_F(BufferPoolLargeTest, BulkReadDoesNotLoseDirtyPages) {
     Page *page = bp_->Pin(id, opts);
     page->WaitIO();
     {
-      PageWriteGuard guard(page);
+      shared::AdaptiveVersionLock::WriteGuard lock(page->DataLock());
       Store(page, StampFor(id) + 1);
     }
     bp_->Unpin(page, true);
@@ -520,7 +521,7 @@ TEST_F(BufferPoolLargeTest, BulkReadDoesNotLoseDirtyPages) {
     SCOPED_TRACE(id.pid);
     Page *page = PinReady(id);
     {
-      PageReadGuard guard(page);
+      shared::AdaptiveVersionLock::ReadGuard lock(page->DataLock());
       EXPECT_EQ(Load(page), StampFor(id) + 1);
     }
     bp_->Unpin(page);
@@ -537,7 +538,7 @@ TEST_F(BufferPoolLargeTest, BulkWriteKeepsEveryPage) {
     SCOPED_TRACE(id.pid);
     Page *page = PinReady(id);
     {
-      PageReadGuard guard(page);
+      shared::AdaptiveVersionLock::ReadGuard lock(page->DataLock());
       EXPECT_EQ(Load(page), StampFor(id));
     }
     bp_->Unpin(page);
@@ -575,7 +576,7 @@ TEST_F(BufferPoolTest, ConcurrentMissesShareOneFrame) {
         seen[t] = page;
         if (page->GetId() != id) { log.Failf("round ", round, ": wrong page"); }
         {
-          PageReadGuard guard(page);
+          shared::AdaptiveVersionLock::ReadGuard lock(page->DataLock());
           if (Load(page) != StampFor(id)) { log.Failf("round ", round, ": wrong data"); }
         }
       });
@@ -610,10 +611,11 @@ TEST_F(BufferPoolTest, ThreadsSeeTheirOwnWritesUnderEviction) {
       for (u32 n = 0; n < kOps; ++n) {
         const u32 i = pick(rng);
         Page *page = PinReady(ids[i]);
+        page->WaitWrite();
 
         if (page->GetId() != ids[i]) { log.Failf("thread ", t, ": wrong page for ", i); }
         {
-          PageWriteGuard guard(page);
+          shared::AdaptiveVersionLock::WriteGuard lock(page->DataLock());
           // The spec's StableDuringWrite. Reloading can't catch this: the dirty
           // flag rewrites the page before eviction, hiding the bad copy on disk.
           if (page->IsWriteInProgress()) { log.Failf("thread ", t, ": modifying during a write"); }
@@ -633,7 +635,7 @@ TEST_F(BufferPoolTest, ThreadsSeeTheirOwnWritesUnderEviction) {
     SCOPED_TRACE(i);
     Page *page = PinReady(ids[i]);
     {
-      PageReadGuard guard(page);
+      shared::AdaptiveVersionLock::ReadGuard lock(page->DataLock());
       EXPECT_EQ(Load(page), expected[i]);
     }
     bp_->Unpin(page);
@@ -659,9 +661,10 @@ TEST_F(BufferPoolTest, SharedCountersLoseNoUpdates) {
       for (u32 n = 0; n < kOps; ++n) {
         const PageIdentifier id = ids[pick(rng)];
         Page *page = PinReady(id);
+        page->WaitWrite();
         if (page->GetId() != id) { log.Failf("thread ", t, ": wrong page"); }
         {
-          PageWriteGuard guard(page);
+          shared::AdaptiveVersionLock::WriteGuard lock(page->DataLock());
           if (page->IsWriteInProgress()) { log.Failf("thread ", t, ": modifying during a write"); }
           const auto value = Load(page);
           if (!value) {
@@ -683,7 +686,7 @@ TEST_F(BufferPoolTest, SharedCountersLoseNoUpdates) {
   for (PageIdentifier id : ids) {
     Page *page = PinReady(id);
     {
-      PageReadGuard guard(page);
+      shared::AdaptiveVersionLock::ReadGuard lock(page->DataLock());
       const auto value = Load(page);
       ASSERT_TRUE(value.has_value());
       total += *value - StampFor(id);
@@ -716,7 +719,7 @@ TEST_F(BufferPoolTinyTest, TinyPoolNeverReturnsTheWrongPage) {
         Page *page = PinReady(id);
         if (page->GetId() != id) { log.Failf("thread ", t, ": wrong page"); }
         {
-          PageReadGuard guard(page);
+          shared::AdaptiveVersionLock::ReadGuard lock(page->DataLock());
           if (Load(page) != StampFor(id)) { log.Failf("thread ", t, ": wrong data"); }
         }
         bp_->Unpin(page);
@@ -755,7 +758,7 @@ TEST_F(BufferPoolLargeTest, ScansAndPinsShareReads) {
           out[i]->WaitIO();
           if (out[i]->GetId() != ids[first + i]) { log.Failf("thread ", t, ": wrong page"); }
           {
-            PageReadGuard guard(out[i]);
+            shared::AdaptiveVersionLock::ReadGuard lock(out[i]->DataLock());
             if (Load(out[i]) != StampFor(ids[first + i])) {
               log.Failf("thread ", t, ": wrong data");
             }
@@ -792,7 +795,7 @@ TEST_F(BufferPoolLargeTest, BulkReadersRaceWithWriters) {
             const PageIdentifier id = ids[pick(rng)];
             Page *page = PinReady(id);
             {
-              PageWriteGuard guard(page);
+              shared::AdaptiveVersionLock::WriteGuard lock(page->DataLock());
               const auto value = Load(page);
               if (!value) {
                 log.Failf("writer ", t, ": torn page");
@@ -813,7 +816,7 @@ TEST_F(BufferPoolLargeTest, BulkReadersRaceWithWriters) {
             page->WaitIO();
             if (page->GetId() != ids[i]) { log.Failf("reader ", t, ": wrong page"); }
             {
-              PageReadGuard guard(page);
+              shared::AdaptiveVersionLock::ReadGuard lock(page->DataLock());
               if (!Load(page)) { log.Failf("reader ", t, ": torn page"); }
             }
             bp_->Unpin(page);

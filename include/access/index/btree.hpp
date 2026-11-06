@@ -224,7 +224,7 @@ private:
         if (!shared::Unlock<LM>(page)) continue;
 
         shared::TlState::Push(pid);
-
+        ReleaseNode<shared::LockMode::None>(page);
         return;
       } else if (layout_inter_.HasSplit(data, key)) {
         page_id new_pid = layout_inter_.GetRLink(data);

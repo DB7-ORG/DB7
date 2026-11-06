@@ -21,7 +21,7 @@ public:
   table_id GetTableId() const { return table_id_; }
 
   virtual ~IoStream() = default;
-  virtual Page *Next() = 0;
+  virtual PinnedPage Next() = 0;
 };
 
 /**
@@ -117,13 +117,13 @@ public:
   }
 
   // Returns a pinned page; the caller must Unpin it. Returns nullptr at the end.
-  Page *Next() override {
+  PinnedPage Next() override {
     if (ring_.Size() == 0) {
       LookAhead();
       if (ring_.Size() == 0) return nullptr;
     }
 
-    Page *page = ring_.ReadUnsafe();
+    PinnedPage page = ring_.ReadUnsafe();
 
     LookAhead(); // refill the slot we just freed before possibly blocking
 

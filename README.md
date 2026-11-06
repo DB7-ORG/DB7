@@ -68,23 +68,11 @@ online index creation:
   (tuple not commited) add it to index, get next value in chain then repeat
 - GC will later collect aborted values
 
-this command raises the limit for max memory reserved
-sudo prlimit --memlock=unlimited:unlimited --pid $$
-
-- optimize page header so its more efficient
 - consider lock free hmaps for partitions
-- consider splitting partitions in buffer pool and version hashmap
-- consider removing template in io stream
 - fsm!!!!!
 
-- likely dont need allocations in my disk scheduler since output array should outlive the request
-  but keep it for now who knows what might change
-- PIN GUARD / LOCK to make buffer pool more modern and safer
-- // TODO at this point could be removed
-  Uncommenting a pin assert is also needed.
-- FIX LEAKING PINS BY USING GUARDS
-
-- refactor code for partitioned hash map
+this command raises the limit for max memory reserved
+sudo prlimit --memlock=unlimited:unlimited --pid $$
 
 TODO clone projetc and benchmark it with and without mutexes
 git clone https://github.com/DB7-ORG/DB7.git

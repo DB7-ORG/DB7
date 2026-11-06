@@ -80,7 +80,7 @@ public:
   bool Put(Key id, Val val, Val &new_val, u32 partIdx) {
     auto &partition = partition_maps_[partIdx];
     shared::AdaptiveVersionLock::WriteGuard guard(partition_locks_[partIdx].lock);
-    auto [it, inserted] = partition.emplace(id, val);
+    auto [it, inserted] = partition.try_emplace(id, val);
     new_val = it->second;
     return inserted;
   }
@@ -90,7 +90,7 @@ public:
   //                  OnExists &&on_exists, flags_t &state) {
   //   auto &partition = partition_maps_[partIdx];
   //   shared::AdaptiveVersionLock::WriteGuard guard(partition_locks_[partIdx].lock);
-  //   auto [it, inserted] = partition.emplace(id, val);
+  //   auto [it, inserted] = partition.try_emplace(id, val);
   //   new_val = it->second;
   //   if (inserted) {
   //     on_found(it->second);

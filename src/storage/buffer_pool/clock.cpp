@@ -111,7 +111,7 @@ VictimPage ClockSweep::Sweep(std::span<Page> pages, PageIdentifier id, bool isIO
   return {};
 }
 
-VictimPage ClockSweep::GetVictim(std::span<Page> pages, PageIdentifier id, bool isIO) {
+VictimPage ClockSweep::GetVictim(std::span<Page> pages, PageIdentifier id, bool isIO) noexcept {
   std::optional<Clock::time_point> deadline;
 
   for (;;) {

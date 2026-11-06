@@ -96,7 +96,7 @@ public:
    * @param id     id of a new page that needs to take its place
    * @param isIO   should it set IO_IN_PROGRESS flag
    */
-  VictimPage GetVictim(std::span<Page> pages_, PageIdentifier id, bool isIO);
+  VictimPage GetVictim(std::span<Page> pages_, PageIdentifier id, bool isIO) noexcept;
 
   void NotifyFrameFree();
 };
