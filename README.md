@@ -1,30 +1,26 @@
-thread safety for file descriptors
+# Commands
 
-# i dont like Reserve in buffer pool
+to install clangd -> install clangd extension and disable intelisense in vsc
 
-# i dont like storing root in metadata page of the index
+to run perf -> perf report -i perf.data -f
 
-# i dont like fsm hacking should plan it first
+to bear ->  sudo apt install bear
+            make clean
+            bear -- make
 
-perf report -i perf.data -f
+to raise the limit for max memory reserved -> sudo prlimit --memlock=unlimited:unlimited --pid $$
+
+# Stuff i need to do
+
+- thread safety for file descriptors
+
+- i dont like storing root in metadata page of the index
+
+- i dont like fsm hacking should plan it first
 
 - check out when encoding utf8proc_decompose
   so i have more controle and less allocations
 
-- understand nomove_if
-
-- consider hyper delete w garbage collection.
-
-see should i use cas loop to delete stuff since i need to keep that info in the page also so GC can later remove tombstne
-but gc can also add it later to a page which also seems convenient
-
-NOTE:
-
-install clangd extension and disable intelisense in vsc
-
-sudo apt install bear
-make clean
-bear -- make
 
 solve // TODO catalog
 
@@ -44,21 +40,6 @@ IDEAS FOR WAYS TO MAKE CATALOG WORK ON DISK (NOT LIKE DUCKDB PERSISTING CHANGES 
    undo log so when we rollback we know the entry is used for catalog in memory and we need to
    do different logic compared to page approach.
 
-Data table:
-
-- fix catalog mvcc to save in undo buffer
-
-//TODO fsm assumes u have only one idx_t in header
-
- <!-- static LogRecord *Initialize(byte *const head, const timestamp_t txn_begin, table_id t_id,
-                               page_id p_id, u32 idx) -->
-
-- plan how to populate index safely
-- see if u should abort running writers if create index runs concurrently
-- TODO transaction Try()
-
-- TODO storage we dont have error handling for is writable(should also add fsm)
-
 online index creation:
 
 - publish index in BUILDING state
@@ -68,11 +49,20 @@ online index creation:
   (tuple not commited) add it to index, get next value in chain then repeat
 - GC will later collect aborted values
 
-- consider lock free hmaps for partitions
-- fsm!!!!!
+- plan how to populate index safely
+- see if u should abort running writers if create index runs concurrently
+- TODO transaction Try()
 
-this command raises the limit for max memory reserved
-sudo prlimit --memlock=unlimited:unlimited --pid $$
+- TODO storage we dont have error handling for is writable
+
+Data table:
+
+- fix catalog mvcc to save in undo buffer
+
+ <!-- static LogRecord *Initialize(byte *const head, const timestamp_t txn_begin, table_id t_id,
+                               page_id p_id, u32 idx) -->
+
+- consider lock free hmaps for partitions
 
 TODO clone projetc and benchmark it with and without mutexes
 git clone https://github.com/DB7-ORG/DB7.git
@@ -80,3 +70,5 @@ cd DB7
 git checkout a824245abac0985ae4573e829a6552570d44bf34
 
 -compare old and new wakeup mechanisms
+
+- background writer
