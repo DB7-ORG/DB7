@@ -12,7 +12,7 @@ namespace db7::storage {
 class BufferMonitor {
 private:
   static constexpr size_t SLOT_COUNT = 64; // ideally >= number of threads
-  static constexpr size_t KIND_COUNT = 3;
+  static constexpr size_t KIND_COUNT = 4;
 
   struct alignas(64) Slot {
     std::array<std::atomic<u64>, KIND_COUNT> pins{};
@@ -44,7 +44,8 @@ public:
   }
 
   void Print() const {
-    static constexpr std::array<const char *, KIND_COUNT> NAMES = {"Hit", "Foreign", "Miss"};
+    static constexpr std::array<const char *, KIND_COUNT> NAMES = {"Hit", "Foreign", "Miss",
+                                                                   "SpinMiss"};
 
     if constexpr (!DB7_BUFFER_POOL_STATS) {
       std::printf("MONITORING NOT ENABLED\n");

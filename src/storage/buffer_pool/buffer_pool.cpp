@@ -44,7 +44,7 @@ void BufferPool::UndoState(VictimPage victim) {
 
 bool BufferPool::PageVisit(Page *page, PageIdentifier id, flags_t state) {
   if (page->GetId() == id) {
-    page->IncUsageCount(state); // TODO lockfree
+    page->IncUsageCount(state);
     return true;
   }
   return false;
@@ -64,10 +64,7 @@ BufferPool::PinResult BufferPool::PinForBlock(PageIdentifier id, PinOptions &opt
         id, part_idx, [this](frame_idx_t f) -> flags_t { return pages_[f].Pin(); }, state);
     if (partitions_.IsValid(frame_idx)) {
       Page *page = &pages_[frame_idx];
-      if (Page::IsTagValid(state) && PageVisit(page, id, state)) {
-        auto pinkind = page->IsIOInProgress() ? PinKind::Foreign : PinKind::Hit;
-        return {page, pinkind};
-      }
+      if (Page::IsTagValid(state) && PageVisit(page, id, state)) { return {page, PinKind::Hit}; }
       Unpin(page);
     }
 
@@ -78,17 +75,17 @@ BufferPool::PinResult BufferPool::PinForBlock(PageIdentifier id, PinOptions &opt
             id, victim.frame_idx, new_frame_idx, part_idx,
             [this](frame_idx_t f) { pages_[f].SetTagValid(); },
             [this](frame_idx_t f) -> flags_t { return pages_[f].Pin(); }, state)) {
-      if (opts.pkind == PageKind::Heap) { // TODO lockfree make this thread safe
-        victim.page->SetVersions(version_table_->Get(id));
-      } else {
-        victim.page->SetVersions(nullptr);
-      }
 
       if (victim.page_id != INVALID_PAGE_IDENTFIER) {
         partitions_.Delete(victim.page_id, victim.frame_idx);
       }
 
-      // TODO lockfree can this be above delete
+      if (opts.pkind == PageKind::Heap) {
+        victim.page->SetVersions(version_table_->Get(id));
+      } else {
+        victim.page->SetVersions(nullptr);
+      }
+
       if (!read_fn(victim.page, id)) {
         UndoState(victim);
         partitions_.Delete(id, victim.frame_idx, part_idx);
@@ -102,11 +99,10 @@ BufferPool::PinResult BufferPool::PinForBlock(PageIdentifier id, PinOptions &opt
     UndoState(victim);
 
     Page *page = &pages_[new_frame_idx];
-    if (Page::IsTagValid(state) && PageVisit(page, id, state)) {
-      auto pinkind = page->IsIOInProgress() ? PinKind::Foreign : PinKind::Hit;
-      return {page, pinkind};
-    }
+    if (Page::IsTagValid(state) && PageVisit(page, id, state)) { return {page, PinKind::Foreign}; }
     Unpin(page);
+
+    stats_.Add(PinKind::SpinMiss);
     continue;
   }
 }
@@ -171,29 +167,22 @@ void BufferPool::Unpin(Page *page) {
   if (Page::PinCount(prev_state) == 1) { replacement_.NotifyFrameFree(); }
 }
 
-// TODO lockfree here i can delete and memset first then do the insert into ht
 Page *BufferPool::Reserve(table_id tbl_id, AccessStrategy &strategy) {
   page_id pid = FreeSpaceManagerIndex::Get(tbl_id);
 
   auto id = PageIdentifier(tbl_id, pid);
   VictimPage victim = GetVictim(id, strategy, false);
 
-  frame_idx_t new_frame_idx;
-  auto part_idx = partitions_.GetPartitionIdx(id);
-  flags_t state; // TODO unused
-  if (partitions_.PutAndApply(
-          id, victim.frame_idx, new_frame_idx, part_idx,
-          [this](frame_idx_t f) { pages_[f].SetTagValid(); },
-          [this](frame_idx_t f) -> flags_t { pages_[f].Pin(); }, state)) {
-    if (victim.page_id != INVALID_PAGE_IDENTFIER) {
-      partitions_.Delete(victim.page_id, victim.frame_idx);
-      victim.page->SetVersions(nullptr);
-    }
-    std::memset(victim.page->GetData(), 0, DB7_PAGE_SIZE); // TODO i dont needd this
-    return victim.page;
+  if (victim.page_id != INVALID_PAGE_IDENTFIER) {
+    partitions_.Delete(victim.page_id, victim.frame_idx);
+    victim.page->SetVersions(nullptr);
   }
+  std::memset(victim.page->GetData(), 0, DB7_PAGE_SIZE); // TODO i dont needd this
 
-  DB7_UNREACHABLE();
+  auto part_idx = partitions_.GetPartitionIdx(id);
+  partitions_.PutAndApply(id, victim.frame_idx, part_idx,
+                          [this](frame_idx_t f) { pages_[f].SetTagValid(); });
+  return victim.page;
 }
 
 VictimPage BufferPool::GetVictim(PageIdentifier id, AccessStrategy &strategy, bool isIO) {
@@ -217,8 +206,7 @@ VictimPage BufferPool::GetVictim(PageIdentifier id, AccessStrategy &strategy, bo
     if (!victim.IsValid()) {
       throw EXECUTION_EXCEPTION("Thread timed out", shared::ErrorCode::ERRCODE_NO_DATA);
     }
-
-    strategy.Track(victim.page);
+    if (!strategy.IsDefaultType()) { strategy.Track(victim.page); }
     return victim;
   }
 }

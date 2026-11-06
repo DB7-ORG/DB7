@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common.hpp"
-#include "shared/data_structures/partitioned_hashmap.hpp"
+#include "storage/buffer_pool/buf_partition_map.hpp"
 #include "storage/buffer_pool/buffer_monitoring.hpp"
 #include "storage/buffer_pool/clock.hpp"
 #include "storage/disk_manager/disk_scheduler.hpp"
@@ -47,7 +47,7 @@ private:
   Page *pages_;
   frame_idx_t pool_size_;
   PageVersionManager *version_table_;
-  shared::PartitionedHashMap<PageIdentifier, frame_idx_t, BUFFER_POOL_PARTITION_NUM> partitions_;
+  BufPartitionedMap<PageIdentifier, frame_idx_t, BUFFER_POOL_PARTITION_NUM> partitions_;
   BufferMonitor stats_;
   ClockSweep replacement_;
 

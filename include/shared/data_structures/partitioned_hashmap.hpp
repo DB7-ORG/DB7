@@ -63,14 +63,14 @@ public:
     return GetUnsafe(partition, id);
   };
 
-  template <typename Fn, typename FnRes>
-  Val GetAndApply(Key id, u32 partIdx, Fn &&on_found, FnRes &result) {
-    auto &partition = partition_maps_[partIdx];
-    shared::AdaptiveVersionLock::ReadGuard guard(partition_locks_[partIdx].lock);
-    Val val = GetUnsafe(partition, id);
-    if (IsValid(val)) result = on_found(val);
-    return val;
-  }
+  // template <typename Fn, typename FnRes>
+  // Val GetAndApply(Key id, u32 partIdx, Fn &&on_found, FnRes &result) {
+  //   auto &partition = partition_maps_[partIdx];
+  //   shared::AdaptiveVersionLock::ReadGuard guard(partition_locks_[partIdx].lock);
+  //   Val val = GetUnsafe(partition, id);
+  //   if (IsValid(val)) result = on_found(val);
+  //   return val;
+  // }
 
   bool Put(Key id, Val val, Val &new_val) {
     auto part = GetPartitionIdx(id);
@@ -85,20 +85,20 @@ public:
     return inserted;
   }
 
-  template <typename OnInserted, typename OnExists>
-  bool PutAndApply(Key id, Val val, Val &new_val, u32 partIdx, OnInserted &&on_found,
-                   OnExists &&on_exists, flags_t &state) {
-    auto &partition = partition_maps_[partIdx];
-    shared::AdaptiveVersionLock::WriteGuard guard(partition_locks_[partIdx].lock);
-    auto [it, inserted] = partition.emplace(id, val);
-    new_val = it->second;
-    if (inserted) {
-      on_found(it->second);
-    } else {
-      state = on_exists(it->second);
-    }
-    return inserted;
-  }
+  // template <typename OnInserted, typename OnExists>
+  // bool PutAndApply(Key id, Val val, Val &new_val, u32 partIdx, OnInserted &&on_found,
+  //                  OnExists &&on_exists, flags_t &state) {
+  //   auto &partition = partition_maps_[partIdx];
+  //   shared::AdaptiveVersionLock::WriteGuard guard(partition_locks_[partIdx].lock);
+  //   auto [it, inserted] = partition.emplace(id, val);
+  //   new_val = it->second;
+  //   if (inserted) {
+  //     on_found(it->second);
+  //   } else {
+  //     state = on_exists(it->second);
+  //   }
+  //   return inserted;
+  // }
 
   void Delete(Key id, Val old_val) {
     auto part = GetPartitionIdx(id);
@@ -109,7 +109,9 @@ public:
     auto &partition = partition_maps_[partIdx];
     shared::AdaptiveVersionLock::WriteGuard guard(partition_locks_[partIdx].lock);
     auto it = partition.find(id);
-    if (it != partition.end() && it->second == old_val) { partition.erase(it); }
+    if (it != partition.end()) { //&& it->second == old_val this was used for buffer pool
+      partition.erase(it);
+    }
   }
 };
 } // namespace db7::shared

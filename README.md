@@ -79,19 +79,16 @@ sudo prlimit --memlock=unlimited:unlimited --pid $$
 
 - likely dont need allocations in my disk scheduler since output array should outlive the request
   but keep it for now who knows what might change
-- // TODO this leaks the pins
-- // TODO pis assertion
 - PIN GUARD / LOCK to make buffer pool more modern and safer
 - // TODO at this point could be removed
   Uncommenting a pin assert is also needed.
 - FIX LEAKING PINS BY USING GUARDS
-  - in buffer pool i can hold partition lock while checking the page and if its a stale entry i can remove it right away without starting from scratch!!!!
-    much better than current design?????
 
-- checking io in progress isnt needed since we must hold a pin.
 - refactor code for partitioned hash map
 
 TODO clone projetc and benchmark it with and without mutexes
 git clone https://github.com/DB7-ORG/DB7.git
 cd DB7
 git checkout a824245abac0985ae4573e829a6552570d44bf34
+
+-compare old and new wakeup mechanisms

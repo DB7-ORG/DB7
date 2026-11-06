@@ -58,7 +58,7 @@ private:
     return RefCountOf(state) == 0 && (state & (kIOInProgressFlag | kWriteInProgressFlag)) == 0;
   }
 
-  std::atomic<PageIdentifier> id_;     // 8 bytes
+  PageIdentifier id_;                  // 8 bytes
   std::atomic<VersionPtr *> versions_; // 8 bytes
   byte *data_;                         // 8 bytes
   std::atomic<flags_t> state_;         // 4 bytes
@@ -104,9 +104,13 @@ public:
    * ID
    */
   PageIdentifier GetId() const { return id_; }
-  page_id GetPageId() const { return id_.load().pid; }
+  page_id GetPageId() const { return id_.pid; }
   void SetId(PageIdentifier id) { id_ = id; }
-  PageIdentifier SwapId(PageIdentifier id) { return id_.exchange(id); }
+  PageIdentifier SwapId(PageIdentifier id) {
+    auto old = id_;
+    id_ = id;
+    return old;
+  }
 
   flags_t State() const { return state_.load(); }
   void StoreState(flags_t state) { state_.store(state); }
@@ -152,11 +156,12 @@ public:
 
   static bool IsReclaimable(flags_t state) {
     // NOTE: does not take into account usage count
-    return RefCountOf(state) == 0 && !IsIoInProgress(state) && !IsWriteInProgress(state);
+    return RefCountOf(state) == 0 && !IsWriteInProgress(state) && !IsIoInProgress(state);
   }
   /**
    * Flags
    */
+  bool IsPinned() const { return RefCountOf(state_.load()); }
   bool IsIOInProgress() const { return state_.load() & kIOInProgressFlag; }
   void ClearIOInProgress() { state_.fetch_and(~kIOInProgressFlag); }
   bool IsWriteInProgress() const { return state_.load() & kWriteInProgressFlag; }
@@ -186,9 +191,13 @@ public:
 
   bool DecUsageCount() {
     flags_t cur = state_.load();
+    return CheckDecUsageCount(cur);
+  }
+
+  bool CheckDecUsageCount(flags_t state) {
     do {
-      if (UsageCountOf(cur) == 0) return false;
-    } while (!state_.compare_exchange_weak(cur, cur - kUsageCountOne));
+      if (UsageCount(state) == 0) { return false; }
+    } while (!CasState(state, DecUsage(state)));
     return true;
   }
 
@@ -221,8 +230,6 @@ public:
     {
       std::lock_guard lk(latch_);
       DB7_ASSERT(IsIOInProgress(), "Io in progress not set");
-      // TODO pis assertion
-      // DB7_ASSERT(IsPinned(), "Pin not set");
       ClearIOInProgress();
     }
     NotifyIO();
@@ -243,7 +250,7 @@ public:
     io_cv_.wait(lk, [&] { return !IsIOOrWriteInProgress(); });
   }
 
-  void NotifyIO() {
+  void NotifyIO() { // TODO lockfree
     { std::lock_guard lk(latch_); }
     io_cv_.notify_all();
   }

@@ -77,8 +77,7 @@ VictimPage ClockSweep::Sweep(std::span<Page> pages, PageIdentifier id, bool isIO
         break; // next frame
       }
 
-      if (Page::UsageCount(state) > 0) {
-        if (!page->CasState(state, Page::DecUsage(state))) continue;
+      if (page->CheckDecUsageCount(state)) {
         stats_.Add(EvictionType::MISS, misses);
         misses = 0; // progress
         break;
@@ -102,10 +101,10 @@ VictimPage ClockSweep::Sweep(std::span<Page> pages, PageIdentifier id, bool isIO
       if (!page->CasState(state, next)) continue;
 
       // The CAS won, so it's now safe to touch the id
-      auto page_id = page->SwapId(id);
+      auto old_page_id = page->SwapId(id);
 
       stats_.Add(EvictionType::HIT);
-      return {page, page_id, head};
+      return {page, old_page_id, head};
     }
   }
 
@@ -113,35 +112,28 @@ VictimPage ClockSweep::Sweep(std::span<Page> pages, PageIdentifier id, bool isIO
 }
 
 VictimPage ClockSweep::GetVictim(std::span<Page> pages, PageIdentifier id, bool isIO) {
-  const auto deadline = Clock::now() + kVictimTimeout;
+  std::optional<Clock::time_point> deadline;
+
   for (;;) {
     auto v = Sweep(pages, id, isIO);
     if (v.IsValid()) { return v; }
 
-    // Register, then rescan, so a frame freed before we sleep isn't missed
-    waiters_.fetch_add(1, std::memory_order_seq_cst);
-    std::atomic_thread_fence(std::memory_order_seq_cst);
-    u64 seen = wake_epoch_.load();
-
-    v = Sweep(pages, id, isIO);
-    if (!v.IsValid()) {
-      std::unique_lock lk(wait_mu_);
-      wait_cv_.wait_for(lk, threadWaitFor, [&] { return wake_epoch_.load() != seen; });
+    if (!deadline) {
+      deadline = Clock::now() + kVictimTimeout;
+    } else if (Clock::now() >= *deadline) {
+      return {}; // caller aborts and drops its pins
     }
-    waiters_.fetch_sub(1, std::memory_order_seq_cst);
 
-    if (v.IsValid()) { return v; }
-    if (Clock::now() >= deadline) return {}; // caller aborts and drops its pins
+    waiters_.fetch_add(1, std::memory_order_relaxed);
+    {
+      std::unique_lock lk(wait_mu_);
+      wait_cv_.wait_for(lk, threadWaitFor);
+    }
+    waiters_.fetch_sub(1, std::memory_order_relaxed);
   }
 }
 
 void ClockSweep::NotifyFrameFree() {
-  std::atomic_thread_fence(std::memory_order_seq_cst);
-  if (waiters_.load(std::memory_order_seq_cst) == 0) return; // fast path
-  {
-    std::lock_guard g(wait_mu_);
-    wake_epoch_.fetch_add(1);
-  }
-  wait_cv_.notify_one();
+  if (waiters_.load(std::memory_order_relaxed) != 0) { wait_cv_.notify_one(); }
 }
 } // namespace db7::storage

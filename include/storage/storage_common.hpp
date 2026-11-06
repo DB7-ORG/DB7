@@ -20,7 +20,7 @@ namespace db7::storage {
 
 constexpr bool DB7_BUFFER_POOL_STATS = true;
 
-enum class PinKind { Hit, Foreign, Miss };
+enum class PinKind { Hit, Foreign, Miss, SpinMiss };
 
 /**
  * If u modify this make sure to change hashing logic

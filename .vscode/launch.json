@@ -28,8 +28,7 @@
       "program": "${workspaceFolder}/bin/tests/all_tests",
       "args": [
         // "--gtest_filter=BTreeTest.DeleteAllThenRefill"
-        //"--gtest_filter=BufferPool*"
-        "--gtest_filter=BufferPoolTest.ThreadsSeeTheirOwnWritesUnderEviction --gtest_repeat=20"
+        "--gtest_filter=BufferPool*"
       ],
       "cwd": "${workspaceFolder}",
       "MIMode": "gdb",
