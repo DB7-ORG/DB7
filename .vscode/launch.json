@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug App",
+      "name": "App",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/bin/debug/app",
@@ -22,7 +22,7 @@
       ]
     },
     {
-      "name": "Debug Test",
+      "name": "Test",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/bin/tests/all_tests",
@@ -42,7 +42,7 @@
       ]
     },
     {
-      "name": "Debug Benchmark",
+      "name": "Benchmark",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/bin/benchmark/all_benchmarks",

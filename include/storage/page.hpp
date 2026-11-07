@@ -226,7 +226,7 @@ public:
       DB7_ASSERT(IsIOInProgress() || IsWriteInProgress(), "Io/write in progress not set");
       // TODO ClearIOInProgress() && ClearWriteInProgress() && SetError;
     }
-    NotifyIO();
+    io_cv_.notify_all();
   }
 
   void SignalIO() {
@@ -235,7 +235,7 @@ public:
       DB7_ASSERT(IsIOInProgress(), "Io in progress not set");
       ClearIOInProgress();
     }
-    NotifyIO();
+    io_cv_.notify_all();
   }
 
   void SignalWrite() {
@@ -244,7 +244,7 @@ public:
       DB7_ASSERT(IsWriteInProgress(), "write in progress not set");
       ClearWriteInProgress();
     }
-    NotifyIO();
+    io_cv_.notify_all();
   }
 
   void NotifyIO() { // TODO lockfree

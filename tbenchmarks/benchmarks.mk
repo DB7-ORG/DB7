@@ -21,13 +21,33 @@ bench:
 	@$(MAKE) BUILD=release run-bench
 
 run-bench: $(BENCH_BIN)
-	@echo "=== $(BENCH_BIN) ===" && ./$(BENCH_BIN) $(BENCH_ARGS)
+	@echo "=== $(BENCH_BIN) ===" && ./$(BENCH_BIN) $(BENCH_ARGS) 
 
 clean-bench:
 	@echo "  CLEAN benchmarks"
 	$(Q)rm -rf $(BENCH_BIN) $(OBJ_DIR)/benchmarks
 
-.PHONY: build-bench bench run-bench clean-bench
+# PERF
+PERF_DATA ?= perf.data
+PERF_ARGS ?= -g --call-graph fp
+
+perf-bench:
+	@$(MAKE) BUILD=release run-perf-bench
+
+run-perf-bench: $(BENCH_BIN)
+	@echo "=== perf $(BENCH_BIN) ==="
+	$(Q)tmp=$$(mktemp -d); \
+	mkfifo $$tmp/ctl $$tmp/ack; \
+	PERF_CTL_FIFO=$$tmp/ctl PERF_ACK_FIFO=$$tmp/ack \
+	  perf record $(PERF_ARGS) --delay=-1 \
+	    --control=fifo:$$tmp/ctl,$$tmp/ack -o $(PERF_DATA) \
+	    -- ./$(BENCH_BIN) $(BENCH_ARGS); \
+	status=$$?; rm -rf $$tmp; exit $$status
+
+perf-report:
+	perf report -i $(PERF_DATA) --no-children
+
+.PHONY: build-bench bench run-bench clean-bench perf-bench run-perf-bench perf-report
 
 # Header dependency tracking for benchmark objects
 -include $(BENCH_OBJS:.o=.d)

@@ -1,7 +1,12 @@
 #include <benchmark/benchmark.h>
+#include <cstdlib>
+#include <cstring>
+#include <fcntl.h>
 #include <random>
+#include <unistd.h>
 
 #include "storage/buffer_pool/buffer_pool.hpp"
+#include "storage/buffer_pool/iostream.hpp"
 
 using namespace db7;
 using namespace db7::storage;
@@ -13,6 +18,25 @@ static std::unique_ptr<PageVersionManager> vm_;
 static std::unique_ptr<BufferPool> buffer_pool_;
 static table_id tbl_ = 1;
 static u32 DATA_PAGE_COUNT = 10'000;
+
+// Turns perf sampling on and off when run under `perf record --control`.
+// Does nothing when the environment variables aren't set.
+static void PerfCtl(const char *cmd) {
+  static int ctl = [] {
+    const char *p = std::getenv("PERF_CTL_FIFO");
+    return p ? open(p, O_WRONLY) : -1;
+  }();
+  static int ack = [] {
+    const char *p = std::getenv("PERF_ACK_FIFO");
+    return p ? open(p, O_RDONLY) : -1;
+  }();
+  if (ctl < 0) return;
+  (void)!write(ctl, cmd, std::strlen(cmd));
+  if (ack >= 0) {
+    char buf[8];
+    (void)!read(ack, buf, sizeof(buf)); // wait until perf has applied it
+  }
+}
 
 static void Populate(u32 size, u32 pool_size) {
   dm_->CreateOpenFile(tbl_, size);
@@ -58,9 +82,11 @@ static void Setup(const benchmark::State &state) {
   buffer_pool_ = std::make_unique<BufferPool>(sched_.get(), vm_.get(), pool_size);
 
   Populate(DATA_PAGE_COUNT, pool_size);
+  PerfCtl("enable\n");
 }
 
 static void Teardown(const benchmark::State &s) {
+  PerfCtl("disable\n");
   // PrintStats(s);
   sched_->Stop();
   buffer_pool_.reset();
@@ -86,15 +112,24 @@ static void BM_RandomWorkload(benchmark::State &state) {
   std::mt19937 rng(state.thread_index());
   std::uniform_int_distribution<u32> dist(1, DATA_PAGE_COUNT - 1);
 
-  auto numOps = 1000;
+  constexpr int numOps = 1000;
+  constexpr u32 kLookahead = 1;
+  AccessStrategy strategy(AccessStrategyType::NORMAL);
 
   for (auto _ : state) {
-    for (int i = 0; i < numOps; i++) {
-      Page *page = buffer_pool_->Pin({tbl_, dist(rng)}, PageKind::Heap);
-      benchmark::DoNotOptimize(page);
+    int issued = 0;
+    ReadIoStream stream(
+        buffer_pool_.get(), strategy, tbl_,
+        [&]() -> page_id {
+          if (issued == numOps) return INVALID_BLOCK;
+          issued++;
+          return dist(rng);
+        },
+        kLookahead);
+
+    while (PinnedPage page = stream.Next()) { // replace with your stream's call
       page->WaitIO();
       SimulateWork(page, 1);
-      buffer_pool_->Unpin(page);
     }
   }
 

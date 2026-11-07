@@ -1,5 +1,6 @@
 #pragma once
 
+#include "shared/monitoring/perf_util.hpp"
 #include "storage/buffer_pool/buffer_pool.hpp"
 #include "storage/disk_manager/disk_scheduler.hpp"
 
@@ -109,6 +110,7 @@ public:
     DB7_ASSERT(!thread_.joinable(), "BgWriter already started");
     stop_ = false;
     thread_ = std::thread(&BgWriter::Run, this);
+    PerfUtil::SetName(thread_, "db7-bg-writer");
   }
 
   void Stop() {

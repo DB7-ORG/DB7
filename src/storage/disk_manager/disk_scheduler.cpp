@@ -1,4 +1,5 @@
 #include "storage/disk_manager/disk_scheduler.hpp"
+#include "shared/monitoring/perf_util.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -24,6 +25,7 @@ void DiskScheduler::Start() {
   io_->InitWakeup();
   running_.store(true);
   worker_ = std::thread(&DiskScheduler::Run, this);
+  PerfUtil::SetName(worker_, "db7-io");
 }
 
 void DiskScheduler::Stop() {
