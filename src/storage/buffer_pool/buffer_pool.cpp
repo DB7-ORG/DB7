@@ -227,7 +227,7 @@ VictimPage BufferPool::GetVictim(PageIdentifier id, AccessStrategy &strategy, bo
     if (!victim.IsValid()) {
       throw EXECUTION_EXCEPTION("Thread timed out", shared::ErrorCode::ERRCODE_NO_DATA);
     }
-    if (!strategy.IsDefaultType()) { strategy.Track(victim.page); }
+    strategy.Track(victim.page);
     return victim;
   }
 }
