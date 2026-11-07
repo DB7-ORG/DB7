@@ -107,41 +107,92 @@ static void SimulateWork(Page *page, i64 passes) {
   }
 }
 
-static void BM_RandomWorkload(benchmark::State &state) {
+static constexpr auto kNoWrites = [] { return false; };
+template <typename NextFn, typename WriteFn>
+static void ProcessPages(int numOps, NextFn &&next_page, WriteFn &&is_write, int cpu_work = 1) {
+  for (int i = 0; i < numOps; i++) {
+    Page *page = buffer_pool_->Pin({tbl_, next_page()}, PageKind::Heap);
+    benchmark::DoNotOptimize(page);
+    page->WaitIO();
+    SimulateWork(page, cpu_work);
+    buffer_pool_->Unpin(page, is_write());
+  }
+}
 
+template <typename NextFn>
+static void ProcessPagesStream(int numOps, int kLookahead, AccessStrategy &strategy,
+                               NextFn &&next_page, int cpu_work = 1) {
+  int issued = 0;
+  ReadIoStream stream(
+      buffer_pool_.get(), strategy, tbl_,
+      [&]() -> page_id {
+        if (issued == numOps) return INVALID_BLOCK;
+        issued++;
+        return next_page();
+      },
+      kLookahead);
+
+  while (PinnedPage page = stream.Next()) { // replace with your stream's call
+    page->WaitIO();
+    SimulateWork(page, 1);
+  }
+}
+
+static void BM_RandomRead(benchmark::State &state) {
+  constexpr int numOps = 1000;
   std::mt19937 rng(state.thread_index());
   std::uniform_int_distribution<u32> dist(1, DATA_PAGE_COUNT - 1);
 
-  constexpr int numOps = 1000;
-  constexpr u32 kLookahead = 1;
-  AccessStrategy strategy(AccessStrategyType::NORMAL);
-
   for (auto _ : state) {
-    int issued = 0;
-    ReadIoStream stream(
-        buffer_pool_.get(), strategy, tbl_,
-        [&]() -> page_id {
-          if (issued == numOps) return INVALID_BLOCK;
-          issued++;
-          return dist(rng);
-        },
-        kLookahead);
-
-    while (PinnedPage page = stream.Next()) { // replace with your stream's call
-      page->WaitIO();
-      SimulateWork(page, 1);
-    }
+    ProcessPages(numOps, [&] { return dist(rng); }, kNoWrites);
   }
 
   state.SetItemsProcessed(state.iterations() * numOps);
 }
 
-BENCHMARK(BM_RandomWorkload)
-    ->Arg(5'000)
-    ->Setup(Setup)
-    ->Teardown(Teardown)
-    ->ThreadRange(16, 100)
-    ->UseRealTime()
-    ->Unit(benchmark::kMillisecond);
+static void BM_RandomMixed(benchmark::State &state) {
+  constexpr auto numOps = 1000;
+
+  std::mt19937 rng(state.thread_index());
+  std::uniform_int_distribution<u32> dist(1, DATA_PAGE_COUNT - 1);
+
+  constexpr u32 kWritePercent = 20;
+  std::uniform_int_distribution<u32> roll(0, 99);
+
+  for (auto _ : state) {
+    ProcessPages(numOps, [&] { return dist(rng); }, [&] { return roll(rng) < kWritePercent; });
+  }
+
+  state.SetItemsProcessed(state.iterations() * numOps);
+}
+
+static void BM_RandomReadStream(benchmark::State &state) {
+
+  constexpr int numOps = 1000;
+  constexpr u32 kLookahead = 8;
+  std::mt19937 rng(state.thread_index());
+  std::uniform_int_distribution<u32> dist(1, DATA_PAGE_COUNT - 1);
+
+  AccessStrategy strategy(AccessStrategyType::NORMAL);
+
+  for (auto _ : state) {
+    ProcessPagesStream(numOps, kLookahead, strategy, [&] { return dist(rng); });
+  }
+
+  state.SetItemsProcessed(state.iterations() * numOps);
+}
+
+#define DB7_POOL_BENCHMARK(fn)                                                                     \
+  BENCHMARK(fn)                                                                                    \
+      ->Arg(5'000)                                                                                 \
+      ->Setup(Setup)                                                                               \
+      ->Teardown(Teardown)                                                                         \
+      ->ThreadRange(16, 100)                                                                       \
+      ->UseRealTime()                                                                              \
+      ->Unit(benchmark::kMillisecond)
+
+DB7_POOL_BENCHMARK(BM_RandomRead);
+DB7_POOL_BENCHMARK(BM_RandomMixed);
+DB7_POOL_BENCHMARK(BM_RandomReadStream);
 
 BENCHMARK_MAIN();
