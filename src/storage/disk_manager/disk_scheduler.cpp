@@ -62,6 +62,12 @@ void DiskScheduler::Run() {
     io_->ReapCompletions(kMaxInflight);
     if (SubmitPending()) { continue; }
 
+    if (inflight_ == kMaxInflight) {
+      // Saturated: a completion will wake us, producers needn't.
+      io_->WaitForCompletion();
+      continue;
+    }
+
     // Nothing could be submitted: queues are empty or the budget is full.
     sleeping_.store(true, std::memory_order_relaxed);
     std::atomic_thread_fence(std::memory_order_seq_cst);

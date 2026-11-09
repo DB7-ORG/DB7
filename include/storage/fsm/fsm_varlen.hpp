@@ -17,5 +17,7 @@ public:
     free_space -= space;
     return next_page_id;
   }
+
+  static u32 GetPageCount() { return next_page_id; }
 };
 } // namespace db7::storage

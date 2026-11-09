@@ -4,6 +4,8 @@
 #include "catalog/constraints/foreign_key_constraint.hpp"
 #include "catalog/database_catalog.hpp"
 #include "storage/layouts/storage_column_desc.hpp"
+#include "storage/models/parallel_scan_shared.hpp"
+#include "storage/models/scan_local.hpp"
 #include "transaction/transaction_context.hpp"
 
 #include <memory>
@@ -114,6 +116,14 @@ public:
    */
   bool Update(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
               TupleId tuple, DataChunk *chunk);
+
+  static constexpr u16 DEFAULT_MORSEL_SIZE = 64;
+  // snapshot nblocks, chunk sizing
+  std::unique_ptr<storage::ParallelScanShared> InitParallelScan() const;
+  // a hint for how many tasks make sense
+  idx_t MaxThreads(const storage::ParallelScanShared &state) const;
+
+  std::unique_ptr<storage::ScanLocal> InitLocalScan(storage::ParallelScanShared &shared) const;
 };
 } // namespace access
 } // namespace db7

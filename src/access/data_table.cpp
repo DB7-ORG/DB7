@@ -10,6 +10,7 @@
 #include "storage/layouts/pax.hpp"
 #include "storage/storage_manager.hpp"
 
+#include <memory>
 #include <utility>
 
 namespace db7::access {
@@ -495,6 +496,21 @@ bool DataTable::Update(transaction::TransactionContext &context, catalog::TableC
   InsertInternalIndexOther(current.get(), inserted_tuple);
 
   return true;
+}
+
+std::unique_ptr<storage::ParallelScanShared> DataTable::InitParallelScan() const {
+  return std::make_unique<storage::ParallelScanShared>(
+      oid_, idx_t(storage::FreeSpaceManagerVarlen::GetPageCount()), DEFAULT_MORSEL_SIZE);
+}
+
+idx_t DataTable::MaxThreads(const storage::ParallelScanShared &state) const {
+  idx_t morsels = (state.ntotal + state.morsel_size - 1) / state.morsel_size;
+  return std::max(morsels, idx_t(1));
+}
+
+std::unique_ptr<storage::ScanLocal>
+DataTable::InitLocalScan(storage::ParallelScanShared &shared) const {
+  return std::make_unique<storage::ScanLocal>(&storage_manager_.GetBufferPool(), shared, 32);
 }
 
 } // namespace db7::access

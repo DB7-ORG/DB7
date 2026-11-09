@@ -64,7 +64,7 @@ private:
   std::atomic<flags_t> state_;         // 4 bytes
 
   alignas(CACHE_LINE_SIZE) mutable std::mutex latch_; // ~56 bytes typically
-  mutable std::condition_variable_any io_cv_;
+  mutable std::condition_variable io_cv_;
   alignas(CACHE_LINE_SIZE) mutable shared::AdaptiveVersionLock lock_;
 
 public:
