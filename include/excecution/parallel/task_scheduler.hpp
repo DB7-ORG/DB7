@@ -1,5 +1,7 @@
 #pragma once
 
+#include "excecution/pipeline.hpp"
+#include "excecution/query_context.hpp"
 #include "shared/data_structures/token_queue.hpp"
 #include <vector>
 
@@ -10,27 +12,41 @@ namespace execution::parallel {
 enum class TaskExecutionMode : u8 { PROCESS_ALL };
 enum class TaskExecutionResult : u8 { Finished, Error };
 struct Task {
-  virtual TaskExecutionResult Execute(TaskExecutionMode mode) = 0;
+  Pipeline *pipeline;
+  QueryContext *query;
+
+  Task() {}
+  Task(Pipeline *p, QueryContext *q) : pipeline(p), query(q) {}
+
+  TaskExecutionResult Execute(TaskExecutionMode mode) {
+    (void)mode;
+    pipeline->TaskDone();
+    return TaskExecutionResult::Finished;
+  }
 };
 
 class TaskSchedulerPool;
 
+using TaskQObj = Task;
+
 class TaskScheduler {
 private:
   std::unique_ptr<TaskSchedulerPool> pool_;
-  shared::TokenQueue<std::shared_ptr<Task>> queue_;
+  shared::TokenQueue<TaskQObj> queue_;
   std::atomic<u32> tasks_in_queue_{0};
 
 public:
   TaskScheduler();
   ~TaskScheduler();
 
+  u32 NumberOfThreads() const;
   u32 GetTasksInQueue() const;
-  void ScheduleTask(std::shared_ptr<Task> task);
-  void ScheduleTasks(std::vector<std::shared_ptr<Task>> &tasks);
-  bool GetTask(std::shared_ptr<Task> &task);
+
+  void ScheduleTask(TaskQObj task);
+  void ScheduleTasks(std::vector<TaskQObj> &tasks);
+  bool GetTask(TaskQObj &task);
   void Signal(idx_t n);
-  bool ProcessTask(std::shared_ptr<Task> &task);
+  bool ProcessTask(TaskQObj &task);
 
   void ExecuteForever(std::atomic<bool> *marker);
 };

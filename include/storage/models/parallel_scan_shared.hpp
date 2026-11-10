@@ -16,7 +16,7 @@ struct ParallelScanShared {
   const idx_t ntotal;      // pages in the range, snapshotted at init
   const idx_t morsel_size; // multiple of IO_MAX_COMBINE
   const table_id tbl_id;
-  alignas(64) std::atomic<idx_t> curr{1};
+  std::atomic<idx_t> curr{1};
 
   ParallelScanShared(table_id t, idx_t n, idx_t m) : ntotal(n), morsel_size(m), tbl_id(t) {}
 
