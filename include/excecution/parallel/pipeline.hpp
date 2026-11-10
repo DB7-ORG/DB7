@@ -4,7 +4,7 @@
 
 #include <memory>
 
-namespace db7::excecution::parallel {
+namespace db7::execution::parallel {
 class Pipeline {
 private:
   void *source_;
@@ -16,4 +16,4 @@ private:
 
 public:
 };
-} // namespace db7::excecution::parallel
+} // namespace db7::execution::parallel
