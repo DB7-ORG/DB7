@@ -9,8 +9,8 @@ Pipeline::Pipeline(Executor &executor, std::unique_ptr<PipelineContext> state)
 
 PipelineContext &Pipeline::State() { return *context_; }
 
-void Pipeline::DependsOn(Pipeline &parent) {
-  parent.parents_.push_back(this);
+void Pipeline::DependsOn(Pipeline &child) {
+  child.parents_.push_back(this);
   deps_remaining_.fetch_add(1, std::memory_order_relaxed);
 }
 

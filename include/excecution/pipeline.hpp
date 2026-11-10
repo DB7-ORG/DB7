@@ -26,7 +26,7 @@ public:
 
   PipelineContext &State();
 
-  void DependsOn(Pipeline &parent);
+  void DependsOn(Pipeline &child);
 
   void TaskDone();
   void PipelineDone();
