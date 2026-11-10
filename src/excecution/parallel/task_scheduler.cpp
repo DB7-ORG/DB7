@@ -33,7 +33,11 @@ bool TaskScheduler::ProcessTask(std::shared_ptr<Task> &task) {
     (void)execute_result; // TODO scheduler process result and stuff
     return true;
   }
-  return false;
+  switch (task->Execute(TaskExecutionMode::PROCESS_ALL)) {
+  case TaskExecutionResult::Finished: break;
+  case TaskExecutionResult::Error: return false;
+  }
+  return true;
 }
 
 void TaskScheduler::ExecuteForever(std::atomic<bool> *marker) {

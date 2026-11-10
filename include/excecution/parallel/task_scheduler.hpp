@@ -7,14 +7,8 @@ namespace db7 {
 
 namespace execution::parallel {
 
-enum class TaskExecutionMode : uint8_t { PROCESS_ALL, PROCESS_PARTIAL };
-enum class TaskExecutionResult : uint8_t {
-  TASK_FINISHED,
-  TASK_NOT_FINISHED,
-  TASK_ERROR,
-  TASK_BLOCKED
-};
-
+enum class TaskExecutionMode : u8 { PROCESS_ALL };
+enum class TaskExecutionResult : u8 { Finished, Error };
 struct Task {
   virtual TaskExecutionResult Execute(TaskExecutionMode mode) = 0;
 };
