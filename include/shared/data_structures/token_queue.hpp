@@ -12,30 +12,18 @@ namespace db7::shared {
 
 namespace detail {
 
-// One small per-thread cache shared by every TokenQueue instance (of any T).
-// Maps a queue's unique id to this thread's ProducerToken for that queue.
-inline constexpr u32 kTokenCacheSlots = 8;
+// Per-thread table of ProducerTokens, indexed directly by queue id.
+// Shared by every TokenQueue instance (of any T). Ids are 0..kMaxTokenQueues-1, never reused.
+inline constexpr u32 kMaxTokenQueues = 16;
 
 struct TokenCache {
-  struct Entry {
-    u64 owner; // 0 = empty; queue ids start at 1 and are never reused
-    void *token;
-  };
-  Entry e[kTokenCacheSlots];
-  u32 next_victim;
+  moodycamel::ProducerToken *token[kMaxTokenQueues]; // nullptr = not registered yet
 };
 
 // constinit lets the compiler access this directly, without a TLS init wrapper call.
 extern constinit thread_local TokenCache tls_token_cache;
 
-u64 NextQueueId();
-void InsertToken(u64 owner, void *token); // slow path, round-robin replacement
-
-inline void *LookupToken(u64 owner) {
-  for (auto &e : tls_token_cache.e)
-    if (e.owner == owner) return e.token;
-  return nullptr;
-}
+u32 NextQueueId();
 
 } // namespace detail
 
@@ -77,8 +65,8 @@ public:
 
 private:
   moodycamel::ProducerToken &Token() {
-    if (void *t = detail::LookupToken(id_)) [[likely]]
-      return *static_cast<moodycamel::ProducerToken *>(t);
+    if (auto *t = detail::tls_token_cache.token[id_]) [[likely]]
+      return *t;
     return RegisterSlow();
   }
 
@@ -90,11 +78,11 @@ private:
       if (!slot) slot = std::make_unique<moodycamel::ProducerToken>(queue_);
       tok = slot.get();
     }
-    detail::InsertToken(id_, tok);
+    detail::tls_token_cache.token[id_] = tok;
     return *tok;
   }
 
-  const u64 id_ = detail::NextQueueId();
+  const u32 id_ = detail::NextQueueId();
   Queue queue_;
 
   // Declared after queue_ so tokens are destroyed before the queue they point into.

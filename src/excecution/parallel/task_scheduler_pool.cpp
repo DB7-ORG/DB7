@@ -1,4 +1,5 @@
 #include "excecution/parallel/task_scheduler_pool.hpp"
+#include "excecution/parallel/task_scheduler.hpp"
 #include "shared/config/config.hpp"
 #include "shared/macro_helper.hpp"
 #include "third_party/lightweightsemaphore.h"
@@ -55,7 +56,6 @@ TaskSchedulerPool::TaskSchedulerPool()
       semaphore_(std::make_unique<LightWeightSemaphoreWrapper>()) {
   SetThreads(DbConfig::Get(TASK_SCHEDULER_THREAD_COUNT));
   thread_pin_ = DbConfig::Get(TASK_SCHEDULER_PINNED_THREADS);
-  Start();
 }
 
 TaskSchedulerPool::~TaskSchedulerPool() { Stop(); }
@@ -77,11 +77,8 @@ void TaskSchedulerPool::Wait() { semaphore_->wait(); }
 
 bool TaskSchedulerPool::Wait(int64_t timeout_usecs) { return semaphore_->wait(timeout_usecs); }
 
-void TaskSchedulerPool::Run(std::atomic<bool> *marker) {
-  while (marker->load(std::memory_order_relaxed)) {
-    semaphore_->wait();
-    // dequeue a task from the queue and Execute() it (the queue may be empty after a wakeup)
-  }
+void TaskSchedulerPool::Run(TaskScheduler &scheduler, std::atomic<bool> *marker) {
+  scheduler.ExecuteForever(marker);
 }
 
 void TaskSchedulerPool::Stop() {
@@ -93,7 +90,7 @@ void TaskSchedulerPool::Stop() {
   current_thread_count_.store(0, std::memory_order_relaxed);
 }
 
-void TaskSchedulerPool::Start() {
+void TaskSchedulerPool::Start(TaskScheduler &scheduler) {
   u32 n = requested_thread_count_.load(std::memory_order_relaxed);
   auto cpus = thread_pin_ ? GetProcessCPUMask() : std::vector<int>{};
   threads_.reserve(n);
@@ -102,13 +99,13 @@ void TaskSchedulerPool::Start() {
     auto marker = std::make_unique<std::atomic<bool>>(true);
     std::atomic<bool> *m = marker.get();
     markers_.push_back(std::move(marker));
-    threads_.push_back(std::make_unique<std::thread>([this, m] { Run(m); }));
+    threads_.push_back(std::make_unique<std::thread>([this, &scheduler, m] { Run(scheduler, m); }));
     if (i < cpus.size()) SetThreadAffinity(*threads_.back(), cpus[i]);
   }
   current_thread_count_.store(n, std::memory_order_relaxed);
 }
 
-void TaskSchedulerPool::Reload() {
+void TaskSchedulerPool::Reload(TaskScheduler &scheduler) {
   SetThreads(DbConfig::Get(TASK_SCHEDULER_THREAD_COUNT));
   auto new_thread_pin_ = DbConfig::Get(TASK_SCHEDULER_PINNED_THREADS);
   if (current_thread_count_ == requested_thread_count_ && new_thread_pin_ == thread_pin_) {
@@ -116,7 +113,7 @@ void TaskSchedulerPool::Reload() {
   }
   thread_pin_ = new_thread_pin_;
   Stop();
-  Start();
+  Start(scheduler);
 }
 
 } // namespace db7::execution::parallel

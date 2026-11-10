@@ -1,7 +1,7 @@
 #pragma once
 
+#include "shared/data_structures/token_queue.hpp"
 #include "storage/disk_manager/disk_manager_async.hpp"
-#include "storage/disk_manager/token_queue.hpp"
 #include "storage/page.hpp"
 
 #include <atomic>
@@ -67,7 +67,7 @@ private:
   void FreeTask(IoTask *t);
 
 public:
-  explicit DiskScheduler(DiskManagerAsync *io, u32 max_low_inflight = kMaxInflight / 4);
+  explicit DiskScheduler(DiskManagerAsync *io, u32 max_low_inflight = kMaxInflight / 2);
   ~DiskScheduler();
 
   void Start();
