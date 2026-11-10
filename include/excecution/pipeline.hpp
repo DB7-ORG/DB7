@@ -33,8 +33,8 @@ public:
 
 private:
   friend class Executor;
-  void SetNumTasks(u32 n) { tasks_remaining_.store(n); }
-  void SetState(PipelineState state) { state_ = state; }
-  bool Available() { return state_ == PipelineState::WAITING && deps_remaining_.load() == 0; }
+  void SetNumTasks(u32 n);
+  void SetState(PipelineState state);
+  bool Available() const;
 };
 } // namespace db7::execution

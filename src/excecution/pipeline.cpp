@@ -27,4 +27,10 @@ void Pipeline::PipelineDone() {
   state_ = DONE;
   for (auto &parent : parents_) { parent->deps_remaining_.fetch_sub(1); }
 }
+
+void Pipeline::SetNumTasks(u32 n) { tasks_remaining_.store(n); }
+void Pipeline::SetState(PipelineState state) { state_ = state; }
+bool Pipeline::Available() const {
+  return state_ == PipelineState::WAITING && deps_remaining_.load() == 0;
+}
 } // namespace db7::execution
