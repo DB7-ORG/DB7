@@ -14,7 +14,7 @@ void Pipeline::DependsOn(Pipeline &child) {
   deps_remaining_.fetch_add(1, std::memory_order_relaxed);
 }
 
-void Pipeline::TaskDone() {
+void Pipeline::TaskDone() noexcept {
   if (tasks_remaining_.fetch_sub(1) != 1) { return; }
 
   PipelineDone();
@@ -22,7 +22,7 @@ void Pipeline::TaskDone() {
   executor_.OnPipelineFinished();
 }
 
-void Pipeline::PipelineDone() {
+void Pipeline::PipelineDone() noexcept {
   DB7_ASSERT(tasks_remaining_ == 0, "All tasks are finished");
   state_ = DONE;
   for (auto &parent : parents_) { parent->deps_remaining_.fetch_sub(1); }

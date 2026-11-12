@@ -24,7 +24,7 @@ void Executor::Start() {
   Finish();
 }
 
-void Executor::OnPipelineFinished() {
+void Executor::OnPipelineFinished() noexcept {
   if (SchedulePipeline()) return;
   DB7_ASSERT(
       std::all_of(pipelines_.begin(), pipelines_.end(), [](auto &p) { return p->state_ == DONE; }),

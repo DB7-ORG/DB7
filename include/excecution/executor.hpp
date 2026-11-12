@@ -48,6 +48,6 @@ public:
 
   void Start();
   /** Called by the last task of a finished pipeline */
-  void OnPipelineFinished();
+  void OnPipelineFinished() noexcept;
 };
 } // namespace db7::execution

@@ -28,8 +28,8 @@ public:
 
   void DependsOn(Pipeline &child);
 
-  void TaskDone();
-  void PipelineDone();
+  void TaskDone() noexcept;
+  void PipelineDone() noexcept;
 
 private:
   friend class Executor;

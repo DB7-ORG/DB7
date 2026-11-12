@@ -10,7 +10,7 @@ namespace db7 {
 namespace execution::parallel {
 
 enum class TaskExecutionMode : u8 { PROCESS_ALL };
-enum class TaskExecutionResult : u8 { Finished, Error };
+enum class TaskExecutionResult : u8 { Finished, Timed, Error };
 struct Task {
   Pipeline *pipeline;
   QueryContext *query;
@@ -20,9 +20,17 @@ struct Task {
 
   TaskExecutionResult Execute(TaskExecutionMode mode) {
     (void)mode;
+    // start doing some work
+    if (false) {
+      Abort(); // TODO err message
+      return TaskExecutionResult::Error;
+    } // error, abort query
+
     pipeline->TaskDone();
     return TaskExecutionResult::Finished;
   }
+
+  void Abort() { query->Cancel(); }
 };
 
 class TaskSchedulerPool;

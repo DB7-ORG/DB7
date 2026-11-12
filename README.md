@@ -75,3 +75,10 @@ git checkout a824245abac0985ae4573e829a6552570d44bf34
 - disk err handling
 - // TODO ClearIOInProgress() && ClearWriteInProgress() && SetError;
 - central memory manager component in buffer pool
+
+- error handling in the scheduler
+- rewrite stream to not pop the task right away from the ring
+- figure out a way to do non blocking io in scheduler (seperate component ideally)
+- figure out a way to store local state in a task
+- figure out ownerships for a task
+- parking lot for pages 

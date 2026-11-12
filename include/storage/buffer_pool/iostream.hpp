@@ -124,13 +124,12 @@ public:
     }
 
     PinnedPage page = ring_.ReadUnsafe();
-
-    LookAhead(); // refill the slot we just freed before possibly blocking
-
     if (page->IsIOInProgress()) { // look-ahead didn't hide the latency: look further ahead
       distance_ = std::min(distance_ * 2, max_distance_);
       decay_holdoff_ = max_distance_;
     }
+
+    LookAhead(); // refill the slot we just freed before possibly blocking
 
     return page;
   }

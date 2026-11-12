@@ -12,7 +12,6 @@ namespace db7::execution::parallel {
 struct LightWeightSemaphoreWrapper;
 class TaskScheduler;
 
-/** NOTE: NOT THREAD SAFE */
 class TaskSchedulerPool {
 private:
   std::vector<std::unique_ptr<std::thread>> threads_;
@@ -37,6 +36,7 @@ public:
   u32 NumberOfThreads() const;
   void SetThreads(idx_t n);
 
+  /** NOTE: NOT THREAD SAFE */
   void Reload(TaskScheduler &scheduler);
 };
 } // namespace db7::execution::parallel

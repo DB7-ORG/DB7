@@ -30,21 +30,26 @@ bool TaskScheduler::GetTask(TaskQObj &task) {
 void TaskScheduler::Signal(idx_t n) { pool_->Signal(n); }
 
 bool TaskScheduler::ProcessTask(TaskQObj &task) {
-  if (GetTask(task)) {
-    auto execute_result = task.Execute(TaskExecutionMode::PROCESS_ALL);
-    (void)execute_result; // TODO scheduler process result and stuff
-    return true;
-  }
+  if (!GetTask(task)) { return false; }
   switch (task.Execute(TaskExecutionMode::PROCESS_ALL)) {
-  case TaskExecutionResult::Finished: break;
-  case TaskExecutionResult::Error: return false;
+  case TaskExecutionResult::Finished:
+  case TaskExecutionResult::Error: break;
+  case TaskExecutionResult::Timed: {
+    queue_.Enqueue(task);
+    Signal(1);
+    break;
+  }
   }
   return true;
 }
 
 void TaskScheduler::ExecuteForever(std::atomic<bool> *marker) {
   TaskQObj task;
-  while (*marker) { ProcessTask(task); }
+  while (true) {
+    pool_->Wait();
+    if (!marker->load(std::memory_order_relaxed)) return;
+    ProcessTask(task);
+  }
 }
 
 } // namespace db7::execution::parallel

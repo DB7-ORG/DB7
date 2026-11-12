@@ -10,5 +10,8 @@ struct QueryContext {
   u64 query_id;
   u32 max_threads{std::numeric_limits<u32>::max()};
   std::atomic<bool> cancelled{false};
+  void *error;
+
+  void Cancel() { cancelled.store(true); }
 };
 } // namespace db7::execution

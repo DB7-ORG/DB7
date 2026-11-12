@@ -212,7 +212,11 @@ void ApplyText(std::string_view text, std::string_view source, Values_t &values)
   while (pos <= text.size()) {
     size_t end = text.find('\n', pos);
     if (end == std::string_view::npos) end = text.size();
-    std::string_view line = Trim(text.substr(pos, end - pos)); // also strips '\r'
+    std::string_view line = text.substr(pos, end - pos);
+    if (auto comment = line.find('#'); comment != std::string_view::npos) {
+      line = line.substr(0, comment);
+    }
+    line = Trim(line);
     pos = end + 1;
     line_no++;
 
