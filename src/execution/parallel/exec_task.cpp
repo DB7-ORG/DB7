@@ -2,6 +2,7 @@
 #include "execution/parallel/task_scheduler.hpp"
 #include "execution/pipeline.hpp"
 #include "execution/query_context.hpp"
+#include "execution/sources/table_source.hpp"
 
 namespace db7::execution::parallel {
 Task::Task(Pipeline *p, QueryContext *q, TaskScheduler *s) : pipeline(p), query(q), scheduler(s) {
@@ -11,12 +12,37 @@ Task::Task(Pipeline *p, QueryContext *q, TaskScheduler *s) : pipeline(p), query(
   };
 }
 
+void Task::Init(Pipeline *p, QueryContext *q, TaskScheduler *s) {
+  pipeline = p;
+  query = q;
+  scheduler = s;
+  auto src = p->State().source;
+  auto &table_src = src->Cast<TableSource>();
+  source_local_ = table_src.InitLocal();
+  code_ = p->State().code;
+}
+
 TaskExecutionResult Task::Execute(TaskExecutionMode mode) {
   (void)mode;
-  // start doing some work
-  if (false) { return TaskExecutionResult::Error; } // error, abort query
 
-  return TaskExecutionResult::Finished;
+  using Clock = std::chrono::steady_clock;
+  static constexpr auto kTimeSlice = std::chrono::milliseconds(5);
+
+  // start deadline timer
+  const auto deadline = Clock::now() + kTimeSlice;
+
+  // while deadline or no tuples
+  do {
+    if (query->IsCancelled()) return TaskExecutionResult::Finished;
+    // process data
+    //  if blocked page wait
+    std::cout << "completed task" << std::endl;
+
+    return TaskExecutionResult::Finished; // TODO
+
+  } while (Clock::now() < deadline);
+
+  return TaskExecutionResult::Timed;
 }
 
 } // namespace db7::execution::parallel

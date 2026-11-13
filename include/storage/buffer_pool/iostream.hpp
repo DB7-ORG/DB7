@@ -4,6 +4,7 @@
 #include "shared/data_structures/ring_buffer.hpp"
 #include "storage/buffer_pool/buffer_pool.hpp"
 #include "storage/page.hpp"
+#include "storage/pinned_page.hpp"
 
 namespace db7::storage {
 inline static constexpr u32 INVALID_BLOCK = ~0u;

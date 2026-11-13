@@ -37,7 +37,7 @@ bool Pipeline::Available() const {
 std::span<parallel::Task> Pipeline::CreateTasks(u32 n, QueryContext &q,
                                                 parallel::TaskScheduler &s) {
   tasks_ = std::make_unique<parallel::Task[]>(n); // 1 allocation
-  for (u32 i = 0; i < n; i++) tasks_[i].Init(this, &q, &s);
+  for (u32 i = 0; i < n; i++) { tasks_[i].Init(this, &q, &s); }
   tasks_remaining_.store(n);
   return {tasks_.get(), n};
 }

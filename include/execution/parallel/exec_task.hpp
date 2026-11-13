@@ -1,7 +1,9 @@
 #pragma once
 
 #include "common.hpp"
+#include "execution/sources/table_local_state.hpp"
 #include "shared/sync/waiter_list.hpp"
+#include <memory>
 
 namespace db7 {
 namespace execution {
@@ -18,15 +20,13 @@ struct Task : shared::Waiter {
   Pipeline *pipeline = nullptr;
   QueryContext *query = nullptr;
   TaskScheduler *scheduler = nullptr;
+  std::unique_ptr<SourceLocalState> source_local_;
+  void *code_;
 
   Task() = default;
   Task(Pipeline *p, QueryContext *q, TaskScheduler *s);
 
-  void Init(Pipeline *p, QueryContext *q, TaskScheduler *s) {
-    pipeline = p;
-    query = q;
-    scheduler = s;
-  }
+  void Init(Pipeline *p, QueryContext *q, TaskScheduler *s);
 
   Task(const Task &) = delete;
   Task &operator=(const Task &) = delete;

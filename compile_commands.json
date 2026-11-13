@@ -15,104 +15,12 @@
       "-DNDB7DEBUG",
       "-c",
       "-o",
-      "obj/release/storage/buffer_pool/buffer_pool.o",
-      "src/storage/buffer_pool/buffer_pool.cpp"
+      "obj/release/transaction/transaction_context.o",
+      "src/transaction/transaction_context.cpp"
     ],
     "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/storage/buffer_pool/buffer_pool.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/storage/buffer_pool/buffer_pool.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/clang++",
-      "-std=c++20",
-      "-Iinclude",
-      "-Isrc",
-      "-march=native",
-      "-Wall",
-      "-Wextra",
-      "-Wno-unused-parameter",
-      "-Wno-unused-but-set-variable",
-      "-Wno-return-type",
-      "-O2",
-      "-DNDB7DEBUG",
-      "-c",
-      "-o",
-      "obj/release/transaction/transaction_manager.o",
-      "src/transaction/transaction_manager.cpp"
-    ],
-    "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/transaction/transaction_manager.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/transaction/transaction_manager.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/clang++",
-      "-std=c++20",
-      "-Iinclude",
-      "-Isrc",
-      "-march=native",
-      "-Wall",
-      "-Wextra",
-      "-Wno-unused-parameter",
-      "-Wno-unused-but-set-variable",
-      "-Wno-return-type",
-      "-O2",
-      "-DNDB7DEBUG",
-      "-c",
-      "-o",
-      "obj/release/main.o",
-      "src/main.cpp"
-    ],
-    "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/main.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/main.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/clang++",
-      "-std=c++20",
-      "-Iinclude",
-      "-Isrc",
-      "-march=native",
-      "-Wall",
-      "-Wextra",
-      "-Wno-unused-parameter",
-      "-Wno-unused-but-set-variable",
-      "-Wno-return-type",
-      "-O2",
-      "-DNDB7DEBUG",
-      "-c",
-      "-o",
-      "obj/release/storage/disk_manager/disk_manager.o",
-      "src/storage/disk_manager/disk_manager.cpp"
-    ],
-    "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/storage/disk_manager/disk_manager.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/storage/disk_manager/disk_manager.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/clang++",
-      "-std=c++20",
-      "-Iinclude",
-      "-Isrc",
-      "-march=native",
-      "-Wall",
-      "-Wextra",
-      "-Wno-unused-parameter",
-      "-Wno-unused-but-set-variable",
-      "-Wno-return-type",
-      "-O2",
-      "-DNDB7DEBUG",
-      "-c",
-      "-o",
-      "obj/release/storage/storage_manager.o",
-      "src/storage/storage_manager.cpp"
-    ],
-    "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/storage/storage_manager.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/storage/storage_manager.o"
+    "file": "/home/jovankatanic/DB7/src/transaction/transaction_context.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/transaction/transaction_context.o"
   },
   {
     "arguments": [
@@ -153,58 +61,35 @@
       "-DNDB7DEBUG",
       "-c",
       "-o",
-      "obj/release/transaction/transaction_context.o",
-      "src/transaction/transaction_context.cpp"
-    ],
-    "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/transaction/transaction_context.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/transaction/transaction_context.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/clang++",
-      "-std=c++20",
-      "-Iinclude",
-      "-Isrc",
-      "-march=native",
-      "-Wall",
-      "-Wextra",
-      "-Wno-unused-parameter",
-      "-Wno-unused-but-set-variable",
-      "-Wno-return-type",
-      "-O2",
-      "-DNDB7DEBUG",
-      "-c",
-      "-o",
-      "obj/release/storage/layouts/pax.o",
-      "src/storage/layouts/pax.cpp"
-    ],
-    "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/storage/layouts/pax.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/storage/layouts/pax.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/clang++",
-      "-std=c++20",
-      "-Iinclude",
-      "-Isrc",
-      "-march=native",
-      "-Wall",
-      "-Wextra",
-      "-Wno-unused-parameter",
-      "-Wno-unused-but-set-variable",
-      "-Wno-return-type",
-      "-O2",
-      "-DNDB7DEBUG",
-      "-c",
-      "-o",
       "obj/release/storage/disk_manager/disk_manager_async.o",
       "src/storage/disk_manager/disk_manager_async.cpp"
     ],
     "directory": "/home/jovankatanic/DB7",
     "file": "/home/jovankatanic/DB7/src/storage/disk_manager/disk_manager_async.cpp",
     "output": "/home/jovankatanic/DB7/obj/release/storage/disk_manager/disk_manager_async.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang++",
+      "-std=c++20",
+      "-Iinclude",
+      "-Isrc",
+      "-march=native",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-but-set-variable",
+      "-Wno-return-type",
+      "-O2",
+      "-DNDB7DEBUG",
+      "-c",
+      "-o",
+      "obj/release/main.o",
+      "src/main.cpp"
+    ],
+    "directory": "/home/jovankatanic/DB7",
+    "file": "/home/jovankatanic/DB7/src/main.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/main.o"
   },
   {
     "arguments": [
@@ -245,12 +130,12 @@
       "-DNDB7DEBUG",
       "-c",
       "-o",
-      "obj/release/storage/mvcc/page_version_maneger.o",
-      "src/storage/mvcc/page_version_maneger.cpp"
+      "obj/release/storage/buffer_pool/buffer_pool.o",
+      "src/storage/buffer_pool/buffer_pool.cpp"
     ],
     "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/storage/mvcc/page_version_maneger.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/storage/mvcc/page_version_maneger.o"
+    "file": "/home/jovankatanic/DB7/src/storage/buffer_pool/buffer_pool.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/storage/buffer_pool/buffer_pool.o"
   },
   {
     "arguments": [
@@ -291,6 +176,121 @@
       "-DNDB7DEBUG",
       "-c",
       "-o",
+      "obj/release/storage/disk_manager/disk_manager.o",
+      "src/storage/disk_manager/disk_manager.cpp"
+    ],
+    "directory": "/home/jovankatanic/DB7",
+    "file": "/home/jovankatanic/DB7/src/storage/disk_manager/disk_manager.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/storage/disk_manager/disk_manager.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang++",
+      "-std=c++20",
+      "-Iinclude",
+      "-Isrc",
+      "-march=native",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-but-set-variable",
+      "-Wno-return-type",
+      "-O2",
+      "-DNDB7DEBUG",
+      "-c",
+      "-o",
+      "obj/release/transaction/transaction_manager.o",
+      "src/transaction/transaction_manager.cpp"
+    ],
+    "directory": "/home/jovankatanic/DB7",
+    "file": "/home/jovankatanic/DB7/src/transaction/transaction_manager.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/transaction/transaction_manager.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang++",
+      "-std=c++20",
+      "-Iinclude",
+      "-Isrc",
+      "-march=native",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-but-set-variable",
+      "-Wno-return-type",
+      "-O2",
+      "-DNDB7DEBUG",
+      "-c",
+      "-o",
+      "obj/release/storage/layouts/pax.o",
+      "src/storage/layouts/pax.cpp"
+    ],
+    "directory": "/home/jovankatanic/DB7",
+    "file": "/home/jovankatanic/DB7/src/storage/layouts/pax.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/storage/layouts/pax.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang++",
+      "-std=c++20",
+      "-Iinclude",
+      "-Isrc",
+      "-march=native",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-but-set-variable",
+      "-Wno-return-type",
+      "-O2",
+      "-DNDB7DEBUG",
+      "-c",
+      "-o",
+      "obj/release/storage/storage_manager.o",
+      "src/storage/storage_manager.cpp"
+    ],
+    "directory": "/home/jovankatanic/DB7",
+    "file": "/home/jovankatanic/DB7/src/storage/storage_manager.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/storage/storage_manager.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang++",
+      "-std=c++20",
+      "-Iinclude",
+      "-Isrc",
+      "-march=native",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-but-set-variable",
+      "-Wno-return-type",
+      "-O2",
+      "-DNDB7DEBUG",
+      "-c",
+      "-o",
+      "obj/release/storage/mvcc/page_version_maneger.o",
+      "src/storage/mvcc/page_version_maneger.cpp"
+    ],
+    "directory": "/home/jovankatanic/DB7",
+    "file": "/home/jovankatanic/DB7/src/storage/mvcc/page_version_maneger.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/storage/mvcc/page_version_maneger.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang++",
+      "-std=c++20",
+      "-Iinclude",
+      "-Isrc",
+      "-march=native",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-but-set-variable",
+      "-Wno-return-type",
+      "-O2",
+      "-DNDB7DEBUG",
+      "-c",
+      "-o",
       "obj/release/catalog/entries/catalog_entry.o",
       "src/catalog/entries/catalog_entry.cpp"
     ],
@@ -314,12 +314,12 @@
       "-DNDB7DEBUG",
       "-c",
       "-o",
-      "obj/release/catalog/entries/dependency_subject_entry.o",
-      "src/catalog/entries/dependency_subject_entry.cpp"
+      "obj/release/catalog/entries/schema_catalog_entry_base.o",
+      "src/catalog/entries/schema_catalog_entry_base.cpp"
     ],
     "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/catalog/entries/dependency_subject_entry.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/catalog/entries/dependency_subject_entry.o"
+    "file": "/home/jovankatanic/DB7/src/catalog/entries/schema_catalog_entry_base.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/catalog/entries/schema_catalog_entry_base.o"
   },
   {
     "arguments": [
@@ -337,12 +337,12 @@
       "-DNDB7DEBUG",
       "-c",
       "-o",
-      "obj/release/catalog/entries/schema_catalog_entry_base.o",
-      "src/catalog/entries/schema_catalog_entry_base.cpp"
+      "obj/release/catalog/entries/dependency_subject_entry.o",
+      "src/catalog/entries/dependency_subject_entry.cpp"
     ],
     "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/catalog/entries/schema_catalog_entry_base.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/catalog/entries/schema_catalog_entry_base.o"
+    "file": "/home/jovankatanic/DB7/src/catalog/entries/dependency_subject_entry.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/catalog/entries/dependency_subject_entry.o"
   },
   {
     "arguments": [
@@ -452,12 +452,12 @@
       "-DNDB7DEBUG",
       "-c",
       "-o",
-      "obj/release/catalog/entries/dependency_entry.o",
-      "src/catalog/entries/dependency_entry.cpp"
+      "obj/release/catalog/entries/index_catalog_entry.o",
+      "src/catalog/entries/index_catalog_entry.cpp"
     ],
     "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/catalog/entries/dependency_entry.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/catalog/entries/dependency_entry.o"
+    "file": "/home/jovankatanic/DB7/src/catalog/entries/index_catalog_entry.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/catalog/entries/index_catalog_entry.o"
   },
   {
     "arguments": [
@@ -475,12 +475,12 @@
       "-DNDB7DEBUG",
       "-c",
       "-o",
-      "obj/release/catalog/entries/index_catalog_entry.o",
-      "src/catalog/entries/index_catalog_entry.cpp"
+      "obj/release/catalog/entries/dependency_entry.o",
+      "src/catalog/entries/dependency_entry.cpp"
     ],
     "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/catalog/entries/index_catalog_entry.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/catalog/entries/index_catalog_entry.o"
+    "file": "/home/jovankatanic/DB7/src/catalog/entries/dependency_entry.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/catalog/entries/dependency_entry.o"
   },
   {
     "arguments": [
@@ -843,12 +843,12 @@
       "-DNDB7DEBUG",
       "-c",
       "-o",
-      "obj/release/access/data_table.o",
-      "src/access/data_table.cpp"
+      "obj/release/shared/identifier.o",
+      "src/shared/identifier.cpp"
     ],
     "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/access/data_table.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/access/data_table.o"
+    "file": "/home/jovankatanic/DB7/src/shared/identifier.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/shared/identifier.o"
   },
   {
     "arguments": [
@@ -866,12 +866,12 @@
       "-DNDB7DEBUG",
       "-c",
       "-o",
-      "obj/release/shared/identifier.o",
-      "src/shared/identifier.cpp"
+      "obj/release/access/data_table.o",
+      "src/access/data_table.cpp"
     ],
     "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/shared/identifier.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/shared/identifier.o"
+    "file": "/home/jovankatanic/DB7/src/access/data_table.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/access/data_table.o"
   },
   {
     "arguments": [
@@ -958,12 +958,12 @@
       "-DNDB7DEBUG",
       "-c",
       "-o",
-      "obj/release/excecution/parallel/task_scheduler.o",
-      "src/excecution/parallel/task_scheduler.cpp"
+      "obj/release/execution/parallel/task_scheduler.o",
+      "src/execution/parallel/task_scheduler.cpp"
     ],
     "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/excecution/parallel/task_scheduler.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/excecution/parallel/task_scheduler.o"
+    "file": "/home/jovankatanic/DB7/src/execution/parallel/task_scheduler.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/execution/parallel/task_scheduler.o"
   },
   {
     "arguments": [
@@ -981,12 +981,12 @@
       "-DNDB7DEBUG",
       "-c",
       "-o",
-      "obj/release/excecution/parallel/task_scheduler_pool.o",
-      "src/excecution/parallel/task_scheduler_pool.cpp"
+      "obj/release/execution/parallel/exec_task.o",
+      "src/execution/parallel/exec_task.cpp"
     ],
     "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/excecution/parallel/task_scheduler_pool.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/excecution/parallel/task_scheduler_pool.o"
+    "file": "/home/jovankatanic/DB7/src/execution/parallel/exec_task.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/execution/parallel/exec_task.o"
   },
   {
     "arguments": [
@@ -1004,12 +1004,12 @@
       "-DNDB7DEBUG",
       "-c",
       "-o",
-      "obj/release/excecution/pipeline.o",
-      "src/excecution/pipeline.cpp"
+      "obj/release/execution/parallel/task_scheduler_pool.o",
+      "src/execution/parallel/task_scheduler_pool.cpp"
     ],
     "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/excecution/pipeline.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/excecution/pipeline.o"
+    "file": "/home/jovankatanic/DB7/src/execution/parallel/task_scheduler_pool.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/execution/parallel/task_scheduler_pool.o"
   },
   {
     "arguments": [
@@ -1027,12 +1027,35 @@
       "-DNDB7DEBUG",
       "-c",
       "-o",
-      "obj/release/excecution/executor.o",
-      "src/excecution/executor.cpp"
+      "obj/release/execution/pipeline.o",
+      "src/execution/pipeline.cpp"
     ],
     "directory": "/home/jovankatanic/DB7",
-    "file": "/home/jovankatanic/DB7/src/excecution/executor.cpp",
-    "output": "/home/jovankatanic/DB7/obj/release/excecution/executor.o"
+    "file": "/home/jovankatanic/DB7/src/execution/pipeline.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/execution/pipeline.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang++",
+      "-std=c++20",
+      "-Iinclude",
+      "-Isrc",
+      "-march=native",
+      "-Wall",
+      "-Wextra",
+      "-Wno-unused-parameter",
+      "-Wno-unused-but-set-variable",
+      "-Wno-return-type",
+      "-O2",
+      "-DNDB7DEBUG",
+      "-c",
+      "-o",
+      "obj/release/execution/executor.o",
+      "src/execution/executor.cpp"
+    ],
+    "directory": "/home/jovankatanic/DB7",
+    "file": "/home/jovankatanic/DB7/src/execution/executor.cpp",
+    "output": "/home/jovankatanic/DB7/obj/release/execution/executor.o"
   },
   {
     "arguments": [

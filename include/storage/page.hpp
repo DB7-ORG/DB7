@@ -245,6 +245,19 @@ public:
     waiters_.Signal();
   }
 
+  void WaitIO() {
+    if (!IsIOInProgress()) { return; }
+
+    std::unique_lock lk(latch_);
+    io_cv_.wait(lk, [&] { return !IsIOInProgress(); });
+  }
+
+  void WaitWrite() {
+    if (!IsIOOrWriteInProgress()) return;
+    std::unique_lock lk(latch_);
+    io_cv_.wait(lk, [&] { return !IsIOOrWriteInProgress(); });
+  }
+
   bool WaitIO(shared::Waiter *obj) {
     if (!IsIOInProgress()) { return; }
     return waiters_.TryPark(obj);
