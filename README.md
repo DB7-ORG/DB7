@@ -83,6 +83,7 @@ git checkout a824245abac0985ae4573e829a6552570d44bf34
 - figure out ownerships for a task
 - parking lot for pages 
 
-- error for io what should pin do when encountering it
+- track how many pages are in fligh for each transaction and make it yield for a while untill the q empties
+ (added size aprox for a producer use it)
 - waiter list, how to send mutex and io_cv
 - ownership for Task and Executor

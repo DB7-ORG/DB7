@@ -21,6 +21,7 @@ struct IoTask {
   Op op;
   IoPriority priority;
   PageIdentifier id; // first page
+  u8 retries = 0;
   u8 count = 0;
   Page *pages[IO_MAX_COMBINE];
 
@@ -35,6 +36,16 @@ struct IoTask {
       : op(op), priority(priority), id(first), count(static_cast<u8>(n)) {
     DB7_ASSERT(n >= 1 && n <= IO_MAX_COMBINE, "invalid io size");
     std::copy_n(pages_in, n, pages);
+  }
+
+  static const char *OpName(IoTask::Op op) {
+    switch (op) {
+    case IoTask::READ: return "READ";
+    case IoTask::WRITE: return "WRITE";
+    case IoTask::READV: return "READV";
+    case IoTask::WRITEV: return "WRITEV";
+    default: return "?";
+    }
   }
 };
 

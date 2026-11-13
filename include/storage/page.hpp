@@ -47,7 +47,6 @@ private:
   static constexpr flags_t kIOInProgressFlag = 1u << (kFlagShift + 1);
   static constexpr flags_t kWriteInProgressFlag = 1u << (kFlagShift + 2);
   static constexpr flags_t kTagValidFlag = 1u << (kFlagShift + 3);
-  static constexpr flags_t kIOErrorFlag = 1u << (kFlagShift + 4);
 
   static constexpr flags_t RefCountOf(flags_t state) { return state & kRefCountMask; }
   static constexpr flags_t UsageCountOf(flags_t state) {
@@ -170,7 +169,6 @@ public:
   void ClearWriteInProgress() { state_.fetch_and(~kWriteInProgressFlag); }
   void SetDirty() { state_.fetch_or(kDirtyFlag); }
   void SetTagValid() { state_.fetch_or(kTagValidFlag); }
-  void SetError() { state_.fetch_or(kIOErrorFlag); }
 
   /**
    * NOTE: If i ever change this to value above 1 i should add a rule to ring strategy so it never
@@ -223,11 +221,6 @@ public:
   /**
    * Channel
    */
-  void SignalError() {
-    DB7_ASSERT(IsIOInProgress() || IsWriteInProgress(), "Io/write in progress not set");
-    SetError();
-    waiters_.Signal();
-  }
 
   void SignalIO() {
     DB7_ASSERT(IsIOInProgress(), "Io in progress not set");
@@ -245,6 +238,7 @@ public:
     waiters_.Signal();
   }
 
+  // TODO remove this
   void WaitIO() {
     if (!IsIOInProgress()) { return; }
 

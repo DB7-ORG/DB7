@@ -124,13 +124,33 @@ void DiskScheduler::SubmitOne(const IoTask &task) {
   inflight_++;
   inflight_by_prio_[u32(t->priority)]++;
 }
+static constexpr u8 MAX_IO_RETRIES = 3;
+
+static void LogIoRetry(const IoTask &t, ssize_t res, ssize_t expected) noexcept {
+  if (res < 0) {
+    fprintf(stderr, "IO retry %u/%u: op=%s tbl=%u pid=%u count=%u err=%s (%s)\n", t.retries,
+            MAX_IO_RETRIES, IoTask::OpName(t.op), t.id.tbl_id, t.id.pid, t.count,
+            strerrorname_np(int(-res)), strerror(int(-res)));
+  } else {
+    fprintf(stderr, "IO retry %u/%u: op=%s tbl=%u pid=%u count=%u short transfer %zd/%zd bytes\n",
+            t.retries, MAX_IO_RETRIES, IoTask::OpName(t.op), t.id.tbl_id, t.id.pid, t.count, res,
+            expected);
+  }
+}
 
 void DiskScheduler::OnComplete(IoTask *t, ssize_t res) {
   ssize_t expected = ssize_t(t->count) * DB7_PAGE_SIZE;
-  if (res != expected) {
-    fprintf(stderr, "IO failed: tbl=%u pid=%u count=%u result=%zd (%s)\n", t->id.tbl_id, t->id.pid,
-            t->count, res, res < 0 ? strerror(int(-res)) : "short");
-    DB7_ASSERT(false, "IO failed");
+  if (res != expected) [[unlikely]] {
+
+    bool transient = res > 0 || res == -EAGAIN || res == -EINTR || res == -ECANCELED || res == -EIO;
+    if (transient && t->retries++ < MAX_IO_RETRIES) {
+      LogIoRetry(*t, res, expected);
+      if (!Enqueue(*t)) { throw MEMORY_EXCEPTION("Disk Scheduler out of memory"); }
+      return;
+    }
+    fprintf(stderr, "IO failed: tbl=%u pid=%u count=%u result=%zd (%s) retries=%u\n", t->id.tbl_id,
+            t->id.pid, t->count, res, res < 0 ? strerror(int(-res)) : "short", t->retries);
+    std::abort();
   }
 
   const bool is_write = t->op == IoTask::WRITE || t->op == IoTask::WRITEV;
