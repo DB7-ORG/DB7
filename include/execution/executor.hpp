@@ -1,11 +1,12 @@
 #pragma once
 
+#include "execution/parallel/task_scheduler.hpp"
 #include <memory>
 #include <vector>
 
 namespace db7::execution {
 class Pipeline;
-struct QueryContext;
+class QueryContext;
 namespace parallel {
 class TaskScheduler;
 }
@@ -28,7 +29,7 @@ struct Completion {
 
 class Executor {
 private:
-  QueryContext &query_;
+  QueryContext &query_; // TODO ownership make this uniqu ptr
   parallel::TaskScheduler &scheduler_;
   std::vector<std::unique_ptr<Pipeline>> pipelines_;
   Completion on_done_;

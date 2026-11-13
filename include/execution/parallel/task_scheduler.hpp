@@ -1,41 +1,19 @@
 #pragma once
 
-#include "excecution/pipeline.hpp"
-#include "excecution/query_context.hpp"
+#include "execution/parallel/exec_task.hpp"
 #include "shared/data_structures/token_queue.hpp"
+
+#include <memory>
+#include <span>
 #include <vector>
 
 namespace db7 {
 
 namespace execution::parallel {
 
-enum class TaskExecutionMode : u8 { PROCESS_ALL };
-enum class TaskExecutionResult : u8 { Finished, Timed, Error };
-struct Task {
-  Pipeline *pipeline;
-  QueryContext *query;
-
-  Task() {}
-  Task(Pipeline *p, QueryContext *q) : pipeline(p), query(q) {}
-
-  TaskExecutionResult Execute(TaskExecutionMode mode) {
-    (void)mode;
-    // start doing some work
-    if (false) {
-      Abort(); // TODO err message
-      return TaskExecutionResult::Error;
-    } // error, abort query
-
-    pipeline->TaskDone();
-    return TaskExecutionResult::Finished;
-  }
-
-  void Abort() { query->Cancel(); }
-};
-
+class TaskScheduler;
 class TaskSchedulerPool;
-
-using TaskQObj = Task;
+using TaskQObj = Task *;
 
 class TaskScheduler {
 private:
@@ -52,6 +30,7 @@ public:
 
   void ScheduleTask(TaskQObj task);
   void ScheduleTasks(std::vector<TaskQObj> &tasks);
+  void ScheduleTasks(std::span<Task> tasks);
   bool GetTask(TaskQObj &task);
   void Signal(idx_t n);
   bool ProcessTask(TaskQObj &task);

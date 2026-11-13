@@ -3,6 +3,7 @@
 #include "common.hpp"
 #include "shared/locks/adaptive_version_lock.hpp"
 #include "shared/macro_helper.hpp"
+#include "shared/sync/waiter_list.hpp"
 #include "storage/mvcc/version_ptr.hpp"
 #include "storage_common.hpp"
 
@@ -63,6 +64,7 @@ private:
   byte *data_;                         // 8 bytes
   std::atomic<flags_t> state_;         // 4 bytes
 
+  shared::WaitList waiters_;
   alignas(CACHE_LINE_SIZE) mutable std::mutex latch_; // ~56 bytes typically
   mutable std::condition_variable io_cv_;
   alignas(CACHE_LINE_SIZE) mutable shared::AdaptiveVersionLock lock_;
@@ -168,6 +170,7 @@ public:
   void ClearWriteInProgress() { state_.fetch_and(~kWriteInProgressFlag); }
   void SetDirty() { state_.fetch_or(kDirtyFlag); }
   void SetTagValid() { state_.fetch_or(kTagValidFlag); }
+  void SetError() { state_.fetch_or(kIOErrorFlag); }
 
   /**
    * NOTE: If i ever change this to value above 1 i should add a rule to ring strategy so it never
@@ -221,48 +224,35 @@ public:
    * Channel
    */
   void SignalError() {
-    {
-      std::lock_guard lk(latch_);
-      DB7_ASSERT(IsIOInProgress() || IsWriteInProgress(), "Io/write in progress not set");
-      // TODO ClearIOInProgress() && ClearWriteInProgress() && SetError;
-    }
-    io_cv_.notify_all();
+    DB7_ASSERT(IsIOInProgress() || IsWriteInProgress(), "Io/write in progress not set");
+    SetError();
+    waiters_.Signal();
   }
 
   void SignalIO() {
-    {
-      std::lock_guard lk(latch_);
-      DB7_ASSERT(IsIOInProgress(), "Io in progress not set");
-      ClearIOInProgress();
-    }
-    io_cv_.notify_all();
+    DB7_ASSERT(IsIOInProgress(), "Io in progress not set");
+    ClearIOInProgress();
+    waiters_.Signal();
   }
 
   void SignalWrite() {
-    {
-      std::lock_guard lk(latch_);
-      DB7_ASSERT(IsWriteInProgress(), "write in progress not set");
-      ClearWriteInProgress();
-    }
-    io_cv_.notify_all();
+    DB7_ASSERT(IsWriteInProgress(), "write in progress not set");
+    ClearWriteInProgress();
+    waiters_.Signal();
   }
 
   void NotifyIO() { // TODO lockfree
-    { std::lock_guard lk(latch_); }
-    io_cv_.notify_all();
+    waiters_.Signal();
   }
 
-  void WaitIO() {
+  bool WaitIO(shared::Waiter *obj) {
     if (!IsIOInProgress()) { return; }
-
-    std::unique_lock lk(latch_);
-    io_cv_.wait(lk, [&] { return !IsIOInProgress(); });
+    return waiters_.TryPark(obj);
   }
 
-  void WaitWrite() {
+  void WaitWrite(shared::Waiter *obj) {
     if (!IsIOOrWriteInProgress()) return;
-    std::unique_lock lk(latch_);
-    io_cv_.wait(lk, [&] { return !IsIOOrWriteInProgress(); });
+    return waiters_.TryPark(obj);
   }
 
 private:

@@ -1,8 +1,10 @@
 #pragma once
 
-#include "excecution/piepeline_state.hpp"
+#include "execution/parallel/exec_task.hpp"
+#include "execution/piepeline_state.hpp"
 
 #include <memory>
+#include <span>
 
 namespace db7::execution {
 class Executor;
@@ -17,6 +19,7 @@ private:
   std::atomic<u32> deps_remaining_{0};  // parents not yet finished
   std::atomic<u32> tasks_remaining_{0}; // tasks of this pipeline still running
   PipelineState state_;
+  std::unique_ptr<parallel::Task[]> tasks_;
 
 public:
   Pipeline(Executor &executor, std::unique_ptr<PipelineContext> state);
@@ -33,6 +36,7 @@ public:
 
 private:
   friend class Executor;
+  std::span<parallel::Task> CreateTasks(u32 n, QueryContext &q, parallel::TaskScheduler &s);
   void SetNumTasks(u32 n);
   void SetState(PipelineState state);
   bool Available() const;

@@ -1,7 +1,7 @@
-#include "excecution/executor.hpp"
-#include "excecution/parallel/task_scheduler.hpp"
-#include "excecution/pipeline.hpp"
-#include "excecution/query_context.hpp"
+#include "execution/executor.hpp"
+#include "execution/parallel/task_scheduler.hpp"
+#include "execution/pipeline.hpp"
+#include "execution/query_context.hpp"
 #include "shared/macro_helper.hpp"
 
 #include <algorithm>
@@ -50,12 +50,12 @@ bool Executor::SchedulePipeline() {
 void Executor::SchedulePipeline(Pipeline &pipeline) {
   auto n = scheduler_.NumberOfThreads();
   DB7_ASSERT(n >= 1, "Must have at least one thread");
+
+  auto tasks = pipeline.CreateTasks(n, query_, scheduler_);
+
   pipeline.SetNumTasks(n);
-  std::vector<parallel::TaskQObj> batch;
-  batch.resize(n);
-  for (u32 i = 0; i < n; i++) { batch[i] = parallel::Task(&pipeline, &query_); }
   pipeline.SetState(RUNNING);
-  scheduler_.ScheduleTasks(batch);
+  scheduler_.ScheduleTasks(tasks);
 }
 
 } // namespace db7::execution

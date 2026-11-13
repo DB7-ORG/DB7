@@ -7,7 +7,6 @@
 #include "storage/disk_manager/disk_scheduler.hpp"
 #include "storage/mvcc/page_version_manager.hpp"
 #include "storage/page.hpp"
-#include "storage/pinned_page.hpp"
 
 namespace db7::storage {
 
@@ -51,6 +50,7 @@ private:
   BufPartitionedMap<PageIdentifier, frame_idx_t, BUFFER_POOL_PARTITION_NUM> partitions_;
   BufferMonitor stats_;
   ClockSweep replacement_;
+  // shared::ParkingLot<typename Key, typename Val> parking_;
 
   static constexpr PageIdentifier INVALID_PAGE_IDENTFIER = 0;
 

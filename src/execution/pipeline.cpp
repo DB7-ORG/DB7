@@ -1,5 +1,5 @@
-#include "excecution/pipeline.hpp"
-#include "excecution/executor.hpp"
+#include "execution/pipeline.hpp"
+#include "execution/executor.hpp"
 #include "shared/macro_helper.hpp"
 
 namespace db7::execution {
@@ -32,5 +32,13 @@ void Pipeline::SetNumTasks(u32 n) { tasks_remaining_.store(n); }
 void Pipeline::SetState(PipelineState state) { state_ = state; }
 bool Pipeline::Available() const {
   return state_ == PipelineState::WAITING && deps_remaining_.load() == 0;
+}
+
+std::span<parallel::Task> Pipeline::CreateTasks(u32 n, QueryContext &q,
+                                                parallel::TaskScheduler &s) {
+  tasks_ = std::make_unique<parallel::Task[]>(n); // 1 allocation
+  for (u32 i = 0; i < n; i++) tasks_[i].Init(this, &q, &s);
+  tasks_remaining_.store(n);
+  return {tasks_.get(), n};
 }
 } // namespace db7::execution

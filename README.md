@@ -82,3 +82,7 @@ git checkout a824245abac0985ae4573e829a6552570d44bf34
 - figure out a way to store local state in a task
 - figure out ownerships for a task
 - parking lot for pages 
+
+- error for io what should pin do when encountering it
+- waiter list, how to send mutex and io_cv
+- ownership for Task and Executor
