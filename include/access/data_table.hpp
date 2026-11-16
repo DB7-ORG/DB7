@@ -4,6 +4,7 @@
 #include "catalog/constraints/foreign_key_constraint.hpp"
 #include "catalog/database_catalog.hpp"
 #include "storage/columns_chunk.hpp"
+#include "storage/layouts/pax.hpp"
 #include "storage/layouts/storage_column_desc.hpp"
 #include "storage/models/parallel_scan_shared.hpp"
 #include "storage/models/scan_local.hpp"
@@ -126,13 +127,28 @@ public:
 
   std::unique_ptr<storage::ScanLocal> InitLocalScan(storage::ParallelScanShared &shared) const;
 
-  struct SlotIterator {
-    storage::Page *page;
-    u32 pos = 0;
+  struct ScanIterator {
+    const std::vector<storage::StorageColumnDesc> &columns_;
+    // this changes
+    std::vector<storage::ColumnVector> row_group;
+    byte *page_ = nullptr;
+    u32 row_start = 0;
+
+    ScanIterator(const std::vector<storage::StorageColumnDesc> &columns) : columns_(columns) {
+      row_group.resize(columns_.size());
+    }
+
+    void PrepPage(byte *page) {
+      page_ = page;
+      row_start = 0;
+      int i = 0;
+      for (const auto &col : columns_) {
+        row_group[i++] = storage::Pax::GetColumnUnsafe(page, col);
+      }
+    }
   };
 
-  void Scan(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
-            SlotIterator &iter, storage::Page *page, ColumnsChunk *chunk) {}
+  void Scan(transaction::TransactionContext &context, ScanIterator &iter, ColumnsChunk *chunk) {}
 };
 } // namespace access
 } // namespace db7

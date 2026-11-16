@@ -4,10 +4,10 @@
 #include "shared/align_util.hpp"
 #include "shared/error/exception.hpp"
 #include "storage/chunk_bitmap.hpp"
+#include "storage/layouts/pax.hpp"
 
 #include <cstring>
 #include <memory>
-#include <span>
 #include <utility>
 #include <vector>
 
@@ -56,7 +56,7 @@ private:
     size_t size = sizeof(u32) * col_count_ + sizeof(column_t) * col_count_;
     for (const auto &col : columns) {
       size = shared::AlignUp(size, col.size);
-      DB7_ASSERT(size <= UINT32_MAX, "offset does not fit in u16");
+      DB7_ASSERT(size <= UINT32_MAX, "offset does not fit in u32");
       offsets.emplace_back(size);
       size += col.size * STANDARD_VECTOR_SIZE + CHUNK_BITMAP_BYTES;
     }
@@ -94,38 +94,46 @@ public:
     throw MEMORY_EXCEPTION("column not in chunk");
   }
 
-  void WriteColumnByIdx(u16 idx, u8 slot_size, std::span<const byte> data, const byte *src_bitmap,
-                        u16 count) {
-    const size_t used = size_t(count_) * slot_size;
-    DB7_ASSERT(data.size_bytes() % slot_size == 0, "partial slot");
-    DB7_ASSERT(used + data.size_bytes() <= size_t(STANDARD_VECTOR_SIZE) * slot_size,
-               "column overflow");
-    if (count == 0) return;
+  // TODO handle constant vectors
+  /** @return Tuples appended to column in this chunk */
+  u32 AppendColumnDataByIdx(u16 idx, storage::ColumnVector &vec, u32 start) {
+    DB7_ASSERT(vec.type_ != storage::CONSTANT, "Constant vectors not implemented");
+    DB7_ASSERT(start <= vec.count_, "start past end of vector");
 
-    byte *col = GetColumnByIdx(idx);
-    std::memcpy(col + used, data.data(), data.size_bytes());
+    byte *column = Column(idx);
+    const auto slot_size = vec.slot_size_;
+    auto n = std::min(STANDARD_VECTOR_SIZE - count_, vec.count_ - start);
 
-    // bitmap: lives after the values, bit i = byte i/8, bit i%8
-    u8 *d = reinterpret_cast<u8 *>(col + size_t(STANDARD_VECTOR_SIZE) * slot_size) + count_ / 8;
-    const u8 *s = reinterpret_cast<const u8 *>(src_bitmap);
-    const u32 shift = count_ % 8;
-    const u32 src_bytes = (u32(count) + 7) / 8;
+    /** Copy slots in place */
+    std::memcpy(column + slot_size * count_, vec.data_ + start * slot_size, n * slot_size);
 
-    if (shift == 0) {
-      std::memcpy(d, s, src_bytes);
-    } else {
-      d[0] = u8((d[0] & u8((1u << shift) - 1)) | u8(s[0] << shift)); // keep existing low bits
-      for (u32 i = 1; i < src_bytes; i++) d[i] = u8((s[i - 1] >> (8 - shift)) | u8(s[i] << shift));
-      if (shift + count > src_bytes * 8) // tail spills into one more byte
-        d[src_bytes] = u8(s[src_bytes - 1] >> (8 - shift));
+    /** Swizzle pointers for strings that are not inlined */
+    if (vec.is_varlen_) {
+      byte *dst = column + count_ * slot_size;
+      for (u32 i = 0; i < n; i++) {
+        /* Ignore null slots */
+        if (vec.bitmap_ && vec.bitmap_.IsNull(start + i)) { continue; }
+        auto *entry = storage::VarlenEntry::Cast(dst + size_t(i) * slot_size);
+        if (entry->IsInlined()) { continue; }
+        entry->Swizzle(vec.base_page_);
+      }
     }
 
-    count_ += count;
+    /** Copy bitmap in place */
+    auto bitmap = Bitmap(idx, slot_size);
+    if (vec.bitmap_) {
+      for (unsigned int i = 0; i < n; i++) {
+        bitmap.SetNull(count_ + i, vec.bitmap_.IsNull(start + i));
+      }
+    } else {
+      for (unsigned int i = 0; i < n; i++) { bitmap.SetNull(count_ + i, false); }
+    }
+
+    return n;
   }
 
-  void WriteColumnByOid(column_t oid, u8 slot_size, std::span<const byte> data,
-                        const byte *src_bitmap, u16 count) {
-    WriteColumnByIdx(IdxOf(oid), slot_size, data, src_bitmap, count);
+  u32 AppendColumnDataByOid(column_t oid, storage::ColumnVector &vec, u32 start) {
+    return AppendColumnDataByIdx(IdxOf(oid), vec, start);
   }
 };
 } // namespace db7

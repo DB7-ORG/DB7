@@ -8,8 +8,9 @@ private:
   byte *block_;
 
 public:
-  template <typename T>
-  explicit ChunkBitmap(T *block) noexcept : block_(block) {}
+  ChunkBitmap() noexcept : block_(nullptr) {}
+
+  explicit ChunkBitmap(void *block) noexcept : block_(reinterpret_cast<byte *>(block)) {}
 
   bool IsNull(u16 idx) const { return ((block_[idx / 8] >> (idx % 8)) & 1); }
 
@@ -22,6 +23,8 @@ public:
   }
 
   byte *Data() const noexcept { return block_; }
+
+  explicit operator bool() const noexcept { return block_ != nullptr; }
 };
 
 struct ChunkColumn {

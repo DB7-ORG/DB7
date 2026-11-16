@@ -2,8 +2,8 @@
 
 namespace db7::storage {
 
-void Db7AssertColumnOrder(DataChunk *chunk,
-                          const std::vector<storage::StorageColumnDesc> &columns) {
+void Db7AssertColumnOrder([[maybe_unused]] DataChunk *chunk,
+                          [[maybe_unused]] const std::vector<storage::StorageColumnDesc> &columns) {
 #ifdef DB7DEBUG
 
   int i = 0;
@@ -11,10 +11,7 @@ void Db7AssertColumnOrder(DataChunk *chunk,
   for (const auto &col : columns) {
     DB7_ASSERT(column_ids[i++] == col.column_id, "Column order is not correct");
   }
-
-  return;
 #endif
-  DB7_UNREACHABLE();
 }
 
 size_t Pax::CalculateNumTuples(size_t row_heap_size, size_t row_size, size_t padding,
@@ -70,29 +67,14 @@ u16 Pax::MaxRowCount(byte *page) { return PaxHeader::Capacity(page); }
 
 u16 Pax::CurrentRowCount(byte *page) { return PaxHeader::TupleCount(page); }
 
+byte *Pax::CalcColumnPos(byte *page, u16 stripped_col_offset) { return page + stripped_col_offset; }
+
 byte *Pax::CalcCellPos(byte *page, u16 stripped_col_offset, u16 row_idx, u16 slot_size) {
-  return page + stripped_col_offset + row_idx * slot_size;
+  return CalcColumnPos(page, stripped_col_offset) + row_idx * slot_size;
 }
 
-byte *Pax::ColBitmap(byte *page, u16 offset, u8 type_size, u16 capacity) {
-  return page + offset + capacity * type_size;
-}
-
-/* {0 -> not null , 1 -> null} */
-bool Pax::IsNull(byte *bitmap, u16 idx) {
-  byte mask = 1 << (idx % 8);
-  return bitmap[idx / 8] & mask;
-}
-
-template <bool Null>
-void Pax::SetBit(byte *bitmap, u16 idx) {
-  byte mask = 1 << (idx % 8);
-  u16 pos = idx / 8;
-  if constexpr (Null) {
-    bitmap[pos] |= mask;
-  } else {
-    bitmap[pos] &= ~mask;
-  }
+ChunkBitmap Pax::ColBitmap(byte *page, u16 offset, u8 type_size, u16 capacity) {
+  return ChunkBitmap(page + offset + capacity * type_size);
 }
 
 u16 Pax::StripOff(u16 offset) {
@@ -246,12 +228,12 @@ u16 Pax::InsertUnsafe(byte *page, DataChunk *chunk, std::vector<StorageColumnDes
 
     /* Set null bitmap */
     if (offset & PaxHeader::offset_nullable_mask_) {
-      byte *bitmap = ColBitmap(page, stripped_offset, column.slot_size, capacity);
+      auto bitmap = ColBitmap(page, stripped_offset, column.slot_size, capacity);
       if (ptr == nullptr) {
-        SetBit<true>(bitmap, ntup);
+        bitmap.SetNull(ntup, true);
         continue;
       } else {
-        SetBit<false>(bitmap, ntup);
+        bitmap.SetNull(ntup, false);
       }
     }
     DB7_ASSERT(ptr != nullptr, "Data cant be null here");
@@ -308,8 +290,8 @@ u32 Pax::CalculateChunkHeapSize(byte *page, const column_t ncols, const u16 capa
 
       if (offset & PaxHeader::offset_nullable_mask_) {
         // if column contains a bitmap and is null it doesnt contribute to heap size
-        byte *bitmap = ColBitmap(page, stripped, col.slot_size, capacity);
-        if (IsNull(bitmap, row_idx)) { continue; }
+        auto bitmap = ColBitmap(page, stripped, col.slot_size, capacity);
+        if (bitmap.IsNull(row_idx)) { continue; }
       }
 
       byte *pos = CalcCellPos(page, stripped, row_idx, col.slot_size);
@@ -370,8 +352,8 @@ DataChunk *Pax::GetUnsafe(byte *page, u16 row_idx, std::vector<StorageColumnDesc
 
     if (offset & PaxHeader::offset_nullable_mask_) {
       // Reads a bitmap value in case of null and copies it to chunk bitmap
-      byte *bitmap = ColBitmap(page, stripped, col.slot_size, capacity);
-      if (IsNull(bitmap, row_idx)) {
+      auto bitmap = ColBitmap(page, stripped, col.slot_size, capacity);
+      if (bitmap.IsNull(row_idx)) {
         chunk->SetNull(i, true);
         continue;
       }
@@ -456,12 +438,12 @@ void Pax::UpdateUnsafe(byte *page, DataChunk *chunk, std::vector<StorageColumnDe
 
     /* Set null bitmap */
     if (offset & PaxHeader::offset_nullable_mask_) {
-      byte *bitmap = ColBitmap(page, stripped_offset, column.slot_size, capacity);
+      auto bitmap = ColBitmap(page, stripped_offset, column.slot_size, capacity);
       if (ptr == nullptr) {
-        SetBit<true>(bitmap, index);
+        bitmap.SetNull(index, true);
         continue;
       } else {
-        SetBit<false>(bitmap, index);
+        bitmap.SetNull(index, false);
       }
     }
     DB7_ASSERT(ptr != nullptr, "Data cant be null here");
@@ -472,27 +454,25 @@ void Pax::UpdateUnsafe(byte *page, DataChunk *chunk, std::vector<StorageColumnDe
   }
 }
 
-void Pax::GetColumns(byte *page, std::vector<StorageColumnDesc> &columns, u16 catalog_col_count,
-                     ColumnsChunk *chunk, u16 start_row) {
-  const u16 ntup = PaxHeader::TupleCount(page);
-  DB7_ASSERT(start_row < ntup, "Overflow requested tuples out of page bounds");
-  if (!IsPageReadable(page, columns, catalog_col_count)) { return ntup; } // skip page
-  DB7_ASSERT(chunk->GetColCount() == columns.size(), "chunk/columns mismatch");
-
-  const u16 at = chunk->GetTupleCount();
-  DB7_ASSERT(STANDARD_VECTOR_SIZE < at, "Chunk is full already");
-
-  const u16 n = static_cast<u16>(std::min<u32>(ntup - start_row, STANDARD_VECTOR_SIZE - at));
-  const u16 capacity = PaxHeader::Capacity(page);
-  const u16 *offsets = PaxHeader::Offsets(page);
+ColumnVector Pax::GetColumnUnsafe(byte *page, const StorageColumnDesc &column) {
+  DB7_ASSERT(!column.isDropped, "Dropped columns shouldnt be included");
   const column_t ncols = PaxHeader::ColumnCount(page);
+  if (column.column_id >= ncols) { return {}; } // returns constant vector
 
-  for (u16 i = 0; i < columns.size(); i++) {
-    const auto &col = columns[i];
-    byte *col_base = chunk->GetColumnByIdx(i);
-    byte *dst_vals = col_base + size_t(at) * col.slot_size;
-    byte *dst_bitmap = col_base + size_t(STANDARD_VECTOR_SIZE) * col.slot_size;
+  const u16 ntup = PaxHeader::TupleCount(page);
+  const u16 capacity = PaxHeader::Capacity(page);
+
+  const u16 *offsets = PaxHeader::Offsets(page);
+  const u16 offset = offsets[column.column_id];
+  const u16 stripped_offset = StripOff(offset);
+  byte *data = CalcColumnPos(page, stripped_offset);
+
+  /* Set null bitmap */
+  ChunkBitmap bitmap;
+  if (offset & PaxHeader::offset_nullable_mask_) {
+    bitmap = ColBitmap(page, stripped_offset, column.slot_size, capacity);
   }
+  return {page, data, bitmap, column.column_id, ntup, u8(column.slot_size), column.isVarlen};
 }
 
 } // namespace db7::storage

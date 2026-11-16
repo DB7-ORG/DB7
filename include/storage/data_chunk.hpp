@@ -63,7 +63,7 @@ private:
 
   const ChunkBitmap Bitmap() const { return ChunkBitmap(Offsets() + col_count_); }
 
-  ChunkBitmap Bitmap() { return ChunkBitmap(std::as_const(*this).Bitmap()); }
+  ChunkBitmap Bitmap() { return ChunkBitmap(std::as_const(*this).Bitmap()); } // TODO this sucks
 
   const byte *DataSlots() const { return Bitmap().Data() + BitmapSize(col_count_); }
 

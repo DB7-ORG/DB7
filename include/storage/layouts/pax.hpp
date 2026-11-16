@@ -3,7 +3,6 @@
 #include "common.hpp"
 #include "shared/pointers/optional_ptr.hpp"
 #include "shared/types/type_defs.hpp"
-#include "storage/columns_chunk.hpp"
 #include "storage/data_chunk.hpp"
 #include "storage/storage_common.hpp"
 
@@ -68,6 +67,27 @@ enum PaxInsertResponse {
   PAGE_SCHEMA_OLDER,   // some columns are missing in page cant insert
   WRITER_SCHEMA_STALE, // column changed from NOT NULL to NULLABLE
   COLUMN_DROPPED,      // someone else dropped the column that we want to insert
+};
+
+enum VectorType { CONSTANT, DEFAULT };
+
+struct ColumnVector {
+public:
+  byte *base_page_;
+  byte *data_;
+  ChunkBitmap bitmap_;
+  column_t column_id_;
+  u16 count_;
+  u8 slot_size_;
+  VectorType type_;
+  bool is_varlen_;
+
+  ColumnVector() : type_(CONSTANT) {}
+
+  ColumnVector(byte *page, byte *data, ChunkBitmap bitmap, column_t column_id, u16 count,
+               u8 slot_size, bool is_varlen)
+      : base_page_(page), data_(data), bitmap_(bitmap), column_id_(column_id), count_(count),
+        slot_size_(slot_size), type_(DEFAULT), is_varlen_(is_varlen) {}
 };
 
 class PaxHeader {
@@ -181,15 +201,10 @@ private:
 
   static u16 CalcHeapBytes(type_id type, u16 size);
 
+  static byte *CalcColumnPos(byte *page, u16 stripped_col_offset);
   static byte *CalcCellPos(byte *page, u16 stripped_col_offset, u16 row_idx, u16 slot_size);
 
-  static byte *ColBitmap(byte *page, u16 offset, u8 type_size, u16 capacity);
-
-  /* {0 -> not null , 1 -> null} */
-  static bool IsNull(byte *bitmap, u16 idx);
-
-  template <bool Null>
-  static void SetBit(byte *bitmap, u16 idx);
+  static ChunkBitmap ColBitmap(byte *page, u16 offset, u8 type_size, u16 capacity);
 
   static u16 StripOff(u16 offset);
 
@@ -334,7 +349,6 @@ public:
   static void UpdateUnsafe(byte *page, DataChunk *chunk, std::vector<StorageColumnDesc> &columns,
                            u16 index);
 
-  static void GetColumns(byte *page, std::vector<StorageColumnDesc> &columns, u16 catalog_col_count,
-                         ColumnsChunk *chunk, u16 start_row);
+  static ColumnVector GetColumnUnsafe(byte *page, const StorageColumnDesc &column);
 };
 } // namespace db7::storage

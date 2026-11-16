@@ -80,3 +80,6 @@ Data table:
  (added size aprox for a producer use it)
 - waiter list, how to send mutex and io_cv
 - ownership for Task and Executor
+
+- // TODO handle constant vectors
+-  // TODO this sucks
