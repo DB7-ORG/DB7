@@ -472,4 +472,27 @@ void Pax::UpdateUnsafe(byte *page, DataChunk *chunk, std::vector<StorageColumnDe
   }
 }
 
+void Pax::GetColumns(byte *page, std::vector<StorageColumnDesc> &columns, u16 catalog_col_count,
+                     ColumnsChunk *chunk, u16 start_row) {
+  const u16 ntup = PaxHeader::TupleCount(page);
+  DB7_ASSERT(start_row < ntup, "Overflow requested tuples out of page bounds");
+  if (!IsPageReadable(page, columns, catalog_col_count)) { return ntup; } // skip page
+  DB7_ASSERT(chunk->GetColCount() == columns.size(), "chunk/columns mismatch");
+
+  const u16 at = chunk->GetTupleCount();
+  DB7_ASSERT(STANDARD_VECTOR_SIZE < at, "Chunk is full already");
+
+  const u16 n = static_cast<u16>(std::min<u32>(ntup - start_row, STANDARD_VECTOR_SIZE - at));
+  const u16 capacity = PaxHeader::Capacity(page);
+  const u16 *offsets = PaxHeader::Offsets(page);
+  const column_t ncols = PaxHeader::ColumnCount(page);
+
+  for (u16 i = 0; i < columns.size(); i++) {
+    const auto &col = columns[i];
+    byte *col_base = chunk->GetColumnByIdx(i);
+    byte *dst_vals = col_base + size_t(at) * col.slot_size;
+    byte *dst_bitmap = col_base + size_t(STANDARD_VECTOR_SIZE) * col.slot_size;
+  }
+}
+
 } // namespace db7::storage

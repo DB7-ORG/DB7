@@ -4,6 +4,7 @@
 #include "shared/align_util.hpp"
 #include "shared/data_structures/bitset.hpp"
 #include "shared/error/exception.hpp"
+#include "storage/chunk_bitmap.hpp"
 #include "storage/layouts/storage_column_desc.hpp"
 #include "storage/varlen_entry.hpp"
 
@@ -15,19 +16,10 @@
 
 namespace db7 {
 
-struct ChunkColumn {
-  // column id
-  column_t oid;
-  // size of fixed part (pow of 2).
-  // NOTE: for warlen is 16 bytes not size of payload
-  u16 size;
-
-  ChunkColumn(column_t o, u16 s) : oid(o), size(s) {}
-};
 // TODO storage shouldnt fill the chunk by copying
 // instead copy header and the rest should be filled using an iterator or something like that
 /**
- * [total size ib bytes] (4 bytes)
+ * [total size in bytes] (4 bytes)
  * [column count]        (2 bytes)
  * [column ids]          (count* 2 bytes)
  * [offsets]             (count* 2 bytes)
@@ -69,11 +61,11 @@ private:
 
   u16 *Offsets() { return reinterpret_cast<u16 *>(ColumnIds() + col_count_); }
 
-  const u8 *Bitmap() const { return reinterpret_cast<const u8 *>(Offsets() + col_count_); }
+  const ChunkBitmap Bitmap() const { return ChunkBitmap(Offsets() + col_count_); }
 
-  u8 *Bitmap() { return const_cast<u8 *>(std::as_const(*this).Bitmap()); }
+  ChunkBitmap Bitmap() { return ChunkBitmap(std::as_const(*this).Bitmap()); }
 
-  const byte *DataSlots() const { return Bitmap() + BitmapSize(col_count_); }
+  const byte *DataSlots() const { return Bitmap().Data() + BitmapSize(col_count_); }
 
   const byte *Heap() const { return Bytes() + size_; } // TODO storage check
 
@@ -110,27 +102,21 @@ public:
   /** Returns the header size of {columns ids} + {offsets} + {column count} + {chunk size} */
   std::span<byte> GetHeaderSpan() { return std::span<byte>(Bytes(), DataSlots() - Bytes()); }
 
-  bool IsNull(u16 idx) const { return ((Bitmap()[idx / 8] >> (idx % 8)) & 1); }
+  bool IsNull(u16 idx) const { return Bitmap().IsNull(idx); }
 
-  void SetNull(u16 idx, bool isNull) {
-    const u8 mask = u8(1u << (idx % 8));
-    if (isNull)
-      Bitmap()[idx / 8] |= mask;
-    else
-      Bitmap()[idx / 8] &= u8(~mask);
-  }
+  void SetNull(u16 idx, bool isNull) { Bitmap().SetNull(idx, isNull); }
 
   byte *GetByIdx(u16 idx) { return Bytes() + Offsets()[idx]; }
 
   const byte *GetByIdx(u16 idx) const { return Bytes() + Offsets()[idx]; }
 
   byte *GetByIdxNullCheck(u16 idx) {
-    if (IsNull(idx)) return nullptr;
+    if (Bitmap().IsNull(idx)) return nullptr;
     return GetByIdx(idx);
   }
 
   const byte *GetByIdxNullCheck(u16 idx) const {
-    if (IsNull(idx)) return nullptr;
+    if (Bitmap().IsNull(idx)) return nullptr;
     return GetByIdx(idx);
   }
 
@@ -146,7 +132,7 @@ public:
     auto *cols = ColumnIds();
     for (int i = 0; i < col_count_; i++) {
       if (cols[i] == oid) {
-        if (IsNull(i)) return nullptr;
+        if (Bitmap().IsNull(i)) return nullptr;
         return GetByIdx(i);
       }
     }
@@ -176,10 +162,10 @@ public:
   void WriteByIdxNullCheck(u16 idx, std::span<const byte> data) {
     DB7_ASSERT(data.size_bytes() <= SlotSize(idx), "Write out of bounds");
     if (data.data() == nullptr) {
-      SetNull(idx, true);
+      Bitmap().SetNull(idx, true);
       return;
     } else {
-      SetNull(idx, false);
+      Bitmap().SetNull(idx, false);
     }
     std::memcpy(GetByIdx(idx), data.data(), data.size_bytes());
   }
@@ -189,10 +175,10 @@ public:
   void WriteByOidNullCheck(column_t oid, std::span<const byte> data) {
     u16 idx = IdxOf(oid);
     if (data.data() == nullptr) {
-      SetNull(idx, true);
+      Bitmap().SetNull(idx, true);
       return;
     } else {
-      SetNull(idx, false);
+      Bitmap().SetNull(idx, false);
     }
     WriteByIdx(idx, data);
   }
@@ -241,10 +227,10 @@ public:
 
   void WriteVarlenByIdxNullCheck(u16 idx, std::span<const byte> payload) {
     if (payload.data() == nullptr) {
-      SetNull(idx, true);
+      Bitmap().SetNull(idx, true);
       return;
     } else {
-      SetNull(idx, false);
+      Bitmap().SetNull(idx, false);
     }
     WriteVarlenByIdx(idx, payload);
   }
@@ -323,10 +309,10 @@ public:
       u16 idx = IdxOf(column.column_id);
 
       if (data == nullptr) {
-        SetNull(idx, true);
+        Bitmap().SetNull(idx, true);
         continue;
       } else {
-        SetNull(idx, false);
+        Bitmap().SetNull(idx, false);
       }
 
       if (column.isVarlen) {

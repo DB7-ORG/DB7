@@ -64,13 +64,6 @@ Data table:
 
 - consider lock free hmaps for partitions
 
-TODO clone projetc and benchmark it with and without mutexes
-git clone https://github.com/DB7-ORG/DB7.git
-cd DB7
-git checkout a824245abac0985ae4573e829a6552570d44bf34
-
--compare old and new wakeup mechanisms
-
 - background writer
 - disk err handling
 - // TODO ClearIOInProgress() && ClearWriteInProgress() && SetError;

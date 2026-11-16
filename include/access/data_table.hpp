@@ -3,6 +3,7 @@
 #include "access/objects/add_table_index_info.hpp"
 #include "catalog/constraints/foreign_key_constraint.hpp"
 #include "catalog/database_catalog.hpp"
+#include "storage/columns_chunk.hpp"
 #include "storage/layouts/storage_column_desc.hpp"
 #include "storage/models/parallel_scan_shared.hpp"
 #include "storage/models/scan_local.hpp"
@@ -124,6 +125,14 @@ public:
   idx_t MaxThreads(const storage::ParallelScanShared &state) const;
 
   std::unique_ptr<storage::ScanLocal> InitLocalScan(storage::ParallelScanShared &shared) const;
+
+  struct SlotIterator {
+    storage::Page *page;
+    u32 pos = 0;
+  };
+
+  void Scan(transaction::TransactionContext &context, catalog::TableCatalogEntry &table,
+            SlotIterator &iter, storage::Page *page, ColumnsChunk *chunk) {}
 };
 } // namespace access
 } // namespace db7

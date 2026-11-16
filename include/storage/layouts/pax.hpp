@@ -3,6 +3,7 @@
 #include "common.hpp"
 #include "shared/pointers/optional_ptr.hpp"
 #include "shared/types/type_defs.hpp"
+#include "storage/columns_chunk.hpp"
 #include "storage/data_chunk.hpp"
 #include "storage/storage_common.hpp"
 
@@ -332,5 +333,8 @@ public:
    */
   static void UpdateUnsafe(byte *page, DataChunk *chunk, std::vector<StorageColumnDesc> &columns,
                            u16 index);
+
+  static void GetColumns(byte *page, std::vector<StorageColumnDesc> &columns, u16 catalog_col_count,
+                         ColumnsChunk *chunk, u16 start_row);
 };
 } // namespace db7::storage
