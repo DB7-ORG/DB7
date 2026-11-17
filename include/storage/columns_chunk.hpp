@@ -8,6 +8,7 @@
 
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace db7 {
@@ -20,6 +21,9 @@ private:
   u16 count_;
   u16 col_count_;
   std::unique_ptr<byte[]> varlen_contents_;
+  // deleted part
+  alignas(8) u16 sel_[STANDARD_VECTOR_SIZE]; // 1 = row not visible
+  u16 sel_count_ = 0;
 
 private:
   const u32 *Offsets() const { return reinterpret_cast<const u32 *>(varlen_contents_.get()); }
@@ -49,6 +53,13 @@ private:
     for (u16 i = 0; i < col_count_; i++)
       if (cols[i] == oid) return i;
     throw std::out_of_range("column not in chunk");
+  }
+
+  std::optional<u16> IdxOfOptional(column_t oid) const {
+    const column_t *cols = ColumnIds();
+    for (u16 i = 0; i < col_count_; i++)
+      if (cols[i] == oid) return i;
+    return std::nullopt;
   }
 
   size_t CalcFixedSizeAndOffsets(std::vector<ChunkColumn> &columns, std::vector<u32> &offsets) {
@@ -81,7 +92,10 @@ public:
 
   bool HasSpace() const { return GetTupleCount() < STANDARD_VECTOR_SIZE; }
 
-  void ResetTupleCount() { count_ = 0; }
+  void ResetTuples() {
+    count_ = 0;
+    sel_count_ = 0;
+  }
 
   void AdvanceTupleCount(u16 n) {
     count_ += n;
@@ -162,9 +176,9 @@ public:
     }
   }
 
+  /** NOTE: Oid must exist in the column chunk */
   void EmplaceByOid(column_t oid, u16 pos, byte *data, byte *base_ptr,
                     const storage::StorageColumnDesc &col) {
-    // TODO make index of not throw if columns is not in chunk
     EmplaceByIdx(IdxOf(oid), pos, data, base_ptr, col);
   }
 
@@ -174,8 +188,17 @@ public:
     for (u16 i = 0; i < chunk->GetColCount(); i++) {
       column_t oid = column_ids[i];
       auto *data = chunk->GetByOidNullCheck(oid);
-      EmplaceByOid(oid, pos, data, chunk->Bytes(), columns[oid]);
+      auto idx = IdxOfOptional(oid);
+      if (!idx) continue;
+      EmplaceByIdx(*idx, pos, data, chunk->Bytes(), columns[oid]);
     }
+  }
+
+  void AppendSel(u16 row) {
+    DB7_ASSERT(sel_count_ < STANDARD_VECTOR_SIZE, "Selection vector full");
+    DB7_ASSERT(row < count_, "Row outside chunk");
+    DB7_ASSERT(sel_count_ == 0 || sel_[sel_count_ - 1] < row, "Selection must be ascending");
+    sel_[sel_count_++] = row;
   }
 };
 } // namespace db7

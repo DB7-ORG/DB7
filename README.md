@@ -4,9 +4,9 @@ to install clangd -> install clangd extension and disable intelisense in vsc
 
 to run perf -> perf report -i perf.data -f
 
-to bear ->  sudo apt install bear
-            make clean
-            bear -- make
+to bear -> sudo apt install bear
+make clean
+bear -- make
 
 to raise the limit for max memory reserved -> sudo prlimit --memlock=unlimited:unlimited --pid $$
 
@@ -20,7 +20,6 @@ to raise the limit for max memory reserved -> sudo prlimit --memlock=unlimited:u
 
 - check out when encoding utf8proc_decompose
   so i have more controle and less allocations
-
 
 solve // TODO catalog
 
@@ -74,13 +73,13 @@ Data table:
 - figure out a way to do non blocking io in scheduler (seperate component ideally)
 - figure out a way to store local state in a task
 - figure out ownerships for a task
-- parking lot for pages 
+- parking lot for pages
 
 - track how many pages are in fligh for each transaction and make it yield for a while untill the q empties
- (added size aprox for a producer use it)
+  (added size aprox for a producer use it)
 - waiter list, how to send mutex and io_cv
 - ownership for Task and Executor
 
 - // TODO handle constant vectors
-- // TODO insert delete
-- // TODO make index of not throw if columns is not in chunk
+- // TODO append sel
+- add deleted bitmap to track which rows are deleted in pax

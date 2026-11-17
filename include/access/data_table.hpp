@@ -131,6 +131,7 @@ public:
 
   std::unique_ptr<storage::ScanLocal> InitLocalScan(storage::ParallelScanShared &shared) const;
 
+  // TODO append sel
   void SelectInto(transaction::TransactionContext &context, ColumnsChunk &chunk,
                   storage::Page *page, u16 page_start, u16 chunk_start, u16 n) const {
     auto *versions = page->GetVersions();
@@ -147,33 +148,13 @@ public:
           break;
         }
         case storage::DeltaRecordType::INSERT:
+          // not visible
         case storage::DeltaRecordType::DELETE:
-          // TODO insert delete
+          // get next might be visible
         case storage::DeltaRecordType::INVALID: break;
         }
         v = v->GetNext();
       }
-
-      // storage::UndoRecord *version_ptr = versions[i].Get();
-      // while (version_ptr != nullptr &&
-      //        transaction::TransactionUtil::HasConflict(version_ptr->GetTimestamp(),
-      //                                                  context.FinishTime(),
-      //                                                  context.StartTime())) {
-
-      //   switch (version_ptr->GetType()) {
-      //   case storage::DeltaRecordType::UPDATE: {
-      //     // emplace version
-      //     DataChunk *delta = reinterpret_cast<DataChunk *>(version_ptr->GetDelta());
-      //     chunk.EmplaceDataChunk(i, page->GetData(), delta, main_columns_);
-      //     break;
-      //   }
-      //   case storage::DeltaRecordType::INSERT:
-      //   case storage::DeltaRecordType::DELETE:
-      //     // TODO not visible
-      //   case storage::DeltaRecordType::INVALID: break;
-      //   }
-      //   version_ptr = version_ptr->GetNext();
-      // }
     }
   }
 
