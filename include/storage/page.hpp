@@ -262,7 +262,6 @@ public:
     return waiters_.TryPark(obj);
   }
 
-private:
   bool IsIOOrWriteInProgress() const {
     return state_.load() & (kIOInProgressFlag | kWriteInProgressFlag);
   }

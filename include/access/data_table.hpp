@@ -32,6 +32,8 @@ struct PageInsertResult {
   bool fetch;
 };
 
+enum class ScanResult : u8 { HaveMore, Finished, Blocked };
+
 class DataTable {
 private:
   catalog::DatabaseCatalog &catalog_;
@@ -121,34 +123,143 @@ public:
 
   static constexpr u16 DEFAULT_MORSEL_SIZE = 64;
   // snapshot nblocks, chunk sizing
-  std::unique_ptr<storage::ParallelScanShared> InitParallelScan() const;
+  std::unique_ptr<storage::ParallelScanShared>
+  InitParallelScan(transaction::TransactionContext &context,
+                   std::vector<storage::StorageColumnDesc> &&columns) const;
   // a hint for how many tasks make sense
   idx_t MaxThreads(const storage::ParallelScanShared &state) const;
 
   std::unique_ptr<storage::ScanLocal> InitLocalScan(storage::ParallelScanShared &shared) const;
 
-  struct ScanIterator {
-    const std::vector<storage::StorageColumnDesc> &columns_;
-    // this changes
-    std::vector<storage::ColumnVector> row_group;
-    byte *page_ = nullptr;
-    u32 row_start = 0;
+  void SelectInto(transaction::TransactionContext &context, ColumnsChunk &chunk,
+                  storage::Page *page, u16 page_start, u16 chunk_start, u16 n) const {
+    auto *versions = page->GetVersions();
+    if (versions == nullptr) return;
 
-    ScanIterator(const std::vector<storage::StorageColumnDesc> &columns) : columns_(columns) {
-      row_group.resize(columns_.size());
+    for (u16 k = 0; k < n; k++) {
+      auto *v = versions[page_start + k].Get();
+      while (v != nullptr && transaction::TransactionUtil::HasConflict(
+                                 v->GetTimestamp(), context.FinishTime(), context.StartTime())) {
+        switch (v->GetType()) {
+        case storage::DeltaRecordType::UPDATE: {
+          DataChunk *delta = reinterpret_cast<DataChunk *>(v->GetDelta());
+          chunk.EmplaceDataChunk(chunk_start + k, delta, main_columns_);
+          break;
+        }
+        case storage::DeltaRecordType::INSERT:
+        case storage::DeltaRecordType::DELETE:
+          // TODO insert delete
+        case storage::DeltaRecordType::INVALID: break;
+        }
+        v = v->GetNext();
+      }
+
+      // storage::UndoRecord *version_ptr = versions[i].Get();
+      // while (version_ptr != nullptr &&
+      //        transaction::TransactionUtil::HasConflict(version_ptr->GetTimestamp(),
+      //                                                  context.FinishTime(),
+      //                                                  context.StartTime())) {
+
+      //   switch (version_ptr->GetType()) {
+      //   case storage::DeltaRecordType::UPDATE: {
+      //     // emplace version
+      //     DataChunk *delta = reinterpret_cast<DataChunk *>(version_ptr->GetDelta());
+      //     chunk.EmplaceDataChunk(i, page->GetData(), delta, main_columns_);
+      //     break;
+      //   }
+      //   case storage::DeltaRecordType::INSERT:
+      //   case storage::DeltaRecordType::DELETE:
+      //     // TODO not visible
+      //   case storage::DeltaRecordType::INVALID: break;
+      //   }
+      //   version_ptr = version_ptr->GetNext();
+      // }
     }
+  }
 
-    void PrepPage(byte *page) {
-      page_ = page;
-      row_start = 0;
-      int i = 0;
-      for (const auto &col : columns_) {
-        row_group[i++] = storage::Pax::GetColumnUnsafe(page, col);
+  // TODO should benchmark blocking vs yielding threads after implementing features
+  ScanResult ScanInternal(storage::ScanLocal &local) const {
+    auto &stream = local.Stream();
+    auto &cursor = local.Cursor();
+    auto &chunk = local.Chunk();
+    auto &context = local.Context();
+    const auto &columns = local.Columns();
+    using storage::ScanState;
+    ScanState &state = local.State();
+    for (;;) {
+      switch (state) {
+      case ScanState::START_CHUNK: {
+        cursor.StartChunk(chunk);
+        state = ScanState::FILL;
+        break;
+      }
+      case ScanState::FILL:
+        if (!chunk.HasSpace()) {
+          state = ScanState::START_CHUNK;
+          return ScanResult::HaveMore;
+        }
+        if (cursor.Exhausted()) {
+          state = ScanState::NEED_PAGE;
+          break;
+        }
+        {
+          shared::AdaptiveVersionLock::ReadGuard guard(cursor.Page()->DataLock());
+          u16 old_start = cursor.Position();
+          cursor.Fill(chunk);
+          u16 new_start = cursor.Position();
+          auto &page = cursor.Page();
+          SelectInto(context, chunk, page, old_start, new_start);
+        }
+        break;
+
+      case ScanState::NEED_PAGE: {
+        storage::PinnedPage page = stream.Next();
+        if (!page) {
+          state = ScanState::DRAIN;
+          break;
+        }
+        cursor.Assign(std::move(page));
+        state = ScanState::WAIT_IO;
+        break;
+      }
+      case ScanState::WAIT_IO:
+        if (cursor.IsBlocked()) { return ScanResult::Blocked; }
+        {
+          shared::AdaptiveVersionLock::ReadGuard guard(cursor.Page()->DataLock());
+          if (storage::Pax::IsPageReadable(cursor.Data(), columns, NCols())) {
+            cursor.Load();
+            state = ScanState::FILL;
+            break;
+          }
+        }
+        cursor.Drop();
+        state = ScanState::NEED_PAGE;
+        break;
+      case ScanState::DRAIN: {
+        state = ScanState::FINISHED;
+        if (chunk.GetTupleCount() > 0) return ScanResult::HaveMore;
+        break;
+      }
+      case ScanState::FINISHED: {
+        cursor.StartChunk(chunk);
+        return ScanResult::Finished;
+      }
       }
     }
-  };
+  }
 
-  void Scan(transaction::TransactionContext &context, ScanIterator &iter, ColumnsChunk *chunk) {}
+  ScanResult Scan(storage::ScanLocal &local) const {
+    const auto result = ScanInternal(local);
+    // u16 new_start = cursor.Position();
+
+    // auto &chunk = local.Chunk();
+    // auto * versions = cursor.Page()->GetVersions();
+    // for (u16 i = prev_start; i < new_start; i++) {
+
+    // }
+
+    return result;
+  }
 };
 } // namespace access
 } // namespace db7

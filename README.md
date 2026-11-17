@@ -82,3 +82,5 @@ Data table:
 - ownership for Task and Executor
 
 - // TODO handle constant vectors
+- // TODO insert delete
+- // TODO make index of not throw if columns is not in chunk

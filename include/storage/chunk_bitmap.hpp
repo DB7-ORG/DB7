@@ -34,6 +34,7 @@ struct ChunkColumn {
   // NOTE: for warlen is 16 bytes not size of payload
   u16 size;
 
+  ChunkColumn() : oid(0), size(0) {}
   ChunkColumn(column_t o, u16 s) : oid(o), size(s) {}
 };
 } // namespace db7

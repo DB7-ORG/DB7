@@ -8,7 +8,6 @@
 
 #include <cstring>
 #include <memory>
-#include <utility>
 #include <vector>
 
 namespace db7 {
@@ -80,6 +79,15 @@ public:
 
   u16 GetTupleCount() const { return count_; }
 
+  bool HasSpace() const { return GetTupleCount() < STANDARD_VECTOR_SIZE; }
+
+  void ResetTupleCount() { count_ = 0; }
+
+  void AdvanceTupleCount(u16 n) {
+    count_ += n;
+    DB7_ASSERT(count_ <= STANDARD_VECTOR_SIZE, "Overflow");
+  }
+
   u16 GetColCount() const { return col_count_; }
 
   byte *GetColumnByIdx(u16 idx) { return varlen_contents_.get() + Offsets()[idx]; }
@@ -96,13 +104,13 @@ public:
 
   // TODO handle constant vectors
   /** @return Tuples appended to column in this chunk */
-  u32 AppendColumnDataByIdx(u16 idx, storage::ColumnVector &vec, u32 start) {
+  void AppendColumnDataByIdx(u16 idx, storage::ColumnVector &vec, u16 start, u16 n) {
     DB7_ASSERT(vec.type_ != storage::CONSTANT, "Constant vectors not implemented");
     DB7_ASSERT(start <= vec.count_, "start past end of vector");
+    DB7_ASSERT(n != 0, "No tuples in the page");
 
     byte *column = Column(idx);
     const auto slot_size = vec.slot_size_;
-    auto n = std::min(STANDARD_VECTOR_SIZE - count_, vec.count_ - start);
 
     /** Copy slots in place */
     std::memcpy(column + slot_size * count_, vec.data_ + start * slot_size, n * slot_size);
@@ -128,12 +136,46 @@ public:
     } else {
       for (unsigned int i = 0; i < n; i++) { bitmap.SetNull(count_ + i, false); }
     }
-
-    return n;
   }
 
-  u32 AppendColumnDataByOid(column_t oid, storage::ColumnVector &vec, u32 start) {
-    return AppendColumnDataByIdx(IdxOf(oid), vec, start);
+  void AppendColumnDataByOid(column_t oid, storage::ColumnVector &vec, u16 start, u16 n) {
+    AppendColumnDataByIdx(IdxOf(oid), vec, start, n);
+  }
+
+  void EmplaceByIdx(u16 idx, u16 pos, byte *data, byte *base_ptr,
+                    const storage::StorageColumnDesc &col) {
+    DB7_ASSERT(pos < STANDARD_VECTOR_SIZE, "row out of range");
+    DB7_ASSERT(data != nullptr || col.isNullable, "NULL in NOT NULL column");
+
+    byte *column = Column(idx);
+    const auto slot_size = col.slot_size;
+
+    Bitmap(idx, col.slot_size).SetNull(pos, data == nullptr);
+    if (data == nullptr) return;
+
+    byte *slot = column + slot_size * pos;
+    std::memcpy(slot, data, slot_size);
+
+    if (col.isVarlen) {
+      auto *entry = storage::VarlenEntry::Cast(slot);
+      if (!entry->IsInlined()) { entry->Swizzle(base_ptr); }
+    }
+  }
+
+  void EmplaceByOid(column_t oid, u16 pos, byte *data, byte *base_ptr,
+                    const storage::StorageColumnDesc &col) {
+    // TODO make index of not throw if columns is not in chunk
+    EmplaceByIdx(IdxOf(oid), pos, data, base_ptr, col);
+  }
+
+  void EmplaceDataChunk(u16 pos, DataChunk *chunk,
+                        const std::vector<storage::StorageColumnDesc> &columns) {
+    column_t *column_ids = chunk->ColumnIds();
+    for (u16 i = 0; i < chunk->GetColCount(); i++) {
+      column_t oid = column_ids[i];
+      auto *data = chunk->GetByOidNullCheck(oid);
+      EmplaceByOid(oid, pos, data, chunk->Bytes(), columns[oid]);
+    }
   }
 };
 } // namespace db7
