@@ -37,12 +37,12 @@ private:
 
   byte *Column(column_t idx) { return varlen_contents_.get() + Offsets()[idx]; }
 
-  const ChunkBitmap Bitmap(column_t idx, u8 type_size) const {
-    return ChunkBitmap(Column(idx) + STANDARD_VECTOR_SIZE * type_size);
+  ChunkBitmap Bitmap(column_t idx, u8 type_size) const {
+    return ChunkBitmap(const_cast<byte *>(Column(idx)) + STANDARD_VECTOR_SIZE * type_size);
   }
 
   ChunkBitmap Bitmap(column_t idx, u8 type_size) {
-    return ChunkBitmap(std::as_const(*this).Bitmap(idx, type_size));
+    return ChunkBitmap(Column(idx) + STANDARD_VECTOR_SIZE * type_size);
   }
 
   u16 IdxOf(column_t oid) const {

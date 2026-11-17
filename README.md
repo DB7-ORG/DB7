@@ -82,4 +82,3 @@ Data table:
 - ownership for Task and Executor
 
 - // TODO handle constant vectors
--  // TODO this sucks

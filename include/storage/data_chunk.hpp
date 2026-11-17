@@ -61,9 +61,11 @@ private:
 
   u16 *Offsets() { return reinterpret_cast<u16 *>(ColumnIds() + col_count_); }
 
-  const ChunkBitmap Bitmap() const { return ChunkBitmap(Offsets() + col_count_); }
+  const ChunkBitmap Bitmap() const {
+    return ChunkBitmap(const_cast<u16 *>(Offsets()) + col_count_);
+  }
 
-  ChunkBitmap Bitmap() { return ChunkBitmap(std::as_const(*this).Bitmap()); } // TODO this sucks
+  ChunkBitmap Bitmap() { return ChunkBitmap(Offsets() + col_count_); }
 
   const byte *DataSlots() const { return Bitmap().Data() + BitmapSize(col_count_); }
 

@@ -18,6 +18,8 @@ public:
   virtual std::unique_ptr<SourceLocalState> InitLocal() = 0;
   virtual SourceResult Next(SourceLocalState &l, void *out) = 0;
 
+  virtual ~BaseSource() = default;
+
   template <class T>
   T &Cast() {
     DB7_ASSERT(type_ == T::kType, "Invalid source cast");
@@ -39,6 +41,7 @@ private:
 
 public:
   TableSource(access::DataTable &t) : BaseSource(t) { shared_ = table_.InitParallelScan(); }
+  ~TableSource() override = default;
 
   std::unique_ptr<SourceLocalState> InitLocal() override {
     auto l = std::make_unique<TableLocalState>();
@@ -46,9 +49,9 @@ public:
     return l;
   }
 
-  SourceResult Next(TableLocalState *local_, void *out) {
-    storage::PinnedPage page = local_->scan->Stream().Next();
-    // TODO transform it to correct representation
+  SourceResult Next(SourceLocalState &l, void *out) override {
+    // storage::PinnedPage page = l->scan->Stream().Next();
+    //  TODO transform it to correct representation
   }
 };
 } // namespace db7::execution
