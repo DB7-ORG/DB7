@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
 #include "access/data_table.hpp"
+#include "access/index/btree.hpp"
+#include "access/objects/add_table_index_info.hpp"
 #include "catalog/database_catalog.hpp"
 #include "catalog/entries/table_catalog_entry.hpp"
 #include "storage/columns_chunk.hpp"
@@ -18,6 +20,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 using namespace db7;
@@ -39,6 +42,10 @@ constexpr column_t kNameOid = 1;
 std::string Name(int64_t id) {
   return id % 2 ? "c" + std::to_string(id) : "cu " + std::to_string(id);
 }
+
+/// Value written by updates: short, so it always stays inline, and never
+/// equal to Name(id).
+std::string NewName(int64_t id) { return "u" + std::to_string(id); }
 
 struct Row {
   int64_t id;
@@ -124,12 +131,57 @@ protected:
   Txn *Begin() { return txns_->BeginTransaction(); }
   void Commit(Txn *txn) { txns_->Commit(txn); }
 
-  void Insert(Txn &txn, int64_t id) {
-    const std::string name = Name(id);
+  DataChunkPtr MakeRow(int64_t id, const std::string &name) {
     DataChunkPtr row(DataChunk::BuildDataChunk(Table().Initializer(), name.size()));
     row->WriteByIdx(0, {reinterpret_cast<const byte *>(&id), sizeof(id)});
     row->WriteVarlenByIdx(1, {reinterpret_cast<const byte *>(name.data()), name.size()});
+    return row;
+  }
+
+  void Insert(Txn &txn, int64_t id) {
+    DataChunkPtr row = MakeRow(id, Name(id));
     ASSERT_TRUE(Table().Insert(txn, *customers_, row.get())) << "insert id " << id;
+  }
+
+  /// Finds where `id` lives through the primary key index, the same way
+  /// DataTable's FK check looks rows up. Delete doesn't remove index entries
+  /// and these tests never re-insert a key, so each key has exactly one entry.
+  TupleId Tid(int64_t id) {
+    DataChunkPtr key = MakeRow(id, Name(id)); // only the id column is read
+    for (auto &index : Table().Indexes()) {
+      if (index->type_ != IndexConstraintType::PRIMARY) continue;
+
+      auto &btree = index->index_->Cast<access::BTreeIndex<>>();
+      shared::VectorValues<TupleId> results;
+      auto res = btree.Get(key.get(), results);
+      EXPECT_TRUE(res.success) << res.message;
+      EXPECT_EQ(results.vec.size(), 1u) << "index entries for id " << id;
+
+      const TupleId tid = results.vec.empty() ? INVALID_TID : results.vec[0];
+      EXPECT_NE(tid.GetPageId(), 0u) << "id " << id << " maps to page 0";
+      return tid;
+    }
+    ADD_FAILURE() << "customers has no primary key index";
+    return INVALID_TID;
+  }
+
+  // -----------------------------------------------------------------------
+  // Delete / Update wrappers. Both return false on a write-write conflict
+  // (row locked by another txn).
+  // -----------------------------------------------------------------------
+  bool Delete(Txn &txn, int64_t id) { return Table().Delete(txn, *customers_, Tid(id)); }
+
+  /// Updates only the name column: no indexed column changes, so DataTable
+  /// updates in place and the row keeps its TupleId.
+  bool Update(Txn &txn, int64_t id, const std::string &name) {
+    std::vector<storage::StorageColumnDesc> cols;
+    cols.emplace_back(kNameOid, type_id::VARCHAR, storage::DefaultValue{}, false, true);
+    DataChunkPtr init = Table().Initializer(cols);
+
+    DataChunkPtr row(DataChunk::BuildDataChunk(init.get(), name.size()));
+    row->WriteVarlenByIdx(0, {reinterpret_cast<const byte *>(name.data()), name.size()});
+
+    return Table().Update(txn, *customers_, Tid(id), row.get());
   }
 
   void InsertCommitted(int64_t from, int64_t to) {
@@ -182,6 +234,25 @@ protected:
       const Row &r = rows[id - from];
       EXPECT_EQ(r.id, id) << "missing or duplicated row";
       EXPECT_EQ(r.name, Name(id));
+    }
+  }
+
+  /// Rows [from, to) with their original names.
+  static std::vector<Row> Range(int64_t from, int64_t to) {
+    std::vector<Row> out;
+    for (int64_t id = from; id < to; ++id) out.push_back({id, Name(id)});
+    return out;
+  }
+
+  /// `rows` (sorted, from ScanAll) must equal `expected` exactly: same ids,
+  /// each once, same names. Catches a stale version returned next to a new one.
+  static void ExpectRows(const std::vector<Row> &rows, std::vector<Row> expected) {
+    std::sort(expected.begin(), expected.end());
+    ASSERT_EQ(rows.size(), expected.size());
+    for (size_t i = 0; i < expected.size(); ++i) {
+      SCOPED_TRACE(expected[i].id);
+      EXPECT_EQ(rows[i].id, expected[i].id) << "missing or duplicated row";
+      EXPECT_EQ(rows[i].name, expected[i].name);
     }
   }
 };
@@ -300,6 +371,215 @@ TEST_F(DataTableScanTest, MixedPageSelectsOnlyVisibleRows) {
 
   Txn *reader = Begin();
   ExpectExactly(ScanAll(*reader), 0, 10);
+}
+
+// =========================================================================
+// 5. DELETE
+// =========================================================================
+
+TEST_F(DataTableScanTest, DeletedRowsAreNotReturned) {
+  InsertCommitted(0, 100);
+
+  Txn *deleter = Begin();
+  for (int64_t id = 0; id < 100; id += 2) ASSERT_TRUE(Delete(*deleter, id)) << id;
+  Commit(deleter);
+
+  std::vector<Row> expected;
+  for (int64_t id = 1; id < 100; id += 2) expected.push_back({id, Name(id)});
+
+  Txn *reader = Begin();
+  ExpectRows(ScanAll(*reader), expected);
+}
+
+TEST_F(DataTableScanTest, DeletingEveryRowLeavesAnEmptyScan) {
+  InsertCommitted(0, 30);
+
+  Txn *deleter = Begin();
+  for (int64_t id = 0; id < 30; ++id) ASSERT_TRUE(Delete(*deleter, id)) << id;
+  Commit(deleter);
+
+  Txn *reader = Begin();
+  EXPECT_TRUE(ScanAll(*reader).empty());
+}
+
+/// Deletes spread over several pages and chunks, including the last page.
+TEST_F(DataTableScanTest, DeletesAcrossPagesAndChunks) {
+  constexpr int64_t kRows = 3 * STANDARD_VECTOR_SIZE + 17;
+  InsertCommitted(0, kRows);
+
+  Txn *deleter = Begin();
+  for (int64_t id = 0; id < kRows; id += 3) ASSERT_TRUE(Delete(*deleter, id)) << id;
+  Commit(deleter);
+
+  std::vector<Row> expected;
+  for (int64_t id = 0; id < kRows; ++id)
+    if (id % 3 != 0) expected.push_back({id, Name(id)});
+
+  Txn *reader = Begin();
+  ExpectRows(ScanAll(*reader), expected);
+}
+
+TEST_F(DataTableScanTest, OwnUncommittedDeleteIsInvisibleToSelf) {
+  InsertCommitted(0, 10);
+
+  Txn *deleter = Begin();
+  ASSERT_TRUE(Delete(*deleter, 3));
+  ASSERT_TRUE(Delete(*deleter, 4));
+
+  std::vector<Row> expected = Range(0, 10);
+  std::erase_if(expected, [](const Row &r) { return r.id == 3 || r.id == 4; });
+  ExpectRows(ScanAll(*deleter), expected);
+}
+
+TEST_F(DataTableScanTest, OtherTxnsUncommittedDeleteIsIgnored) {
+  InsertCommitted(0, 10);
+
+  Txn *deleter = Begin();
+  ASSERT_TRUE(Delete(*deleter, 3));
+
+  Txn *reader = Begin();
+  ExpectExactly(ScanAll(*reader), 0, 10);
+}
+
+TEST_F(DataTableScanTest, DeleteCommittedAfterSnapshotIsIgnoredByOldReader) {
+  InsertCommitted(0, 10);
+
+  Txn *old_reader = Begin();
+  Txn *deleter = Begin();
+  ASSERT_TRUE(Delete(*deleter, 3));
+  Commit(deleter);
+  Txn *new_reader = Begin();
+
+  ExpectExactly(ScanAll(*old_reader), 0, 10);
+  ExpectRows(ScanAll(*new_reader), [] {
+    auto r = Range(0, 10);
+    std::erase_if(r, [](const Row &x) { return x.id == 3; });
+    return r;
+  }());
+}
+
+TEST_F(DataTableScanTest, DeletingARowLockedByAnotherTxnFails) {
+  InsertCommitted(0, 10);
+
+  Txn *first = Begin();
+  ASSERT_TRUE(Delete(*first, 3));
+
+  Txn *second = Begin();
+  EXPECT_FALSE(Delete(*second, 3)) << "write-write conflict not detected";
+}
+
+// =========================================================================
+// 6. UPDATE
+// =========================================================================
+
+/// Every row comes back once: an update must not leave the old version
+/// visible next to the new one.
+TEST_F(DataTableScanTest, UpdatedRowsReturnNewValueExactlyOnce) {
+  InsertCommitted(0, 100);
+
+  Txn *updater = Begin();
+  for (int64_t id = 0; id < 100; id += 2) ASSERT_TRUE(Update(*updater, id, NewName(id))) << id;
+  Commit(updater);
+
+  std::vector<Row> expected = Range(0, 100);
+  for (Row &r : expected)
+    if (r.id % 2 == 0) r.name = NewName(r.id);
+
+  Txn *reader = Begin();
+  ExpectRows(ScanAll(*reader), expected);
+}
+
+TEST_F(DataTableScanTest, UpdatesAcrossPagesAndChunks) {
+  constexpr int64_t kRows = 3 * STANDARD_VECTOR_SIZE + 17;
+  InsertCommitted(0, kRows);
+
+  Txn *updater = Begin();
+  for (int64_t id = 1; id < kRows; id += 2) ASSERT_TRUE(Update(*updater, id, NewName(id))) << id;
+  Commit(updater);
+
+  std::vector<Row> expected = Range(0, kRows);
+  for (Row &r : expected)
+    if (r.id % 2 == 1) r.name = NewName(r.id);
+
+  Txn *reader = Begin();
+  ExpectRows(ScanAll(*reader), expected);
+}
+
+TEST_F(DataTableScanTest, OwnUncommittedUpdateIsVisibleToSelf) {
+  InsertCommitted(0, 10);
+
+  Txn *updater = Begin();
+  ASSERT_TRUE(Update(*updater, 3, NewName(3)));
+
+  std::vector<Row> expected = Range(0, 10);
+  expected[3].name = NewName(3);
+  ExpectRows(ScanAll(*updater), expected);
+}
+
+TEST_F(DataTableScanTest, OtherTxnsUncommittedUpdateShowsOldValue) {
+  InsertCommitted(0, 10);
+
+  Txn *updater = Begin();
+  ASSERT_TRUE(Update(*updater, 3, NewName(3)));
+
+  Txn *reader = Begin();
+  ExpectExactly(ScanAll(*reader), 0, 10);
+}
+
+TEST_F(DataTableScanTest, UpdateCommittedAfterSnapshotShowsOldValueToOldReader) {
+  InsertCommitted(0, 10);
+
+  Txn *old_reader = Begin();
+  Txn *updater = Begin();
+  ASSERT_TRUE(Update(*updater, 3, NewName(3)));
+  Commit(updater);
+  Txn *new_reader = Begin();
+
+  ExpectExactly(ScanAll(*old_reader), 0, 10);
+
+  std::vector<Row> expected = Range(0, 10);
+  expected[3].name = NewName(3);
+  ExpectRows(ScanAll(*new_reader), expected);
+}
+
+TEST_F(DataTableScanTest, UpdatingTwiceInOneTxnKeepsTheLastValue) {
+  InsertCommitted(0, 10);
+
+  Txn *updater = Begin();
+  ASSERT_TRUE(Update(*updater, 3, "first"));
+  ASSERT_TRUE(Update(*updater, 3, "second"));
+  Commit(updater);
+
+  std::vector<Row> expected = Range(0, 10);
+  expected[3].name = "second";
+
+  Txn *reader = Begin();
+  ExpectRows(ScanAll(*reader), expected);
+}
+
+TEST_F(DataTableScanTest, UpdateThenDeleteInOneTxnRemovesTheRow) {
+  InsertCommitted(0, 10);
+
+  Txn *writer = Begin();
+  ASSERT_TRUE(Update(*writer, 3, NewName(3)));
+  ASSERT_TRUE(Delete(*writer, 3));
+  Commit(writer);
+
+  std::vector<Row> expected = Range(0, 10);
+  std::erase_if(expected, [](const Row &r) { return r.id == 3; });
+
+  Txn *reader = Begin();
+  ExpectRows(ScanAll(*reader), expected);
+}
+
+TEST_F(DataTableScanTest, UpdatingARowLockedByAnotherTxnFails) {
+  InsertCommitted(0, 10);
+
+  Txn *first = Begin();
+  ASSERT_TRUE(Update(*first, 3, NewName(3)));
+
+  Txn *second = Begin();
+  EXPECT_FALSE(Update(*second, 3, "conflict")) << "write-write conflict not detected";
 }
 
 } // namespace

@@ -81,6 +81,9 @@ public:
   DataTable(catalog::DatabaseCatalog &catalog, std::vector<storage::StorageColumnDesc> columns,
             table_id oid_);
 
+  /** Just for testing for now */
+  const auto &Indexes() const { return indexes_; }
+
   const DataChunk *Initializer() const;
 
   const DataChunkPtr Initializer(std::vector<storage::StorageColumnDesc> &columns) const;

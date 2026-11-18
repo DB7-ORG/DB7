@@ -287,8 +287,10 @@ public:
     return chunk;
   }
 
-  static DataChunk *BuildDataChunk(const DataChunk *initializer, u32 size) {
-    return initializer->Allocate(size);
+  static DataChunk *BuildDataChunk(const DataChunk *initializer, u32 heap_size) {
+    auto *result = initializer->Allocate(heap_size);
+    result->size_ = initializer->fixed_size_;
+    return result;
   }
 
   DataChunk *Copy() {

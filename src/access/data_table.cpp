@@ -423,8 +423,8 @@ bool DataTable::Update(transaction::TransactionContext &context, catalog::TableC
 
     if (update_in_place) {
       // do in place update
-      current.reset(storage::Pax::GetUnsafe(page->GetData(), tuple.GetIndex(), projected, NCols(),
-                                            initializer_.get()));
+      current.reset(
+          storage::Pax::GetUnsafe(page->GetData(), tuple.GetIndex(), projected, NCols(), chunk));
 
       bool res = UpdateUndo(context, tuple.GetIndex(), page, current.get());
       if (!res) { return false; }
