@@ -11,7 +11,7 @@ SchemaCatalogEntryBase::GetEntry(transaction::TransactionContext &context, Catal
   return LookupEntry(context, lookup_info);
 }
 
-SchemaCatalogEntryBase::SchemaCatalogEntryBase(DatabaseCatalog &catalog, Identifier &schema)
+SchemaCatalogEntryBase::SchemaCatalogEntryBase(DatabaseCatalog &catalog, const Identifier &schema)
     : InCatalogEntry(CatalogType::SCHEMA_ENTRY, catalog, schema) {}
 
 } // namespace db7::catalog

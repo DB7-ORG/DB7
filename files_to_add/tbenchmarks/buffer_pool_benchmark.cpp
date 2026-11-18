@@ -2,6 +2,7 @@
 #include <random>
 
 #include "storage/buffer_pool/buffer_pool.hpp"
+#include "storage/pinned_page.hpp"
 
 using namespace db7;
 using namespace db7::storage;

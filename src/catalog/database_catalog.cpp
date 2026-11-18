@@ -47,7 +47,8 @@ DatabaseCatalog::GetSchema(transaction::TransactionContext &context, const Ident
 // Schema
 //===--------------------------------------------------------------------===//
 optional_ptr<CatalogEntry>
-DatabaseCatalog::CreateSchemaInternal(transaction::TransactionContext &context, Identifier &name) {
+DatabaseCatalog::CreateSchemaInternal(transaction::TransactionContext &context,
+                                      const Identifier &name) {
   LogicalDependencyList dependencies;
   auto entry = std::make_unique<SchemaCatalogEntry>(*this, name);
   auto result = entry.get();
@@ -56,7 +57,7 @@ DatabaseCatalog::CreateSchemaInternal(transaction::TransactionContext &context, 
 }
 
 optional_ptr<CatalogEntry> DatabaseCatalog::CreateSchema(transaction::TransactionContext &context,
-                                                         Identifier &name) {
+                                                         const Identifier &name) {
   auto result = CreateSchemaInternal(context, name);
   if (!result) {
     throw CATALOG_EXCEPTION(

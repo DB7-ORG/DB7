@@ -4,6 +4,7 @@
 #include "catalog/constraints/foreign_key_constraint.hpp"
 #include "catalog/database_catalog.hpp"
 #include "storage/columns_chunk.hpp"
+#include "storage/fsm/fsm_varlen.hpp"
 #include "storage/layouts/pax.hpp"
 #include "storage/layouts/storage_column_desc.hpp"
 #include "storage/models/parallel_scan_shared.hpp"
@@ -43,6 +44,9 @@ private:
   DataChunkPtr initializer_;
   std::vector<std::unique_ptr<AddTableIndexInfo>> indexes_;
   table_id oid_; // table id
+
+  // TODO fsm
+  storage::FreeSpaceManagerVarlen fsm_;
 
   enum class FkCheck { Insert, Delete };
 

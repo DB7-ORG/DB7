@@ -18,7 +18,7 @@ namespace db7::access {
 DataTable::DataTable(catalog::DatabaseCatalog &catalog,
                      std::vector<storage::StorageColumnDesc> columns, table_id oid)
     : catalog_(catalog), storage_manager_(catalog.StorageManager()),
-      main_columns_(std::move(columns)), oid_(oid) {
+      main_columns_(std::move(columns)), oid_(oid), fsm_(storage_manager_.GetDiskManager(), oid) {
   for (const auto &col : main_columns_) {
     if (!col.isDropped) { valid_columns_.push_back(col); }
   }
@@ -37,7 +37,7 @@ size_t DataTable::NCols() const {
 }
 
 storage::Page *DataTable::GetPageForInsert(DataChunk *chunk) {
-  u32 page_id = storage::FreeSpaceManagerVarlen::Get(chunk->GetSize());
+  u32 page_id = fsm_.Get(chunk->GetSize());
   storage::PageIdentifier id(oid_, page_id);
   storage::Page *insert_page = storage_manager_.GetBufferPool().Pin(id, PageKind::Heap);
   insert_page->WaitIO();
@@ -501,9 +501,8 @@ bool DataTable::Update(transaction::TransactionContext &context, catalog::TableC
 std::unique_ptr<storage::ParallelScanShared>
 DataTable::InitParallelScan(transaction::TransactionContext &context,
                             std::vector<storage::StorageColumnDesc> &&columns) const {
-  return std::make_unique<storage::ParallelScanShared>(
-      context, oid_, idx_t(storage::FreeSpaceManagerVarlen::GetPageCount()), DEFAULT_MORSEL_SIZE,
-      std::move(columns));
+  return std::make_unique<storage::ParallelScanShared>(context, oid_, idx_t(fsm_.GetPageCount()),
+                                                       DEFAULT_MORSEL_SIZE, std::move(columns));
 }
 
 idx_t DataTable::MaxThreads(const storage::ParallelScanShared &state) const {

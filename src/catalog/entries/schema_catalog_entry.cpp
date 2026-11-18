@@ -8,7 +8,7 @@
 
 namespace db7::catalog {
 
-SchemaCatalogEntry::SchemaCatalogEntry(DatabaseCatalog &catalog, Identifier &schema)
+SchemaCatalogEntry::SchemaCatalogEntry(DatabaseCatalog &catalog, const Identifier &schema)
     : SchemaCatalogEntryBase(catalog, schema), tables(catalog), indexes(catalog),
       table_functions(catalog), copy_functions(catalog), pragma_functions(catalog),
       functions(catalog), sequences(catalog), collations(catalog), types(catalog),

@@ -12,7 +12,7 @@ class TableCatalogEntry;
 
 class SchemaCatalogEntryBase : public InCatalogEntry {
 public:
-  SchemaCatalogEntryBase(DatabaseCatalog &catalog, Identifier &schema);
+  SchemaCatalogEntryBase(DatabaseCatalog &catalog, const Identifier &schema);
 
   virtual optional_ptr<CatalogEntry> LookupEntry(transaction::TransactionContext &context,
                                                  const EntryLookupInfo &lookup_info) = 0;

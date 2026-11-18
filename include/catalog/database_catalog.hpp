@@ -41,7 +41,7 @@ public:
 
 private:
   optional_ptr<CatalogEntry> CreateSchemaInternal(transaction::TransactionContext &context,
-                                                  Identifier &name);
+                                                  const Identifier &name);
 
 public:
   storage::StorageManager &StorageManager() { return storage_manager_; }
@@ -62,7 +62,7 @@ public:
                                                  OnEntryNotFound if_not_found);
 
   optional_ptr<CatalogEntry> CreateSchema(transaction::TransactionContext &context,
-                                          Identifier &name);
+                                          const Identifier &name);
 
   // Get dependency manager
   optional_ptr<DependencyManager> GetDependencyManager();

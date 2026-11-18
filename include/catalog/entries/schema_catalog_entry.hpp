@@ -40,7 +40,7 @@ private:
                                               LogicalDependencyList dependencies);
 
 public:
-  SchemaCatalogEntry(DatabaseCatalog &catalog, Identifier &schema);
+  SchemaCatalogEntry(DatabaseCatalog &catalog, const Identifier &schema);
 
   optional_ptr<CatalogEntry> LookupEntry(transaction::TransactionContext &context,
                                          const EntryLookupInfo &lookup_info) override;
