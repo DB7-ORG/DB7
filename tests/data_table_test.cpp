@@ -19,6 +19,7 @@
 #include <cstring>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -144,8 +145,9 @@ protected:
   }
 
   /// Finds where `id` lives through the primary key index, the same way
-  /// DataTable's FK check looks rows up. Delete doesn't remove index entries
-  /// and these tests never re-insert a key, so each key has exactly one entry.
+  /// DataTable's FK check looks rows up. Delete doesn't remove index entries,
+  /// and no test inserts a key twice or moves a key back to an old value, so
+  /// each key has exactly one entry.
   TupleId Tid(int64_t id) {
     DataChunkPtr key = MakeRow(id, Name(id)); // only the id column is read
     for (auto &index : Table().Indexes()) {
@@ -180,6 +182,24 @@ protected:
 
     DataChunkPtr row(DataChunk::BuildDataChunk(init.get(), name.size()));
     row->WriteVarlenByIdx(0, {reinterpret_cast<const byte *>(name.data()), name.size()});
+
+    return Table().Update(txn, *customers_, Tid(id), row.get());
+  }
+
+  /// Changes the primary key of `id` to `new_id`, and the name too if given.
+  /// The key is indexed, so DataTable takes the delete + insert path and the
+  /// row gets a new TupleId; Tid(new_id) finds it through the index.
+  bool UpdateKey(Txn &txn, int64_t id, int64_t new_id,
+                 const std::optional<std::string> &name = std::nullopt) {
+    std::vector<storage::StorageColumnDesc> cols;
+    cols.emplace_back(kIdOid, type_id::BIGINT);
+    if (name) cols.emplace_back(kNameOid, type_id::VARCHAR, storage::DefaultValue{}, false, true);
+    DataChunkPtr init = Table().Initializer(cols);
+
+    DataChunkPtr row(DataChunk::BuildDataChunk(init.get(), name ? name->size() : 0));
+    row->WriteByIdx(0, {reinterpret_cast<const byte *>(&new_id), sizeof(new_id)});
+    if (name)
+      row->WriteVarlenByIdx(1, {reinterpret_cast<const byte *>(name->data()), name->size()});
 
     return Table().Update(txn, *customers_, Tid(id), row.get());
   }
@@ -580,6 +600,175 @@ TEST_F(DataTableScanTest, UpdatingARowLockedByAnotherTxnFails) {
 
   Txn *second = Begin();
   EXPECT_FALSE(Update(*second, 3, "conflict")) << "write-write conflict not detected";
+}
+
+// =========================================================================
+// 7. UPDATE OF AN INDEXED COLUMN (delete + insert path)
+// =========================================================================
+
+/// Rows [0, 10) with `from` renamed to key `to`, keeping or replacing its name.
+std::vector<Row> RangeWithKeyMoved(int64_t from, int64_t to,
+                                   std::optional<std::string> name = std::nullopt) {
+  std::vector<Row> rows;
+  for (int64_t id = 0; id < 10; ++id) {
+    if (id == from)
+      rows.push_back({to, name ? *name : Name(from)});
+    else
+      rows.push_back({id, Name(id)});
+  }
+  return rows;
+}
+
+/// The old key disappears and the row shows up under the new key with its
+/// old name: the merge copied the untouched column, and the old version is
+/// not returned next to the new one.
+TEST_F(DataTableScanTest, KeyUpdateMovesRowToNewKey) {
+  InsertCommitted(0, 10);
+
+  Txn *updater = Begin();
+  ASSERT_TRUE(UpdateKey(*updater, 3, 103));
+  Commit(updater);
+
+  Txn *reader = Begin();
+  ExpectRows(ScanAll(*reader), RangeWithKeyMoved(3, 103));
+}
+
+TEST_F(DataTableScanTest, KeyAndNameUpdatedTogether) {
+  InsertCommitted(0, 10);
+
+  Txn *updater = Begin();
+  ASSERT_TRUE(UpdateKey(*updater, 3, 103, NewName(103)));
+  Commit(updater);
+
+  Txn *reader = Begin();
+  ExpectRows(ScanAll(*reader), RangeWithKeyMoved(3, 103, NewName(103)));
+}
+
+TEST_F(DataTableScanTest, OwnUncommittedKeyUpdateIsVisibleToSelf) {
+  InsertCommitted(0, 10);
+
+  Txn *updater = Begin();
+  ASSERT_TRUE(UpdateKey(*updater, 3, 103));
+
+  ExpectRows(ScanAll(*updater), RangeWithKeyMoved(3, 103));
+}
+
+TEST_F(DataTableScanTest, OtherTxnsUncommittedKeyUpdateShowsOldRow) {
+  InsertCommitted(0, 10);
+
+  Txn *updater = Begin();
+  ASSERT_TRUE(UpdateKey(*updater, 3, 103));
+
+  Txn *reader = Begin();
+  ExpectExactly(ScanAll(*reader), 0, 10);
+}
+
+TEST_F(DataTableScanTest, KeyUpdateCommittedAfterSnapshotShowsOldRowToOldReader) {
+  InsertCommitted(0, 10);
+
+  Txn *old_reader = Begin();
+  Txn *updater = Begin();
+  ASSERT_TRUE(UpdateKey(*updater, 3, 103));
+  Commit(updater);
+  Txn *new_reader = Begin();
+
+  ExpectExactly(ScanAll(*old_reader), 0, 10);
+  ExpectRows(ScanAll(*new_reader), RangeWithKeyMoved(3, 103));
+}
+
+TEST_F(DataTableScanTest, KeyUpdatedTwiceInOneTxnKeepsTheLastKey) {
+  InsertCommitted(0, 10);
+
+  Txn *updater = Begin();
+  ASSERT_TRUE(UpdateKey(*updater, 3, 103));
+  ASSERT_TRUE(UpdateKey(*updater, 103, 203));
+  Commit(updater);
+
+  Txn *reader = Begin();
+  ExpectRows(ScanAll(*reader), RangeWithKeyMoved(3, 203));
+}
+
+/// After the move, the row is reachable through the new key: the index
+/// points at the new TupleId and the moved row can be written again.
+TEST_F(DataTableScanTest, MovedRowCanBeUpdatedThroughItsNewKey) {
+  InsertCommitted(0, 10);
+
+  Txn *mover = Begin();
+  ASSERT_TRUE(UpdateKey(*mover, 3, 103));
+  Commit(mover);
+
+  Txn *updater = Begin();
+  ASSERT_TRUE(Update(*updater, 103, NewName(103)));
+  Commit(updater);
+
+  Txn *reader = Begin();
+  ExpectRows(ScanAll(*reader), RangeWithKeyMoved(3, 103, NewName(103)));
+}
+
+TEST_F(DataTableScanTest, MovedRowCanBeDeletedThroughItsNewKey) {
+  InsertCommitted(0, 10);
+
+  Txn *mover = Begin();
+  ASSERT_TRUE(UpdateKey(*mover, 3, 103));
+  Commit(mover);
+
+  Txn *deleter = Begin();
+  ASSERT_TRUE(Delete(*deleter, 103));
+  Commit(deleter);
+
+  std::vector<Row> expected = Range(0, 10);
+  std::erase_if(expected, [](const Row &r) { return r.id == 3; });
+
+  Txn *reader = Begin();
+  ExpectRows(ScanAll(*reader), expected);
+}
+
+/// Many moves on the same page. Each move takes a new slot without freeing
+/// the old one, so this also checks the page has room for the new versions.
+TEST_F(DataTableScanTest, KeyUpdatesOfManyRows) {
+  InsertCommitted(0, 100);
+
+  Txn *updater = Begin();
+  for (int64_t id = 0; id < 100; id += 2) ASSERT_TRUE(UpdateKey(*updater, id, id + 1000)) << id;
+  Commit(updater);
+
+  std::vector<Row> expected;
+  for (int64_t id = 0; id < 100; ++id) expected.push_back({id % 2 == 0 ? id + 1000 : id, Name(id)});
+
+  Txn *reader = Begin();
+  ExpectRows(ScanAll(*reader), expected);
+}
+
+/// `UPDATE ... SET id = id`: the key doesn't change, so it must not count
+/// as a duplicate of itself.
+TEST_F(DataTableScanTest, KeyUpdateToTheSameValueSucceeds) {
+  InsertCommitted(0, 10);
+
+  Txn *updater = Begin();
+  ASSERT_TRUE(UpdateKey(*updater, 3, 3));
+  Commit(updater);
+
+  Txn *reader = Begin();
+  ExpectExactly(ScanAll(*reader), 0, 10);
+}
+
+/// Moving a row onto a key another row already has violates the primary key.
+/// No abort yet, so the table isn't scanned afterwards.
+TEST_F(DataTableScanTest, KeyUpdateToAnExistingKeyIsRejected) {
+  InsertCommitted(0, 10);
+
+  Txn *updater = Begin();
+  EXPECT_ANY_THROW(UpdateKey(*updater, 3, 5)) << "duplicate primary key accepted";
+}
+
+TEST_F(DataTableScanTest, KeyUpdateOfARowLockedByAnotherTxnFails) {
+  InsertCommitted(0, 10);
+
+  Txn *first = Begin();
+  ASSERT_TRUE(Update(*first, 3, NewName(3)));
+
+  Txn *second = Begin();
+  EXPECT_FALSE(UpdateKey(*second, 3, 103)) << "write-write conflict not detected";
 }
 
 } // namespace

@@ -21,9 +21,9 @@ namespace db7 {
  * [column count]        (2 bytes)
  * [column ids]          (count* 2 bytes)
  * [offsets]             (count* 2 bytes)
- * [null bitmap]         (coulumn count/8 + 1 bytes)
+ * [null bitmap]         (coulumn (count + 7) / 8 bytes)
  * [data slots]          (fixed len)
- * [growing heap]        (varlen data, heap is growing down)
+ * [growing heap]        (varlen data, heap is growing forward not like in slotted pages)
  *
  * 1 in bitmap means value is NULL
  */
@@ -44,7 +44,7 @@ private:
   static constexpr u32 BitmapSize(u32 n) { return (n + 7) / 8; }
 
   u32 SlotSize(u16 idx) const {
-    const u32 end = idx + 1 < col_count_ ? Offsets()[idx + 1] : size_;
+    const u32 end = idx + 1 < col_count_ ? Offsets()[idx + 1] : fixed_size_;
     return end - Offsets()[idx];
   }
 
@@ -52,7 +52,7 @@ private:
     const column_t *cols = ColumnIds();
     for (u16 i = 0; i < col_count_; i++)
       if (cols[i] == oid) return i;
-    throw std::out_of_range("column not in chunk");
+    throw MEMORY_EXCEPTION("column not in chunk");
   }
 
   const u16 *Offsets() const { return reinterpret_cast<const u16 *>(ColumnIds() + col_count_); }
@@ -66,8 +66,6 @@ private:
   ChunkBitmap Bitmap() { return ChunkBitmap(Offsets() + col_count_); }
 
   const byte *DataSlots() const { return Bitmap().Data() + BitmapSize(col_count_); }
-
-  const byte *Heap() const { return Bytes() + size_; } // TODO storage check
 
   u16 AppendTail(const byte *data, u16 len) {
     DB7_ASSERT(size_ + len <= UINT16_MAX, "varlen offsets are u16");
@@ -332,9 +330,9 @@ private:
 
     const auto *out_column_ids = out->ColumnIds();
     const auto *in_column_ids = in->ColumnIds();
-    for (u16 i = 0; in->GetColCount(); i++) {
+    for (u16 i = 0; i < in->GetColCount(); i++) {
       bool flag = false;
-      for (u16 j = 0; out->GetColCount(); j++) {
+      for (u16 j = 0; j < out->GetColCount(); j++) {
         if (in_column_ids[i] == out_column_ids[j]) {
           flag = true;
           break;
