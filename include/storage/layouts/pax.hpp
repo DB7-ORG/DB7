@@ -6,9 +6,6 @@
 #include "storage/data_chunk.hpp"
 #include "storage/storage_common.hpp"
 
-// TODO storage should try to make one dto abstraction for column data so i dont have 20 different
-// mappings
-
 /**
   PAX PAGE LAYOUT
 

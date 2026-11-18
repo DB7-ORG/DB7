@@ -82,9 +82,6 @@ u16 Pax::StripOff(u16 offset) {
   return static_cast<u16>(offset & ~PaxHeader::offset_nullable_mask_);
 }
 
-// TODO storage could add min heap size if i need some specific layout
-// for a really large string for example so i dont get stuck creating
-// pages that dont have enough heap
 void Pax::Init(byte *page, std::vector<StorageColumnDesc> &main_columns, u16 avg_heap_size,
                size_t min_heap_size) {
   DB7_ASSERT(min_heap_size <= UINT16_MAX, "Out of bounds");

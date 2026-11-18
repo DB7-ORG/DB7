@@ -14,8 +14,6 @@
 
 namespace db7 {
 
-// TODO storage shouldnt fill the chunk by copying
-// instead copy header and the rest should be filled using an iterator or something like that
 /**
  * [total size in bytes] (4 bytes)
  * [column count]        (2 bytes)
