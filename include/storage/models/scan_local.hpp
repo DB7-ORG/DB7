@@ -52,7 +52,7 @@ public:
   void StartChunk(ColumnsChunk &chunk) {
     held_.clear();
     if (Exhausted()) Drop();
-    chunk.ResetTupleCount();
+    chunk.ResetTuples();
   }
 
   /** Requires a latch */

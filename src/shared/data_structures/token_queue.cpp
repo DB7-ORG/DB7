@@ -19,4 +19,10 @@ u32 NextQueueId() {
   return id;
 }
 
+/** Needed for tests only not used in real code */
+void ResetQueueId() {
+  tls_token_cache = {};
+  g_next_id.store(0, std::memory_order_relaxed);
+}
+
 } // namespace db7::shared::detail

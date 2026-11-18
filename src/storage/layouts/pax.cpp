@@ -16,14 +16,15 @@ void Db7AssertColumnOrder([[maybe_unused]] DataChunk *chunk,
 
 size_t Pax::CalculateNumTuples(size_t row_heap_size, size_t row_size, size_t padding,
                                size_t col_count, size_t nullable_count) {
-  const size_t fixed = PaxHeader::fixed_header_size_ + col_count * sizeof(u16) + padding;
+  const size_t header = PaxHeader::fixed_header_size_ + col_count * sizeof(u16);
+  const size_t fixed = shared::AlignUp(header, 8) + padding;
   DB7_ASSERT(fixed < DB7_PAGE_SIZE, "page header and padding do not fit in the page");
 
   const size_t avail_bits = (DB7_PAGE_SIZE - fixed) * 8;
-  const size_t rounding_bits = nullable_count * 7;
+  const size_t rounding_bits = nullable_count * 7 + 63;
   DB7_ASSERT(avail_bits > rounding_bits, "no space left for tuples");
 
-  const size_t bits_per_row = (row_heap_size + row_size) * 8 + nullable_count;
+  const size_t bits_per_row = (row_heap_size + row_size) * 8 + nullable_count + 1;
   const size_t N = (avail_bits - rounding_bits) / bits_per_row;
   DB7_ASSERT(N >= 1, "number of tuples in the page must be atleast 1");
   DB7_ASSERT(N <= std::numeric_limits<u16>::max(), "invalid page capacity");
@@ -120,7 +121,12 @@ void Pax::Init(byte *page, std::vector<StorageColumnDesc> &main_columns, u16 avg
   PaxHeader::SetCapacity(page, N);
 
   u16 *offsets = PaxHeader::Offsets(page);
-  size_t start = main_columns.size() * sizeof(u16) + PaxHeader::fixed_header_size_;
+  size_t start =
+      shared::AlignUp(PaxHeader::fixed_header_size_ + main_columns.size() * sizeof(u16), 8);
+  const size_t deleted_bytes = shared::AlignUp((N + 7) / 8, 8);
+  std::memset(page + start, 0, deleted_bytes); // page memory isn't zeroed
+  start += deleted_bytes;
+  PaxHeader::SetDeletedCount(page, 0);
   int i = 0;
   for (const auto &s : main_columns) {
     if (s.isDropped) {

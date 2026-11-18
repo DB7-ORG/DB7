@@ -131,14 +131,26 @@ public:
 
   std::unique_ptr<storage::ScanLocal> InitLocalScan(storage::ParallelScanShared &shared) const;
 
-  // TODO append sel
   void SelectInto(transaction::TransactionContext &context, ColumnsChunk &chunk,
                   storage::Page *page, u16 page_start, u16 chunk_start, u16 n) const {
     auto *versions = page->GetVersions();
-    if (versions == nullptr) return;
+    ChunkBitmap del_bitmap = storage::PaxHeader::DeletedBitmap(page->GetData());
+
+    if (versions == nullptr) {
+      for (u16 k = 0; k < n; k++) {
+        const u16 row = page_start + k;
+        bool visible = !del_bitmap.IsNull(row);
+        if (visible) { chunk.AppendSel(chunk_start + k); }
+      }
+      return;
+    }
 
     for (u16 k = 0; k < n; k++) {
-      auto *v = versions[page_start + k].Get();
+      const u16 row = page_start + k;
+      if (del_bitmap.IsNull(row)) continue; // GC'd: dead for every snapshot
+
+      bool visible = true;
+      auto *v = versions[row].Get();
       while (v != nullptr && transaction::TransactionUtil::HasConflict(
                                  v->GetTimestamp(), context.FinishTime(), context.StartTime())) {
         switch (v->GetType()) {
@@ -147,14 +159,15 @@ public:
           chunk.EmplaceDataChunk(chunk_start + k, delta, main_columns_);
           break;
         }
-        case storage::DeltaRecordType::INSERT:
-          // not visible
-        case storage::DeltaRecordType::DELETE:
-          // get next might be visible
+        case storage::DeltaRecordType::INSERT: visible = false; break;
+        case storage::DeltaRecordType::DELETE: break;
         case storage::DeltaRecordType::INVALID: break;
         }
+        if (!visible) { break; }
         v = v->GetNext();
       }
+      if (v != nullptr && v->GetType() == storage::DeltaRecordType::DELETE) { continue; }
+      if (visible) { chunk.AppendSel(chunk_start + k); }
     }
   }
 
@@ -186,10 +199,11 @@ public:
         {
           shared::AdaptiveVersionLock::ReadGuard guard(cursor.Page()->DataLock());
           u16 old_start = cursor.Position();
+          u16 chunk_start = chunk.GetTupleCount();
           cursor.Fill(chunk);
           u16 new_start = cursor.Position();
           auto &page = cursor.Page();
-          SelectInto(context, chunk, page, old_start, new_start);
+          SelectInto(context, chunk, page, old_start, chunk_start, new_start - old_start);
         }
         break;
 
@@ -231,14 +245,6 @@ public:
 
   ScanResult Scan(storage::ScanLocal &local) const {
     const auto result = ScanInternal(local);
-    // u16 new_start = cursor.Position();
-
-    // auto &chunk = local.Chunk();
-    // auto * versions = cursor.Page()->GetVersions();
-    // for (u16 i = prev_start; i < new_start; i++) {
-
-    // }
-
     return result;
   }
 };

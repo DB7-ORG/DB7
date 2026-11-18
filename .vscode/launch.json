@@ -28,7 +28,9 @@
       "program": "${workspaceFolder}/bin/tests/all_tests",
       "args": [
         // "--gtest_filter=BTreeTest.DeleteAllThenRefill"
-        "--gtest_filter=BufferPool*"
+        // "--gtest_filter=BufferPool*"
+        //"--gtest_filter=-BufferPool*"
+        "--gtest_filter=ColumnsChunk*"
       ],
       "cwd": "${workspaceFolder}",
       "MIMode": "gdb",

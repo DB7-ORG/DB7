@@ -23,7 +23,10 @@ namespace db7 {
 // ---------------------------------------------------------------------------
 #define DB7_CONFIG_OPTIONS(X)                                                                      \
   X(TASK_SCHEDULER_PINNED_THREADS, bool, true, "Pin each worker thread to its own CPU")            \
-  X(TASK_SCHEDULER_THREAD_COUNT, uint32_t, 0, "Number of threads to execute tasks, 0 = one per CPU")
+  X(TASK_SCHEDULER_THREAD_COUNT, uint32_t, 0,                                                      \
+    "Number of threads to execute tasks, 0 = one per CPU")                                         \
+  X(TASK_SCHEDULER_CONTEXT_SWITCH_TIME, uint32_t, 2,                                               \
+    "Time (ms) after which a worker thread yields a task")
 
 // The config file loaded automatically at startup: the path in the DB7_CONFIG
 // environment variable, otherwise ./db7.conf if it exists, otherwise defaults only.

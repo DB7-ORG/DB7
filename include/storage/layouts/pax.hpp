@@ -33,6 +33,7 @@
   |     == 0          -> column dropped, it has no minipage       |
   |     bit 15 set    -> column is nullable (has a null bitmap)   |
   |     bits 0..14    -> byte offset of the column's minipage     |
+  |   deleted bitmap       which rows arent visible to anyone     |
   +---------------------------------------------------------------+
   | Minipages, one per live column, in column order               |
   |   padding         align start to SizeOf(type)                 |
@@ -97,9 +98,10 @@ private:
   static constexpr u32 pax_magic_ = 3042617577;
 
   static constexpr u16 magic_size_ = sizeof(u32);
-  /** MagicNumber + ColumnCount + TupleCount + Capacity + CurrHeapOffset + MaxHeapOffsetRef */
-  static constexpr u16 fixed_header_size_ =
-      magic_size_ + sizeof(column_t) + sizeof(u16) + sizeof(u16) + sizeof(u16) + sizeof(u16);
+  /** MagicNumber + ColumnCount + TupleCount + Capacity + CurrHeapOffset + MaxHeapOffsetRef
+   * DeletedCountRef */
+  static constexpr u16 fixed_header_size_ = magic_size_ + sizeof(column_t) + sizeof(u16) +
+                                            sizeof(u16) + sizeof(u16) + sizeof(u16) + sizeof(u16);
 
   static constexpr u16 offset_nullable_mask_ = 1 << (sizeof(u16) * 8 - 1);
 
@@ -131,6 +133,10 @@ private:
                                     sizeof(u16) + sizeof(u16));
   }
 
+  static u16 &DeletedCountRef(byte *page) {
+    return *reinterpret_cast<u16 *>(page + magic_size_ + sizeof(column_t) + 4 * sizeof(u16));
+  }
+
 public:
   static u32 Magic(byte *page) { return MagicRef(page); }
 
@@ -156,9 +162,21 @@ public:
 
   static void SetMaxHeapOffset(byte *page, u16 capacity) { MaxHeapOffsetRef(page) = capacity; }
 
+  static u16 DeletedCount(byte *page) { return DeletedCountRef(page); }
+
+  static void SetDeletedCount(byte *page, u16 count) { DeletedCountRef(page) = count; }
+
   static u16 *Offsets(byte *page) {
     byte *data = page + PaxHeader::fixed_header_size_;
     return reinterpret_cast<u16 *>(data);
+  }
+
+  static u16 DeletedBitmapOffset(byte *page) {
+    return shared::AlignUp(fixed_header_size_ + ColumnCount(page) * sizeof(u16), 8);
+  }
+
+  static ChunkBitmap DeletedBitmap(byte *page) {
+    return ChunkBitmap(page + DeletedBitmapOffset(page));
   }
 };
 

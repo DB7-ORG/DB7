@@ -81,5 +81,4 @@ Data table:
 - ownership for Task and Executor
 
 - // TODO handle constant vectors
-- // TODO append sel
 - add deleted bitmap to track which rows are deleted in pax

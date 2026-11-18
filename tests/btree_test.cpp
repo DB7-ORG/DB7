@@ -180,6 +180,7 @@ protected:
     // running past the end of the test. Drop this line if your
     // scheduler has no Stop().
     if (sched_) { sched_->Stop(); }
+    shared::detail::ResetQueueId();
   }
 
   // ---- Chunk construction (thread-safe) --------------------------------

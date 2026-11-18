@@ -24,6 +24,8 @@ struct TokenCache {
 extern constinit thread_local TokenCache tls_token_cache;
 
 u32 NextQueueId();
+/** Needed for tests only not used in real code */
+void ResetQueueId();
 
 } // namespace detail
 

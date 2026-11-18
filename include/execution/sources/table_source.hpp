@@ -40,7 +40,9 @@ private:
   std::unique_ptr<storage::ParallelScanShared> shared_;
 
 public:
-  TableSource(access::DataTable &t) : BaseSource(t) { shared_ = table_.InitParallelScan(); }
+  TableSource(access::DataTable &t) : BaseSource(t) {
+    shared_ = nullptr; // table_.InitParallelScan();
+  }
   ~TableSource() override = default;
 
   std::unique_ptr<SourceLocalState> InitLocal() override {

@@ -104,6 +104,10 @@ public:
 
   u16 GetColCount() const { return col_count_; }
 
+  u16 SelCount() const { return sel_count_; }
+
+  const u16 *SelData() const { return sel_; }
+
   byte *GetColumnByIdx(u16 idx) { return varlen_contents_.get() + Offsets()[idx]; }
 
   const byte *GetColumnByIdx(u16 idx) const { return varlen_contents_.get() + Offsets()[idx]; }
