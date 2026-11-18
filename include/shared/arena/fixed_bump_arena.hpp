@@ -14,8 +14,8 @@ class FixedBumpArena {
   friend class db7::storage::UndoBuffer;
 
 private:
-  static constexpr u32 ALLOCATOR_BLOCK_SIZE = 4096;
-  byte data_[ALLOCATOR_BLOCK_SIZE];
+  static constexpr u32 ALLOCATOR_BLOCK_SIZE = 4096 * 4;
+  alignas(8) byte data_[ALLOCATOR_BLOCK_SIZE];
   u32 size_;
 
 public:

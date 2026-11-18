@@ -9,8 +9,12 @@
 #include <span>
 #include <vector>
 
+namespace db7::catalog {
+class CatalogEntry;
+}
+
 namespace db7::storage {
-enum class DeltaRecordType : uint8_t { UPDATE = 0, INSERT, DELETE, INVALID };
+enum class DeltaRecordType : uint8_t { UPDATE = 0, INSERT, DELETE, CATALOG, INVALID };
 
 class UndoRecord {
 private:
@@ -20,14 +24,15 @@ private:
   table_id t_id_;
   page_id p_id_;
   u32 idx_;
+  u32 size_;
   u64 varlen_contents_[0];
 
 public:
-  timestamp_t GetTimestamp() { return timestamp_.load(); }
+  timestamp_t GetTimestamp() const { return timestamp_.load(); }
 
   void SetTimestamp(const timestamp_t time) { timestamp_.store(time); }
 
-  DeltaRecordType GetType() { return type_; }
+  DeltaRecordType GetType() const { return type_; }
 
   bool IsDeleted() const { return type_ == DeltaRecordType::DELETE; }
 
@@ -35,11 +40,15 @@ public:
 
   void Invalidate() { type_ = DeltaRecordType::INVALID; }
 
-  UndoRecord *GetNext() { return next_.load(); }
+  UndoRecord *GetNext() const { return next_.load(); }
 
   void SetNext(UndoRecord *next) { next_.store(next); }
 
+  u32 GetSize() const { return size_; }
+
   void *GetDelta() { return varlen_contents_; }
+
+  static constexpr u32 AlignedPayload(size_t n) { return static_cast<u32>(shared::AlignUp(n, 8)); }
 
   static UndoRecord *InitializeInsert(byte *head, const timestamp_t timestamp, table_id tbl_id,
                                       page_id pid, u32 idx) {
@@ -50,6 +59,7 @@ public:
     result->t_id_ = tbl_id;
     result->p_id_ = pid;
     result->idx_ = idx;
+    result->size_ = 0;
     return result;
   }
 
@@ -62,6 +72,7 @@ public:
     result->t_id_ = tbl_id;
     result->p_id_ = pid;
     result->idx_ = idx;
+    result->size_ = 0;
     return result;
   }
 
@@ -74,9 +85,14 @@ public:
     result->t_id_ = tbl_id;
     result->p_id_ = pid;
     result->idx_ = idx;
+    result->size_ = AlignedPayload(chunk.size());
     std::memcpy(result->varlen_contents_, chunk.data(), chunk.size());
     return result;
   }
+
+  static UndoRecord *InitializeCatalog(byte *head, timestamp_t ts, catalog::CatalogEntry *entry);
+
+  catalog::CatalogEntry *GetCatalogEntry();
 };
 
 static_assert(sizeof(UndoRecord) % 8 == 0,
@@ -108,7 +124,8 @@ public:
    * @param size the size of the undo record to allocate
    * @return a new undo record with at least the given size reserved
    */
-  byte *NewEntry(uint32_t size) {
+  byte *NewEntry(u32 size) {
+    size = UndoRecord::AlignedPayload(size);
     if (buffers_.empty() || !buffers_.back()->HasAvailableSpace(size)) {
       Segment *new_segment = pool_->Get();
       DB7_ASSERT(shared::IsAligned<u64>(new_segment), "a delta entry should be aligned to 8 bytes");
@@ -118,6 +135,8 @@ public:
     DB7_ASSERT(shared::IsAligned<u64>(last_record_), "unaligned ptr");
     return last_record_;
   }
+
+  static constexpr u32 PayloadSize(size_t n) { return static_cast<u32>(shared::AlignUp(n, 8)); }
 
   class Iterator {
   private:
@@ -140,8 +159,8 @@ public:
 
     Iterator &operator++() {
       UndoRecord &me = this->operator*();
-      segment_offset_ +=
-          sizeof(UndoRecord) + reinterpret_cast<DataChunk *>(me.GetDelta())->GetSize();
+      segment_offset_ += sizeof(UndoRecord) +
+                         me.GetSize(); // reinterpret_cast<DataChunk *>(me.GetDelta())->GetSize();
       if (segment_offset_ == (*curr_segment_)->size_) {
         // need to advance into the next segment
         ++curr_segment_;

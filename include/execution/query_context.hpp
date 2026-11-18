@@ -14,6 +14,11 @@ private:
   void *error;
 
 public:
+  QueryContext() {
+    (void)query_id;
+    (void)max_threads;
+    (void)error;
+  }
   void Cancel() { cancelled.store(true); }
   bool IsCancelled() { return cancelled; }
 };

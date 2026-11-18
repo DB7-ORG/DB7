@@ -28,11 +28,15 @@
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
 #define LIKELY(x) __builtin_expect(!!(x), 1)
 
+#ifdef DB7DEBUG
 #define DB7_UNREACHABLE()                                                                          \
   do {                                                                                             \
     DB7_ASSERT(false, "unreachable");                                                              \
-    __builtin_unreachable();                                                                       \
+    std::abort();                                                                                  \
   } while (0)
+#else
+#define DB7_UNREACHABLE() __builtin_trap()
+#endif
 
 #define DB7_UNIMPLEMENTED() throw std::logic_error("Not implemented")
 

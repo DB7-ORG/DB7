@@ -10,8 +10,6 @@
 
 #include <cstring>
 #include <span>
-#include <type_traits>
-#include <utility>
 #include <vector>
 
 namespace db7 {

@@ -272,8 +272,9 @@ bool CatalogSet::CreateEntryInternal(transaction::TransactionContext &context,
   }
 
   // Finally add the new entry to the chain
-  // auto value_ptr = value.get();
+  auto *value_ptr = value.get();
   map.UpdateEntry(std::move(value));
+  context.UndoRecordForCatalog(value_ptr);
   // Push the old entry in the undo buffer for this transaction, so it can be restored in the event
   // of failure
   // TODO catalog duck db has to do this because its in memory so u need seperate txn system to
@@ -366,8 +367,10 @@ bool CatalogSet::DropEntryInternal(transaction::TransactionContext &context, con
   value->timestamp = context.FinishTime();
   value->set = this;
   value->deleted = true;
-  // auto value_ptr = value.get();
+
+  auto *value_ptr = value.get();
   map.UpdateEntry(std::move(value));
+  context.UndoRecordForCatalog(value_ptr);
 
   // push the old entry in the undo buffer for this transaction
   // TODO catalog duck db has to do this because its in memory so u need seperate txn system to
@@ -462,8 +465,9 @@ bool CatalogSet::AlterEntry(transaction::TransactionContext &context, const Iden
   if (!(value->name == entry->name)) {
     if (!RenameEntryInternal(context, *entry, value->name, alter_info, read_lock)) { return false; }
   }
-  auto new_entry = value.get();
+  auto *value_ptr = value.get();
   map.UpdateEntry(std::move(value));
+  context.UndoRecordForCatalog(value_ptr);
 
   // TODO catalog
   //  push the old entry in the undo buffer for this transaction
@@ -491,7 +495,7 @@ bool CatalogSet::AlterEntry(transaction::TransactionContext &context, const Iden
 
   // Check the dependency manager to verify that there are no conflicting dependencies with this
   // alter
-  catalog.GetDependencyManager()->AlterObject(context, *entry, *new_entry, alter_info);
+  catalog.GetDependencyManager()->AlterObject(context, *entry, *value_ptr, alter_info);
   return true;
 }
 

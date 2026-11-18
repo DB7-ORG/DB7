@@ -82,3 +82,6 @@ Data table:
 
 - // TODO handle constant vectors
 - add deleted bitmap to track which rows are deleted in pax
+- need to rewrite scans in data table
+- need to check parking in buffer pool
+- TODO remove this

@@ -196,6 +196,7 @@ protected:
     sched_.reset();
     dm_.reset();
     hang_guard_.reset();
+    db7::shared::detail::ResetQueueId();
   }
 
   /// Creates n consecutive dirty pages, each holding StampFor(its id).

@@ -11,6 +11,10 @@
 #include "transaction/transaction_common.hpp"
 #include "transaction/transaction_util.hpp"
 
+namespace db7::catalog {
+class CatalogEntry;
+}
+
 namespace db7::transaction {
 
 struct TidResult {
@@ -54,9 +58,7 @@ public:
 
   bool GetState() { return rollback_; }
 
-  void RestampVersions(timestamp_t commit_time) {
-    for (auto &item : undo_buffer_) { item.SetTimestamp(commit_time); }
-  }
+  void RestampVersions(timestamp_t commit_time);
 
   /**
    * @warning make sure to hold the page data lock like w other columns
@@ -97,6 +99,11 @@ public:
     byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord) + chunk->GetSize());
     return storage::UndoRecord::InitializeUpdate(result, finish_time_, tbl_id, pid, idx,
                                                  chunk->Span());
+  }
+
+  storage::UndoRecord *UndoRecordForCatalog(catalog::CatalogEntry *entry) {
+    byte *result = undo_buffer_.NewEntry(sizeof(storage::UndoRecord) + sizeof(void *));
+    return storage::UndoRecord::InitializeCatalog(result, finish_time_, entry);
   }
 
   storage::RedoRecord *StageWrite(table_id t_id, page_id p_id, u32 idx) {

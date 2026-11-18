@@ -222,35 +222,21 @@ public:
    * Channel
    */
 
-  void SignalIO() {
-    DB7_ASSERT(IsIOInProgress(), "Io in progress not set");
-    ClearIOInProgress();
-    waiters_.Signal();
-  }
+  // void SignalIO() {
+  //   DB7_ASSERT(IsIOInProgress(), "Io in progress not set");
+  //   ClearIOInProgress();
+  //   waiters_.Signal();
+  // }
 
-  void SignalWrite() {
-    DB7_ASSERT(IsWriteInProgress(), "write in progress not set");
-    ClearWriteInProgress();
-    waiters_.Signal();
-  }
+  // void SignalWrite() {
+  //   DB7_ASSERT(IsWriteInProgress(), "write in progress not set");
+  //   ClearWriteInProgress();
+  //   waiters_.Signal();
+  // }
 
-  void NotifyIO() { // TODO lockfree
-    waiters_.Signal();
-  }
-
-  // TODO remove this
-  void WaitIO() {
-    if (!IsIOInProgress()) { return; }
-
-    std::unique_lock lk(latch_);
-    io_cv_.wait(lk, [&] { return !IsIOInProgress(); });
-  }
-
-  void WaitWrite() {
-    if (!IsIOOrWriteInProgress()) return;
-    std::unique_lock lk(latch_);
-    io_cv_.wait(lk, [&] { return !IsIOOrWriteInProgress(); });
-  }
+  // void NotifyIO() { // TODO lockfree
+  //   waiters_.Signal();
+  // }
 
   bool WaitIO(shared::Waiter *obj) {
     if (!IsIOInProgress()) { return; }
@@ -265,6 +251,40 @@ public:
   bool IsIOOrWriteInProgress() const {
     return state_.load() & (kIOInProgressFlag | kWriteInProgressFlag);
   }
+
+  // TODO remove this //////////////////////////////////////////////
+  void WaitIO() {
+    if (!IsIOInProgress()) { return; }
+
+    std::unique_lock lk(latch_);
+    io_cv_.wait(lk, [&] { return !IsIOInProgress(); });
+  }
+
+  void WaitWrite() {
+    if (!IsIOOrWriteInProgress()) return;
+    std::unique_lock lk(latch_);
+    io_cv_.wait(lk, [&] { return !IsIOOrWriteInProgress(); });
+  }
+
+  void SignalIO() {
+    DB7_ASSERT(IsIOInProgress(), "Io in progress not set");
+    ClearIOInProgress();
+    { std::unique_lock lk(latch_); }
+    io_cv_.notify_all();
+  }
+
+  void SignalWrite() {
+    DB7_ASSERT(IsWriteInProgress(), "write in progress not set");
+    ClearWriteInProgress();
+    { std::unique_lock lk(latch_); }
+    io_cv_.notify_all();
+  }
+
+  void NotifyIO() {
+    { std::unique_lock lk(latch_); }
+    io_cv_.notify_all();
+  }
+  ////////////////////////////////////////////////
 };
 
 } // namespace storage

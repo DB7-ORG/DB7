@@ -161,6 +161,7 @@ public:
         }
         case storage::DeltaRecordType::INSERT: visible = false; break;
         case storage::DeltaRecordType::DELETE: break;
+        case storage::DeltaRecordType::CATALOG: DB7_UNREACHABLE();
         case storage::DeltaRecordType::INVALID: break;
         }
         if (!visible) { break; }
@@ -243,6 +244,7 @@ public:
     }
   }
 
+  /** Fills the chunk up to STANDARD_VECTOR_SIZE tuples */
   ScanResult Scan(storage::ScanLocal &local) const {
     const auto result = ScanInternal(local);
     return result;
