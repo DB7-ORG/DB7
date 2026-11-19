@@ -16,6 +16,7 @@
 
 // namespace db7::storage
 namespace db7 {
+
 using ScanResult = PollResult;
 
 class DataChunk;

@@ -26,6 +26,7 @@
 
 using namespace db7;
 using namespace db7::catalog;
+using db7::ScanResult;
 
 namespace {
 
@@ -226,7 +227,7 @@ protected:
     std::vector<Row> rows;
     for (size_t calls = 0; calls < 1'000'000; ++calls) {
       const auto res = Table().Scan(*local);
-      if (res == access::ScanResult::Blocked) {
+      if (res == ScanResult::Blocked) {
         std::this_thread::yield();
         continue;
       }
@@ -240,7 +241,7 @@ protected:
         EXPECT_LT(r, chunk.GetTupleCount());
         rows.push_back({ReadI64(chunk, 0, r), ReadStr(chunk, 1, r)});
       }
-      if (res == access::ScanResult::Finished) break;
+      if (res == ScanResult::Finished) break;
     }
     std::sort(rows.begin(), rows.end());
     return rows;
@@ -311,12 +312,12 @@ TEST_F(DataTableScanTest, ScanAfterFinishedStaysFinished) {
   auto shared = Table().InitParallelScan(*txn, AllColumns());
   auto local = Table().InitLocalScan(*shared);
 
-  access::ScanResult res;
-  do { res = Table().Scan(*local); } while (res != access::ScanResult::Finished);
+  ScanResult res;
+  do { res = Table().Scan(*local); } while (res != ScanResult::Finished);
 
   for (int i = 0; i < 3; ++i) {
     SCOPED_TRACE(i);
-    EXPECT_EQ(Table().Scan(*local), access::ScanResult::Finished);
+    EXPECT_EQ(Table().Scan(*local), ScanResult::Finished);
     EXPECT_EQ(local->Chunk().SelCount(), 0);
   }
 }
@@ -332,10 +333,10 @@ TEST_F(DataTableScanTest, ProjectionReturnsOnlyRequestedColumn) {
   auto local = Table().InitLocalScan(*shared);
 
   std::vector<std::string> names;
-  access::ScanResult res;
+  ScanResult res;
   do {
     res = Table().Scan(*local);
-    if (res == access::ScanResult::Blocked) {
+    if (res == ScanResult::Blocked) {
       std::this_thread::yield();
       continue;
     }
@@ -343,7 +344,7 @@ TEST_F(DataTableScanTest, ProjectionReturnsOnlyRequestedColumn) {
     ASSERT_EQ(chunk.GetColCount(), 1);
     for (u16 i = 0; i < chunk.SelCount(); ++i)
       names.push_back(ReadStr(chunk, 0, chunk.SelData()[i]));
-  } while (res != access::ScanResult::Finished);
+  } while (res != ScanResult::Finished);
 
   std::vector<std::string> expected;
   for (int64_t id = 0; id < 50; ++id) expected.push_back(Name(id));

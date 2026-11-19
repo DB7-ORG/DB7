@@ -23,7 +23,6 @@ private:
 
   void Run(TaskScheduler &scheduler, std::atomic<bool> *marker);
   void Start(TaskScheduler &scheduler);
-  void Stop();
 
 public:
   TaskSchedulerPool();
@@ -38,5 +37,6 @@ public:
 
   /** NOTE: NOT THREAD SAFE */
   void Reload(TaskScheduler &scheduler);
+  void Stop();
 };
 } // namespace db7::execution::parallel

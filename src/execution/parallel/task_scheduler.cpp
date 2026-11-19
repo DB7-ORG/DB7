@@ -12,6 +12,10 @@ TaskScheduler::TaskScheduler() {
   pool_->Reload(*this);
 }
 
+TaskScheduler::~TaskScheduler() {
+  pool_->Stop(); // see below; skip if ~TaskSchedulerPool already does this
+}
+
 u32 TaskScheduler::NumberOfThreads() const { return pool_->NumberOfThreads(); }
 
 u32 TaskScheduler::GetTasksInQueue() const { return tasks_in_queue_; }

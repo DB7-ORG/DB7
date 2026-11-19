@@ -32,7 +32,7 @@ struct Task : shared::Waiter {
   Task(const Task &) = delete;
   Task &operator=(const Task &) = delete;
   TaskExecutionResult Execute(TaskExecutionMode mode);
-  void WaitForSource() { source_local_->Cast<TableLocalState>().scan->Cursor().Page()->WaitIO(); }
+  void WaitForSource();
 };
 } // namespace parallel
 } // namespace execution

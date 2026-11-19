@@ -6,25 +6,20 @@
 
 namespace db7::execution::parallel {
 
-// TODO test
-static std::atomic<u64> task_num = 0;
+Task::Task(Pipeline *p, QueryContext *q, TaskScheduler *s) { Init(p, q, s); }
 
-Task::Task(Pipeline *p, QueryContext *q, TaskScheduler *s) : pipeline(p), query(q), scheduler(s) {
+void Task::Init(Pipeline *p, QueryContext *q, TaskScheduler *s) {
+  DB7_ASSERT(!source_local_, "Task initialized twice");
   wake_fn = [](shared::Waiter *w) { // captureless lambda converts to a function pointer
     auto *t = static_cast<Task *>(w);
     t->scheduler->ScheduleTask(t); // resume: same task, NOT a new one, so no counter change
   };
-
-  task_num++;
-}
-
-void Task::Init(Pipeline *p, QueryContext *q, TaskScheduler *s) {
   pipeline = p;
   query = q;
   scheduler = s;
-  auto src = p->State().source;
-  auto &table_src = src->Cast<TableSource>();
-  source_local_ = table_src.InitLocal();
+  auto *src = p->State().source;
+  // auto &table_src = src->Cast<TableSource>();
+  source_local_ = src->InitLocal();
   code_ = p->State().code;
 }
 
@@ -38,16 +33,16 @@ TaskExecutionResult Task::Execute(TaskExecutionMode mode) {
   const auto deadline = Clock::now() + kTimeSlice;
 
   // while deadline or no tuples
+  auto source = pipeline->State().source;
+  SourceLocalState &local = *source_local_;
   do {
     if (query->IsCancelled()) return TaskExecutionResult::Error;
 
-    auto &state = source_local_->Cast<TableLocalState>();
-    auto source = pipeline->State().source;
-    auto result = source->Next(state, nullptr);
+    // TODO does this virtual cost add up
+    // consider making task abstract (this will reduce virtual calls to 1)
+    auto result = source->Next(local);
     switch (result) {
-    case PollResult::Finished:
-      std::cout << "completed task: " << task_num << std::endl;
-      return TaskExecutionResult::Finished;
+    case PollResult::Finished: return TaskExecutionResult::Finished;
     case PollResult::HaveMore: // do something w data
       std::this_thread::sleep_for(std::chrono::microseconds(100));
       (void)code_;
@@ -58,5 +53,7 @@ TaskExecutionResult Task::Execute(TaskExecutionMode mode) {
 
   return TaskExecutionResult::Timed;
 }
+
+void Task::WaitForSource() { pipeline->Context()->source->Wait(*source_local_); }
 
 } // namespace db7::execution::parallel

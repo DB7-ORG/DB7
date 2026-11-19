@@ -77,7 +77,8 @@ to raise the limit for max memory reserved -> sudo prlimit --memlock=unlimited:u
   - error handling in the scheduler
   - rewrite stream to not pop the task right away from the ring
   - figure out a way to do non blocking io in scheduler (seperate component ideally)
-
+  - // TODO does this virtual cost add up
+  
 # Data table:
   - // TODO handle constant vectors
 

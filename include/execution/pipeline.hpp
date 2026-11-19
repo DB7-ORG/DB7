@@ -33,6 +33,7 @@ public:
 
   void TaskDone() noexcept;
   void PipelineDone() noexcept;
+  PipelineContext *Context() const { return context_.get(); }
 
 private:
   friend class Executor;

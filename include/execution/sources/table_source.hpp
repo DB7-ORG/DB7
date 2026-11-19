@@ -16,7 +16,8 @@ public:
   BaseSource(SourceType type) : type_(type) {}
 
   virtual std::unique_ptr<SourceLocalState> InitLocal() = 0;
-  virtual SourceResult Next(SourceLocalState &l, void *out) = 0;
+  virtual SourceResult Next(SourceLocalState &l) = 0;
+  virtual void Wait(SourceLocalState &l) = 0;
 
   virtual ~BaseSource() = default;
 
@@ -32,7 +33,7 @@ public:
   }
 };
 
-class TableSource : public BaseSource {
+class TableSource final : public BaseSource {
 public:
   static constexpr SourceType kType = SourceType::TABLE;
 
@@ -52,9 +53,14 @@ public:
     return l;
   }
 
-  SourceResult Next(SourceLocalState &l, void *out) override {
+  SourceResult Next(SourceLocalState &l) override {
     auto &state = l.Cast<TableLocalState>();
     return table_.Scan(*state.scan.get());
+  }
+
+  void Wait(SourceLocalState &l) override {
+    auto &state = l.Cast<TableLocalState>();
+    state.scan->Cursor().Page()->WaitIO();
   }
 };
 } // namespace db7::execution
