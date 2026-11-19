@@ -77,6 +77,9 @@ private:
   bool UpdateUndo(transaction::TransactionContext &context, u16 index, storage::Page *page,
                   DataChunk *chunk);
 
+  // TODO should benchmark blocking vs yielding threads after implementing features
+  ScanResult ScanInternal(storage::ScanLocal &local) const;
+
 public:
   DataTable(catalog::DatabaseCatalog &catalog, std::vector<storage::StorageColumnDesc> columns,
             table_id oid_);
@@ -138,208 +141,22 @@ public:
 
   std::unique_ptr<storage::ScanLocal> InitLocalScan(storage::ParallelScanShared &shared) const;
 
+  /**
+   * Emplaces correct version into columns chunk. Assumes newsest version is already
+   * in the chunk.
+   */
   void SelectInto(transaction::TransactionContext &context, ColumnsChunk &chunk,
-                  storage::Page *page, u16 page_start, u16 chunk_start, u16 n) const {
-    auto *versions = page->GetVersions();
-    ChunkBitmap del_bitmap = storage::PaxHeader::DeletedBitmap(page->GetData());
+                  storage::Page *page, u16 page_start, u16 chunk_start, u16 n) const;
 
-    if (versions == nullptr) {
-      for (u16 k = 0; k < n; k++) {
-        const u16 row = page_start + k;
-        bool visible = !del_bitmap.IsNull(row);
-        if (visible) { chunk.AppendSel(chunk_start + k); }
-      }
-      return;
-    }
-
-    for (u16 k = 0; k < n; k++) {
-      const u16 row = page_start + k;
-      if (del_bitmap.IsNull(row)) continue; // GC'd: dead for every snapshot
-
-      bool visible = true;
-      auto *v = versions[row].Get();
-      while (v != nullptr && transaction::TransactionUtil::HasConflict(
-                                 v->GetTimestamp(), context.FinishTime(), context.StartTime())) {
-        switch (v->GetType()) {
-        case storage::DeltaRecordType::UPDATE: {
-          DataChunk *delta = reinterpret_cast<DataChunk *>(v->GetDelta());
-          chunk.EmplaceDataChunk(chunk_start + k, delta, main_columns_);
-          break;
-        }
-        case storage::DeltaRecordType::INSERT: visible = false; break;
-        case storage::DeltaRecordType::DELETE: break;
-        case storage::DeltaRecordType::CATALOG: DB7_UNREACHABLE();
-        case storage::DeltaRecordType::INVALID: break;
-        }
-        if (!visible) { break; }
-        v = v->GetNext();
-      }
-      if (v != nullptr && v->GetType() == storage::DeltaRecordType::DELETE) { continue; }
-      if (visible) { chunk.AppendSel(chunk_start + k); }
-    }
-  }
-
-  // // TODO should benchmark blocking vs yielding threads after implementing features
-  // ScanResult ScanInternal2(storage::ScanLocal &local) const {
-  //   auto &stream = local.Stream();
-  //   auto &cursor = local.Cursor();
-  //   auto &chunk = local.Chunk();
-  //   auto &context = local.Context();
-  //   const auto &columns = local.Columns();
-  //   using storage::ScanState;
-  //   ScanState &state = local.State();
-  //   for (;;) {
-  //     switch (state) {
-  //     case ScanState::START_CHUNK: {
-  //       cursor.StartChunk(chunk);
-  //       state = ScanState::FILL;
-  //       break;
-  //     }
-  //     case ScanState::FILL:
-  //       if (!chunk.HasSpace()) {
-  //         state = ScanState::START_CHUNK;
-  //         return ScanResult::HaveMore;
-  //       }
-  //       if (cursor.Exhausted()) {
-  //         state = ScanState::NEED_PAGE;
-  //         break;
-  //       }
-  //       {
-  //         shared::AdaptiveVersionLock::ReadGuard guard(cursor.Page()->DataLock());
-  //         u16 old_start = cursor.Position();
-  //         u16 chunk_start = chunk.GetTupleCount();
-  //         cursor.Fill(chunk);
-  //         u16 new_start = cursor.Position();
-  //         auto &page = cursor.Page();
-  //         SelectInto(context, chunk, page, old_start, chunk_start, new_start - old_start);
-  //       }
-  //       break;
-
-  //     case ScanState::NEED_PAGE: {
-  //       storage::PinnedPage page = stream.Next();
-  //       if (!page) {
-  //         state = ScanState::DRAIN;
-  //         break;
-  //       }
-  //       cursor.Assign(std::move(page));
-  //       state = ScanState::WAIT_IO;
-  //       break;
-  //     }
-  //     case ScanState::WAIT_IO:
-  //       if (cursor.IsBlocked()) { return ScanResult::Blocked; }
-  //       {
-  //         shared::AdaptiveVersionLock::ReadGuard guard(cursor.Page()->DataLock());
-  //         if (storage::Pax::IsPageReadable(cursor.Data(), columns, NCols())) {
-  //           cursor.Load();
-  //           state = ScanState::FILL;
-  //           break;
-  //         }
-  //       }
-  //       cursor.Drop();
-  //       state = ScanState::NEED_PAGE;
-  //       break;
-  //     case ScanState::DRAIN: {
-  //       state = ScanState::FINISHED;
-  //       if (chunk.GetTupleCount() > 0) return ScanResult::HaveMore;
-  //       break;
-  //     }
-  //     case ScanState::FINISHED: {
-  //       cursor.StartChunk(chunk);
-  //       return ScanResult::Finished;
-  //     }
-  //     }
-  //   }
-  // }
-
-  /** Fills the chunk up to STANDARD_VECTOR_SIZE tuples */
-  ScanResult Scan(storage::ScanLocal &local) const {
-    const auto result = ScanInternal(local);
-    return result;
-  }
-
-  /////////////////////////////////
-
-  // TODO should benchmark blocking vs yielding threads after implementing features
-  ScanResult ScanInternal(storage::ScanLocal &local) const {
-    auto &stream = local.Stream();
-    auto &cursor = local.Cursor();
-    auto &chunk = local.Chunk();
-    auto &context = local.Context();
-    const auto &columns = local.Columns();
-    using storage::ScanState;
-    ScanState &state = local.State();
-    for (;;) {
-      switch (state) {
-      case ScanState::INIT_SCAN: {
-        cursor.StartChunk(chunk);
-        state = ScanState::NEED_PAGE;
-        break;
-      }
-      case ScanState::START_CHUNK: {
-        cursor.StartChunk(chunk);
-        state = ScanState::FILL;
-        break;
-      }
-      case ScanState::FILL: {
-        if (!chunk.HasSpace()) {
-          state = ScanState::START_CHUNK;
-          return ScanResult::HaveMore;
-        }
-        {
-          shared::AdaptiveVersionLock::ReadGuard guard(cursor.Page()->DataLock());
-
-          if (!cursor.IsLoaded()) { // once per page
-            if (!storage::Pax::IsPageReadable(cursor.Data(), columns, NCols())) {
-              state = ScanState::DISCARD_PAGE;
-              break;
-            }
-            cursor.Load();
-          }
-
-          while (chunk.HasSpace() && !cursor.Exhausted()) {
-            u16 old_start = cursor.Position();
-            u16 chunk_start = chunk.GetTupleCount();
-            cursor.Fill(chunk);
-            // TODO might be able to go after the lock
-            SelectInto(context, chunk, cursor.Page(), old_start, chunk_start,
-                       cursor.Position() - old_start);
-          }
-        } // guard released
-
-        if (cursor.Exhausted()) { state = ScanState::NEED_PAGE; }
-        break; // if the chunk is full, the check at the top returns HaveMore
-      }
-      case ScanState::DISCARD_PAGE: {
-        cursor.Drop();
-        state = ScanState::NEED_PAGE;
-        break;
-      }
-      case ScanState::NEED_PAGE: {
-        storage::PinnedPage page = stream.Next();
-        if (!page) {
-          state = ScanState::DRAIN;
-          break;
-        }
-        cursor.Assign(std::move(page));
-        state = ScanState::WAIT_IO;
-        break;
-      }
-      case ScanState::WAIT_IO:
-        if (cursor.IsBlocked()) { return ScanResult::Blocked; }
-        state = ScanState::FILL;
-        break;
-      case ScanState::DRAIN: {
-        state = ScanState::FINISHED;
-        if (chunk.GetTupleCount() > 0) { return ScanResult::HaveMore; }
-        break;
-      }
-      case ScanState::FINISHED: {
-        cursor.StartChunk(chunk);
-        return ScanResult::Finished;
-      }
-      }
-    }
-  }
+  /**
+   * Fills the columns chunk up to STANDARD_VECTOR_SIZE rows (copies) and passes it up the stack
+   * so operators can work with the data.
+   * Requires calling InitParallelScan and InitLocalScan to initialize the state for the
+   * scheduler so it can descedule the task safely at some moment.
+   *
+   * @param local Local state seen by the worker that is currently working on the task.
+   */
+  ScanResult Scan(storage::ScanLocal &local) const;
 };
 } // namespace access
 } // namespace db7

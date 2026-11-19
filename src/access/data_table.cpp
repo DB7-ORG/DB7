@@ -515,4 +515,131 @@ DataTable::InitLocalScan(storage::ParallelScanShared &shared) const {
   return std::make_unique<storage::ScanLocal>(&storage_manager_.GetBufferPool(), shared, 32);
 }
 
+void DataTable::SelectInto(transaction::TransactionContext &context, ColumnsChunk &chunk,
+                           storage::Page *page, u16 page_start, u16 chunk_start, u16 n) const {
+  auto *versions = page->GetVersions();
+  ChunkBitmap del_bitmap = storage::PaxHeader::DeletedBitmap(page->GetData());
+
+  if (versions == nullptr) {
+    for (u16 k = 0; k < n; k++) {
+      const u16 row = page_start + k;
+      bool visible = !del_bitmap.IsNull(row);
+      if (visible) { chunk.AppendSel(chunk_start + k); }
+    }
+    return;
+  }
+
+  for (u16 k = 0; k < n; k++) {
+    const u16 row = page_start + k;
+    if (del_bitmap.IsNull(row)) continue; // GC'd: dead for every snapshot
+
+    bool visible = true;
+    auto *v = versions[row].Get();
+    while (v != nullptr && transaction::TransactionUtil::HasConflict(
+                               v->GetTimestamp(), context.FinishTime(), context.StartTime())) {
+      switch (v->GetType()) {
+      case storage::DeltaRecordType::UPDATE: {
+        DataChunk *delta = reinterpret_cast<DataChunk *>(v->GetDelta());
+        chunk.EmplaceDataChunk(chunk_start + k, delta, main_columns_);
+        break;
+      }
+      case storage::DeltaRecordType::INSERT: visible = false; break;
+      case storage::DeltaRecordType::DELETE: break;
+      case storage::DeltaRecordType::CATALOG: DB7_UNREACHABLE();
+      case storage::DeltaRecordType::INVALID: break;
+      }
+      if (!visible) { break; }
+      v = v->GetNext();
+    }
+    if (v != nullptr && v->GetType() == storage::DeltaRecordType::DELETE) { continue; }
+    if (visible) { chunk.AppendSel(chunk_start + k); }
+  }
+}
+
+ScanResult DataTable::ScanInternal(storage::ScanLocal &local) const {
+  auto &stream = local.Stream();
+  auto &cursor = local.Cursor();
+  auto &chunk = local.Chunk();
+  auto &context = local.Context();
+  const auto &columns = local.Columns();
+  using storage::ScanState;
+  ScanState &state = local.State();
+  for (;;) {
+    switch (state) {
+    case ScanState::INIT_SCAN: {
+      cursor.StartChunk(chunk);
+      state = ScanState::NEED_PAGE;
+      break;
+    }
+    case ScanState::START_CHUNK: {
+      cursor.StartChunk(chunk);
+      state = ScanState::FILL;
+      break;
+    }
+    case ScanState::FILL: {
+      if (!chunk.HasSpace()) {
+        state = ScanState::START_CHUNK;
+        return ScanResult::HaveMore;
+      }
+      {
+        shared::AdaptiveVersionLock::ReadGuard guard(cursor.Page()->DataLock());
+
+        if (!cursor.IsLoaded()) { // once per page
+          if (!storage::Pax::IsPageReadable(cursor.Data(), columns, NCols())) {
+            state = ScanState::DISCARD_PAGE;
+            break;
+          }
+          cursor.Load();
+        }
+
+        if (!cursor.Exhausted()) { // HasSpace() is already checked by the caller
+          u16 old_start = cursor.Position();
+          u16 chunk_start = chunk.GetTupleCount();
+          cursor.Fill(chunk);
+          SelectInto(context, chunk, cursor.Page(), old_start, chunk_start,
+                     cursor.Position() - old_start);
+          DB7_ASSERT(!chunk.HasSpace() || cursor.Exhausted(), "Fill stopped early");
+        }
+      } // guard released
+
+      if (cursor.Exhausted()) { state = ScanState::NEED_PAGE; }
+      break; // if the chunk is full, the check at the top returns HaveMore
+    }
+    case ScanState::DISCARD_PAGE: {
+      cursor.Drop();
+      state = ScanState::NEED_PAGE;
+      break;
+    }
+    case ScanState::NEED_PAGE: {
+      storage::PinnedPage page = stream.Next();
+      if (!page) {
+        state = ScanState::DRAIN;
+        break;
+      }
+      cursor.Assign(std::move(page));
+      state = ScanState::WAIT_IO;
+      break;
+    }
+    case ScanState::WAIT_IO:
+      if (cursor.IsBlocked()) { return ScanResult::Blocked; }
+      state = ScanState::FILL;
+      break;
+    case ScanState::DRAIN: {
+      state = ScanState::FINISHED;
+      if (chunk.GetTupleCount() > 0) { return ScanResult::HaveMore; }
+      break;
+    }
+    case ScanState::FINISHED: {
+      cursor.StartChunk(chunk);
+      return ScanResult::Finished;
+    }
+    }
+  }
+}
+
+ScanResult DataTable::Scan(storage::ScanLocal &local) const {
+  const auto result = ScanInternal(local);
+  return result;
+}
+
 } // namespace db7::access
