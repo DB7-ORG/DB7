@@ -29,6 +29,7 @@ private:
   PinnedPage page_;              // page being read right now
   u16 start_ = 0;                // tuple offset in page_
   u16 rows_ = 0;                 // total rows in page_
+  bool loaded_ = false;
 
 public:
   explicit PageCursor(const std::vector<StorageColumnDesc> &columns)
@@ -39,12 +40,17 @@ public:
     if (page_) held_.push_back(std::move(page_));
     page_ = std::move(page);
     start_ = rows_ = 0;
+    loaded_ = false;
   }
 
   PinnedPage &Page() { return page_; }
 
-  void Drop() { page_.reset(); }
+  void Drop() {
+    page_.reset();
+    loaded_ = false;
+  }
   bool IsBlocked() const { return page_->IsIOOrWriteInProgress(); }
+
   byte *Data() const { return page_->GetData(); }
 
   bool Exhausted() const { return start_ >= rows_; }
@@ -60,7 +66,9 @@ public:
     byte *data = Data();
     rows_ = PaxHeader::TupleCount(data);
     for (size_t i = 0; i < columns_.size(); i++) vecs_[i] = Pax::GetColumnUnsafe(data, columns_[i]);
+    loaded_ = true;
   }
+  bool IsLoaded() const { return loaded_; }
 
   /** Requires a latch */
   void Fill(ColumnsChunk &chunk) {
@@ -75,11 +83,13 @@ public:
 };
 
 enum class ScanState : u8 {
-  START_CHUNK, // previous chunk was consumed: reset it
-  FILL,        // copy rows from the current page
-  NEED_PAGE,   // ask the stream for the next page
-  WAIT_IO,     // page requested, waiting for its I/O to finish
-  DRAIN,       // table finished: hand out the last partial chunk
+  INIT_SCAN,
+  START_CHUNK,  // previous chunk was consumed: reset it
+  FILL,         // copy rows from the current page
+  DISCARD_PAGE, // page is not readable so we can unpin it
+  NEED_PAGE,    // ask the stream for the next page
+  WAIT_IO,      // page requested, waiting for its I/O to finish
+  DRAIN,        // table finished: hand out the last partial chunk
   FINISHED,
 };
 
@@ -90,7 +100,7 @@ private:
   ReadIoStream<ScanCursor> stream_;
   ColumnsChunk chunk_;
   PageCursor page_cursor_;
-  ScanState state_ = ScanState::START_CHUNK;
+  ScanState state_ = ScanState::INIT_SCAN;
 
   static ColumnsChunk MakeChunk(const std::vector<StorageColumnDesc> &columns) {
     std::vector<ChunkColumn> cols;

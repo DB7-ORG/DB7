@@ -179,6 +179,86 @@ public:
     }
   }
 
+  // // TODO should benchmark blocking vs yielding threads after implementing features
+  // ScanResult ScanInternal2(storage::ScanLocal &local) const {
+  //   auto &stream = local.Stream();
+  //   auto &cursor = local.Cursor();
+  //   auto &chunk = local.Chunk();
+  //   auto &context = local.Context();
+  //   const auto &columns = local.Columns();
+  //   using storage::ScanState;
+  //   ScanState &state = local.State();
+  //   for (;;) {
+  //     switch (state) {
+  //     case ScanState::START_CHUNK: {
+  //       cursor.StartChunk(chunk);
+  //       state = ScanState::FILL;
+  //       break;
+  //     }
+  //     case ScanState::FILL:
+  //       if (!chunk.HasSpace()) {
+  //         state = ScanState::START_CHUNK;
+  //         return ScanResult::HaveMore;
+  //       }
+  //       if (cursor.Exhausted()) {
+  //         state = ScanState::NEED_PAGE;
+  //         break;
+  //       }
+  //       {
+  //         shared::AdaptiveVersionLock::ReadGuard guard(cursor.Page()->DataLock());
+  //         u16 old_start = cursor.Position();
+  //         u16 chunk_start = chunk.GetTupleCount();
+  //         cursor.Fill(chunk);
+  //         u16 new_start = cursor.Position();
+  //         auto &page = cursor.Page();
+  //         SelectInto(context, chunk, page, old_start, chunk_start, new_start - old_start);
+  //       }
+  //       break;
+
+  //     case ScanState::NEED_PAGE: {
+  //       storage::PinnedPage page = stream.Next();
+  //       if (!page) {
+  //         state = ScanState::DRAIN;
+  //         break;
+  //       }
+  //       cursor.Assign(std::move(page));
+  //       state = ScanState::WAIT_IO;
+  //       break;
+  //     }
+  //     case ScanState::WAIT_IO:
+  //       if (cursor.IsBlocked()) { return ScanResult::Blocked; }
+  //       {
+  //         shared::AdaptiveVersionLock::ReadGuard guard(cursor.Page()->DataLock());
+  //         if (storage::Pax::IsPageReadable(cursor.Data(), columns, NCols())) {
+  //           cursor.Load();
+  //           state = ScanState::FILL;
+  //           break;
+  //         }
+  //       }
+  //       cursor.Drop();
+  //       state = ScanState::NEED_PAGE;
+  //       break;
+  //     case ScanState::DRAIN: {
+  //       state = ScanState::FINISHED;
+  //       if (chunk.GetTupleCount() > 0) return ScanResult::HaveMore;
+  //       break;
+  //     }
+  //     case ScanState::FINISHED: {
+  //       cursor.StartChunk(chunk);
+  //       return ScanResult::Finished;
+  //     }
+  //     }
+  //   }
+  // }
+
+  /** Fills the chunk up to STANDARD_VECTOR_SIZE tuples */
+  ScanResult Scan(storage::ScanLocal &local) const {
+    const auto result = ScanInternal(local);
+    return result;
+  }
+
+  /////////////////////////////////
+
   // TODO should benchmark blocking vs yielding threads after implementing features
   ScanResult ScanInternal(storage::ScanLocal &local) const {
     auto &stream = local.Stream();
@@ -190,31 +270,50 @@ public:
     ScanState &state = local.State();
     for (;;) {
       switch (state) {
+      case ScanState::INIT_SCAN: {
+        cursor.StartChunk(chunk);
+        state = ScanState::NEED_PAGE;
+        break;
+      }
       case ScanState::START_CHUNK: {
         cursor.StartChunk(chunk);
         state = ScanState::FILL;
         break;
       }
-      case ScanState::FILL:
+      case ScanState::FILL: {
         if (!chunk.HasSpace()) {
           state = ScanState::START_CHUNK;
           return ScanResult::HaveMore;
         }
-        if (cursor.Exhausted()) {
-          state = ScanState::NEED_PAGE;
-          break;
-        }
         {
           shared::AdaptiveVersionLock::ReadGuard guard(cursor.Page()->DataLock());
-          u16 old_start = cursor.Position();
-          u16 chunk_start = chunk.GetTupleCount();
-          cursor.Fill(chunk);
-          u16 new_start = cursor.Position();
-          auto &page = cursor.Page();
-          SelectInto(context, chunk, page, old_start, chunk_start, new_start - old_start);
-        }
-        break;
 
+          if (!cursor.IsLoaded()) { // once per page
+            if (!storage::Pax::IsPageReadable(cursor.Data(), columns, NCols())) {
+              state = ScanState::DISCARD_PAGE;
+              break;
+            }
+            cursor.Load();
+          }
+
+          while (chunk.HasSpace() && !cursor.Exhausted()) {
+            u16 old_start = cursor.Position();
+            u16 chunk_start = chunk.GetTupleCount();
+            cursor.Fill(chunk);
+            // TODO might be able to go after the lock
+            SelectInto(context, chunk, cursor.Page(), old_start, chunk_start,
+                       cursor.Position() - old_start);
+          }
+        } // guard released
+
+        if (cursor.Exhausted()) { state = ScanState::NEED_PAGE; }
+        break; // if the chunk is full, the check at the top returns HaveMore
+      }
+      case ScanState::DISCARD_PAGE: {
+        cursor.Drop();
+        state = ScanState::NEED_PAGE;
+        break;
+      }
       case ScanState::NEED_PAGE: {
         storage::PinnedPage page = stream.Next();
         if (!page) {
@@ -227,20 +326,11 @@ public:
       }
       case ScanState::WAIT_IO:
         if (cursor.IsBlocked()) { return ScanResult::Blocked; }
-        {
-          shared::AdaptiveVersionLock::ReadGuard guard(cursor.Page()->DataLock());
-          if (storage::Pax::IsPageReadable(cursor.Data(), columns, NCols())) {
-            cursor.Load();
-            state = ScanState::FILL;
-            break;
-          }
-        }
-        cursor.Drop();
-        state = ScanState::NEED_PAGE;
+        state = ScanState::FILL;
         break;
       case ScanState::DRAIN: {
         state = ScanState::FINISHED;
-        if (chunk.GetTupleCount() > 0) return ScanResult::HaveMore;
+        if (chunk.GetTupleCount() > 0) { return ScanResult::HaveMore; }
         break;
       }
       case ScanState::FINISHED: {
@@ -249,12 +339,6 @@ public:
       }
       }
     }
-  }
-
-  /** Fills the chunk up to STANDARD_VECTOR_SIZE tuples */
-  ScanResult Scan(storage::ScanLocal &local) const {
-    const auto result = ScanInternal(local);
-    return result;
   }
 };
 } // namespace access

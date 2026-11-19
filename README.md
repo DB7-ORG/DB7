@@ -80,7 +80,6 @@ to raise the limit for max memory reserved -> sudo prlimit --memlock=unlimited:u
 
 # Data table:
   - // TODO handle constant vectors
-  - need to rewrite scans in data table
 
 # Buffer pool scheduling mechanism:
   - need to check parking in buffer pool
