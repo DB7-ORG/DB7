@@ -2,7 +2,7 @@
 
 #include "common.hpp"
 #include "execution/sources/table_local_state.hpp"
-#include "execution/sources/table_source.hpp"
+#include "shared/config/config.hpp"
 #include "shared/sync/waiter_list.hpp"
 #include <memory>
 
@@ -23,6 +23,7 @@ struct Task : shared::Waiter {
   TaskScheduler *scheduler = nullptr;
   std::unique_ptr<SourceLocalState> source_local_;
   void *code_;
+  std::chrono::milliseconds yield_time_{DbConfig::Get(TASK_SCHEDULER_CONTEXT_SWITCH_TIME_MS)};
 
   Task() = default;
   Task(Pipeline *p, QueryContext *q, TaskScheduler *s);

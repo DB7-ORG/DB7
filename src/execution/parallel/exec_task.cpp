@@ -27,10 +27,9 @@ TaskExecutionResult Task::Execute(TaskExecutionMode mode) {
   (void)mode;
 
   using Clock = std::chrono::steady_clock;
-  static constexpr auto kTimeSlice = std::chrono::milliseconds(5);
 
   // start deadline timer
-  const auto deadline = Clock::now() + kTimeSlice;
+  const auto deadline = Clock::now() + yield_time_;
 
   // while deadline or no tuples
   auto source = pipeline->State().source;
