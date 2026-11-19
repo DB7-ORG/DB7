@@ -33,7 +33,7 @@ public:
   void ScheduleTasks(std::span<Task> tasks);
   bool GetTask(TaskQObj &task);
   void Signal(idx_t n);
-  bool ProcessTask(TaskQObj &task);
+  void ProcessTask(TaskQObj &task);
 
   void ExecuteForever(std::atomic<bool> *marker);
 };

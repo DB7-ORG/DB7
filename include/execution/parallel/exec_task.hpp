@@ -2,6 +2,7 @@
 
 #include "common.hpp"
 #include "execution/sources/table_local_state.hpp"
+#include "execution/sources/table_source.hpp"
 #include "shared/sync/waiter_list.hpp"
 #include <memory>
 
@@ -31,6 +32,7 @@ struct Task : shared::Waiter {
   Task(const Task &) = delete;
   Task &operator=(const Task &) = delete;
   TaskExecutionResult Execute(TaskExecutionMode mode);
+  void WaitForSource() { source_local_->Cast<TableLocalState>().scan->Cursor().Page()->WaitIO(); }
 };
 } // namespace parallel
 } // namespace execution

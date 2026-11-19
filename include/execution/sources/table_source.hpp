@@ -1,19 +1,19 @@
 #pragma once
 
 #include "access/data_table.hpp"
+#include "execution/sources/source_type.hpp"
 #include "execution/sources/table_local_state.hpp"
 
 namespace db7::execution {
-enum SourceType { TABLE };
-enum class SourceResult : u8 { HaveMore, Finished, Blocked };
+
+using SourceResult = PollResult;
 
 class BaseSource {
 protected:
   SourceType type_;
-  access::DataTable &table_;
 
 public:
-  BaseSource(access::DataTable &t) : table_(t) {}
+  BaseSource(SourceType type) : type_(type) {}
 
   virtual std::unique_ptr<SourceLocalState> InitLocal() = 0;
   virtual SourceResult Next(SourceLocalState &l, void *out) = 0;
@@ -37,12 +37,13 @@ public:
   static constexpr SourceType kType = SourceType::TABLE;
 
 private:
+  access::DataTable &table_;
   std::unique_ptr<storage::ParallelScanShared> shared_;
 
 public:
-  TableSource(access::DataTable &t) : BaseSource(t) {
-    shared_ = nullptr; // table_.InitParallelScan();
-  }
+  TableSource(transaction::TransactionContext &context, access::DataTable &t,
+              const std::vector<storage::StorageColumnDesc> &columns)
+      : BaseSource(TABLE), table_(t), shared_(table_.InitParallelScan(context, columns)) {}
   ~TableSource() override = default;
 
   std::unique_ptr<SourceLocalState> InitLocal() override {
@@ -52,8 +53,8 @@ public:
   }
 
   SourceResult Next(SourceLocalState &l, void *out) override {
-    // storage::PinnedPage page = l->scan->Stream().Next();
-    //  TODO transform it to correct representation
+    auto &state = l.Cast<TableLocalState>();
+    return table_.Scan(*state.scan.get());
   }
 };
 } // namespace db7::execution

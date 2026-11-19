@@ -39,8 +39,8 @@ bool TaskScheduler::GetTask(TaskQObj &task) {
 
 void TaskScheduler::Signal(idx_t n) { pool_->Signal(n); }
 
-bool TaskScheduler::ProcessTask(TaskQObj &task) {
-  if (!GetTask(task)) { return false; }
+void TaskScheduler::ProcessTask(TaskQObj &task) {
+  if (!GetTask(task)) { return; }
   switch (task->Execute(TaskExecutionMode::PROCESS_ALL)) {
   case TaskExecutionResult::Error: {
     task->query->Cancel();
@@ -56,10 +56,11 @@ bool TaskScheduler::ProcessTask(TaskQObj &task) {
     break;
   }
   case TaskExecutionResult::Wait: {
+    task->WaitForSource(); // can wait on mutex or go execute other stuff
+    ScheduleTask(task);
     break;
   }
   }
-  return true;
 }
 
 void TaskScheduler::ExecuteForever(std::atomic<bool> *marker) {

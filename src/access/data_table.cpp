@@ -500,9 +500,9 @@ bool DataTable::Update(transaction::TransactionContext &context, catalog::TableC
 
 std::unique_ptr<storage::ParallelScanShared>
 DataTable::InitParallelScan(transaction::TransactionContext &context,
-                            std::vector<storage::StorageColumnDesc> &&columns) const {
+                            const std::vector<storage::StorageColumnDesc> &columns) const {
   return std::make_unique<storage::ParallelScanShared>(context, oid_, idx_t(fsm_.GetPageCount()),
-                                                       DEFAULT_MORSEL_SIZE, std::move(columns));
+                                                       DEFAULT_MORSEL_SIZE, columns);
 }
 
 idx_t DataTable::MaxThreads(const storage::ParallelScanShared &state) const {

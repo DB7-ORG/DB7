@@ -3,9 +3,9 @@
 #include "access/objects/add_table_index_info.hpp"
 #include "catalog/constraints/foreign_key_constraint.hpp"
 #include "catalog/database_catalog.hpp"
+#include "shared/poll_result.hpp"
 #include "storage/columns_chunk.hpp"
 #include "storage/fsm/fsm_varlen.hpp"
-#include "storage/layouts/pax.hpp"
 #include "storage/layouts/storage_column_desc.hpp"
 #include "storage/models/parallel_scan_shared.hpp"
 #include "storage/models/scan_local.hpp"
@@ -16,6 +16,8 @@
 
 // namespace db7::storage
 namespace db7 {
+using ScanResult = PollResult;
+
 class DataChunk;
 
 namespace storage {
@@ -32,8 +34,6 @@ struct PageInsertResult {
   u16 index;
   bool fetch;
 };
-
-enum class ScanResult : u8 { HaveMore, Finished, Blocked };
 
 class DataTable {
 private:
@@ -135,7 +135,7 @@ public:
   // snapshot nblocks, chunk sizing
   std::unique_ptr<storage::ParallelScanShared>
   InitParallelScan(transaction::TransactionContext &context,
-                   std::vector<storage::StorageColumnDesc> &&columns) const;
+                   const std::vector<storage::StorageColumnDesc> &columns) const;
   // a hint for how many tasks make sense
   idx_t MaxThreads(const storage::ParallelScanShared &state) const;
 

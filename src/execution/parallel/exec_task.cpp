@@ -5,11 +5,17 @@
 #include "execution/sources/table_source.hpp"
 
 namespace db7::execution::parallel {
+
+// TODO test
+static std::atomic<u64> task_num = 0;
+
 Task::Task(Pipeline *p, QueryContext *q, TaskScheduler *s) : pipeline(p), query(q), scheduler(s) {
   wake_fn = [](shared::Waiter *w) { // captureless lambda converts to a function pointer
     auto *t = static_cast<Task *>(w);
     t->scheduler->ScheduleTask(t); // resume: same task, NOT a new one, so no counter change
   };
+
+  task_num++;
 }
 
 void Task::Init(Pipeline *p, QueryContext *q, TaskScheduler *s) {
@@ -33,13 +39,21 @@ TaskExecutionResult Task::Execute(TaskExecutionMode mode) {
 
   // while deadline or no tuples
   do {
-    if (query->IsCancelled()) return TaskExecutionResult::Finished;
-    // process data
-    //  if blocked page wait
-    std::cout << "completed task" << std::endl;
+    if (query->IsCancelled()) return TaskExecutionResult::Error;
 
-    return TaskExecutionResult::Finished; // TODO
-
+    auto &state = source_local_->Cast<TableLocalState>();
+    auto source = pipeline->State().source;
+    auto result = source->Next(state, nullptr);
+    switch (result) {
+    case PollResult::Finished:
+      std::cout << "completed task: " << task_num << std::endl;
+      return TaskExecutionResult::Finished;
+    case PollResult::HaveMore: // do something w data
+      std::this_thread::sleep_for(std::chrono::microseconds(100));
+      (void)code_;
+      break;
+    case PollResult::Blocked: return TaskExecutionResult::Wait;
+    }
   } while (Clock::now() < deadline);
 
   return TaskExecutionResult::Timed;
