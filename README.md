@@ -73,10 +73,9 @@ to raise the limit for max memory reserved -> sudo prlimit --memlock=unlimited:u
     (added size aprox for a producer use it)
 
 # Task scheduler:
-  - ownership for Task and Executor
-  - error handling in the scheduler
-  - rewrite stream to not pop the task right away from the ring
-  - figure out a way to do non blocking io in scheduler (seperate component ideally)
+  - memory leaks check
+  - rewrite stream to not pop the task right away from the ring                       // DONT_NEED_NOW dont really need it yet might add later
+  - figure out a way to do non blocking io in scheduler (seperate component ideally)  // IN PROGRESS
   - // TODO does this virtual cost add up
   
 # Data table:

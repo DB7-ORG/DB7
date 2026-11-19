@@ -45,9 +45,19 @@ void TaskScheduler::Signal(idx_t n) { pool_->Signal(n); }
 
 void TaskScheduler::ProcessTask(TaskQObj &task) {
   if (!GetTask(task)) { return; }
-  switch (task->Execute(TaskExecutionMode::PROCESS_ALL)) {
+
+  TaskExecutionResult result;
+  try {
+    result = task->Execute(TaskExecutionMode::PROCESS_ALL);
+  } catch (const ExecutionException &e) {
+    task->query->SetError({shared::ErrorSeverity::ERROR, e.what(), e.code_});
+    result = TaskExecutionResult::Error;
+  }
+
+  switch (result) {
   case TaskExecutionResult::Error: {
     task->query->Cancel();
+    // TODO write error
     [[fallthrough]];
   }
   case TaskExecutionResult::Finished: {
