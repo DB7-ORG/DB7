@@ -87,6 +87,9 @@ protected:
   std::unique_ptr<shared::ObjectPool<shared::FixedBumpArena>> pool_;
   std::unique_ptr<transaction::TransactionManager> txns_;
   std::unique_ptr<DatabaseCatalog> catalog_;
+  /// Every transaction the test started, setup's included. The fixture owns
+  /// them so committed and unfinished ones alike are freed in TearDown.
+  std::vector<std::unique_ptr<Txn>> owned_txns_;
   TableCatalogEntry *customers_ = nullptr;
 
   void SetUp() override {
@@ -98,7 +101,7 @@ protected:
     txns_ = std::make_unique<transaction::TransactionManager>(
         timestamps_.get(), &storage_->GetBufferPool(), &storage_->GetVersionManager(), pool_.get());
 
-    Txn *setup = txns_->BeginTransaction();
+    Txn *setup = Begin();
     catalog_ = std::make_unique<DatabaseCatalog>(*storage_, Identifier("katalog"));
 
     auto schema = catalog_->CreateSchema(*setup, Identifier("schema_default"));
@@ -119,6 +122,7 @@ protected:
   }
 
   void TearDown() override {
+    owned_txns_.clear(); // before pool_: contexts hand their buffers back to it
     catalog_.reset();
     txns_.reset();
     pool_.reset();
@@ -130,7 +134,8 @@ protected:
 
   access::DataTable &Table() { return *customers_->storage; }
 
-  Txn *Begin() { return txns_->BeginTransaction(); }
+  /// Starts a transaction; the fixture keeps it alive until TearDown.
+  Txn *Begin() { return owned_txns_.emplace_back(txns_->BeginTransaction()).get(); }
   void Commit(Txn *txn) { txns_->Commit(txn); }
 
   DataChunkPtr MakeRow(int64_t id, const std::string &name) {

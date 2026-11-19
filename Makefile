@@ -31,6 +31,12 @@ ifeq ($(BUILD),debug)
     CXXFLAGS = $(BASE_CXXFLAGS) -g -O0 -DDB7DEBUG -fno-inline
     CCO3FLAGS = -g -O0 -DDB7DEBUG -fno-inline
 		LTO_LDFLAGS =
+else ifeq ($(BUILD),asan)
+  SAN_FLAGS   = -fsanitize=address -fno-omit-frame-pointer # SAN_FLAGS   = -fsanitize=address,undefined -fno-omit-frame-pointer
+  CXXFLAGS    = $(BASE_CXXFLAGS) -g -O1 -DDB7DEBUG $(SAN_FLAGS)
+  CCO3FLAGS   = -g -O1 -DDB7DEBUG $(SAN_FLAGS)
+  LDFLAGS    += $(SAN_FLAGS)
+  LTO_LDFLAGS =
 else
     CXXFLAGS = $(BASE_CXXFLAGS) -O2 -DNDB7DEBUG
     CCO3FLAGS = -O3 -DNDB7DEBUG

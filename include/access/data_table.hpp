@@ -136,7 +136,7 @@ public:
   // snapshot nblocks, chunk sizing
   std::unique_ptr<storage::ParallelScanShared>
   InitParallelScan(transaction::TransactionContext &context,
-                   const std::vector<storage::StorageColumnDesc> &columns) const;
+                   const std::vector<storage::StorageColumnDesc> columns) const;
   // a hint for how many tasks make sense
   idx_t MaxThreads(const storage::ParallelScanShared &state) const;
 

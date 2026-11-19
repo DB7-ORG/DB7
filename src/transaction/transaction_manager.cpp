@@ -1,10 +1,10 @@
 #include "transaction/transaction_manager.hpp"
 
 namespace db7::transaction {
-TransactionContext *TransactionManager::BeginTransaction() {
+std::unique_ptr<TransactionContext> TransactionManager::BeginTransaction() {
   timestamp_t start_time = timestamp_manager_->BeginTransaction();
-  TransactionContext *result =
-      new TransactionContext(start_time, start_time + INT64_MIN, version_manager_, mem_pool_);
+  auto result = std::make_unique<TransactionContext>(start_time, start_time + INT64_MIN,
+                                                     version_manager_, mem_pool_);
   commit_barrier_.Try();
   return result;
 }

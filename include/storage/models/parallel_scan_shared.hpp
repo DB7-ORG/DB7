@@ -19,12 +19,12 @@ struct ParallelScanShared {
   const idx_t ntotal;      // pages in the range, snapshotted at init
   const idx_t morsel_size; // multiple of IO_MAX_COMBINE
   const table_id tbl_id;
-  const std::vector<StorageColumnDesc> &columns_;
+  const std::vector<StorageColumnDesc> columns_;
   std::atomic<idx_t> curr{1};
 
   ParallelScanShared(transaction::TransactionContext &cont, table_id t, idx_t n, idx_t m,
-                     const std::vector<StorageColumnDesc> &cols)
-      : context(cont), ntotal(n), morsel_size(m), tbl_id(t), columns_(cols) {}
+                     const std::vector<StorageColumnDesc> cols)
+      : context(cont), ntotal(n), morsel_size(m), tbl_id(t), columns_(std::move(cols)) {}
 
   void Stop() { curr.store(ntotal, std::memory_order_relaxed); }
   double Progress() const {

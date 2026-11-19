@@ -29,7 +29,7 @@ public:
    * Begins a transaction.
    * @return transaction context for the newly begun transaction
    */
-  TransactionContext *BeginTransaction();
+  std::unique_ptr<TransactionContext> BeginTransaction();
 
   timestamp_t Commit(TransactionContext *txn);
 };
